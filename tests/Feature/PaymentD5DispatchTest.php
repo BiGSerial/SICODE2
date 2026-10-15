@@ -14,7 +14,7 @@ class PaymentD5DispatchTest extends TestCase
     public function test_payment_dispatch_for_informe_links_its_own_pending_d5(): void
     {
         [$note, $report, $service, $company, $actor] = $this->fixture();
-        $five = FiveNote::create(['note_id' => $note->id, 'work_report_id' => $report->id, 'note_d5' => '']);
+        $five                                        = FiveNote::create(['note_id' => $note->id, 'work_report_id' => $report->id, 'note_d5' => '']);
 
         $production = app(DispatchWorkflowService::class)->dispatchToUser(
             $note,
@@ -53,6 +53,56 @@ class PaymentD5DispatchTest extends TestCase
         $this->assertSame(0, $production->fresh()->fiveNotes()->count());
     }
 
+    public function test_payment_dispatch_accepts_supervisioned_passive_d5_without_informe(): void
+    {
+        [$note, , $service, $company, $actor] = $this->fixture();
+        $five                                 = FiveNote::create([
+            'note_id'          => $note->id,
+            'note_d5'          => 'P1',
+            'isPassive'        => true,
+            'is_completed'     => true,
+            'is_supervisioned' => true,
+        ]);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $actor,
+            $actor,
+            null,
+            [],
+            null,
+            null,
+            $five->id
+        );
+
+        $this->assertTrue((bool) $production->fresh()->dfive);
+        $this->assertSame([$five->id], $production->fresh()->fiveNotes()->pluck('five_notes.id')->all());
+    }
+
+    public function test_payment_dispatch_for_cycle_one_accepts_explicit_pending_d5_of_the_informe(): void
+    {
+        [$note, $report, $service, $company, $actor] = $this->fixture();
+        $five                                        = FiveNote::create(['note_id' => $note->id, 'work_report_id' => $report->id, 'note_d5' => '']);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $actor,
+            $actor,
+            null,
+            [WorkReportFlowProduction::SCOPE_NETWORK],
+            $report->id,
+            null,
+            $five->id
+        );
+
+        $this->assertTrue((bool) $production->fresh()->dfive);
+        $this->assertSame([$five->id], $production->fresh()->fiveNotes()->pluck('five_notes.id')->all());
+    }
+
     private function fixture(): array
     {
         $company                = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);
@@ -71,9 +121,9 @@ class PaymentD5DispatchTest extends TestCase
         Operation::create(['order_id' => $order->id, 'operacao' => '0030', 'status' => 'CONF']);
         Operation::create(['order_id' => $order->id, 'operacao' => '0040', 'status' => 'LIB']);
         $report = WorkReport::create([
-            'note_id' => $note->id, 'company_id' => $company->id, 'user_id' => $actor->id,
-            'date' => '2026-09-10', 'informed_at' => '2026-09-10 08:00:00',
-            'rejected' => false, 'canceled' => false,
+            'note_id'               => $note->id, 'company_id' => $company->id, 'user_id' => $actor->id,
+            'date'                  => '2026-09-10', 'informed_at' => '2026-09-10 08:00:00',
+            'rejected'              => false, 'canceled' => false,
             'selected_final_scopes' => [WorkReportFlowProduction::SCOPE_NETWORK],
         ]);
         $report->Orders()->sync([$order->id]);

@@ -7,8 +7,7 @@ use App\Models\FiveNote;
 use App\Traits\WildcardFormmater;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class D5List extends Component
 {
@@ -19,10 +18,15 @@ class D5List extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $perPage = 100;
+
     public $search;
+
     public $advanceSearch;
+
     public $multiSearch = [];
+
     public $missingSearch = [];
+
     public $deleteId;
 
     protected $queryString = [
@@ -32,7 +36,7 @@ class D5List extends Component
     ];
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
+        'refresh_list'    => '$refresh',
         'confirmDeleteD5' => 'deleteD5',
     ];
 
@@ -41,7 +45,7 @@ class D5List extends Component
         $this->resetPage();
 
         if (!$this->search) {
-            $this->multiSearch = [];
+            $this->multiSearch   = [];
             $this->missingSearch = [];
             $this->advanceSearch = '';
         }
@@ -56,7 +60,7 @@ class D5List extends Component
 
     public function clearBatch(): void
     {
-        $this->multiSearch = [];
+        $this->multiSearch   = [];
         $this->missingSearch = [];
         $this->advanceSearch = '';
         $this->resetPage();
@@ -97,14 +101,15 @@ class D5List extends Component
             return [];
         }
 
-        $probe = (clone $base)->select(['id', 'note_d5', 'note_id'])->with(['note:id,note']);
+        $probe   = (clone $base)->select(['id', 'note_d5', 'note_id'])->with(['note:id,note']);
         $matches = $probe->get();
-        $found = [];
+        $found   = [];
 
         foreach ($matches as $item) {
             if ($item->note_d5 && in_array($item->note_d5, $values, true)) {
                 $found[] = $item->note_d5;
             }
+
             if ($item->note?->note && in_array($item->note->note, $values, true)) {
                 $found[] = $item->note->note;
             }
@@ -174,6 +179,7 @@ class D5List extends Component
                 }
 
                 $five->productions()->detach();
+                \App\Jobs\ResyncNoteInformFlowsJob::dispatchForNotes([$five->note_id]);
                 $five->EvidenceFiles()->delete();
                 $five->timelineEvents()->delete();
                 $five->Comments()->delete();
@@ -204,7 +210,7 @@ class D5List extends Component
     public function render()
     {
         return view('livewire.admin.control.d5-list', [
-            'lists' => $this->lists,
+            'lists'   => $this->lists,
             'missing' => $this->missingSearch,
         ]);
     }

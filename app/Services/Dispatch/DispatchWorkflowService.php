@@ -218,6 +218,36 @@ class DispatchWorkflowService
         });
     }
 
+    /**
+     * Resolve a D5 escolhida na tela respeitando a etapa: a Fiscalização exige D5
+     * concluída ainda não supervisionada; a Medição exige a D5 ainda a gerar (Ciclo 1) ou já
+     * supervisionada e elegível para retorno (Ciclo 2, inclusive D5 passiva sem Informe).
+     */
+    private function explicitFiveNoteForDispatch(Note $note, int $fiveNoteId, string $serviceKey, ?int $workReportId): ?FiveNote
+    {
+        $query = FiveNote::query()
+            ->whereKey($fiveNoteId)
+            ->where('note_id', $note->id);
+
+        if ($serviceKey === 'payment') {
+            // Ciclo 1: D5 ainda a gerar pela Medição (aguardando criação, sem conclusão,
+            // fiscalização, pagamento ou visibilidade). Ciclo 2: D5 elegível ao retorno.
+            return $query
+                ->where(fn ($q) => $q->whereNull('work_report_id')->when($workReportId, fn ($q2) => $q2->orWhere('work_report_id', $workReportId)))
+                ->where(fn ($q) => $q
+                    ->where(fn ($r) => $r->awaitingPaymentCreation())
+                    ->orWhere(fn ($r) => $r->eligibleForPaymentReturn()))
+                ->first();
+        }
+
+        return $query
+            ->whereNull('work_report_id')
+            ->where('is_completed', true)
+            ->where('is_supervisioned', false)
+            ->where('is_archived', false)
+            ->first();
+    }
+
     private function dispatch(Note $note, Service $service, Company $company, ?User $targetUser, User $actor, ?string $dd, array $finalScopes, ?int $explicitWorkReportId = null, ?int $partialId = null, ?int $fiveNoteId = null): Production
     {
         return DB::transaction(function () use ($note, $service, $company, $targetUser, $actor, $dd, $finalScopes, $explicitWorkReportId, $partialId, $fiveNoteId) {
@@ -234,20 +264,13 @@ class DispatchWorkflowService
 
             $serviceKey       = $this->contextResolver->serviceKey($service);
             $explicitFiveNote = $fiveNoteId
-                ? FiveNote::query()
-                    ->whereKey($fiveNoteId)
-                    ->where('note_id', $note->id)
-                    ->whereNull('work_report_id')
-                    ->where('is_completed', true)
-                    ->where('is_supervisioned', false)
-                    ->where('is_archived', false)
-                    ->first()
+                ? $this->explicitFiveNoteForDispatch($note, $fiveNoteId, $serviceKey, $explicitWorkReportId)
                 : null;
             $targetWorkReportIds = [];
             $explicitWorkReport  = null;
 
             if ($fiveNoteId && !$explicitFiveNote) {
-                throw new DispatchException('A D5 selecionada não pertence a esta Nota/OV ou não está disponível para Fiscalização.');
+                throw new DispatchException('A D5 selecionada não pertence a esta Nota/OV ou não está disponível para ' . ($serviceKey === 'payment' ? 'Medição' : 'Fiscalização') . '.');
             }
 
             if ($explicitFiveNote) {

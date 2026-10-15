@@ -350,6 +350,11 @@
                                         $activityStart = $list->dispatch_at;
                                     }
 
+                                    // Etapa vinda do status do informe pode não ter a data própria preenchida na D5.
+                                    if (!$activityStart && ($activity['key'] ?? null) !== 'finalizado') {
+                                        $activityStart = $list->supervisioned_at ?? $list->completed_at ?? $list->dispatch_at;
+                                    }
+
                                     $daysOverdue = $activityStart?->diffInDays();
                                     $badgeClass = 'bg-success';
                                     $badgeText = 'No prazo';
@@ -446,6 +451,11 @@
                                         <span class="badge text-bg-primary">
                                             {{ $phaseLabel }}
                                         </span>
+                                        @if (($meta['cycle'] ?? 1) === 2)
+                                            <div><span class="badge text-bg-info mt-1">Ciclo 2 · Retorno D5</span></div>
+                                        @else
+                                            <div><span class="badge text-bg-light text-dark border mt-1">Ciclo 1</span></div>
+                                        @endif
                                     </td>
                                     <td>
                                         <span class="badge {{ $activity['color'] ?? 'text-bg-secondary' }}">

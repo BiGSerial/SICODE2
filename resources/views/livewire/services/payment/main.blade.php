@@ -194,8 +194,14 @@
                                 @endif
                             </button>
 
-                            <button class="btn btn-outline-success" wire:click.prevent="go_att_mass" @disabled(!count($selected))>
-                                <i class="ri-user-add-line"></i> Assumir Selecionadas ({{ count($selected) }})
+                            <button class="btn btn-outline-success" wire:click.prevent="go_att_mass"
+                                wire:loading.attr="disabled" wire:target="go_att_mass">
+                                <span wire:loading.remove wire:target="go_att_mass">
+                                    <i class="ri-user-add-line"></i> Assumir Selecionadas ({{ count($selected) }})
+                                </span>
+                                <span wire:loading wire:target="go_att_mass">
+                                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Assumindo...
+                                </span>
                             </button>
 
                             <button class="btn btn-primary" wire:click.prevent="export_excel"
@@ -679,6 +685,7 @@
     </div>
 
     @livewire('components.pep.financial-modal', key('payment-pep-financial-modal'))
+    @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('services-payment-self-assign-modal'))
 
     @push('script')
         <script>

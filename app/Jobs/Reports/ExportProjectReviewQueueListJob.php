@@ -4,16 +4,13 @@ namespace App\Jobs\Reports;
 
 use App\Custom\Notestatus;
 use App\Exports\ProjectReview\QueueListExport;
-use App\Models\Production;
-use App\Models\User;
+use App\Models\{Production, User};
 use App\Notifications\SystemNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{Log, Storage};
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -26,27 +23,30 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
 
     /** @var array<string,mixed> */
     public array $filters;
+
     public string $userId;
 
     public $tries = 2;
+
     public $backoff = [30, 120];
+
     public int $timeout = 1200;
 
     public function __construct(array $filters, string $userId)
     {
         $this->onQueue('exports');
         $this->filters = $filters;
-        $this->userId = $userId;
+        $this->userId  = $userId;
     }
 
     public function handle(): void
     {
-        $user = User::find($this->userId);
+        $user     = User::find($this->userId);
         $filePath = null;
 
         try {
-            $rows = $this->buildRows();
-            $stamp = now()->format('YmdHis');
+            $rows     = $this->buildRows();
+            $stamp    = now()->format('YmdHis');
             $filePath = "exports/project_review_queue_list_{$stamp}.xlsx";
 
             Storage::disk('local')->makeDirectory('exports');
@@ -68,9 +68,9 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
         } catch (Throwable $exception) {
             Log::error('ExportProjectReviewQueueListJob falhou', [
                 'error_message' => $exception->getMessage(),
-                'trace' => $exception->getTraceAsString(),
-                'filters' => $this->filters,
-                'attempt' => $this->attempts(),
+                'trace'         => $exception->getTraceAsString(),
+                'filters'       => $this->filters,
+                'attempt'       => $this->attempts(),
             ]);
 
             if ($filePath && Storage::disk('local')->exists($filePath)) {
@@ -99,10 +99,10 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
      */
     private function buildRows(): array
     {
-        $search = trim((string) ($this->filters['search'] ?? ''));
-        $companyId = (string) ($this->filters['company_id'] ?? '');
+        $search          = trim((string) ($this->filters['search'] ?? ''));
+        $companyId       = (string) ($this->filters['company_id'] ?? '');
         $costShareFilter = (string) ($this->filters['cost_share_filter'] ?? '');
-        $tab = (string) ($this->filters['tab'] ?? 'pending');
+        $tab             = (string) ($this->filters['tab'] ?? 'pending');
 
         $query = Production::query()
             ->with([
@@ -128,7 +128,7 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
         } else {
             $query->whereIn('status', [5, Production::STATUS_REJECTED_PROJECT_REVIEW, Production::STATUS_RELEASED_TO_FINISH])
                 ->whereHas('ProjectReviewCycles', function ($q) {
-                    $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED']);
+                    $q->whereIn('decision', ['APPROVED', 'APPROVED_WITH_REMARKS', 'REJECTED', 'FINALIZED']);
                 });
         }
 
@@ -145,20 +145,40 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
             $query->where('company_id', $companyId);
         }
 
+        $sentFrom = !empty($this->filters['sent_from']) ? \Illuminate\Support\Carbon::parse($this->filters['sent_from'])->startOfDay() : null;
+        $sentTo   = !empty($this->filters['sent_to']) ? \Illuminate\Support\Carbon::parse($this->filters['sent_to'])->endOfDay() : null;
+
+        if ($sentFrom || $sentTo) {
+            $query->whereHas('ProjectReviewCycles', function ($cycleQuery) use ($sentFrom, $sentTo) {
+                $cycleQuery
+                    ->whereRaw('project_review_cycles.id = (
+                        SELECT prc2.id
+                        FROM project_review_cycles prc2
+                        WHERE prc2.production_id = project_review_cycles.production_id
+                        ORDER BY prc2.round_number DESC, prc2.id DESC
+                        LIMIT 1
+                    )')
+                    ->when($sentFrom, fn ($q) => $q->where('project_review_cycles.submitted_at', '>=', $sentFrom))
+                    ->when($sentTo, fn ($q) => $q->where('project_review_cycles.submitted_at', '<=', $sentTo));
+            });
+        }
+
         if (in_array($costShareFilter, ['client_51', 'company_51', 'both_51'], true)) {
             $query->whereHas('ProjectReviewCycles.Orders', function ($orderQuery) use ($costShareFilter) {
-                $ratioExprClient = '(project_review_orders.client_cost / NULLIF(project_review_orders.total_cost, 0))';
+                $ratioExprClient  = '(project_review_orders.client_cost / NULLIF(project_review_orders.total_cost, 0))';
                 $ratioExprCompany = '(project_review_orders.company_cost / NULLIF(project_review_orders.total_cost, 0))';
 
                 $orderQuery->where('project_review_orders.total_cost', '>', 0);
 
                 if ($costShareFilter === 'client_51') {
                     $orderQuery->whereRaw("{$ratioExprClient} >= 0.51");
+
                     return;
                 }
 
                 if ($costShareFilter === 'company_51') {
                     $orderQuery->whereRaw("{$ratioExprCompany} >= 0.51");
+
                     return;
                 }
 
@@ -193,49 +213,50 @@ class ExportProjectReviewQueueListJob implements ShouldQueue
             ->orderBy('id', 'asc')
             ->get()
             ->map(function ($production) {
-            $cycle = collect($production->ProjectReviewCycles)->sortByDesc('round_number')->first();
-            $orders = $cycle?->Orders ?? collect();
-            if ($orders->isEmpty()) {
-                $orders = $production->ProjectReviewCycles->first(function ($c) {
-                    return $c->Orders->count() > 0;
-                })?->Orders ?? collect();
-            }
-            $orders = collect($orders)
-                ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
-                ->values();
+                $cycle  = collect($production->ProjectReviewCycles)->sortByDesc('round_number')->first();
+                $orders = $cycle?->Orders ?? collect();
 
-            $ordersText = $orders->pluck('order_number')->filter()->implode(' | ');
-            $totalsText = $orders->map(fn ($o) => number_format((float) $o->total_cost, 2, ',', '.'))->implode(' | ');
-            $companyCostsText = $orders->map(fn ($o) => number_format((float) $o->company_cost, 2, ',', '.'))->implode(' | ');
-            $clientCostsText = $orders->map(fn ($o) => number_format((float) $o->client_cost, 2, ',', '.'))->implode(' | ');
+                if ($orders->isEmpty()) {
+                    $orders = $production->ProjectReviewCycles->first(function ($c) {
+                        return $c->Orders->count() > 0;
+                    })?->Orders ?? collect();
+                }
+                $orders = collect($orders)
+                    ->sortBy(fn ($o) => [(string) ($o->order_number ?? ''), (int) ($o->id ?? 0)])
+                    ->values();
 
-            $latestDecidedCycle = collect($production->ProjectReviewCycles)
-                ->first(function ($c) {
-                    return !is_null($c->decided_at);
-                });
+                $ordersText       = $orders->pluck('order_number')->filter()->implode(' | ');
+                $totalsText       = $orders->map(fn ($o) => number_format((float) $o->total_cost, 2, ',', '.'))->implode(' | ');
+                $companyCostsText = $orders->map(fn ($o) => number_format((float) $o->company_cost, 2, ',', '.'))->implode(' | ');
+                $clientCostsText  = $orders->map(fn ($o) => number_format((float) $o->client_cost, 2, ',', '.'))->implode(' | ');
 
-            $latestRound = (int) ($production->latest_round_number ?? ($cycle?->round_number ?? 1));
-            $rejectedCount = (int) ($production->rejected_cycles_count ?? 0);
-            $rejectedTimelineCount = (int) ($production->rejected_status_timeline_count ?? 0);
-            $isReturnToReview = ($latestRound > 1)
-                || ($rejectedCount > 0)
-                || ($rejectedTimelineCount > 0)
-                || collect($production->ProjectReviewCycles)->contains(fn ($c) => $c->decision === 'REJECTED');
+                $latestDecidedCycle = collect($production->ProjectReviewCycles)
+                    ->first(function ($c) {
+                        return !is_null($c->decided_at);
+                    });
 
-            return [
-                $production->Note->note ?? '---',
-                $production->User->name ?? '---',
-                $production->Company->name ?? '---',
-                $ordersText !== '' ? $ordersText : '---',
-                $totalsText !== '' ? $totalsText : '---',
-                $companyCostsText !== '' ? $companyCostsText : '---',
-                $clientCostsText !== '' ? $clientCostsText : '---',
-                Notestatus::status((int) $production->status)->status,
-                $isReturnToReview ? 'Retorno' : 'Inicial',
-                $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---',
-                $latestDecidedCycle?->DecidedBy?->name ?? '---',
-                $latestDecidedCycle?->analyst_note ?? '---',
-            ];
+                $latestRound           = (int) ($production->latest_round_number ?? ($cycle?->round_number ?? 1));
+                $rejectedCount         = (int) ($production->rejected_cycles_count ?? 0);
+                $rejectedTimelineCount = (int) ($production->rejected_status_timeline_count ?? 0);
+                $isReturnToReview      = ($latestRound > 1)
+                    || ($rejectedCount > 0)
+                    || ($rejectedTimelineCount > 0)
+                    || collect($production->ProjectReviewCycles)->contains(fn ($c) => $c->decision === 'REJECTED');
+
+                return [
+                    $production->Note->note ?? '---',
+                    $production->User->name ?? '---',
+                    $production->Company->name ?? '---',
+                    $ordersText !== '' ? $ordersText : '---',
+                    $totalsText !== '' ? $totalsText : '---',
+                    $companyCostsText !== '' ? $companyCostsText : '---',
+                    $clientCostsText !== '' ? $clientCostsText : '---',
+                    Notestatus::status((int) $production->status)->status,
+                    $isReturnToReview ? 'Retorno' : 'Inicial',
+                    $cycle?->submitted_at ? date('d/m/Y H:i', strtotime($cycle->submitted_at)) : '---',
+                    $latestDecidedCycle?->DecidedBy?->name ?? '---',
+                    $latestDecidedCycle?->analyst_note ?? '---',
+                ];
             })->all();
     }
 }

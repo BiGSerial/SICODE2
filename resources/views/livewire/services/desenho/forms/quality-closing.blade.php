@@ -71,6 +71,10 @@
                         </div>
                     @endif
 
+                    @if ($checklistUrl)
+                        <a class="btn btn-outline-primary btn-sm w-100 mb-3" href="{{ $checklistUrl }}" target="_blank"><i class="ri-list-check-2"></i> Consultar checklist e informar correções</a>
+                    @endif
+
                     @if ($lastForward && $lastForward->observation)
                         <div class="card shadow-sm mb-3">
                             <div class="card-header fw-bold">Orientação do N1</div>

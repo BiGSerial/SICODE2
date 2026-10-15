@@ -243,8 +243,8 @@
                                     </div>
 
                                     @php
-                                        $answeredName = $five->name ?: ($five->answeredBy ? null : 'Não informado');
-                                        $answeredUser = ($five->answeredBy && (!$five->name || strcasecmp(trim($five->name), trim($five->answeredBy->name)) !== 0))
+                                        $answeredName = $five->name ?: ($five->answeredBy?->name ?: 'Não informado');
+                                        $answeredUser = ($five->answeredBy && $five->name && strcasecmp(trim($five->name), trim($five->answeredBy->name)) !== 0)
                                             ? $five->answeredBy->name
                                             : null;
                                     @endphp
@@ -252,7 +252,7 @@
                                     <div class="five-details mt-3">
                                         <div class="five-k mb-1">Quem respondeu a D5</div>
                                         <div class="five-note-box five-note-box--compact">
-                                            <div class="five-answer-name">{{ $answeredName ?? 'Nome não informado' }}</div>
+                                            <div class="five-answer-name">{{ $answeredName }}</div>
                                             @if ($answeredUser)
                                                 <div class="five-answer-sub">Usuário do sistema: {{ $answeredUser }}</div>
                                             @endif

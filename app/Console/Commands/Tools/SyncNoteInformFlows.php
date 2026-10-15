@@ -267,7 +267,16 @@ class SyncNoteInformFlows extends Command
     {
         $query = DB::table('work_reports as wr')
             ->join('notes as n', 'n.id', '=', 'wr.note_id')
-            ->leftJoin('adsforms as af', 'af.work_report_id', '=', 'wr.id')
+            // Um informe pode ter mais de um adsform (reenvio); sem restringir ao
+            // mais recente o join duplica a linha e o upsert grava um deles ao acaso.
+            ->leftJoinSub(
+                DB::table('adsforms')->selectRaw('MAX(id) as id, work_report_id')->whereNotNull('work_report_id')->groupBy('work_report_id'),
+                'afl',
+                'afl.work_report_id',
+                '=',
+                'wr.id'
+            )
+            ->leftJoin('adsforms as af', 'af.id', '=', 'afl.id')
             // A D5 pertence ao informe pelo vinculo explicito e unico. Nunca
             // associe por note_id aqui: uma mesma nota pode ter D5s de informes
             // diferentes.
@@ -330,7 +339,7 @@ class SyncNoteInformFlows extends Command
             $noteContexts                                           = $this->loadNoteContexts($noteIds);
             $nextCycleEnd                                           = $this->loadNextFinalInformedAtByWorkReport($noteIds);
             [$linkedFiscalByWorkReport, $linkedPaymentByWorkReport] = $this->loadLinkedProductionsForFinals($workReportIds, $noteIds);
-            [$legacyFiscalByWorkReport, $legacyPaymentByWorkReport] = $this->loadProductionsByServiceForFinals($workReportIds);
+            [$legacyFiscalByWorkReport, $legacyPaymentByWorkReport] = $this->loadProductionsByServiceForFinals($workReportIds, $nextCycleEnd);
             $ordersByWorkReport                                     = $this->loadOrdersByWorkReport($workReportIds);
             $op20ByWorkReport                                       = $this->loadOperation20ByWorkReport($workReportIds);
             $d5States                                               = $this->loadD5ProductionStates($rows->pluck('five_note_id')->filter()->unique()->values()->all());
@@ -351,16 +360,24 @@ class SyncNoteInformFlows extends Command
                     $scope              = $scopePayload['scope'];
                     $op20               = $this->resolveOperation20($op20ByWorkReport[$row->id] ?? collect());
                     $useLegacyInference = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL;
-                    $linkedFiscalProds  = $this->eligibleLinkedProductions($linkedFiscalByWorkReport[$row->id][$scope] ?? collect(), $row, $nextCycleEnd);
-                    $linkedPaymentProds = $this->eligibleLinkedProductions($linkedPaymentByWorkReport[$row->id][$scope] ?? collect(), $row, $nextCycleEnd);
+                    $linkedFiscalProds  = $this->eligibleLinkedProductions($linkedFiscalByWorkReport[$row->id][$scope] ?? $linkedFiscalByWorkReport[$row->id][WorkReportFinalScopeResolver::SCOPE_GENERAL] ?? collect(), $row, $nextCycleEnd);
+                    $linkedPaymentProds = $this->eligibleLinkedProductions($linkedPaymentByWorkReport[$row->id][$scope] ?? $linkedPaymentByWorkReport[$row->id][WorkReportFinalScopeResolver::SCOPE_GENERAL] ?? collect(), $row, $nextCycleEnd);
                     $linkedFiscalProd   = $this->summarizeLinkedProductions($linkedFiscalProds);
                     $linkedPaymentProd  = $this->summarizeLinkedProductions($linkedPaymentProds);
-                    $fiscalProd         = $linkedFiscalProd ?? ($useLegacyInference ? ($legacyFiscalByWorkReport[$row->id] ?? null) : null);
-                    $paymentProd        = $linkedPaymentProd ?? ($useLegacyInference ? ($legacyPaymentByWorkReport[$row->id] ?? null) : null);
                     $d5State            = $d5States[$row->five_note_id] ?? [];
-                    $normalFiscalProd   = $this->isD5ProductionRow($fiscalProd, $d5State) ? null : $fiscalProd;
-                    $normalPaymentProd  = $this->isD5ProductionRow($paymentProd, $d5State) ? null : $paymentProd;
-                    $resolvedStatus     = $statusResolver->resolveState([
+                    // Producao D5 nao pode "ocupar" o lugar da producao normal: pega a
+                    // primeira candidata que nao seja D5.
+                    $legacyFiscalProd = $useLegacyInference
+                        ? ($legacyFiscalByWorkReport[$row->id] ?? collect())->first(fn ($p) => !$this->isD5ProductionRow($p, $d5State))
+                        : null;
+                    $legacyPaymentProd = $useLegacyInference
+                        ? ($legacyPaymentByWorkReport[$row->id] ?? collect())->first(fn ($p) => !$this->isD5ProductionRow($p, $d5State))
+                        : null;
+                    $fiscalProd        = $linkedFiscalProd ?? $legacyFiscalProd;
+                    $paymentProd       = $linkedPaymentProd ?? $legacyPaymentProd;
+                    $normalFiscalProd  = $this->isD5ProductionRow($fiscalProd, $d5State) ? null : $fiscalProd;
+                    $normalPaymentProd = $this->isD5ProductionRow($paymentProd, $d5State) ? null : $paymentProd;
+                    $resolvedStatus    = $statusResolver->resolveState([
                         'has_ads'                     => $row->ads_form_id !== null && $scopeResolver->publicationRequired($scope),
                         'normal_fiscal_associated'    => $normalFiscalProd !== null,
                         'normal_fiscal_finished'      => (bool) ($normalFiscalProd->completed ?? false),
@@ -375,8 +392,14 @@ class SyncNoteInformFlows extends Command
                         'd5_payment_finished'         => (bool) ($d5State['payment_finished'] ?? false) || (bool) ($row->five_note_archived ?? false),
                         'letter_released'             => (bool) ($row->five_note_payed ?? false) || (bool) ($row->five_note_archived ?? false),
                     ]);
-                    $fiscalResolver  = $linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none');
-                    $paymentResolver = $linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none');
+                    // Caso D5: os marcos exibidos sao sempre os da ultima fiscalizacao e
+                    // da ultima medicao/pagamento D5 (o status acima usa so as normais).
+                    $d5FiscalProd    = $d5State['latest_fiscal'] ?? null;
+                    $d5PaymentProd   = $d5State['latest_payment'] ?? null;
+                    $fiscalProd      = $d5FiscalProd ?? $fiscalProd;
+                    $paymentProd     = $d5PaymentProd ?? $paymentProd;
+                    $fiscalResolver  = $d5FiscalProd ? 'd5_latest' : ($linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none'));
+                    $paymentResolver = $d5PaymentProd ? 'd5_latest' : ($linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none'));
                     $sap             = $sapByWorkReport[$row->id] ?? [
                         'op30_all_conf'    => false,
                         'op30_finished_at' => null,
@@ -646,6 +669,15 @@ class SyncNoteInformFlows extends Command
             DB::table('notes')->where('updated_at', '>=', $since)->pluck('id'),
             DB::table('orders')->where('updated_at', '>=', $since)->pluck('note_id'),
             $this->affectedOperationNoteIds($since),
+            // Vinculo Production <-> D5 (FiveNote) altera os estados D5 sem tocar
+            // em productions/five_notes.
+            DB::table('productionables as pa')
+                ->join('five_notes as fn', function ($join) {
+                    $join->on('fn.id', '=', 'pa.productionable_id')
+                        ->where('pa.productionable_type', 'App\\Models\\FiveNote');
+                })
+                ->where('pa.updated_at', '>=', $since)
+                ->pluck('fn.note_id'),
             DB::table('order_partial as op')
                 ->join('partials as p', 'p.id', '=', 'op.partial_id')
                 ->where('op.updated_at', '>=', $since)
@@ -677,13 +709,13 @@ class SyncNoteInformFlows extends Command
 
     private function affectedOperationNoteIds(Carbon $since): Collection
     {
-        // Uma alteracao em 0030/0050 pode alterar a confirmacao ou fimReal SAP
+        // A 0020 alimenta op20_*; uma alteracao em 0030/0050 pode alterar a confirmacao ou fimReal SAP
         // de qualquer informe da nota. O calculo detalhado ocorre por informe,
         // usando order_work_report, no sincronismo final.
         return DB::table('operations as op')
             ->join('orders as o', 'o.id', '=', 'op.order_id')
             ->where('op.updated_at', '>=', $since)
-            ->whereIn('op.operacao', ['0030', '0050'])
+            ->whereIn('op.operacao', ['0020', '0030', '0050'])
             ->distinct()
             ->pluck('o.note_id')
             ->filter()
@@ -988,6 +1020,7 @@ class SyncNoteInformFlows extends Command
         $rows = DB::table('productionables as pa')
             ->join('productions as prod', 'prod.id', '=', 'pa.production_id')
             ->join('services as srv', 'srv.uuid', '=', 'prod.service_id')
+            ->leftJoin('users as usr', 'usr.id', '=', 'prod.user_id')
             ->whereIn('pa.productionable_id', $fiveNoteIds)
             ->where('pa.productionable_type', 'App\\Models\\FiveNote')
             ->where(function ($query) {
@@ -1004,6 +1037,8 @@ class SyncNoteInformFlows extends Command
                 'prod.confirmed',
                 'prod.confirmed_at',
                 'prod.created_at',
+                'prod.user_id',
+                'usr.name as user_name',
             ])
             ->orderBy('pa.productionable_id')
             ->orderBy('prod.att_at')
@@ -1037,10 +1072,37 @@ class SyncNoteInformFlows extends Command
                     && $fiscalizations->every(fn ($production) => (bool) $production->completed),
                 'payment_associated' => $effectivePayments->isNotEmpty(),
                 'payment_finished'   => $effectivePayments->contains(fn ($production) => (bool) $production->completed || (bool) $production->confirmed),
+                // Para D5, os marcos exibidos sao sempre os da ultima
+                // Fiscalizacao e do ultimo Pagamento.
+                'latest_fiscal'  => $this->latestProductionRow($fiscalizations),
+                'latest_payment' => $this->latestProductionRow($effectivePayments),
             ];
         }
 
         return $states;
+    }
+
+    private function latestProductionRow(Collection $productions): ?object
+    {
+        $latest = $productions
+            ->sortBy(fn ($production) => [
+                $this->productionDate($production, false)?->getTimestamp() ?? 0,
+                (int) $production->id,
+            ])
+            ->last();
+
+        return $latest ? (object) [
+            'id'           => $latest->id,
+            'user_id'      => $latest->user_id,
+            'user_name'    => $latest->user_name,
+            'att_at'       => $latest->att_at,
+            'completed'    => (bool) $latest->completed,
+            'completed_at' => $latest->completed_at,
+            'confirmed'    => (bool) $latest->confirmed,
+            'confirmed_at' => $latest->confirmed_at,
+            'd5'           => true,
+            'dfive'        => true,
+        ] : null;
     }
 
     private function isD5ProductionRow(?object $production, array $d5State): bool
@@ -1077,7 +1139,7 @@ class SyncNoteInformFlows extends Command
         return $value ? Carbon::parse($value) : null;
     }
 
-    private function loadProductionsByServiceForFinals(array $workReportIds): array
+    private function loadProductionsByServiceForFinals(array $workReportIds, array $nextCycleEnd = []): array
     {
         if (empty($workReportIds)) {
             return [[], []];
@@ -1119,18 +1181,20 @@ class SyncNoteInformFlows extends Command
         $paymentMap = [];
 
         foreach ($rows as $workReportId => $items) {
-            $fiscal = $items->first(function ($item) {
-                return in_array($item->service, ['Fiscalizacao', 'Fiscalização'], true);
-            });
-            $payment = $items->first(function ($item) {
-                return $item->service === 'Pagamento';
-            });
+            // Producoes posteriores ao proximo informe pertencem ao proximo ciclo.
+            if (!empty($nextCycleEnd[$workReportId])) {
+                $limit = Carbon::parse($nextCycleEnd[$workReportId]);
+                $items = $items->filter(fn ($item) => Carbon::parse($item->att_at)->lessThan($limit))->values();
+            }
 
-            if ($fiscal) {
+            $fiscal  = $items->filter(fn ($item) => $this->normalizeServiceName((string) $item->service) === 'fiscalizacao')->values();
+            $payment = $items->filter(fn ($item) => $this->normalizeServiceName((string) $item->service) === 'pagamento')->values();
+
+            if ($fiscal->isNotEmpty()) {
                 $fiscalMap[$workReportId] = $fiscal;
             }
 
-            if ($payment) {
+            if ($payment->isNotEmpty()) {
                 $paymentMap[$workReportId] = $payment;
             }
         }

@@ -3,7 +3,8 @@
 namespace App\Http\Livewire\Partner\Show;
 
 use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-use App\Models\WorkReport;
+use App\Models\{File, WorkReport};
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Component;
 
@@ -31,7 +32,6 @@ class ShowWorkForm extends Component
             'Company',
             'Equipment',
             'Meeters',
-            'Note.Files.Service',
             'Note.FiveNote.productions.Service:id,uuid,service',
             'Note.FiveNote.productions.User:id,name,email',
             'Orders',
@@ -53,8 +53,6 @@ class ShowWorkForm extends Component
 
         if ($this->form) {
 
-
-
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'modal_form_work',
             ]);
@@ -63,7 +61,38 @@ class ShowWorkForm extends Component
 
     public function render()
     {
-        return view('livewire.partner.show.show-work-form');
+        return view('livewire.partner.show.show-work-form', [
+            'reportFiles' => $this->form ? $this->filesOfReport($this->form) : collect(),
+        ]);
+    }
+
+    /**
+     * Arquivos exclusivos do informe: os das produções vinculadas a ele (tanto pelo vínculo legado
+     * `file_production` quanto pelo polimórfico `fileables`) e os anexados ao próprio informe.
+     * Nunca os demais arquivos da nota, que pertencem a outros informes e serviços.
+     *
+     * @return Collection<int, File>
+     */
+    private function filesOfReport(WorkReport $report): Collection
+    {
+        $productionIds = $report->FlowProductions->pluck('production_id')->filter()->unique()->values()->all();
+        $ownFileIds    = $report->Files()->pluck('files.id')->all();
+
+        if (empty($productionIds) && empty($ownFileIds)) {
+            return collect();
+        }
+
+        return File::query()
+            ->with('Service')
+            ->where(function ($query) use ($productionIds, $ownFileIds) {
+                $query->whereIn('files.id', $ownFileIds);
+
+                if ($productionIds) {
+                    $query->orWhereHas('Productions', fn ($q) => $q->whereIn('productions.id', $productionIds))
+                        ->orWhereHas('MorphProductions', fn ($q) => $q->whereIn('productions.id', $productionIds));
+                }
+            })
+            ->get();
     }
 
     private function userCanInspectInternalReports(): bool

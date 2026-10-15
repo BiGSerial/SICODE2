@@ -3,24 +3,24 @@
 namespace App\Services\WorkReports;
 
 use App\Models\WorkReport;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
+use Illuminate\Support\{Collection, Str};
 
 class WorkReportStatusResolver
 {
-    public const FINALIZED = 'Finalizado';
-    public const INCONSISTENT_PAYMENT = 'Medição Inconsistente';
-    public const INFORM = 'Informe';
-    public const WAITING_FISCALIZATION = 'Aguardando Fiscalização';
-    public const FISCALIZATION = 'Em Fiscalização';
-    public const WAITING_PAYMENT = 'Aguardando Medição';
-    public const WAITING_D5_DISPATCH = 'Aguardando Despacho D5';
-    public const WAITING_D5_RESOLUTION = 'Aguardando Resolução D5';
+    public const FINALIZED                = 'Finalizado';
+    public const INCONSISTENT_PAYMENT     = 'Medição Inconsistente';
+    public const INFORM                   = 'Informe';
+    public const WAITING_FISCALIZATION    = 'Aguardando Fiscalização';
+    public const FISCALIZATION            = 'Em Fiscalização';
+    public const WAITING_PAYMENT          = 'Aguardando Medição';
+    public const WAITING_D5_DISPATCH      = 'Aguardando Despacho D5';
+    public const WAITING_D5_RESOLUTION    = 'Aguardando Resolução D5';
     public const WAITING_D5_FISCALIZATION = 'Aguardando Fiscalização D5';
-    public const D5_FISCALIZATION = 'Fiscalização D5';
-    public const WAITING_D5_PAYMENT = 'Aguardando Medição D5';
-    public const D5_RETURNED = 'D5 Devolvida à Empreiteira';
-    public const RELEASING_LETTER = 'Liberando Carta';
+    public const D5_FISCALIZATION         = 'Fiscalização D5';
+    public const WAITING_D5_PAYMENT       = 'Aguardando Medição D5';
+    public const D5_RETURNED              = 'D5 Devolvida à Empreiteira';
+    public const D5_WITH_PARTNER          = 'D5 com a Empreiteira';
+    public const RELEASING_LETTER         = 'Liberando Carta';
 
     public function resolve(WorkReport $workReport): array
     {
@@ -29,24 +29,25 @@ class WorkReportStatusResolver
 
     public function resolveState(array $state): array
     {
-        $normalFiscalAssociated = (bool) ($state['normal_fiscal_associated'] ?? false);
-        $normalFiscalFinished = (bool) ($state['normal_fiscal_finished'] ?? false);
+        $normalFiscalAssociated  = (bool) ($state['normal_fiscal_associated'] ?? false);
+        $normalFiscalFinished    = (bool) ($state['normal_fiscal_finished'] ?? false);
         $normalPaymentAssociated = (bool) ($state['normal_payment_associated'] ?? false);
-        $normalPaymentFinished = (bool) ($state['normal_payment_finished'] ?? false);
+        $normalPaymentFinished   = (bool) ($state['normal_payment_finished'] ?? false);
 
-        $d5AssociatedToNote = (bool) ($state['d5_associated_to_note'] ?? false);
+        $d5AssociatedToNote       = (bool) ($state['d5_associated_to_note'] ?? false);
         $d5AssociatedToProduction = (bool) ($state['d5_associated_to_production'] ?? false);
-        $d5Completed = (bool) ($state['d5_completed'] ?? false);
-        $d5Returned = (bool) ($state['d5_returned'] ?? false);
-        $d5FiscalAssociated = (bool) ($state['d5_fiscal_associated'] ?? false);
-        $d5FiscalFinished = (bool) ($state['d5_fiscal_finished'] ?? false);
-        $d5PaymentAssociated = (bool) ($state['d5_payment_associated'] ?? false);
-        $d5PaymentFinished = (bool) ($state['d5_payment_finished'] ?? false);
-        $letterReleased = (bool) ($state['letter_released'] ?? false);
-        $hasAds = (bool) ($state['has_ads'] ?? false);
-        $sapOperationStatus = $state['sap_operation_status'] ?? null;
+        $d5Completed              = (bool) ($state['d5_completed'] ?? false);
+        $d5Returned               = (bool) ($state['d5_returned'] ?? false);
+        $d5WithPartner            = (bool) ($state['d5_with_partner'] ?? false);
+        $d5FiscalAssociated       = (bool) ($state['d5_fiscal_associated'] ?? false);
+        $d5FiscalFinished         = (bool) ($state['d5_fiscal_finished'] ?? false);
+        $d5PaymentAssociated      = (bool) ($state['d5_payment_associated'] ?? false);
+        $d5PaymentFinished        = (bool) ($state['d5_payment_finished'] ?? false);
+        $letterReleased           = (bool) ($state['letter_released'] ?? false);
+        $hasAds                   = (bool) ($state['has_ads'] ?? false);
+        $sapOperationStatus       = $state['sap_operation_status'] ?? null;
 
-        $anyFiscalAssociated = $normalFiscalAssociated || $d5FiscalAssociated;
+        $anyFiscalAssociated  = $normalFiscalAssociated || $d5FiscalAssociated;
         $anyPaymentAssociated = $normalPaymentAssociated || $d5PaymentAssociated;
         $paymentWithoutFiscal = ($normalPaymentAssociated && !$normalFiscalAssociated)
             || ($d5PaymentAssociated && !$d5FiscalAssociated);
@@ -66,6 +67,12 @@ class WorkReportStatusResolver
         // de a fiscalização D5 ter sido finalizada.
         if ($d5Returned) {
             return $this->status('d5_returned', self::D5_RETURNED, 'text-bg-danger');
+        }
+
+        // D5 despachada e ainda não devolvida pela empreiteira (nem fiscalizada): está na mão da
+        // parceira. Se a medição D5 já foi finalizada, vale "Aguardando Resolução D5" (mais abaixo).
+        if ($d5WithPartner && !$d5PaymentFinished) {
+            return $this->status('d5_with_partner', self::D5_WITH_PARTNER, 'text-bg-danger');
         }
 
         if ($d5Completed && $d5PaymentAssociated && !$d5FiscalAssociated) {
@@ -137,8 +144,8 @@ class WorkReportStatusResolver
 
     private function stateFromWorkReport(WorkReport $workReport): array
     {
-        $flowProductions = $workReport->FlowProductions ?? collect();
-        $fiveNote = $this->fiveNoteFor($workReport);
+        $flowProductions          = $workReport->FlowProductions ?? collect();
+        $fiveNote                 = $this->fiveNoteFor($workReport);
         $currentFlowProductionIds = $flowProductions
             ->where('is_current', true)
             ->pluck('production_id')
@@ -156,36 +163,41 @@ class WorkReportStatusResolver
                 || (bool) ($production->dfive ?? false)
                 || in_array((int) ($production->id ?? 0), $currentFlowProductionIds, true))
             ->values();
-        $d5ProductionIds = $d5Productions->pluck('id')->filter()->map(fn ($id) => (int) $id)->all();
+        $d5ProductionIds         = $d5Productions->pluck('id')->filter()->map(fn ($id) => (int) $id)->all();
         $normalFiscalProductions = $this->finalProductions(
             $flowProductions->where('stage', 'fiscalization')->pluck('Production')->filter()
         )->reject(fn ($production) => $this->isD5Production($production, $d5ProductionIds))->values();
         $normalPaymentProductions = $this->finalProductions(
             $flowProductions->where('stage', 'payment')->pluck('Production')->filter()
         )->reject(fn ($production) => $this->isD5Production($production, $d5ProductionIds))->values();
-        $d5FiscalProductions = $this->productionsByService($d5Productions, 'fiscalizacao');
-        $d5PaymentProductions = $this->productionsByService($d5Productions, 'pagamento');
+        $d5FiscalProductions           = $this->productionsByService($d5Productions, 'fiscalizacao');
+        $d5PaymentProductions          = $this->productionsByService($d5Productions, 'pagamento');
         $effectiveD5PaymentProductions = $this->paymentsAfterLatestFiscalization($d5PaymentProductions, $d5FiscalProductions);
 
         return [
-            'has_ads' => $workReport->Adsform !== null,
-            'normal_fiscal_associated' => $normalFiscalProductions->isNotEmpty(),
-            'normal_fiscal_finished' => $this->allFinished($normalFiscalProductions),
-            'normal_payment_associated' => $normalPaymentProductions->isNotEmpty(),
-            'normal_payment_finished' => $this->anyPaymentFinished($normalPaymentProductions),
-            'd5_associated_to_note' => $fiveNote !== null,
+            'has_ads'                     => $workReport->Adsform !== null,
+            'normal_fiscal_associated'    => $normalFiscalProductions->isNotEmpty(),
+            'normal_fiscal_finished'      => $this->allFinished($normalFiscalProductions),
+            'normal_payment_associated'   => $normalPaymentProductions->isNotEmpty(),
+            'normal_payment_finished'     => $this->anyPaymentFinished($normalPaymentProductions),
+            'd5_associated_to_note'       => $fiveNote !== null,
             'd5_associated_to_production' => $d5Productions->isNotEmpty(),
-            'd5_completed' => (bool) ($fiveNote?->is_completed ?? false),
-            'd5_returned' => $fiveNote !== null
+            'd5_completed'                => (bool) ($fiveNote?->is_completed ?? false),
+            'd5_returned'                 => $fiveNote !== null
                 && (bool) $fiveNote->returned
                 && !(bool) $fiveNote->is_completed
                 && !(bool) $fiveNote->is_supervisioned,
-            'd5_fiscal_associated' => $d5FiscalProductions->isNotEmpty(),
-            'd5_fiscal_finished' => $this->allFinished($d5FiscalProductions),
+            'd5_with_partner' => $fiveNote !== null
+                && (bool) $fiveNote->visible_partner
+                && !(bool) $fiveNote->is_completed
+                && !(bool) $fiveNote->is_supervisioned
+                && !(bool) $fiveNote->is_archived,
+            'd5_fiscal_associated'  => $d5FiscalProductions->isNotEmpty(),
+            'd5_fiscal_finished'    => $this->allFinished($d5FiscalProductions),
             'd5_payment_associated' => $effectiveD5PaymentProductions->isNotEmpty(),
-            'd5_payment_finished' => $this->anyPaymentFinished($effectiveD5PaymentProductions) || (bool) ($fiveNote?->is_archived ?? false),
-            'letter_released' => (bool) ($fiveNote?->is_payed ?? false) || (bool) ($fiveNote?->is_archived ?? false),
-            'sap_operation_status' => $this->sapOperationStatus($workReport),
+            'd5_payment_finished'   => $this->anyPaymentFinished($effectiveD5PaymentProductions) || (bool) ($fiveNote?->is_archived ?? false),
+            'letter_released'       => (bool) ($fiveNote?->is_payed ?? false) || (bool) ($fiveNote?->is_archived ?? false),
+            'sap_operation_status'  => $this->sapOperationStatus($workReport),
         ];
     }
 
@@ -196,6 +208,7 @@ class WorkReportStatusResolver
         }
 
         $loadedLegacy = null;
+
         if ($workReport->Note?->relationLoaded("LegacyFiveNote")) {
             $loadedLegacy = $workReport->Note->LegacyFiveNote;
         } elseif ($workReport->Note?->relationLoaded("FiveNote")) {

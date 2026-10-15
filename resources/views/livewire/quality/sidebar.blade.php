@@ -74,9 +74,10 @@
             </li>
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#quality-config-nav" data-bs-toggle="collapse" href="#"><i class="bi bi-gear"></i><span>CONFIGURAÇÃO</span><i class="bi bi-chevron-down ms-auto"></i></a>
-                <ul id="quality-config-nav" class="nav-content collapse {{ $is('quality.categories', 'quality.settings', 'quality.team') ? 'show' : '' }}" data-bs-parent="#sidebar-nav">
+                <ul id="quality-config-nav" class="nav-content collapse {{ $is('quality.categories', 'quality.checklists', 'quality.settings', 'quality.team') ? 'show' : '' }}" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
                         <li><a href="{{ route('quality.categories') }}" class="nav-item fw-normal {{ $link($is('quality.categories')) }}"><i class="bi bi-tags fw-light fs-5"></i><span> MOTIVOS DE REJEIÇÃO</span></a></li>
+                        <li><a href="{{ route('quality.checklists') }}" class="nav-item fw-normal {{ $link($is('quality.checklists')) }}"><i class="bi bi-list-check fw-light fs-5"></i><span> CHECKLIST EDP</span></a></li>
                         <li><a href="{{ route('quality.team') }}" class="nav-item fw-normal {{ $link($is('quality.team')) }}"><i class="bi bi-people fw-light fs-5"></i><span> EQUIPE N1 / N2</span></a></li>
                         <li><a href="{{ route('quality.settings') }}" class="nav-item fw-normal {{ $link($is('quality.settings')) }}"><i class="bi bi-sliders fw-light fs-5"></i><span> CRITÉRIOS E ATIVIDADES</span></a></li>
                     </div>

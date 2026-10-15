@@ -62,6 +62,10 @@ class QualityProcess extends Model
     {
         return $this->hasMany(QualityRejection::class)->latest();
     }
+    public function ChecklistRuns()
+    {
+        return $this->hasMany(QualityChecklistRun::class)->latest();
+    }
     /**
      * Posição na jornada de 7 etapas (0..6) ou 7 = concluída:
      * 1º ciclo: 0 despacho, 1 execução, 2 análise N1, 3 decisão N2 · 2º ciclo: 4 execução, 5 análise N1, 6 decisão N2.

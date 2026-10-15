@@ -61,7 +61,7 @@
                 <div class="modal-body">
                     @if ($form)
                         @php
-                            $files = $form->Note->Files ?? collect();
+                            $files = $reportFiles;
                             $flowProductions = $form->FlowProductions ?? collect();
                             $groupedFiles = $files
                                 ->groupBy(fn ($file) => mb_strtoupper($file->service->service ?? 'OUTROS'))
@@ -236,7 +236,7 @@
                         <div class="card work-card mt-3">
                             <div
                                 class="card-header py-2 my-0 edp-bg-sprucegreen-70 text-edp-verde d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                <h5 class="my-0 fw-bold">ARQUIVOS ANEXADOS</h5>
+                                <h5 class="my-0 fw-bold" title="Arquivos das produções vinculadas a este informe e anexos do próprio informe">ARQUIVOS ANEXADOS</h5>
                                 @if ($files->isNotEmpty())
                                     <span class="badge text-bg-light">{{ $files->count() }} arquivo(s)</span>
                                 @endif

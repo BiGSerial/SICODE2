@@ -203,7 +203,9 @@ class DeduplicatePaymentProductions extends Command
                 // Estes vínculos pertencem às duplicadas e são removidos junto
                 // com elas dentro da mesma transação.
                 WorkReportFlowProduction::query()->whereIn('production_id', $removeIds)->delete();
+                $removedNoteIds = Production::query()->whereIn('id', $removeIds)->pluck('note_id');
                 Production::query()->whereIn('id', $removeIds)->delete();
+                \App\Jobs\ResyncNoteInformFlowsJob::dispatchForNotes($removedNoteIds);
 
                 return [
                     'at'                     => now()->toIso8601String(),

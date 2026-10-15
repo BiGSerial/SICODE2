@@ -297,7 +297,7 @@
                         </select>
                         </div>
                     </div>
-                    <div class="col-12 col-md-6">
+                    <div class="col-12 col-md-4">
                         <div class="filter-card">
                         <label class="form-label">Buscar nota</label>
                         <div class="input-group">
@@ -308,7 +308,17 @@
                         </div>
                         </div>
                     </div>
-                    <div class="col-12 col-md-6">
+                    <div class="col-12 col-md-4">
+                        <div class="filter-card">
+                        <label class="form-label">Data de envio</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <input type="date" class="form-control" wire:model="sent_from" max="{{ $sent_to ?: '' }}" aria-label="Enviado a partir de">
+                            <span class="text-muted small">até</span>
+                            <input type="date" class="form-control" wire:model="sent_to" min="{{ $sent_from ?: '' }}" aria-label="Enviado até">
+                        </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4">
                         <div class="filter-card">
                         <label class="form-label">Filtro de Custo</label>
                         <div class="d-flex gap-2">
@@ -359,6 +369,10 @@
                             Exportar
                         </button>
                         <span class="small text-muted">{{ count($selectedProductionIds) }} selecionada(s)</span>
+                        <button type="button" class="btn btn-sm btn-outline-dark" onclick="confirmFinalizeSelected({{ count($selectedProductionIds) }})"
+                            @disabled(!count($selectedProductionIds))>
+                            Finalizar em massa
+                        </button>
                         <button class="btn btn-sm btn-success" wire:click="approveSelected"
                             @disabled(!count($selectedProductionIds))>
                             Aprovar em massa
@@ -1329,6 +1343,7 @@
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                             Fechar
                         </button>
+                        <button type="button" class="btn btn-outline-dark" onclick="confirmFinalizeReview()">Finalizar análise</button>
                         <button class="btn btn-success" wire:click="approve">Aprovar sem ressalvas</button>
                         <button class="btn btn-primary" wire:click="approveWithRemarks">Aprovar com ressalvas</button>
                         <button class="btn btn-danger" wire:click="reject">Reprovar</button>
@@ -1337,4 +1352,40 @@
             </div>
         </div>
     </div>
+
+    <script>
+        function confirmFinalizeSelected(total) {
+            Swal.fire({
+                title: 'Finalizar ' + total + ' análise(s) em massa?',
+                html: 'As análises selecionadas serão <strong>concluídas sem aprovação nem reprovação</strong>, e as produções seguirão como finalizadas, sem liberação no SAP. Deseja continuar?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, finalizar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#212529',
+                reverseButtons: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    @this.call('finalizeSelected');
+                }
+            });
+        }
+
+        function confirmFinalizeReview() {
+            Swal.fire({
+                title: 'Finalizar a análise?',
+                html: 'A análise será <strong>concluída sem aprovação nem reprovação</strong>. A produção seguirá como finalizada, sem liberação no SAP. Deseja continuar?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, finalizar',
+                cancelButtonText: 'Cancelar',
+                confirmButtonColor: '#212529',
+                reverseButtons: true,
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    @this.call('finalizeReview');
+                }
+            });
+        }
+    </script>
 </div>

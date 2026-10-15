@@ -1403,7 +1403,7 @@ class PartnerMain extends Component
         $lists = $this->lists;
         $this->recomputeSelectAllFor($lists?->items() ?? []);
 
-        return view('livewire.dispatchs.payment.partner_main', [
+        return view('livewire.dispatchs.pagamento.partner_main', [
             'lists'  => $lists,
             'update' => Bancoupdate::orderByDesc('created_at')->first(),
         ]);

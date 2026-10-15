@@ -161,7 +161,7 @@ class PaymentMassSearchTest extends TestCase
         });
     }
 
-    public function test_shared_dispatch_modal_confirmation_targets_modal_component(): void
+    public function test_shared_dispatch_modal_confirmation_opens_inside_the_modal(): void
     {
         $this->actingAs(User::factory()->create(['contract' => false]));
 
@@ -176,11 +176,8 @@ class PaymentMassSearchTest extends TestCase
             ->set('type', '2')
             ->set('user_s', (string) $targetUser->id)
             ->call('confirmAtt')
-            ->assertDispatchedBrowserEvent('alertar', function (string $event, array $data) {
-                return $event === 'alertar'
-                    && ($data['target'] ?? null) === 'dispatchs.shared.dispatch-modal'
-                    && ($data['action'] ?? null) === 'confirm_dispatch_modal';
-            });
+            ->assertSet('confirming', true)
+            ->assertSee('Você está prestes a despachar');
     }
 
     private function paymentEligibleNote(string $number): Note

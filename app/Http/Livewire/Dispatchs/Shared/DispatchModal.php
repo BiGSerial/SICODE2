@@ -49,11 +49,20 @@ class DispatchModal extends Component
 
     public array $targetPartialIdsByContext = [];
 
+    /** Atribuição para si (telas de Serviço): mesmo fluxo do despacho, destino fixo no usuário logado. */
+    public bool $selfAssign = false;
+
+    public bool $confirming = false;
+
+    public string $confirmSummary = '';
+
+    /** @var array<int, array{label: string, ok: bool, reason: ?string}> */
+    public array $dispatchResults = [];
+
     protected $listeners = [
-        'openForNotes'           => 'openForNotes',
-        'openForWorkReports'     => 'openForWorkReports',
-        'openForProductions'     => 'openForProductions',
-        'confirm_dispatch_modal' => 'confirmedAtt',
+        'openForNotes'       => 'openForNotes',
+        'openForWorkReports' => 'openForWorkReports',
+        'openForProductions' => 'openForProductions',
     ];
 
     public function mount(string $serviceId): void
@@ -65,7 +74,12 @@ class DispatchModal extends Component
         $this->contractMode = (bool) auth()->user()?->contract;
     }
 
-    public function openForNotes(array $noteIds): void
+    public function openForSelfAssign(array $noteIds): void
+    {
+        $this->openForNotes($noteIds, true);
+    }
+
+    public function openForNotes(array $noteIds, bool $selfAssign = false): void
     {
         $contexts = collect($noteIds)
             ->map(function ($value) {
@@ -138,7 +152,8 @@ class DispatchModal extends Component
         }
 
         $this->resetModalState();
-        $loadedNotes = Note::with($this->modalNoteRelations())
+        $this->selfAssign = $selfAssign;
+        $loadedNotes      = Note::with($this->modalNoteRelations())
             ->whereIn('id', $noteIds)
             ->get()
             ->keyBy('id');
@@ -197,6 +212,7 @@ class DispatchModal extends Component
         $this->loadDispatchCompanies();
         $this->preselectContractDispatchCompany();
         $this->applyContractModeDefaults();
+        $this->applySelfAssignDefaults();
         $this->additionalData = [];
         $contextResolver      = app(DispatchContextResolver::class);
         $scopeAwareService    = in_array($contextResolver->serviceKey($this->service), ['supervision', 'payment', 'publication'], true);
@@ -447,21 +463,27 @@ class DispatchModal extends Component
             ? $targetUser->name . ' da ' . $company?->name
             : $company?->name;
 
-        $this->dispatchBrowserEvent('alertar', [
-            'target'        => 'dispatchs.shared.dispatch-modal',
-            'title'         => 'Confirmar Despachar',
-            'msg'           => "Você está prestes a Despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Despache!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_dispatch_modal',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => "Nenhum {$this->dispatchItemLabel} foi despachado.",
-        ]);
+        $this->dispatchResults = [];
+        $this->confirmSummary  = $this->selfAssign
+            ? "Você está prestes a assumir {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}."
+            : "Você está prestes a despachar {$this->notes->count()} {$this->dispatchItemLabelPlural} para {$para}.";
+        $this->confirming = true;
+    }
+
+    public function cancelConfirmation(): void
+    {
+        $this->confirming = false;
     }
 
     public function confirmedAtt(): void
     {
+        // Evita duplo envio: só processa quando a confirmação está aberta.
+        if (!$this->confirming) {
+            return;
+        }
+
+        $this->confirming = false;
+
         if (!in_array((string) $this->type, ['1', '2'], true)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -512,31 +534,55 @@ class DispatchModal extends Component
                 }
             }
 
-            DB::transaction(function () use ($workflow, $company, $targetUser, $actor) {
-                foreach ($this->notes as $key => $note) {
-                    $dd                 = $this->additionalData[$key] ?? null;
-                    $finalScopes        = $this->selectedFinalScopesForNote($note);
-                    $sourceProductionId = $this->sourceProductionIdsByNote[$this->contextKeyFor($note)] ?? null;
+            $this->dispatchResults = [];
+            $failedKeys            = [];
+            $succeededNoteIds      = [];
 
-                    if ($sourceProductionId) {
-                        $production = Production::findOrFail($sourceProductionId);
+            // Cada item despacha em sua própria transação: o que puder ser
+            // despachado segue, e o que falhar fica registrado com o motivo.
+            foreach ($this->notes as $key => $note) {
+                try {
+                    DB::transaction(fn () => $this->dispatchOne($workflow, $note, $key, $company, $targetUser, $actor));
 
-                        if ($targetUser) {
-                            $production = $workflow->assignProduction($production, $company, $targetUser, $actor, false, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
-                        } else {
-                            $production = $workflow->moveProductionToCompanyStack($production, $company, $actor, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null);
-                        }
-                    } elseif ($targetUser) {
-                        $production = $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null, (int) ($note->dispatch_five_note_id ?? 0) ?: null);
-                    } else {
-                        $production = $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes, $this->targetWorkReportIdsByNote[$this->contextKeyFor($note)] ?? null, $this->targetPartialIdsByContext[$this->contextKeyFor($note)] ?? null, (int) ($note->dispatch_five_note_id ?? 0) ?: null);
-                    }
-
-                    if ($note->getAttribute('dispatch_bulk_any_status')) {
-                        $this->recordBulkAnyStatusAudit($note, $production, $actor);
-                    }
+                    $succeededNoteIds[]      = (int) $note->id;
+                    $this->dispatchResults[] = ['label' => $this->resultLabelFor($note), 'ok' => true, 'reason' => null];
+                } catch (DispatchException $e) {
+                    $failedKeys[]            = $key;
+                    $this->dispatchResults[] = ['label' => $this->resultLabelFor($note), 'ok' => false, 'reason' => $e->getMessage()];
+                } catch (\Throwable $e) {
+                    report($e);
+                    $failedKeys[]            = $key;
+                    $this->dispatchResults[] = ['label' => $this->resultLabelFor($note), 'ok' => false, 'reason' => 'Erro inesperado ao despachar este item.'];
                 }
-            });
+            }
+
+            if ($this->selfAssign && $succeededNoteIds) {
+                $this->emitUp('self_assign_processed', $succeededNoteIds);
+            }
+
+            if ($failedKeys) {
+                $this->refreshOriginLists();
+
+                // Individual: mantém o comportamento anterior (alerta com o motivo).
+                if ($this->notes->count() === 1) {
+                    $reason                = $this->dispatchResults[0]['reason'];
+                    $this->dispatchResults = [];
+                    $this->dispatchBrowserEvent('swal', [
+                        'position' => 'center',
+                        'icon'     => 'warning',
+                        'title'    => $reason,
+                        'timer'    => 6000,
+                    ]);
+
+                    return;
+                }
+
+                $this->keepOnlyFailedItems($failedKeys);
+
+                return;
+            }
+
+            $this->dispatchResults = [];
         } catch (DispatchException $e) {
             // A tela pode ter permanecido aberta enquanto outro usuário alterou
             // a demanda. Recarrega a fila mesmo quando o backend a recusou.
@@ -572,6 +618,71 @@ class DispatchModal extends Component
 
         $this->closeAll();
         $this->refreshOriginLists();
+    }
+
+    private function dispatchOne(DispatchWorkflowService $workflow, Note $note, $key, Company $company, ?User $targetUser, User $actor): void
+    {
+        $contextKey         = $this->contextKeyFor($note);
+        $dd                 = $this->additionalData[$key] ?? null;
+        $finalScopes        = $this->selectedFinalScopesForNote($note);
+        $sourceProductionId = $this->sourceProductionIdsByNote[$contextKey] ?? null;
+        $workReportId       = $this->targetWorkReportIdsByNote[$contextKey] ?? null;
+        $partialId          = $this->targetPartialIdsByContext[$contextKey] ?? null;
+        $fiveNoteId         = (int) ($note->dispatch_five_note_id ?? 0) ?: null;
+
+        if ($sourceProductionId) {
+            $production = Production::findOrFail($sourceProductionId);
+
+            $production = $targetUser
+                ? $workflow->assignProduction($production, $company, $targetUser, $actor, false, $finalScopes, $workReportId, $partialId)
+                : $workflow->moveProductionToCompanyStack($production, $company, $actor, $finalScopes, $workReportId, $partialId);
+        } elseif ($targetUser) {
+            $production = $workflow->dispatchToUser($note, $this->service, $company, $targetUser, $actor, $dd, $finalScopes, $workReportId, $partialId, $fiveNoteId);
+        } else {
+            $production = $workflow->dispatchToCompanyStack($note, $this->service, $company, $actor, $dd, $finalScopes, $workReportId, $partialId, $fiveNoteId);
+        }
+
+        if ($note->getAttribute('dispatch_bulk_any_status')) {
+            $this->recordBulkAnyStatusAudit($note, $production, $actor);
+        }
+    }
+
+    private function resultLabelFor(Note $note): string
+    {
+        $suffix = match (true) {
+            (bool) $note->dispatch_partial_id     => ' · Parcial #' . $note->dispatch_partial_id,
+            (bool) $note->dispatch_work_report_id => ' · Informe #' . $note->dispatch_work_report_id,
+            (bool) $note->dispatch_five_note_id   => ' · D5 #' . $note->dispatch_five_note_id,
+            default                               => '',
+        };
+
+        return $note->note . $suffix;
+    }
+
+    /**
+     * Mantém no modal só os itens que falharam, para nova tentativa, e
+     * reindexa os arrays que dependem da posição do item.
+     */
+    private function keepOnlyFailedItems(array $failedKeys): void
+    {
+        $keptNotes    = [];
+        $keptContexts = [];
+        $keptDd       = [];
+
+        foreach ($this->notes as $key => $note) {
+            if (!in_array($key, $failedKeys, true)) {
+                continue;
+            }
+
+            $newIndex                = count($keptNotes);
+            $keptNotes[]             = $note;
+            $keptContexts[$newIndex] = $this->dispatchContextsByIndex[$key] ?? null;
+            $keptDd[$newIndex]       = $this->additionalData[$key] ?? null;
+        }
+
+        $this->notes                   = new EloquentCollection($keptNotes);
+        $this->dispatchContextsByIndex = array_filter($keptContexts);
+        $this->additionalData          = array_filter($keptDd, fn ($v) => $v !== null);
     }
 
     private function refreshOriginLists(): void
@@ -738,6 +849,10 @@ class DispatchModal extends Component
         $this->targetWorkReportIdsByNote = [];
         $this->targetPartialIdsByContext = [];
         $this->dispatchContextsByIndex   = [];
+        $this->dispatchResults           = [];
+        $this->selfAssign                = false;
+        $this->confirming                = false;
+        $this->confirmSummary            = '';
     }
 
     public function hydrateNotes($value): void
@@ -777,6 +892,22 @@ class DispatchModal extends Component
         })->values();
 
         $this->notes = new EloquentCollection($rows->all());
+    }
+
+    private function applySelfAssignDefaults(): void
+    {
+        if (!$this->selfAssign) {
+            return;
+        }
+
+        $user = auth()->user();
+
+        // O destino é sempre o usuário logado e a empresa dele; não há escolha na tela.
+        $this->type      = '2';
+        $this->company_s = (string) $user?->company_id;
+        $this->user_s    = (string) $user?->id;
+        $this->company_l = Company::whereKey($user?->company_id)->get();
+        $this->user_l    = User::whereKey($user?->id)->select('id', 'name')->get();
     }
 
     private function applyContractModeDefaults(): void

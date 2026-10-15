@@ -5,15 +5,13 @@ namespace App\Http\Livewire\Engineers;
 use App\Custom\Notestatus;
 use App\Helpers\TextFormatter;
 use App\Jobs\Engineers\ExportWaitingFiveNotesJob;
-use App\Models\FiveNote;
-use App\Models\Service;
-use App\Traits\AppliesQueryFilters;
-use App\Traits\WildcardFormmater;
+use App\Models\{FiveNote, Service};
+use App\Services\D5\D5StageResolver;
+use App\Traits\{AppliesQueryFilters, WildcardFormmater};
 use Carbon\Carbon;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 use Maatwebsite\Excel\Concerns\Exportable;
 
 class WaitingFiveNotes extends Component
@@ -27,49 +25,56 @@ class WaitingFiveNotes extends Component
     protected $paginationTheme = 'bootstrap';
 
     public $service;
+
     public $perPage = 100;
+
     public $search;
+
     public $advanceSearch = '';
+
     public $multiD5 = [];
+
     public $multiNote = [];
+
     public $type = "";
+
     public $statusFilter = '';
 
     public $showDetails = false;
 
-
     public $selectall = false;
-    public $selected = [];
 
+    public $selected = [];
 
     // Filters
     public $filtersState = [];
+
     protected ?string $fiscalizationServiceId = null;
+
     protected ?string $paymentServiceId = null;
 
-
-
     protected $queryString = [
-        'type' => ['except' => '', 'as' => 'tipo'],
-        'search'  => ['except' => '', 'as' => 'buscar'],
+        'type'         => ['except' => '', 'as' => 'tipo'],
+        'search'       => ['except' => '', 'as' => 'buscar'],
         'statusFilter' => ['except' => '', 'as' => 'status'],
-        'page'    => ['except' => 1, 'as' => 'p'],
-        'perPage' => ['as' => 'pp'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['as' => 'pp'],
     ];
 
     protected $listeners = [
-        'refresh_list' => '$refresh',
+        'refresh_list'    => '$refresh',
         'filters.updated' => 'onFiltersUpdated',
         'filters.applied' => 'onFiltersUpdated',
-         // MD5 of SICODE
+        // MD5 of SICODE
     ];
 
     public function updatedSearch()
     {
         $this->resetPage();
+
         if (!$this->search) {
-            $this->multiD5 = [];
-            $this->multiNote = [];
+            $this->multiD5       = [];
+            $this->multiNote     = [];
             $this->advanceSearch = '';
         }
     }
@@ -79,13 +84,12 @@ class WaitingFiveNotes extends Component
         $this->resetPage();
     }
 
-
     public function buscarMulti()
     {
         $this->search = "";
         $this->resetPage();
-        $values = $this->formatTextToArray((string) $this->advanceSearch);
-        $this->multiD5 = $values;
+        $values          = $this->formatTextToArray((string) $this->advanceSearch);
+        $this->multiD5   = $values;
         $this->multiNote = $values;
     }
 
@@ -95,12 +99,7 @@ class WaitingFiveNotes extends Component
         $this->filtersState = $payload ?: [];
         $this->resetPage();
 
-
-
     }
-
-
-
 
     public function setSelectAll()
     {
@@ -111,8 +110,6 @@ class WaitingFiveNotes extends Component
         $visibleItems = $this->lists->items();
 
         $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
-
-
 
         if ($this->selectall) {
 
@@ -150,14 +147,17 @@ class WaitingFiveNotes extends Component
 
         // selectall fica true quando TODOS os elegíveis da página estão selecionados
         $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+
         foreach ($eligiblePage as $id) {
             if (!isset($selectedSet[$id])) {
                 $this->selectall = false;
+
                 return false;
             }
         }
 
         $this->selectall = true;
+
         return true;
     }
 
@@ -173,13 +173,16 @@ class WaitingFiveNotes extends Component
         // se não há elegíveis na página, não marcar o master
         if (empty($eligiblePage)) {
             $this->selectall = false;
+
             return;
         }
 
         $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
+
         foreach ($eligiblePage as $id) {
             if (!isset($selectedSet[$id])) {
                 $this->selectall = false;
+
                 return;
             }
         }
@@ -209,6 +212,7 @@ class WaitingFiveNotes extends Component
 
         if ($periodColumn === 'completed') {
             $base->whereBetween('completed_at', [$dateRange['start'], $dateRange['end']]);
+
             return;
         }
 
@@ -217,6 +221,7 @@ class WaitingFiveNotes extends Component
                 $query->whereBetween('dispatch_at', [$dateRange['start'], $dateRange['end']])
                     ->orWhereBetween('completed_at', [$dateRange['start'], $dateRange['end']]);
             });
+
             return;
         }
 
@@ -229,6 +234,7 @@ class WaitingFiveNotes extends Component
 
         if ($passiveMode === 'passive') {
             $base->where('isPassive', true);
+
             return;
         }
 
@@ -257,37 +263,8 @@ class WaitingFiveNotes extends Component
 
     private function applyStatusFilter(Builder $base): void
     {
-        switch ($this->statusFilter) {
-            case 'aguardando_fornecedor':
-                $base->where('visible_partner', true)
-                    ->where('is_completed', false)
-                    ->where('is_archived', false);
-                break;
-            case 'aguardando_fiscalizacao':
-                $base->where(function ($query) {
-                    $query->where('is_completed', true)
-                        ->where('is_supervisioned', false)
-                        ->where('is_archived', false);
-                });
-                break;
-            case 'aguardando_pagamento':
-                $base->where(function ($query) {
-                    $query->where(function ($q) {
-                        $q->where('is_supervisioned', true)
-                            ->where('is_archived', false);
-                    })->orWhere(function ($q) {
-                        $q->where('is_archived', false)
-                            ->where('visible_partner', false)
-                            ->where(function ($d5) {
-                                $d5->whereNull('note_d5')
-                                    ->orWhere('note_d5', '');
-                            });
-                    });
-                });
-                break;
-            case 'finalizado':
-                $base->where('is_archived', true);
-                break;
+        if ($this->statusFilter !== '') {
+            D5StageResolver::applyFilter($base, $this->statusFilter);
         }
     }
 
@@ -356,9 +333,8 @@ class WaitingFiveNotes extends Component
 
         $this->applyDesiredBetweenFilter($base);
 
-
         $hasNote = count($this->multiNote) > 0;
-        $hasD5 = count($this->multiD5) > 0;
+        $hasD5   = count($this->multiD5) > 0;
 
         if ($hasNote || $hasD5) {
             $base->where(function ($query) use ($hasNote, $hasD5) {
@@ -393,8 +369,9 @@ class WaitingFiveNotes extends Component
             'note.Productions:id,note_id,service_id,user_id,company_id,created_at,att_at,completed,completed_at,status',
             'note.Productions.User:id,name',
             'note.Productions.Company:id,name',
+            'note.Productions.measurementContext:id,production_id,work_report_id,five_note_id,cycle',
             'company:id,name',
-            'WorkReport:id,selected_final_scopes',
+            'WorkReport:id,selected_final_scopes,current_status_key,current_status_label,current_status_class',
             'productions.WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current',
             'productions:id,service_id,user_id,company_id,created_at,att_at,completed,completed_at,status',
             'productions.User:id,name',
@@ -432,11 +409,11 @@ class WaitingFiveNotes extends Component
     protected function exportPayload(): array
     {
         return [
-            'search'        => $this->search,
-            'multiD5'       => $this->multiD5,
-            'multiNote'     => $this->multiNote,
-            'statusFilter'  => $this->statusFilter,
-            'filtersState'  => $this->filtersState,
+            'search'       => $this->search,
+            'multiD5'      => $this->multiD5,
+            'multiNote'    => $this->multiNote,
+            'statusFilter' => $this->statusFilter,
+            'filtersState' => $this->filtersState,
         ];
     }
 
@@ -447,44 +424,90 @@ class WaitingFiveNotes extends Component
 
         $timeline = [
             [
-                'label' => 'Despacho',
-                'at' => $fiveNote->dispatch_at,
+                'label'     => 'Despacho',
+                'at'        => $fiveNote->dispatch_at,
                 'wait_days' => $this->waitDays($fiveNote->dispatch_at, $fiveNote->completed_at),
             ],
             [
-                'label' => 'Retorno empreiteira',
-                'at' => $fiveNote->completed_at,
+                'label'     => 'Retorno empreiteira',
+                'at'        => $fiveNote->completed_at,
                 'wait_days' => $this->waitDays($fiveNote->completed_at, $fiveNote->supervisioned_at),
             ],
             [
-                'label' => 'Fiscalizacao',
-                'at' => $fiveNote->supervisioned_at,
+                'label'     => 'Fiscalizacao',
+                'at'        => $fiveNote->supervisioned_at,
                 'wait_days' => $this->waitDays($fiveNote->supervisioned_at, $fiveNote->payed_at),
             ],
             [
-                'label' => 'Medição',
-                'at' => $fiveNote->payed_at,
+                'label'     => 'Medição',
+                'at'        => $fiveNote->payed_at,
                 'wait_days' => $this->waitDays(
                     $fiveNote->payed_at,
                     $fiveNote->is_archived ? ($fiveNote->updated_at ?? now()) : null
                 ),
             ],
             [
-                'label' => 'Finalizado',
-                'at' => $fiveNote->is_archived ? ($fiveNote->updated_at ?? now()) : null,
+                'label'     => 'Finalizado',
+                'at'        => $fiveNote->is_archived ? ($fiveNote->updated_at ?? now()) : null,
                 'wait_days' => null,
             ],
         ];
 
         return [
-            'activity' => $activity,
-            'assignee' => $assignee,
-            'timeline' => $timeline,
+            'activity'          => $activity,
+            'assignee'          => $assignee,
+            'timeline'          => $timeline,
             'partner_return_at' => $fiveNote->completed_at,
+            'cycle'             => $this->expectedCycle($fiveNote),
         ];
     }
 
+    /**
+     * Ciclo da D5 no informe: 1 enquanto está com a empreiteira/fiscalização; 2 (Retorno de D5)
+     * depois de concluída e aprovada pela fiscalização.
+     */
+    protected function expectedCycle(FiveNote $fiveNote): int
+    {
+        return $fiveNote->is_completed && $fiveNote->is_supervisioned ? 2 : 1;
+    }
+
+    /**
+     * Ciclo gravado na production (measurementContext), ou null para históricos sem contexto.
+     * Parciais retornam 0, pois nunca pertencem a um ciclo de D5.
+     */
+    protected function productionCycle(Production $production, FiveNote $fiveNote): ?int
+    {
+        $context = $production->measurementContext;
+
+        if (!$context) {
+            return null;
+        }
+
+        return match ($context->cycle) {
+            MeasurementProductionContext::CYCLE_ONE       => 1,
+            MeasurementProductionContext::CYCLE_D5_RETURN => (int) $context->five_note_id === (int) $fiveNote->id ? 2 : 0,
+            default                                       => 0,
+        };
+    }
+
     protected function resolveActivity(FiveNote $fiveNote): array
+    {
+        $legacy = $this->resolveLegacyActivity($fiveNote);
+        $report = $fiveNote->WorkReport;
+
+        // Mesmo status atual exibido na consulta do informe.
+        if (!$report || blank($report->current_status_label)) {
+            return $legacy;
+        }
+
+        return [
+            'key'   => D5StageResolver::fromStatusKey($report->current_status_key) ?? $legacy['key'],
+            'label' => $report->current_status_label,
+            'color' => $report->current_status_class ?: 'text-bg-secondary',
+        ];
+    }
+
+    protected function resolveLegacyActivity(FiveNote $fiveNote): array
     {
         if ($fiveNote->is_archived) {
             return ['key' => 'finalizado', 'label' => 'Finalizado', 'color' => 'text-bg-success'];
@@ -509,12 +532,13 @@ class WaitingFiveNotes extends Component
     {
         if (!in_array($activityKey, ['aguardando_fiscalizacao', 'aguardando_pagamento', 'aguardando_geracao_d5'], true)) {
             $statusMeta = $this->statusMetaFromProduction(null);
+
             return [
-                'name' => null,
-                'company' => null,
-                'has_assignee' => false,
+                'name'              => null,
+                'company'           => null,
+                'has_assignee'      => false,
                 'assignment_status' => $statusMeta['label'],
-                'assignment_badge' => $statusMeta['badge'],
+                'assignment_badge'  => $statusMeta['badge'],
             ];
         }
 
@@ -524,26 +548,38 @@ class WaitingFiveNotes extends Component
 
         if (!$targetServiceId) {
             $statusMeta = $this->statusMetaFromProduction(null);
+
             return [
-                'name' => null,
-                'company' => null,
-                'has_assignee' => false,
+                'name'              => null,
+                'company'           => null,
+                'has_assignee'      => false,
                 'assignment_status' => $statusMeta['label'],
-                'assignment_badge' => $statusMeta['badge'],
+                'assignment_badge'  => $statusMeta['badge'],
             ];
         }
 
-        $productions = $fiveNote->note?->Productions ?? collect();
-        $partnerReturnAt = $fiveNote->completed_at;
+        $productions         = $fiveNote->note?->Productions ?? collect();
+        $partnerReturnAt     = $fiveNote->completed_at;
         $strictPartnerWindow = $activityKey === 'aguardando_fiscalizacao' && (bool) $partnerReturnAt;
 
         $forService = $productions->where('service_id', $targetServiceId);
+
+        // Medição: só vale a production do ciclo solicitado (1 ou 2). Históricos sem contexto passam.
+        if ($activityKey !== 'aguardando_fiscalizacao') {
+            $expectedCycle = $this->expectedCycle($fiveNote);
+            $forService    = $forService->filter(function ($production) use ($fiveNote, $expectedCycle) {
+                $cycle = $this->productionCycle($production, $fiveNote);
+
+                return $cycle === null || $cycle === $expectedCycle;
+            });
+        }
 
         $openForService = $forService->where('completed', false);
 
         if ($partnerReturnAt) {
             $openForService = $openForService->filter(function ($production) use ($partnerReturnAt) {
                 $mark = $production->att_at ?: $production->created_at;
+
                 return $mark && $mark->greaterThanOrEqualTo($partnerReturnAt);
             });
         }
@@ -565,12 +601,13 @@ class WaitingFiveNotes extends Component
 
         if ($strictPartnerWindow && !$candidate) {
             $statusMeta = $this->statusMetaFromProduction(null);
+
             return [
-                'name' => null,
-                'company' => null,
-                'has_assignee' => false,
+                'name'              => null,
+                'company'           => null,
+                'has_assignee'      => false,
                 'assignment_status' => $statusMeta['label'],
-                'assignment_badge' => $statusMeta['badge'],
+                'assignment_badge'  => $statusMeta['badge'],
             ];
         }
 
@@ -594,23 +631,24 @@ class WaitingFiveNotes extends Component
 
         if (!$candidate) {
             $statusMeta = $this->statusMetaFromProduction(null);
+
             return [
-                'name' => null,
-                'company' => null,
-                'has_assignee' => false,
+                'name'              => null,
+                'company'           => null,
+                'has_assignee'      => false,
                 'assignment_status' => $statusMeta['label'],
-                'assignment_badge' => $statusMeta['badge'],
+                'assignment_badge'  => $statusMeta['badge'],
             ];
         }
 
         $statusMeta = $this->statusMetaFromProduction($candidate->status);
 
         return [
-            'name' => $candidate->User?->name,
-            'company' => $candidate->Company?->name,
-            'has_assignee' => (bool) $candidate->user_id,
+            'name'              => $candidate->User?->name,
+            'company'           => $candidate->Company?->name,
+            'has_assignee'      => (bool) $candidate->user_id,
             'assignment_status' => $statusMeta['label'],
-            'assignment_badge' => $statusMeta['badge'],
+            'assignment_badge'  => $statusMeta['badge'],
         ];
     }
 
@@ -623,7 +661,7 @@ class WaitingFiveNotes extends Component
 
         try {
             $statusValue = is_null($status) ? 1 : (int) $status;
-            $meta = Notestatus::status($statusValue);
+            $meta        = Notestatus::status($statusValue);
 
             return [
                 'label' => $meta->status ?? $fallback['label'],
@@ -641,7 +679,7 @@ class WaitingFiveNotes extends Component
         }
 
         $start = $from instanceof Carbon ? $from : Carbon::parse($from);
-        $end = $to ? ($to instanceof Carbon ? $to : Carbon::parse($to)) : now();
+        $end   = $to ? ($to instanceof Carbon ? $to : Carbon::parse($to)) : now();
 
         return $start->diffInDays($end);
     }
@@ -668,13 +706,11 @@ class WaitingFiveNotes extends Component
         return $this->paymentServiceId;
     }
 
-
     public function render()
     {
         return view('livewire.engineers.waiting-five-notes', [
             'lists' => $this->lists,
         ]);
     }
-
 
 }

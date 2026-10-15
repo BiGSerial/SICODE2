@@ -261,15 +261,16 @@ class QualityClosing extends Component
         $process = $this->viewForm ? $this->process() : null;
 
         return view('livewire.services.desenho.forms.quality-closing', [
-            'note'        => $process?->Note,
-            'history'     => $process ? $process->Stages()->where('kind', QualityStageKind::EXECUTION->value)->where('status', 'COMPLETED')->reorder('id', 'desc')->with('Files.File')->get() : collect(),
-            'serviceName' => $process ? app(QualityActivities::class)->serviceFor($process->phase)?->service : null,
-            'conclusions' => SelectOptions::getSurveyConclusions(),
-            'process'     => $process,
-            'stage'       => $process ? $this->stage() : null,
-            'rejections'  => $process ? $process->Rejections()->with(['Items.Category', 'Items.Subcategory', 'Author'])->get() : collect(),
-            'comments'    => $process ? $process->Events()->where('type', QualityEventType::COMMENT_ADDED->value)->with('Actor')->get()->filter(fn ($event) => ($event->payload['visibility'] ?? 'INTERNAL') === 'ALL') : collect(),
-            'forwards'    => $process ? $process->Events()->whereIn('type', [QualityEventType::RETURN_FORWARDED->value, QualityEventType::DESIGNER_ASSIGNED->value])->with('Actor')->get() : collect(),
+            'note'         => $process?->Note,
+            'history'      => $process ? $process->Stages()->where('kind', QualityStageKind::EXECUTION->value)->where('status', 'COMPLETED')->reorder('id', 'desc')->with('Files.File')->get() : collect(),
+            'serviceName'  => $process ? app(QualityActivities::class)->serviceFor($process->phase)?->service : null,
+            'conclusions'  => SelectOptions::getSurveyConclusions(),
+            'process'      => $process,
+            'stage'        => $process ? $this->stage() : null,
+            'rejections'   => $process ? $process->Rejections()->with(['Items.Category', 'Items.Subcategory', 'Author'])->get() : collect(),
+            'comments'     => $process ? $process->Events()->where('type', QualityEventType::COMMENT_ADDED->value)->with('Actor')->get()->filter(fn ($event) => ($event->payload['visibility'] ?? 'INTERNAL') === 'ALL') : collect(),
+            'forwards'     => $process ? $process->Events()->whereIn('type', [QualityEventType::RETURN_FORWARDED->value, QualityEventType::DESIGNER_ASSIGNED->value])->with('Actor')->get() : collect(),
+            'checklistUrl' => $process ? route('quality.process.checklist', $process) : null,
         ]);
     }
 }

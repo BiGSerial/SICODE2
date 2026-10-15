@@ -189,6 +189,7 @@ class D5Edit extends Component
         }
 
         $this->five->productions()->detach($productionId);
+        \App\Jobs\ResyncNoteInformFlowsJob::dispatchForNotes([$this->five->note_id]);
 
         if (!$production->fiveNotes()->exists()) {
             $production->dfive = false;

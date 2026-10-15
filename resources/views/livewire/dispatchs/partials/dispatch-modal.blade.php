@@ -250,6 +250,84 @@
                 padding: 0.3rem 0.45rem;
             }
 
+            .dispatch-modal__results {
+                background: #ffffff;
+                border: 1px solid #dbe3ef;
+                border-radius: 8px;
+                margin-bottom: 0.75rem;
+                padding: 0.85rem;
+            }
+
+            .dispatch-modal__results-title {
+                font-size: 0.8rem;
+                font-weight: 800;
+                margin-bottom: 0.35rem;
+                text-transform: uppercase;
+            }
+
+            .dispatch-modal__results ul {
+                font-size: 0.86rem;
+                list-style: none;
+                margin: 0 0 0.6rem;
+                padding: 0;
+            }
+
+            .dispatch-modal__results li {
+                padding: 0.15rem 0;
+            }
+
+            .dispatch-modal__results-ok {
+                color: #0f766e;
+            }
+
+            .dispatch-modal__results-fail {
+                color: #b91c1c;
+            }
+
+            .dispatch-modal__confirm {
+                align-items: flex-start;
+                background: #fef9c3;
+                border: 1px solid #facc15;
+                border-radius: 8px;
+                color: #713f12;
+                display: flex;
+                gap: 0.6rem;
+                margin-bottom: 0.75rem;
+                padding: 0.85rem;
+            }
+
+            .dispatch-modal__confirm > i {
+                font-size: 1.4rem;
+                line-height: 1;
+            }
+
+            .dispatch-modal__confirm-title {
+                font-weight: 800;
+                text-transform: uppercase;
+                font-size: 0.8rem;
+            }
+
+            .dispatch-modal__processing {
+                align-items: center;
+                background: rgba(248, 250, 252, 0.88);
+                color: #123f43;
+                cursor: wait;
+                display: none;
+                flex-direction: column;
+                font-weight: 700;
+                gap: 0.75rem;
+                inset: 0;
+                justify-content: center;
+                position: absolute;
+                text-align: center;
+                z-index: 20;
+            }
+
+            .dispatch-modal__processing small {
+                color: #64748b;
+                font-weight: 600;
+            }
+
             .dispatch-modal__empty {
                 background: #ffffff;
                 border: 1px dashed #cbd5e1;
@@ -304,21 +382,66 @@
     aria-labelledby="dispatchModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
+            <div class="dispatch-modal__processing" wire:loading.flex wire:target="confirmedAtt" role="status" aria-live="polite">
+                <span class="spinner-border" aria-hidden="true"></span>
+                <div>
+                    Processando {{ $selfAssign ? 'atribuição' : 'despacho' }} de {{ $notes ? $notes->count() : 0 }} {{ $this->dispatchItemLabelPlural }}...
+                    <br><small>Nao feche esta janela. Isso pode levar alguns instantes.</small>
+                </div>
+            </div>
             <div class="dispatch-modal__header d-flex align-items-start justify-content-between gap-3">
                 <div>
-                    <h1 class="dispatch-modal__title" id="dispatchModalLabel">Despachar {{ $service->service }}</h1>
+                    <h1 class="dispatch-modal__title" id="dispatchModalLabel">{{ $selfAssign ? 'Assumir' : 'Despachar' }} {{ $service->service }}</h1>
                     <div class="dispatch-modal__subtitle">
                         {{ $notes && $notes->count() ? $notes->count() . ' ' . $this->dispatchItemLabelPlural . ' selecionado(s)' : 'Nenhum ' . $this->dispatchItemLabel . ' selecionado' }}
                     </div>
                 </div>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
                     wire:click.prevent="closeAll"
+                    wire:loading.attr="disabled" wire:target="confirmedAtt"
                     aria-label="Fechar"></button>
             </div>
 
             <div class="dispatch-modal__body">
+                @if (!empty($dispatchResults))
+                    @php($okResults = collect($dispatchResults)->where('ok', true))
+                    @php($failResults = collect($dispatchResults)->where('ok', false))
+                    <div class="dispatch-modal__results" role="alert">
+                        @if ($okResults->isNotEmpty())
+                            <div class="dispatch-modal__results-title dispatch-modal__results-ok">
+                                <i class="ri-checkbox-circle-line"></i> Despachados ({{ $okResults->count() }})
+                            </div>
+                            <ul>
+                                @foreach ($okResults as $result)
+                                    <li>{{ $result['label'] }}</li>
+                                @endforeach
+                            </ul>
+                        @endif
+                        <div class="dispatch-modal__results-title dispatch-modal__results-fail">
+                            <i class="ri-error-warning-line"></i> Nao despachados ({{ $failResults->count() }})
+                        </div>
+                        <ul class="mb-0">
+                            @foreach ($failResults as $result)
+                                <li><strong>{{ $result['label'] }}</strong> — {{ $result['reason'] }}</li>
+                            @endforeach
+                        </ul>
+                        <div class="dispatch-modal__hint mt-2">
+                            Os itens nao despachados continuam na lista abaixo para nova tentativa.
+                        </div>
+                    </div>
+                @endif
+                @if ($notes && $notes->count() && $confirming)
+                    <div class="dispatch-modal__confirm" role="alertdialog">
+                        <i class="ri-question-line"></i>
+                        <div>
+                            <div class="dispatch-modal__confirm-title">{{ $selfAssign ? 'Confirmar atribuição' : 'Confirmar despacho' }}</div>
+                            <div>{{ $confirmSummary }}</div>
+                            <div class="dispatch-modal__hint mt-1">Revise os itens abaixo e clique em "{{ $selfAssign ? 'Confirmar atribuição' : 'Confirmar despacho' }}".</div>
+                        </div>
+                    </div>
+                @endif
                 @if ($notes && $notes->count())
-                    <div class="dispatch-modal__controls">
+                    <div class="dispatch-modal__controls @if ($confirming || $selfAssign) d-none @endif">
                         <div class="dispatch-modal__control-card">
                             <label class="form-label">Destino</label>
                             <div class="dispatch-modal__type-group {{ $contractMode ? 'is-single' : '' }}">
@@ -507,13 +630,29 @@
             </div>
 
             <div class="dispatch-modal__footer">
-                <button class="btn btn-outline-secondary" wire:click.prevent="closeAll">Cancelar</button>
-                <button class="btn btn-primary" wire:click.prevent="confirmAtt" wire:loading.attr="disabled"
-                    wire:target="confirmAtt"
-                    @disabled(!$notes || !$notes->count())>
-                    <span wire:loading.remove wire:target="confirmAtt">Despachar</span>
-                    <span wire:loading wire:target="confirmAtt">Enviando...</span>
-                </button>
+                @if ($confirming)
+                    <button class="btn btn-outline-secondary" wire:click.prevent="cancelConfirmation"
+                        wire:loading.attr="disabled" wire:target="confirmedAtt">Voltar</button>
+                    <button class="btn btn-primary" wire:click.prevent="confirmedAtt" wire:loading.attr="disabled"
+                        wire:target="confirmedAtt">
+                        <span wire:loading.remove wire:target="confirmedAtt">{{ $selfAssign ? 'Confirmar atribuição' : 'Confirmar despacho' }}</span>
+                        <span wire:loading wire:target="confirmedAtt">
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            {{ $selfAssign ? 'Assumindo...' : 'Despachando...' }}
+                        </span>
+                    </button>
+                @else
+                    <button class="btn btn-outline-secondary" wire:click.prevent="closeAll"
+                        wire:loading.attr="disabled" wire:target="confirmAtt">Cancelar</button>
+                    <button class="btn btn-primary" wire:click.prevent="confirmAtt" wire:loading.attr="disabled"
+                        wire:target="confirmAtt" @disabled(!$notes || !$notes->count())>
+                        <span wire:loading.remove wire:target="confirmAtt">{{ $selfAssign ? 'Assumir' : 'Despachar' }}</span>
+                        <span wire:loading wire:target="confirmAtt">
+                            <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                            Verificando...
+                        </span>
+                    </button>
+                @endif
             </div>
         </div>
     </div>

@@ -82,7 +82,6 @@
     $fmt = fn ($d) => $d ? $d->format('d/m/Y H:i') : '—';
     $stageDefs = collect($stageLabels)->map(fn ($label, $key) => [$label, $limits[$key]])->all();
     $typeChips = ['all' => 'Todos', 'final' => 'Informe Final', 'partial' => 'Informe Parcial', 'd5' => 'Informe D5'];
-    $lateRate = $summary['total'] ? round($summary['late'] / $summary['total'] * 100) : 0;
 @endphp
 
 <div class="ppr-page">
@@ -94,6 +93,12 @@
                 <h2 class="mb-1">PROCESSO DE MEDIÇÃO – PÓS OBRA</h2>
                 <div class="text-light opacity-75">
                     Prazos por etapa em dias úteis · {{ collect($stageDefs)->map(fn ($d) => $d[0] . ' ' . $d[1])->implode(' · ') }}
+                </div>
+                <div class="text-light opacity-75 small">
+                    O Total inclui o despacho da medição (entre o fim da fiscalização e o despacho da medição), que não tem prazo próprio.
+                    @if ($syncedAt)
+                        · Informes finais: dados sincronizados em {{ $syncedAt->format('d/m/Y H:i') }}
+                    @endif
                 </div>
             </div>
             <button class="btn btn-light btn-sm text-dark" wire:click="exportReport" wire:loading.attr="disabled" wire:target="exportReport">
@@ -148,7 +153,7 @@
 
         {{-- Indicadores --}}
         <div class="row g-3 mb-3">
-            <div class="col-6 col-lg-3">
+            <div class="col-6 col-lg">
                 <div class="ppr-card ppr-kpi" style="--ppr-accent:#0f172a">
                     <div class="label">Informes no período</div>
                     <div class="value">{{ $summary['total'] }}</div>
@@ -157,25 +162,35 @@
                     </div>
                 </div>
             </div>
-            <div class="col-6 col-lg-3">
+            <div class="col-6 col-lg">
                 <div class="ppr-card ppr-kpi" style="--ppr-accent:#16a34a">
-                    <div class="label">Dentro do prazo</div>
-                    <div class="value text-success">{{ $summary['on_time'] }}</div>
-                    <div class="hint">nenhuma etapa estourada</div>
+                    <div class="label">Concluídos no prazo</div>
+                    <div class="value text-success">{{ $summary['done_on_time'] }}</div>
+                    <div class="hint">medição/pagamento finalizado, sem etapa estourada</div>
                 </div>
             </div>
-            <div class="col-6 col-lg-3">
+            <div class="col-6 col-lg">
                 <div class="ppr-card ppr-kpi" style="--ppr-accent:#dc2626">
-                    <div class="label">Com prazo estourado</div>
-                    <div class="value text-danger">{{ $summary['late'] }}</div>
-                    <div class="hint">ao menos uma etapa fora do prazo</div>
+                    <div class="label">Concluídos fora do prazo</div>
+                    <div class="value text-danger">{{ $summary['done_late'] }}</div>
+                    <div class="hint">
+                        taxa de estouro: {{ $summary['late_rate_done'] !== null ? $summary['late_rate_done'] . '%' : '—' }}
+                        dos {{ $summary['done'] }} concluídos
+                    </div>
                 </div>
             </div>
-            <div class="col-6 col-lg-3">
+            <div class="col-6 col-lg">
                 <div class="ppr-card ppr-kpi" style="--ppr-accent:#f59e0b">
-                    <div class="label">Taxa de estouro</div>
-                    <div class="value">{{ $lateRate }}%</div>
-                    <div class="hint">estourados ÷ total</div>
+                    <div class="label">Em aberto</div>
+                    <div class="value">{{ $summary['open'] }}</div>
+                    <div class="hint">{{ $summary['open_late'] }} já estourados · {{ $summary['open_on_time'] }} no prazo</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg">
+                <div class="ppr-card ppr-kpi" style="--ppr-accent:#64748b">
+                    <div class="label">Dados inconsistentes</div>
+                    <div class="value">{{ $summary['with_issues'] }}</div>
+                    <div class="hint">prazos desses informes podem não ser confiáveis (ver ⚠ na lista)</div>
                 </div>
             </div>
         </div>
@@ -209,6 +224,7 @@
                 <span><i style="background:#ef4444"></i>Concluída fora do prazo</span>
                 <span><i style="background:#f59e0b"></i>Em aberto e estourada</span>
                 <span><i style="background:#60a5fa"></i>Em aberto no prazo</span>
+                <span><i style="background:#cbd5e1"></i>Sem dados (data ausente)</span>
             </div>
             <div>{{ $rows->links() }}</div>
         </div>

@@ -3,21 +3,18 @@
 namespace App\Exports\Partner;
 
 use App\Custom\Notestatus;
-use Illuminate\Contracts\Database\Eloquent\Builder;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithProperties;
 use Carbon\Carbon;
+use Illuminate\Contracts\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Concerns\{Exportable, FromQuery, WithChunkReading, WithHeadings, WithMapping, WithProperties};
 
 class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithProperties, WithChunkReading
 {
     use Exportable;
 
     protected Builder $query;
+
     protected bool $historic;
+
     protected array $options;
 
     public function __construct(Builder $query, bool $historic = false, array $options = [])
@@ -70,7 +67,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         }
 
         $dispatchAt = optional($five->dispatch_at)->format('d/m/Y H:i');
-        $row = [
+        $row        = [
             $five->note_d5,
             optional($five->note)->note,
             $this->resolveOrder($five),
@@ -85,9 +82,9 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         ];
 
         $assignee = $this->resolveAssignee($five);
-        $row[] = $assignee['name'] ?? 'Sem atribuicao';
-        $row[] = $assignee['company'] ?? '-';
-        $row[] = $assignee['status'] ?? 'Nao Atribuido';
+        $row[]    = $assignee['name'] ?? 'Sem atribuicao';
+        $row[]    = $assignee['company'] ?? '-';
+        $row[]    = $assignee['status'] ?? 'Nao Atribuido';
 
         $row[] = $this->buildTimelineText($five);
         $row[] = optional($five->company)->name;
@@ -116,7 +113,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
 
     protected function resolveOrder($five): string
     {
-        $workForm = $five->note?->WorkForm ?: $five->note?->WorkFormAny;
+        $workForm       = $five->note?->WorkForm ?: $five->note?->WorkFormAny;
         $workFormOrders = optional($workForm)->Orders;
         $workFormOrder  = optional(optional($workFormOrders)->sortBy('ordem'))->first();
 
@@ -197,7 +194,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
     protected function legacyMap($five): array
     {
         $dispatchAt = optional($five->dispatch_at)->format('d/m/Y H:i');
-        $row = [
+        $row        = [
             $five->note_d5,
             optional($five->note)->note,
             $this->resolveOrder($five),
@@ -226,6 +223,17 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
 
     protected function activityKey($five): string
     {
+        $legacy = $this->legacyActivityKey($five);
+
+        if ($five->relationLoaded('WorkReport') && filled($five->WorkReport?->current_status_label)) {
+            return \App\Services\D5\D5StageResolver::fromStatusKey($five->WorkReport->current_status_key) ?? $legacy;
+        }
+
+        return $legacy;
+    }
+
+    protected function legacyActivityKey($five): string
+    {
         if ($five->is_archived) {
             return 'finalizado';
         }
@@ -233,23 +241,30 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         if ((is_null($five->note_d5) || trim((string) $five->note_d5) === '') && !$five->visible_partner) {
             return 'aguardando_geracao_d5';
         }
+
         if ($five->is_supervisioned) {
             return 'aguardando_pagamento';
         }
+
         if ($five->is_completed) {
             return 'aguardando_fiscalizacao';
         }
+
         return 'aguardando_fornecedor';
     }
 
     protected function activityLabel($five): string
     {
+        if ($five->relationLoaded('WorkReport') && filled($five->WorkReport?->current_status_label)) {
+            return $five->WorkReport->current_status_label;
+        }
+
         return match ($this->activityKey($five)) {
-            'finalizado' => 'Finalizado',
-            'aguardando_pagamento' => 'Aguardando Medição',
+            'finalizado'              => 'Finalizado',
+            'aguardando_pagamento'    => 'Aguardando Medição',
             'aguardando_fiscalizacao' => 'Aguardando Fiscalizacao',
-            'aguardando_geracao_d5' => 'Aguardando Geracao de D5',
-            default => 'Aguardando Fornecedor',
+            'aguardando_geracao_d5'   => 'Aguardando Geracao de D5',
+            default                   => 'Aguardando Fornecedor',
         };
     }
 
@@ -258,9 +273,9 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         return match ($this->activityKey($five)) {
             'aguardando_pagamento', 'aguardando_geracao_d5' => 'Pagamento',
             'aguardando_fiscalizacao' => 'Fiscalizacao',
-            'aguardando_fornecedor' => 'Fornecedor',
-            'finalizado' => 'Finalizado',
-            default => '---',
+            'aguardando_fornecedor'   => 'Fornecedor',
+            'finalizado'              => 'Finalizado',
+            default                   => '---',
         };
     }
 
@@ -280,8 +295,8 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
             return ['name' => null, 'company' => null, 'status' => 'Nao Atribuido'];
         }
 
-        $productions = optional($five->note)->Productions ?? collect();
-        $partnerReturnAt = $five->completed_at;
+        $productions         = optional($five->note)->Productions ?? collect();
+        $partnerReturnAt     = $five->completed_at;
         $strictPartnerWindow = $activityKey === 'aguardando_fiscalizacao' && ($partnerReturnAt instanceof Carbon);
 
         $candidates = $productions
@@ -291,6 +306,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         if ($partnerReturnAt instanceof Carbon) {
             $candidates = $candidates->filter(function ($production) use ($partnerReturnAt) {
                 $mark = $production->att_at ?: $production->created_at;
+
                 return $mark instanceof Carbon && $mark->greaterThanOrEqualTo($partnerReturnAt);
             });
         }
@@ -316,9 +332,9 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
         }
 
         return [
-            'name' => $candidate?->User?->name,
+            'name'    => $candidate?->User?->name,
             'company' => $candidate?->Company?->name,
-            'status' => $this->resolveAssignmentStatus($candidate?->status),
+            'status'  => $this->resolveAssignmentStatus($candidate?->status),
         ];
     }
 
@@ -326,6 +342,7 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
     {
         try {
             $meta = Notestatus::status(is_null($status) ? 1 : (int) $status);
+
             return $meta->status ?? 'Nao Atribuido';
         } catch (\Throwable $e) {
             return 'Nao Atribuido';
@@ -335,11 +352,11 @@ class FiveNotesExport implements FromQuery, WithHeadings, WithMapping, WithPrope
     protected function buildTimelineText($five): string
     {
         $steps = [
-            'Despacho' => $five->dispatch_at,
+            'Despacho'            => $five->dispatch_at,
             'Retorno empreiteira' => $five->completed_at,
-            'Fiscalizacao' => $five->supervisioned_at,
-            'Pagamento' => $five->payed_at,
-            'Finalizado' => $five->is_archived ? ($five->updated_at ?? null) : null,
+            'Fiscalizacao'        => $five->supervisioned_at,
+            'Pagamento'           => $five->payed_at,
+            'Finalizado'          => $five->is_archived ? ($five->updated_at ?? null) : null,
         ];
 
         $parts = [];
