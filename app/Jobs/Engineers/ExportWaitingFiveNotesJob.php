@@ -3,20 +3,16 @@
 namespace App\Jobs\Engineers;
 
 use App\Exports\Partner\FiveNotesExport;
-use App\Models\FiveNote;
-use App\Models\Service;
-use App\Models\User;
+use App\Models\{FiveNote, Service, User};
 use App\Notifications\SystemNotification;
+use App\Services\D5\D5StageResolver;
 use App\Traits\WildcardFormmater;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{DB, Log, Storage};
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -29,9 +25,13 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
     use WildcardFormmater;
 
     public array $params;
+
     public string $userId;
-    public $tries   = 2;
+
+    public $tries = 2;
+
     public $backoff = [30, 120];
+
     public int $timeout = 1200; // 20 min
 
     public function __construct(array $params, string $userId)
@@ -49,7 +49,7 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             return;
         }
 
-        $disk = Storage::disk('local');
+        $disk     = Storage::disk('local');
         $filePath = null;
 
         try {
@@ -65,6 +65,7 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
                 'note.Productions.User',
                 'note.Productions.Company',
                 'company',
+                'WorkReport:id,current_status_key,current_status_label,current_status_class',
             ]);
 
             $filePath = 'exports/' . now()->format('YmdHis') . '-five-notes-general.xlsx';
@@ -168,37 +169,8 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
     {
         $statusFilter = $this->params['statusFilter'] ?? '';
 
-        switch ($statusFilter) {
-            case 'aguardando_fornecedor':
-                $query->where('visible_partner', true)
-                    ->where('is_completed', false)
-                    ->where('is_archived', false);
-                break;
-            case 'aguardando_fiscalizacao':
-                $query->where(function ($main) {
-                    $main->where('is_completed', true)
-                        ->where('is_supervisioned', false)
-                        ->where('is_archived', false);
-                });
-                break;
-            case 'aguardando_pagamento':
-                $query->where(function ($main) {
-                    $main->where(function ($q) {
-                        $q->where('is_supervisioned', true)
-                            ->where('is_archived', false);
-                    })->orWhere(function ($q) {
-                        $q->where('is_archived', false)
-                            ->where('visible_partner', false)
-                            ->where(function ($d5) {
-                                $d5->whereNull('note_d5')
-                                    ->orWhere('note_d5', '');
-                            });
-                    });
-                });
-                break;
-            case 'finalizado':
-                $query->where('is_archived', true);
-                break;
+        if ($statusFilter !== '') {
+            D5StageResolver::applyFilter($query, $statusFilter);
         }
 
         if (!empty($this->params['search'])) {
@@ -218,7 +190,7 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
         }
 
         $multiNote = array_filter($this->params['multiNote'] ?? [], fn ($value) => $value !== null && $value !== '');
-        $multiD5 = array_filter($this->params['multiD5'] ?? [], fn ($value) => $value !== null && $value !== '');
+        $multiD5   = array_filter($this->params['multiD5'] ?? [], fn ($value) => $value !== null && $value !== '');
 
         if ($multiNote || $multiD5) {
             $query->where(function ($q) use ($multiNote, $multiD5) {
@@ -285,6 +257,7 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
 
         if ($periodColumn === 'completed') {
             $query->whereBetween('completed_at', [$dateRange['start'], $dateRange['end']]);
+
             return;
         }
 
@@ -293,6 +266,7 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
                 $scope->whereBetween('dispatch_at', [$dateRange['start'], $dateRange['end']])
                     ->orWhereBetween('completed_at', [$dateRange['start'], $dateRange['end']]);
             });
+
             return;
         }
 
@@ -305,6 +279,7 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
 
         if ($passiveMode === 'passive') {
             $query->where('isPassive', true);
+
             return;
         }
 
@@ -339,10 +314,10 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
     protected function exportOptions(): array
     {
         return [
-            'd5_tracking' => true,
-            'statusFilter' => (string) ($this->params['statusFilter'] ?? ''),
+            'd5_tracking'              => true,
+            'statusFilter'             => (string) ($this->params['statusFilter'] ?? ''),
             'fiscalization_service_id' => Service::whereIn('service', ['Fiscalizacao', 'Fiscalização'])->value('uuid'),
-            'payment_service_id' => Service::where('service', 'Pagamento')->value('uuid'),
+            'payment_service_id'       => Service::where('service', 'Pagamento')->value('uuid'),
         ];
     }
 }

@@ -2,13 +2,7 @@
 
 namespace Tests\Unit;
 
-use App\Models\FiveNote;
-use App\Models\Operation;
-use App\Models\Order;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\WorkReport;
-use App\Models\WorkReportFlowProduction;
+use App\Models\{FiveNote, Operation, Order, Production, Service, WorkReport, WorkReportFlowProduction};
 use App\Services\WorkReports\WorkReportStatusResolver;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Tests\TestCase;
@@ -24,6 +18,29 @@ class WorkReportStatusResolverTest extends TestCase
         $this->resolver = new WorkReportStatusResolver();
     }
 
+    public function test_d5_dispatched_and_not_returned_is_with_partner(): void
+    {
+        $this->assertStatus('D5 com a Empreiteira', [
+            'normal_fiscal_associated' => true,
+            'normal_fiscal_finished'   => true,
+            'd5_associated_to_note'    => true,
+            'd5_with_partner'          => true,
+        ]);
+    }
+
+    public function test_d5_with_partner_loses_to_d5_payment_finished_resolution(): void
+    {
+        $this->assertStatus('Aguardando Resolução D5', [
+            'd5_associated_to_note'       => true,
+            'd5_associated_to_production' => true,
+            'd5_fiscal_associated'        => true,
+            'd5_fiscal_finished'          => true,
+            'd5_payment_associated'       => true,
+            'd5_payment_finished'         => true,
+            'd5_with_partner'             => true,
+        ]);
+    }
+
     public function test_no_fiscalization_and_no_payment_is_inform_without_ads(): void
     {
         $this->assertStatus('Informe', []);
@@ -32,18 +49,18 @@ class WorkReportStatusResolverTest extends TestCase
     public function test_fiscalization_in_progress_without_payment(): void
     {
         $this->assertStatus('Em Fiscalização', [
-            'has_ads' => true,
+            'has_ads'                  => true,
             'normal_fiscal_associated' => true,
-            'normal_fiscal_finished' => false,
+            'normal_fiscal_finished'   => false,
         ]);
     }
 
     public function test_fiscalization_finished_without_payment(): void
     {
         $this->assertStatus('Aguardando Medição', [
-            'has_ads' => true,
+            'has_ads'                  => true,
             'normal_fiscal_associated' => true,
-            'normal_fiscal_finished' => true,
+            'normal_fiscal_finished'   => true,
         ]);
     }
 
@@ -51,7 +68,7 @@ class WorkReportStatusResolverTest extends TestCase
     {
         $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
-            'normal_payment_finished' => false,
+            'normal_payment_finished'   => false,
         ]);
     }
 
@@ -59,7 +76,7 @@ class WorkReportStatusResolverTest extends TestCase
     {
         $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
-            'normal_payment_finished' => false,
+            'normal_payment_finished'   => false,
         ]);
     }
 
@@ -67,17 +84,17 @@ class WorkReportStatusResolverTest extends TestCase
     {
         $this->assertStatus('Medição Inconsistente', [
             'normal_payment_associated' => true,
-            'normal_payment_finished' => true,
-            'd5_completed' => true,
+            'normal_payment_finished'   => true,
+            'd5_completed'              => true,
         ]);
     }
 
     public function test_d5_associated_to_note_but_not_production(): void
     {
         $this->assertStatus('Aguardando Despacho D5', [
-            'normal_fiscal_associated' => true,
-            'normal_fiscal_finished' => true,
-            'd5_associated_to_note' => true,
+            'normal_fiscal_associated'    => true,
+            'normal_fiscal_finished'      => true,
+            'd5_associated_to_note'       => true,
             'd5_associated_to_production' => false,
         ]);
     }
@@ -85,9 +102,9 @@ class WorkReportStatusResolverTest extends TestCase
     public function test_d5_associated_without_d5_fiscalization(): void
     {
         $this->assertStatus('Aguardando Fiscalização D5', [
-            'normal_fiscal_associated' => true,
-            'normal_fiscal_finished' => true,
-            'd5_associated_to_note' => true,
+            'normal_fiscal_associated'    => true,
+            'normal_fiscal_finished'      => true,
+            'd5_associated_to_note'       => true,
             'd5_associated_to_production' => true,
         ]);
     }
@@ -95,87 +112,87 @@ class WorkReportStatusResolverTest extends TestCase
     public function test_d5_fiscalization_in_progress(): void
     {
         $this->assertStatus('Fiscalização D5', [
-            'd5_associated_to_note' => true,
+            'd5_associated_to_note'       => true,
             'd5_associated_to_production' => true,
-            'd5_fiscal_associated' => true,
-            'd5_fiscal_finished' => false,
+            'd5_fiscal_associated'        => true,
+            'd5_fiscal_finished'          => false,
         ]);
     }
 
     public function test_d5_fiscalization_finished_without_payment(): void
     {
         $this->assertStatus('Aguardando Medição D5', [
-            'd5_associated_to_note' => true,
+            'd5_associated_to_note'       => true,
             'd5_associated_to_production' => true,
-            'd5_fiscal_associated' => true,
-            'd5_fiscal_finished' => true,
+            'd5_fiscal_associated'        => true,
+            'd5_fiscal_finished'          => true,
         ]);
     }
 
     public function test_d5_payment_in_progress(): void
     {
         $this->assertStatus('Liberando Carta', [
-            'd5_associated_to_note' => true,
+            'd5_associated_to_note'       => true,
             'd5_associated_to_production' => true,
-            'd5_fiscal_associated' => true,
-            'd5_fiscal_finished' => true,
-            'd5_payment_associated' => true,
-            'd5_payment_finished' => false,
+            'd5_fiscal_associated'        => true,
+            'd5_fiscal_finished'          => true,
+            'd5_payment_associated'       => true,
+            'd5_payment_finished'         => false,
         ]);
     }
 
     public function test_payment_finished_with_d5_not_completed(): void
     {
         $this->assertStatus('Aguardando Resolução D5', [
-            'd5_associated_to_note' => true,
+            'd5_associated_to_note'       => true,
             'd5_associated_to_production' => true,
-            'd5_fiscal_associated' => true,
-            'd5_fiscal_finished' => true,
-            'd5_payment_associated' => true,
-            'd5_payment_finished' => true,
-            'd5_completed' => false,
+            'd5_fiscal_associated'        => true,
+            'd5_fiscal_finished'          => true,
+            'd5_payment_associated'       => true,
+            'd5_payment_finished'         => true,
+            'd5_completed'                => false,
         ]);
     }
 
     public function test_d5_payment_before_latest_d5_fiscalization_does_not_close_current_cycle(): void
     {
-        $fiscalService = new Service(['service' => 'Fiscalização']);
+        $fiscalService  = new Service(['service' => 'Fiscalização']);
         $paymentService = new Service(['service' => 'Pagamento']);
 
         $firstD5Fiscal = new Production([
-            'completed' => true,
-            'partial' => false,
-            'dfive' => true,
-            'att_at' => '2026-04-02 17:25:55',
+            'completed'    => true,
+            'partial'      => false,
+            'dfive'        => true,
+            'att_at'       => '2026-04-02 17:25:55',
             'completed_at' => '2026-04-08 01:44:16',
         ]);
         $firstD5Fiscal->setRelation('Service', $fiscalService);
 
         $oldD5Payment = new Production([
-            'id' => 20,
-            'completed' => true,
-            'confirmed' => true,
-            'partial' => false,
-            'dfive' => true,
-            'att_at' => '2026-04-10 01:51:19',
+            'id'           => 20,
+            'completed'    => true,
+            'confirmed'    => true,
+            'partial'      => false,
+            'dfive'        => true,
+            'att_at'       => '2026-04-10 01:51:19',
             'completed_at' => '2026-04-10 02:00:59',
         ]);
         $oldD5Payment->setRelation('Service', $paymentService);
 
         $latestD5Fiscal = new Production([
-            'id' => 30,
-            'completed' => true,
-            'partial' => false,
-            'dfive' => true,
-            'att_at' => '2026-05-27 14:29:20',
+            'id'           => 30,
+            'completed'    => true,
+            'partial'      => false,
+            'dfive'        => true,
+            'att_at'       => '2026-05-27 14:29:20',
             'completed_at' => '2026-05-29 17:52:25',
         ]);
         $latestD5Fiscal->setRelation('Service', $fiscalService);
 
         $fiveNote = new FiveNote([
             'is_completed' => true,
-            'is_payed' => true,
-            'is_archived' => false,
+            'is_payed'     => true,
+            'is_archived'  => false,
         ]);
         $fiveNote->setRelation('productions', new EloquentCollection([$firstD5Fiscal, $oldD5Payment, $latestD5Fiscal]));
 
@@ -183,7 +200,7 @@ class WorkReportStatusResolverTest extends TestCase
         $note->setRelation('FiveNote', $fiveNote);
 
         $normalPaymentLink = new WorkReportFlowProduction([
-            'stage' => WorkReportFlowProduction::STAGE_PAYMENT,
+            'stage'      => WorkReportFlowProduction::STAGE_PAYMENT,
             'is_current' => true,
         ]);
         $normalPaymentLink->setRelation('Production', $oldD5Payment);
@@ -199,43 +216,43 @@ class WorkReportStatusResolverTest extends TestCase
     public function test_payment_finished_with_completed_d5_and_finished_fiscalizations(): void
     {
         $this->assertStatus('Finalizado', [
-            'normal_fiscal_associated' => true,
-            'normal_fiscal_finished' => true,
-            'd5_associated_to_note' => true,
+            'normal_fiscal_associated'    => true,
+            'normal_fiscal_finished'      => true,
+            'd5_associated_to_note'       => true,
             'd5_associated_to_production' => true,
-            'd5_completed' => true,
-            'd5_fiscal_associated' => true,
-            'd5_fiscal_finished' => true,
-            'd5_payment_associated' => true,
-            'd5_payment_finished' => true,
-            'letter_released' => true,
+            'd5_completed'                => true,
+            'd5_fiscal_associated'        => true,
+            'd5_fiscal_finished'          => true,
+            'd5_payment_associated'       => true,
+            'd5_payment_finished'         => true,
+            'letter_released'             => true,
         ]);
     }
 
     public function test_archived_d5_counts_as_released_letter_for_finalization(): void
     {
-        $fiscalService = new Service(['service' => 'Fiscalização']);
+        $fiscalService  = new Service(['service' => 'Fiscalização']);
         $paymentService = new Service(['service' => 'Pagamento']);
 
         $d5Fiscal = new Production([
             'completed' => true,
-            'partial' => false,
-            'dfive' => true,
+            'partial'   => false,
+            'dfive'     => true,
         ]);
         $d5Fiscal->setRelation('Service', $fiscalService);
 
         $d5Payment = new Production([
             'completed' => false,
             'confirmed' => false,
-            'partial' => false,
-            'dfive' => true,
+            'partial'   => false,
+            'dfive'     => true,
         ]);
         $d5Payment->setRelation('Service', $paymentService);
 
         $fiveNote = new FiveNote([
             'is_completed' => true,
-            'is_payed' => false,
-            'is_archived' => true,
+            'is_payed'     => false,
+            'is_archived'  => true,
         ]);
         $fiveNote->setRelation('productions', new EloquentCollection([$d5Fiscal, $d5Payment]));
 
@@ -252,23 +269,23 @@ class WorkReportStatusResolverTest extends TestCase
 
     public function test_partial_productions_are_ignored_for_final_work_report_status(): void
     {
-        $service = new Service(['service' => 'Pagamento']);
+        $service        = new Service(['service' => 'Pagamento']);
         $partialPayment = new Production([
             'completed' => true,
             'confirmed' => true,
-            'partial' => true,
+            'partial'   => true,
         ]);
         $partialPayment->setRelation('Service', $service);
 
         $flowProduction = new WorkReportFlowProduction([
-            'stage' => WorkReportFlowProduction::STAGE_PAYMENT,
+            'stage'      => WorkReportFlowProduction::STAGE_PAYMENT,
             'is_current' => true,
         ]);
         $flowProduction->setRelation('Production', $partialPayment);
 
         $fiveNote = new FiveNote([
             'is_completed' => true,
-            'is_payed' => true,
+            'is_payed'     => true,
         ]);
         $fiveNote->setRelation('productions', new EloquentCollection([$partialPayment]));
 
@@ -400,10 +417,10 @@ class WorkReportStatusResolverTest extends TestCase
     {
         return $this->resolveWithOrderOperations([
             [
-                'ordem' => '1700000001',
-                'operacao' => $code,
+                'ordem'      => '1700000001',
+                'operacao'   => $code,
                 'inicioReal' => $inicioReal,
-                'fimReal' => $fimReal,
+                'fimReal'    => $fimReal,
             ],
         ]);
     }
@@ -414,17 +431,17 @@ class WorkReportStatusResolverTest extends TestCase
             ->groupBy('ordem')
             ->map(function ($orderRows, string $ordem) {
                 $firstRow = $orderRows->first();
-                $order = new Order([
-                    'ordem' => $ordem,
+                $order    = new Order([
+                    'ordem'      => $ordem,
                     'statusSist' => $firstRow['statusSist'] ?? null,
                 ]);
                 $order->id = $firstRow['id'] ?? null;
                 $order->setRelation('Operations', new EloquentCollection(
                     $orderRows
                         ->map(fn (array $row) => new Operation([
-                            'operacao' => $row['operacao'],
+                            'operacao'   => $row['operacao'],
                             'inicioReal' => $row['inicioReal'] ?? null,
-                            'fimReal' => $row['fimReal'] ?? null,
+                            'fimReal'    => $row['fimReal'] ?? null,
                         ]))
                         ->all()
                 ));
