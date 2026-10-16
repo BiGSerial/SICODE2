@@ -122,7 +122,9 @@ class FinishD5 extends Component
         }
 
         try {
-            $this->validate();
+            // Só o responsável é exigido ao encerrar. A descrição (detalhes do informe) é
+            // texto de origem, não editável aqui, e não pode bloquear o encerramento.
+            $this->validate(['five.name' => $this->rules['five.name']]);
         } catch (ValidationException $e) {
             // O erro de campo fica na coluna lateral, fora da área visível do modal.
             // Sem este aviso o botão parecia não fazer nada.
