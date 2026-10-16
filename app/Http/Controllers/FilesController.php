@@ -126,30 +126,42 @@ class FilesController extends Controller
         EvidenceThumbnailService $thumbnails,
         Request $request
     ) {
+        $user = $request->user();
+        abort_if(!$user, 403, 'Nao autorizado.');
+
+        $allowed = app(\App\Services\Closure\ClosureWorkService::class)->canViewEvidenceOf($file->evidenciable, $user);
+        abort_if($allowed === false, 403, 'Sem acesso a esta evidencia.');
+
         if (!$evidence->exists($file)) {
             abort(404, 'Arquivo de evidencia nao encontrado para visualizacao.');
         }
 
         $name = $file->original_name ?: $file->stored_name ?: 'evidencia';
+
         if ($request->boolean('thumbnail')) {
             $thumbnail = $thumbnails->ensure($file);
+
             if ($thumbnail) {
                 return response(
                     Storage::disk($thumbnail['disk'])->get($thumbnail['path']),
                     200,
                     [
-                        'Content-Type' => 'image/webp',
+                        'Content-Type'        => 'image/webp',
                         'Content-Disposition' => 'inline; filename="' . addslashes(pathinfo($name, PATHINFO_FILENAME) . '.webp') . '"',
-                        'Cache-Control' => 'private, max-age=86400',
+                        'Cache-Control'       => 'private, max-age=86400',
                     ]
                 );
             }
         }
 
+        $mime   = strtolower((string) $evidence->mimeType($file));
+        $inline = in_array($mime, ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'], true);
+
         return response($evidence->get($file), 200, [
-            'Content-Type'        => $evidence->mimeType($file),
-            'Content-Disposition' => 'inline; filename="' . addslashes($name) . '"',
-            'Cache-Control'       => 'private, max-age=300',
+            'Content-Type'           => $inline ? $mime : 'application/octet-stream',
+            'Content-Disposition'    => ($inline ? 'inline' : 'attachment') . '; filename="' . addslashes($name) . '"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control'          => 'private, max-age=300',
         ]);
     }
 
@@ -280,7 +292,7 @@ class FilesController extends Controller
         abort_unless(is_file($absolutePath) && filesize($absolutePath) > 0, 404, "Arquivo ZIP vazio ou indisponível.");
 
         return response()->download($absolutePath, $batch->download_name ?: "arquivos.zip", [
-            "Content-Type" => "application/zip",
+            "Content-Type"  => "application/zip",
             "Cache-Control" => "private, no-store",
         ]);
     }

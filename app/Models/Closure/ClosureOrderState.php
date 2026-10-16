@@ -24,6 +24,8 @@ class ClosureOrderState extends Model
         'last_status_sist_seen',
         'last_status_sist_checked_at',
         'closed_at',
+        'closed_meta_type',
+        'closed_meta_period',
         'cancelled_at',
         'cancelled_reason',
     ];

@@ -2,7 +2,7 @@
 
 namespace App\Services\Closure;
 
-use App\Models\Closure\{ClosureIssue, ClosureIssueCategory, ClosureIssueEvent, ClosureIssueSubcategory, ClosureOrderState};
+use App\Models\Closure\{ClosureIssue, ClosureIssueCategory, ClosureIssueEvent, ClosureIssueSubcategory, ClosureOrderState, ClosureWorkMessage};
 use App\Models\{Company, User};
 use Illuminate\Support\Facades\DB;
 
@@ -53,6 +53,27 @@ class ClosureIssueWorkflowService
         }, 3);
     }
 
+    /**
+     * Abre a pendência e já a envia à parceira. Categoria e subcategoria são
+     * obrigatórias (e validadas por open()).
+     */
+    public function requestToPartner(
+        ClosureOrderState $state,
+        ClosureIssueCategory $category,
+        ClosureIssueSubcategory $subcategory,
+        Company $destination,
+        User $actor,
+        ?string $description,
+        ?string $message = null,
+        bool $blocking = true,
+    ): ClosureIssue {
+        return DB::transaction(function () use ($state, $category, $subcategory, $destination, $actor, $description, $message, $blocking) {
+            $issue = $this->open($state, $category, $subcategory, $destination, $actor, $description, $blocking);
+
+            return $this->request($issue, $actor, $message ?? $description);
+        }, 3);
+    }
+
     public function request(ClosureIssue $issue, User $actor, ?string $message = null): ClosureIssue
     {
         return $this->transition($issue, $actor, 'REQUESTED', self::ORIGIN_INTERNAL, [ClosureIssue::STATUS_OPEN, ClosureIssue::STATUS_RETURNED], ClosureIssue::STATUS_REQUESTED, $message);
@@ -84,6 +105,10 @@ class ClosureIssueWorkflowService
             $before = $issue->status;
             $issue->update(['status' => ClosureIssue::STATUS_RETURNED, 'cycle' => $issue->cycle + 1]);
             $this->event($issue, $actor, 'RETURNED_FOR_CORRECTION', self::ORIGIN_INTERNAL, $before, $issue->status, $reason);
+
+            $work = app(ClosureWorkService::class);
+            $work->recordIssueMessage($issue, $actor, $work->internalRoleFor($actor), $reason);
+            app(ClosureNotifier::class)->issueReturnedToPartner($issue, $actor);
 
             return $issue->fresh();
         }, 3);
@@ -128,9 +153,27 @@ class ClosureIssueWorkflowService
             }
             $issue->update($dates);
             $this->event($issue, $actor, $type, $origin, $before, $next, $message);
+            $this->collaborate($issue, $actor, $next, $message);
 
             return $issue->fresh();
         }, 3);
+    }
+
+    /** Espelha a transição no chat da obra e notifica o destinatário certo (após commit). */
+    private function collaborate(ClosureIssue $issue, User $actor, string $next, ?string $message): void
+    {
+        $work     = app(ClosureWorkService::class);
+        $notifier = app(ClosureNotifier::class);
+
+        if ($next === ClosureIssue::STATUS_REQUESTED) {
+            $work->recordIssueMessage($issue, $actor, $work->internalRoleFor($actor), (string) $message);
+            $notifier->issueRequestedToPartner($issue, $actor);
+        }
+
+        if ($next === ClosureIssue::STATUS_RESPONDED) {
+            $work->recordIssueMessage($issue, $actor, ClosureWorkMessage::ROLE_PARTNER, (string) $message);
+            $notifier->partnerResponded($issue, $actor);
+        }
     }
 
     private function assertTaxonomyCanBeUsed(ClosureIssueCategory $category, ClosureIssueSubcategory $subcategory): void
@@ -146,7 +189,7 @@ class ClosureIssueWorkflowService
 
     private function validatedDescription(ClosureIssueSubcategory $subcategory, ?string $description): ?string
     {
-        $description = $description === null ? null : trim($description);
+        $description = trim($description ?? '');
 
         if ($subcategory->requires_description && $description === '') {
             throw new ClosureIssueWorkflowException('Esta subcategoria exige uma descrição.');

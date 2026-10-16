@@ -64,3 +64,19 @@ Como recuperação controlada, o orquestrador enviou a primeira tarefa diretamen
 | Taxonomia e trilha | Categorias/subcategorias inativáveis, pendência, ciclos e eventos imutáveis. | Valores históricos preservados; subcategoria pertence à categoria; cada mudança possui ator, origem e antes/depois. | Aguardando validação | Implementados migration, quatro models e `ClosureIssueWorkflowService`; há teste focal com os critérios. A execução da suíte está bloqueada pelo acesso ao Docker do ambiente (`permission denied` em `/var/run/docker.sock`). |
 | Retorno da parceira | Fluxo abrir → solicitar → responder → validar/devolver → resolver, com destino por empresa. | A devolução incrementa o ciclo da mesma pendência; o serviço de domínio verifica empresa e transição. | Aguardando validação | O workflow já está no mesmo serviço: confere destinatária, transição e incrementa o ciclo sem fragmentar o registro. A tela/caixa parceira continua planejada. |
 | Portal e documentação | Caixa parceira isolada, filtros históricos e guia de uso. | Parceira não lê/escreve pendência de outra empresa e não recebe ação de posse/SAP. | Aguardando validação | Entregues rota `partner.closure.issues`, componente `Partner\\ClosureIssues\\Index`, filtro por empresa de destino, resposta com permissão própria, menu e guia. A rota e cache de views foram verificados; o teste com banco segue bloqueado pelo Docker. Anexos/evidências permanecem fora deste recorte. |
+
+## Rodada 6 — Reformulação (2026-10-16)
+
+**Objetivo:** reformular o Encerramento para o padrão das demais atividades, com despacho por Ordem e tipos P/M/F. Plano mestre, entregas e pendências: `REFORMULACAO_ENCERRAMENTO.md`.
+
+| Frente | Escopo | Critério de aceite | Situação | Evidência |
+|---|---|---|---|---|
+| A1 Domínio | `ClosureMetaClassifier`, `closure_settings`, novos status, migração `WAITING_RETURN`→`WAITING_PARTNER`, congelamento do tipo, despacho multi-Nota. | Tipo P/M/F derivado e congelado ao encerrar; Futura vai para Aguardando só se permitido; testes verdes. | Concluída | Suíte Closure 102 testes/510 asserções à época; relatório do agente. |
+| A2 Colaboração | Chat por obra, taxonomia de categorias, pedidos de prioridade, `ClosureWorkService`. | Mensagens e pedidos persistem com autor/papel; acesso por nível (despachante/interno/parceira). | Concluída | 26 testes novos verdes; relatório do agente. |
+| B Despacho | Lista por Ordem, seleção em massa, prévia/recibo, painel de configurações. | Despacha Ordens de várias Notas sem `closure_target`; configurações persistem. | Concluída | Testes (`ClosureDispatchScreenTest`, `ClosureSettingsTest`) + relatório do agente. |
+| C Painel analítico | Volumetria, interação com parceiras, prioridade, obras críticas, transferência. | Números batem com o estoque; transferência gera recibo. | Concluída | `ClosureDispatcherAnalyticsTest`, `ClosureDispatchDashboardScreenTest` + relatório do agente. |
+| D Serviço | Minha atividade, Atividades disponíveis (auto-atribuição), status, finalizar. | Só tipos liberados são assumíveis; Futura bloqueada sem permissão. | Concluída | `ClosureWorkScreenTest`, `ClosureAvailableWorkTest`, `ClosureStatusTransitionsTest` + relatório do agente. |
+| E Gestão da Obra + parceira | Tela por Nota com chat, categorias, prioridade; rota da parceira. | Parceira só vê a própria empresa e mensagens "Com parceira". | Concluída | `ClosureWorkShowScreenTest`, `ClosurePartnerWorkScreenTest`, `ClosureWorkMessagesTest` + relatório do agente. |
+| G Menu/rotas/gates | Menu Encerramento, rotas `closure.*`, gates. | Itens aparecem só com o gate certo. | Concluída | `ClosureMenuTest`, `ClosureSpecializedNavigationTest`. |
+
+Resultado integrado: suíte `tests/Feature/Closure` com 159 testes e 799 asserções verdes. Em aberto: F (notificações — atribuição só notifica pelo Despacho), H (docs), I (QA/Pint/validação visual); limitações em §11 do documento mestre.

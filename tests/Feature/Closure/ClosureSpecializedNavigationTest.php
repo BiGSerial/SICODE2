@@ -64,7 +64,7 @@ class ClosureSpecializedNavigationTest extends TestCase
 
         Livewire::test(WorkIndex::class)
             ->assertOk()
-            ->assertSee('Ordens que estão com você ou na pilha da sua empresa.')
+            ->assertSee('Ordens atribuídas a você')
             ->assertSee('Fila operacional');
     }
 

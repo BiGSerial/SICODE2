@@ -24,6 +24,21 @@ class ClosureController extends Controller
         return view('closure.dispatch');
     }
 
+    public function dispatchDashboard()
+    {
+        return view('closure.dispatch-dashboard');
+    }
+
+    public function availableWork()
+    {
+        return view('closure.available-work');
+    }
+
+    public function workShow(int $note)
+    {
+        return view('closure.work-show', ['noteId' => $note]);
+    }
+
     public function myWork()
     {
         return view('closure.my-work');

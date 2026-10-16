@@ -26,13 +26,22 @@
     $showConstrucao = $constructionDispatchItems->isNotEmpty() || $constructionServiceItems->isNotEmpty();
     $showQualityShortcut = auth()->user()->can('quality.access');
     $showProjectReviewShortcut = auth()->user()->can('analyst');
-    $showClosureShortcut = auth()->user()->can('closure.manager');
+
+    // Serviços com telas próprias: folder => rota/gate por tipo de menu.
+    $specializedRoutes = [
+        'encerramento' => [
+            'dispatch' => ['route' => 'closure.dispatch', 'can' => 'closure.dispatch'],
+            'service'  => ['route' => 'closure.work', 'can' => 'closure.work'],
+        ],
+    ];
+    $specialized = fn($service, string $kind) => $specializedRoutes[$service->Service->folder ?? ''][$kind] ?? null;
 
     $buildDispatchItems = fn($items) => $items
         ->map(fn($service) => [
             'label' => mb_strtoupper($service->Service->service),
-            'route' => 'dispatch.main',
-            'routeParams' => ['service' => $service->service_id],
+            'route' => $specialized($service, 'dispatch')['route'] ?? 'dispatch.main',
+            'routeParams' => $specialized($service, 'dispatch') ? [] : ['service' => $service->service_id],
+            'can' => $specialized($service, 'dispatch')['can'] ?? null,
             'icon' => $service->Service->icon,
             'iconClass' => 'text-danger',
         ])
@@ -40,15 +49,22 @@
         ->all();
 
     $buildServiceItems = fn($items) => $items
-        ->map(fn($service) => [
-            'label' => mb_strtoupper($service->Service->service),
-            'route' => 'services.main',
-            'routeParams' => ['service' => $service->service_id],
-            'icon' => $service->Service->icon,
-            'countComponent' => 'components.count.countnotes',
-            'countParams' => ['service' => $service->service_id],
-            'countKey' => 'menu' . $service->service_id,
-        ])
+        ->map(fn($service) => $specialized($service, 'service')
+            ? [
+                'label' => mb_strtoupper($service->Service->service),
+                'route' => $specialized($service, 'service')['route'],
+                'can' => $specialized($service, 'service')['can'],
+                'icon' => $service->Service->icon,
+            ]
+            : [
+                'label' => mb_strtoupper($service->Service->service),
+                'route' => 'services.main',
+                'routeParams' => ['service' => $service->service_id],
+                'icon' => $service->Service->icon,
+                'countComponent' => 'components.count.countnotes',
+                'countParams' => ['service' => $service->service_id],
+                'countKey' => 'menu' . $service->service_id,
+            ])
         ->values()
         ->all();
 
@@ -67,14 +83,6 @@
                 'label' => 'ANÁLISE PROJETO',
                 'route' => 'project_review.list',
                 'icon' => 'ri-file-search-line',
-            ]
-            : null,
-        $showClosureShortcut
-            ? [
-                'kind' => 'item',
-                'label' => 'ENCERRAMENTO',
-                'route' => 'closure.overview',
-                'icon' => 'ri-checkbox-circle-line',
             ]
             : null,
         $showProjeto
@@ -135,7 +143,7 @@
         ->all();
 @endphp
 
-@if ($showProjeto || $showConstrucao || $showProjectReviewShortcut || $showClosureShortcut || $showQualityShortcut)
+@if ($showProjeto || $showConstrucao || $showProjectReviewShortcut || $showQualityShortcut)
     <x-menu.dynamic-dropdown
         title="ATIVIDADES"
         :nodes="$nodes"

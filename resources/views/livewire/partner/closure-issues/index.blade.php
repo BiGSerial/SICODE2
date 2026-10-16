@@ -68,7 +68,10 @@
                             <td><span class="badge text-bg-secondary">{{ $issue->status }}</span><br><small>Ciclo {{ $issue->cycle }}</small></td>
                             <td>{{ optional($issue->requested_at ?? $issue->opened_at)->format('d/m/Y H:i') }}</td>
                             <td>{{ optional($issue->Events->last())->created_at?->format('d/m/Y H:i') ?? '—' }}</td>
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
+                                @if ($issue->Order?->note_id && \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'closure.issues.respond'))
+                                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('partner.closure.work.show', $issue->Order->note_id) }}">Abrir obra</a>
+                                @endif
                                 @if (in_array($issue->status, ['REQUESTED', 'RETURNED'], true) && \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'closure.issues.respond'))
                                     <button class="btn btn-sm btn-primary" wire:click="startResponse({{ $issue->id }})">Responder</button>
                                 @endif

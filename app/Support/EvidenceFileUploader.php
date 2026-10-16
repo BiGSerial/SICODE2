@@ -3,7 +3,9 @@
 namespace App\Support;
 
 use App\Models\{CancellationRequest, EvidenceFile, User};
+use App\Models\Closure\ClosureWorkMessage;
 use App\Services\Files\{FileStorageService, StorageContextResolver};
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
@@ -38,7 +40,35 @@ class EvidenceFileUploader
         return $this->storeSingleCancellationFile($file, 'evidences/CANCELLATION_SHARED', $noteRef);
     }
 
-    public function attachEvidence(CancellationRequest $request, User $user, array $data, string $origin): EvidenceFile
+    /**
+     * Anexa arquivos a uma mensagem do chat da obra (morph EvidenceFile.evidenciable).
+     *
+     * @param array<int, mixed> $attachments
+     * @return array<int, EvidenceFile>
+     */
+    public function storeClosureWorkMessageEvidence(
+        ClosureWorkMessage $message,
+        array $attachments,
+        User $user,
+        string $noteRef,
+        string $origin = 'CLOSURE_WORK_MESSAGE'
+    ): array {
+        $saved   = [];
+        $noteRef = $this->normalizeNoteRef($noteRef);
+
+        foreach ($attachments as $file) {
+            if (!$file instanceof UploadedFile) {
+                continue;
+            }
+
+            $data    = $this->storeSingleCancellationFile($file, 'evidences/CLOSURE_WORK_MESSAGE/' . $message->id, $noteRef);
+            $saved[] = $this->attachEvidence($message, $user, $data, $origin);
+        }
+
+        return $saved;
+    }
+
+    public function attachEvidence(Model $request, User $user, array $data, string $origin): EvidenceFile
     {
         return $request->EvidenceFiles()->create([
             'user_id'       => $user->id,

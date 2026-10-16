@@ -4,32 +4,11 @@ use App\Models\Closure\{ClosureIssue, ClosureIssueCategory, ClosureIssueSubcateg
 use App\Models\Company;
 use App\Services\Closure\{ClosureIssueWorkflowException, ClosureIssueWorkflowService, ClosureOrderWorkflowService};
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
+
+require_once __DIR__ . '/ClosureScreenFixture.php';
 
 uses(RefreshDatabase::class);
-
-function closureIssueTaxonomy(bool $requiresDescription = false): array
-{
-    $category    = ClosureIssueCategory::query()->create(['name' => 'Documento pendente ' . fake()->unique()->numerify('###')]);
-    $subcategory = ClosureIssueSubcategory::query()->create([
-        'closure_issue_category_id' => $category->id,
-        'name'                      => 'Comprovante ' . fake()->unique()->numerify('###'),
-        'requires_description'      => $requiresDescription,
-    ]);
-
-    return compact('category', 'subcategory');
-}
-
-function closureIssueFixture(bool $requiresDescription = false): array
-{
-    ['company'  => $company, 'actor' => $actor, 'state' => $state] = closureWorkflowFixture();
-    ['category' => $category, 'subcategory' => $subcategory]       = closureIssueTaxonomy($requiresDescription);
-    $destination                                                   = Company::query()->create([
-        'name'  => 'Destino pendência ' . fake()->unique()->numerify('###'),
-        'email' => fake()->unique()->safeEmail(),
-    ]);
-
-    return compact('company', 'actor', 'state', 'category', 'subcategory', 'destination');
-}
 
 it('classifies, blocks, and restores the activity after resolving a pending issue', function () {
     ['actor' => $actor, 'state' => $state, 'category' => $category, 'subcategory' => $subcategory, 'destination' => $destination] = closureIssueFixture(true);
@@ -43,7 +22,7 @@ it('classifies, blocks, and restores the activity after resolving a pending issu
     expect($issue->status)->toBe(ClosureIssue::STATUS_OPEN)
         ->and($issue->cycle)->toBe(1)
         ->and($issue->Events()->sole()->type)->toBe('OPENED')
-        ->and($state->fresh()->operational_status)->toBe(ClosureOrderWorkflowService::STATUS_WAITING_RETURN)
+        ->and($state->fresh()->operational_status)->toBe(ClosureOrderWorkflowService::STATUS_WAITING_PARTNER)
         ->and($state->fresh()->LastEvent->type)->toBe(ClosureOrderWorkflowService::EVENT_ISSUE_BLOCKED);
 
     $requested = $workflow->request($issue, $actor, 'Favor enviar o comprovante.');
@@ -67,7 +46,7 @@ it('keeps one issue and increments its cycle when it is returned for correction'
     expect($returned->id)->toBe($issue->id)
         ->and($returned->status)->toBe(ClosureIssue::STATUS_RETURNED)
         ->and($returned->cycle)->toBe(2)
-        ->and($returned->Events()->latest('id')->first()->meta['message'])->toBe('Documento ilegível.');
+        ->and($returned->Events()->reorder()->latest('id')->first()->meta['message'])->toBe('Documento ilegível.');
 });
 
 it('refuses taxonomy misuse, inactive taxonomy and an answer from another partner', function () {
@@ -98,4 +77,31 @@ it('preserves historical taxonomy and makes issue events immutable', function ()
     expect($issue->fresh()->Category->active)->toBeFalse()
         ->and($issue->fresh()->Subcategory->active)->toBeFalse()
         ->and(fn () => $issue->Events()->first()->update(['type' => 'ALTERED']))->toThrow(LogicException::class, 'imutáveis');
+});
+
+it('opens and sends to the partner in one step, requiring a valid taxonomy', function () {
+    Notification::fake();
+    ['actor' => $actor, 'state' => $state, 'category' => $category, 'subcategory' => $subcategory, 'destination' => $destination] = closureIssueFixture(true);
+    $workflow                                                                                                                     = app(ClosureIssueWorkflowService::class);
+    $anotherCategory                                                                                                              = ClosureIssueCategory::query()->create(['name' => 'Categoria alheia ' . fake()->unique()->numerify('###')]);
+
+    expect(fn () => $workflow->requestToPartner($state, $anotherCategory, $subcategory, $destination, $actor, 'Descrição.'))
+        ->toThrow(ClosureIssueWorkflowException::class, 'não pertence')
+        ->and(fn () => $workflow->requestToPartner($state, $category, $subcategory, $destination, $actor, null))
+        ->toThrow(ClosureIssueWorkflowException::class, 'exige uma descrição');
+
+    $issue = $workflow->requestToPartner($state, $category, $subcategory, $destination, $actor, 'Falta documento.', 'Favor enviar.');
+
+    expect($issue->status)->toBe(ClosureIssue::STATUS_REQUESTED)
+        ->and($issue->closure_issue_category_id)->toBe($category->id)
+        ->and($issue->Events()->pluck('type')->all())->toBe(['OPENED', 'REQUESTED']);
+});
+
+it('ships the seeded closure taxonomy honoring requires_description', function () {
+    $category = ClosureIssueCategory::query()->where('slug', 'material-migo-pendente')->firstOrFail();
+
+    expect(ClosureIssueCategory::query()->count())->toBeGreaterThanOrEqual(7)
+        ->and($category->Subcategories()->where('active', true)->count())->toBeGreaterThan(1)
+        ->and(ClosureIssueSubcategory::query()->where('slug', 'outro-motivo')->firstOrFail()->requires_description)->toBeTrue()
+        ->and(ClosureIssueSubcategory::query()->where('slug', 'migo-nao-realizada')->where('requires_description', false)->exists())->toBeTrue();
 });

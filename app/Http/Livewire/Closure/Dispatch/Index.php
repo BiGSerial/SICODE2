@@ -2,58 +2,103 @@
 
 namespace App\Http\Livewire\Closure\Dispatch;
 
-use App\Models\{ClosureCycle, Company, Order, User};
-use App\Services\Closure\{ClosureDispatchException, ClosureDispatchService};
-use Illuminate\Database\Eloquent\Builder;
-use Livewire\Component;
+use App\Enum\ClosureOperationalStatus;
+use App\Models\Closure\ClosureOrderState;
+use App\Models\{Company, Order, User};
+use App\Services\Closure\{ClosureDispatchException, ClosureDispatchService, ClosureNotifier, ClosureSettings};
+use App\Services\Closure\Queries\ClosureDispatchListQuery;
+use Livewire\{Component, WithPagination};
 
 class Index extends Component
 {
+    use WithPagination;
+
+    public const PER_PAGE = 25;
+
+    protected $paginationTheme = 'bootstrap';
+
     public string $search = '';
 
-    public string $scope = 'all';
+    /** @var array<int, string> P/M/F */
+    public array $types = [];
+
+    public ?string $status = null;
+
+    public ?string $filterCompanyId = null;
+
+    public ?string $cityId = null;
+
+    /** Sem tipo: ids de usuário são UUID e o select envia string. */
+    public $filterAssigneeId = null;
+
+    public bool $onlyUndispatched = false;
 
     public array $selectedOrderIds = [];
 
     public ?string $companyId = null;
 
-    public ?int $assigneeId = null;
+    public $assigneeId = null;
 
     public bool $showPreview = false;
 
     public array $previewRows = [];
 
-    public ?string $previewNoteLabel = null;
+    /** Recibo por Ordem do último despacho. */
+    public array $receipt = [];
 
     public ?string $feedbackMessage = null;
 
     public ?string $feedbackType = null;
 
+    public bool $showSettings = false;
+
+    public bool $allowFutureCompletion = false;
+
+    public bool $selfAssignEnabled = false;
+
+    public array $selfAssignTypes = [];
+
     protected $queryString = [
         'search' => ['except' => ''],
-        'scope'  => ['except' => 'all'],
+        'types'  => ['except' => []],
+        'status' => ['except' => null],
     ];
 
     public function mount(): void
     {
-        abort_unless(auth()->user()?->can('closure.dispatch'), 403);
+        $this->authorizeDispatch();
+
+        $this->loadSettings();
     }
 
-    public function updatedSearch(): void
+    public function updatingSearch(): void
     {
-        $this->resetPageState();
+        $this->resetPage();
     }
 
-    public function updatedScope(): void
+    public function updated(string $name): void
     {
-        $this->resetPageState();
+        if (in_array($name, ['types', 'status', 'filterCompanyId', 'cityId', 'filterAssigneeId', 'onlyUndispatched'], true)
+            || str_starts_with($name, 'types.')) {
+            $this->resetPage();
+        }
     }
 
     public function updatedCompanyId(): void
     {
-        $this->assigneeId  = null;
-        $this->showPreview = false;
-        $this->previewRows = [];
+        $this->assigneeId = null;
+        $this->invalidatePreview();
+    }
+
+    public function updatedAssigneeId(): void
+    {
+        $this->invalidatePreview();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset(['search', 'types', 'status', 'filterCompanyId', 'cityId', 'filterAssigneeId', 'onlyUndispatched']);
+        $this->resetPage();
     }
 
     public function toggleOrder(int $orderId): void
@@ -64,97 +109,64 @@ class Index extends Component
             ? $selected->reject(fn (int $id) => $id === $orderId)->values()->all()
             : $selected->push($orderId)->unique()->values()->all();
 
-        $this->showPreview = false;
-        $this->previewRows = [];
+        $this->invalidatePreview();
     }
 
     public function toggleVisibleOrders(): void
     {
-        $visibleIds = $this->ordersQuery()->limit(100)->pluck('orders.id')->map(fn ($id) => (int) $id);
-        $selected   = collect($this->selectedOrderIds)->map(fn ($id) => (int) $id);
+        $visible  = $this->listQuery()->query($this->filters())->forPage($this->page, self::PER_PAGE)->pluck('orders.id')->map(fn ($id) => (int) $id);
+        $selected = collect($this->selectedOrderIds)->map(fn ($id) => (int) $id);
 
-        $this->selectedOrderIds = $visibleIds->every(fn (int $id) => $selected->contains($id))
-            ? $selected->reject(fn (int $id) => $visibleIds->contains($id))->values()->all()
-            : $selected->merge($visibleIds)->unique()->values()->all();
+        $this->selectedOrderIds = $visible->every(fn (int $id) => $selected->contains($id))
+            ? $selected->reject(fn (int $id) => $visible->contains($id))->values()->all()
+            : $selected->merge($visible)->unique()->values()->all();
 
-        $this->showPreview = false;
-        $this->previewRows = [];
+        $this->invalidatePreview();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selectedOrderIds = [];
+        $this->invalidatePreview();
     }
 
     public function preparePreview(): void
     {
+        $this->authorizeDispatch();
         $this->resetFeedback();
+        $this->receipt = [];
 
-        if (!$this->companyId) {
-            $this->feedback('Informe a empresa de destino antes de continuar.', 'warning');
+        [$company, $assignee] = $this->resolveTarget();
 
+        if (!$company) {
             return;
         }
 
-        $orders = $this->selectedOrders();
+        $this->previewRows = $this->listQuery()->eligibility($this->selectedOrderIds, $company, $assignee);
 
-        if ($orders->isEmpty()) {
+        if ($this->previewRows === []) {
             $this->feedback('Selecione ao menos uma Ordem para preparar o despacho.', 'warning');
 
             return;
         }
 
-        if ($orders->pluck('note_id')->unique()->count() !== 1) {
-            $this->feedback('Selecione Ordens de uma única Nota/OV por vez.', 'warning');
-
-            return;
-        }
-
-        $company = Company::query()->find($this->companyId);
-
-        if (!$company) {
-            $this->feedback('A empresa de destino não está mais disponível. Escolha outra empresa.', 'warning');
-
-            return;
-        }
-
-        $assignee = $this->selectedAssignee($company);
-
-        if ($this->assigneeId && !$assignee) {
-            $this->feedback('O usuário escolhido não pertence à empresa de destino.', 'warning');
-
-            return;
-        }
-
-        $this->previewRows      = $orders->map(fn (Order $order) => $this->eligibilityFor($order, $company, $assignee))->all();
-        $this->previewNoteLabel = (string) $orders->first()->Note?->note;
-        $this->showPreview      = true;
+        $this->showPreview = true;
     }
 
     public function confirmDispatch(): void
     {
-        $this->preparePreview();
+        $this->authorizeDispatch();
+        $this->resetFeedback();
 
-        if (!$this->showPreview) {
-            return;
-        }
+        [$company, $assignee] = $this->resolveTarget();
 
-        if (collect($this->previewRows)->contains(fn (array $row) => !$row['eligible'])) {
-            $this->feedback('Revise as recusas da prévia antes de confirmar o despacho.', 'warning');
-
-            return;
-        }
-
-        $orders   = $this->selectedOrders();
-        $note     = $orders->first()?->Note;
-        $company  = Company::query()->find($this->companyId);
-        $assignee = $company ? $this->selectedAssignee($company) : null;
-
-        if (!$note || !$company) {
-            $this->feedback('A seleção mudou. Atualize a prévia antes de confirmar.', 'warning');
-
+        if (!$company) {
             return;
         }
 
         try {
-            $result = app(ClosureDispatchService::class)->dispatch(
-                $note,
-                $orders->pluck('id')->all(),
+            $result = app(ClosureDispatchService::class)->dispatchOrders(
+                $this->selectedOrderIds,
                 $company,
                 $assignee,
                 auth()->user(),
@@ -165,27 +177,74 @@ class Index extends Component
             return;
         } catch (\Throwable $exception) {
             report($exception);
-
             $this->feedback('Não foi possível concluir o despacho agora. Tente novamente em alguns minutos.', 'danger');
 
             return;
         }
 
-        $count   = $result->addedOrderIds->count();
-        $message = $result->isIdempotent()
-            ? 'As Ordens já estavam vinculadas a este mesmo despacho. Nenhuma duplicidade foi criada.'
-            : ($count === 1 ? '1 Ordem foi despachada com sucesso.' : "{$count} Ordens foram despachadas com sucesso.");
+        if ($assignee) {
+            $this->notifyAssigned($result->dispatchedOrderIds()->all());
+        }
 
-        $this->selectedOrderIds = [];
-        $this->showPreview      = false;
-        $this->previewRows      = [];
-        $this->previewNoteLabel = null;
-        $this->feedback($message, 'success');
+        $ordens = Order::query()->with('Note:id,note')->whereIn('id', collect($result->orders)->pluck('order_id'))->get()->keyBy('id');
+
+        $this->receipt = collect($result->orders)->map(fn (array $item) => [
+            'order_id' => $item['order_id'],
+            'ordem'    => $ordens->get($item['order_id'])?->ordem,
+            'note'     => $ordens->get($item['order_id'])?->Note?->note,
+            'type'     => $item['meta_type'],
+            'status'   => $item['status'],
+            'message'  => $item['message'],
+        ])->all();
+
+        $done    = $result->dispatchedOrderIds()->count();
+        $already = $result->alreadyDispatchedOrderIds()->count();
+        $refused = $result->refusedOrderIds()->count();
+
+        // Mantém selecionadas apenas as recusadas para o usuário corrigir/reenviar.
+        $this->selectedOrderIds = $result->refusedOrderIds()->all();
+        $this->invalidatePreview();
+        $this->feedback(
+            "{$done} despachada(s), {$already} já despachada(s), {$refused} recusada(s).",
+            $refused === 0 ? 'success' : ($done + $already > 0 ? 'warning' : 'danger')
+        );
+    }
+
+    public function openSettings(): void
+    {
+        $this->authorizeDispatch();
+        $this->loadSettings();
+        $this->showSettings = true;
+    }
+
+    public function closeSettings(): void
+    {
+        $this->showSettings = false;
+    }
+
+    public function saveSettings(): void
+    {
+        $this->authorizeDispatch();
+
+        $settings = app(ClosureSettings::class);
+        $actor    = auth()->user();
+
+        $settings->setAllowFutureCompletion($this->allowFutureCompletion, $actor);
+        $settings->setSelfAssignEnabled($this->selfAssignEnabled, $actor);
+        $settings->setSelfAssignTypes($this->selfAssignTypes, $actor);
+
+        $this->loadSettings();
+        $this->showSettings = false;
+        $this->dispatchBrowserEvent('notification:toast', [
+            'icon'  => 'success',
+            'title' => 'Configurações salvas',
+            'text'  => 'As configurações do Encerramento foram atualizadas.',
+        ]);
     }
 
     public function getCompaniesProperty()
     {
-        return Company::query()->orderBy('name')->get(['id', 'name']);
+        return $this->listQuery()->companies();
     }
 
     public function getAssigneesProperty()
@@ -199,78 +258,108 @@ class Index extends Component
 
     public function render()
     {
+        $query = $this->listQuery();
+
         return view('livewire.closure.dispatch.index', [
-            'orders' => $this->ordersQuery()->limit(100)->get(),
+            'orders'       => $query->paginate($this->filters(), self::PER_PAGE, $this->page),
+            'cities'       => $query->cities(),
+            'responsibles' => $query->assignees(),
+            'statuses'     => ClosureOperationalStatus::cases(),
         ]);
     }
 
-    private function ordersQuery(): Builder
+    private function listQuery(): ClosureDispatchListQuery
     {
-        $latestCycle = ClosureCycle::query()->orderByDesc('year')->orderByDesc('month')->first();
-
-        return Order::query()
-            ->select('orders.*')
-            ->with(['Note:id,note', 'ClosureTarget.Cycle', 'ClosureState.Production'])
-            ->whereHas('ClosureTarget')
-            ->when(trim($this->search) !== '', function (Builder $query) {
-                $term = '%' . trim($this->search) . '%';
-                $query->where(fn (Builder $searchQuery) => $searchQuery->where('orders.ordem', 'like', $term)
-                    ->orWhereHas('Note', fn (Builder $noteQuery) => $noteQuery->where('note', 'like', $term)));
-            })
-            ->when($this->scope === 'meta' && $latestCycle, fn (Builder $query) => $query->whereHas('ClosureTarget', fn (Builder $targetQuery) => $targetQuery->where('closure_cycle_id', $latestCycle->id)))
-            ->when($this->scope === 'passive' && $latestCycle, fn (Builder $query) => $query->whereHas('ClosureTarget.Cycle', fn (Builder $cycleQuery) => $cycleQuery->whereRaw('(year * 100 + month) < ?', [$latestCycle->periodKey()])))
-            ->when(in_array($this->scope, ['meta', 'passive'], true) && !$latestCycle, fn (Builder $query) => $query->whereRaw('0 = 1'))
-            ->orderBy('orders.ordem');
+        return app(ClosureDispatchListQuery::class);
     }
 
-    private function selectedOrders()
+    private function filters(): array
     {
-        $ids = collect($this->selectedOrderIds)->map(fn ($id) => (int) $id)->filter(fn (int $id) => $id > 0)->unique()->values();
-
-        return Order::query()->with(['Note:id,note', 'ClosureTarget.Cycle', 'ClosureState.Production'])
-            ->whereIn('id', $ids)->orderBy('ordem')->get();
+        return [
+            'search'           => $this->search,
+            'types'            => $this->types,
+            'status'           => $this->status,
+            'companyId'        => $this->filterCompanyId,
+            'cityId'           => $this->cityId,
+            'assigneeId'       => $this->filterAssigneeId ?: null,
+            'onlyUndispatched' => $this->onlyUndispatched,
+        ];
     }
 
-    private function selectedAssignee(Company $company): ?User
+    /** @return array{0: ?Company, 1: ?User} */
+    private function resolveTarget(): array
     {
-        if (!$this->assigneeId) {
-            return null;
+        if (!$this->companyId) {
+            $this->feedback('Informe a empresa de destino antes de continuar.', 'warning');
+
+            return [null, null];
         }
 
-        return User::query()->whereKey($this->assigneeId)->where('company_id', $company->id)->first();
-    }
+        if ($this->selectedOrderIds === []) {
+            $this->feedback('Selecione ao menos uma Ordem para o despacho.', 'warning');
 
-    private function eligibilityFor(Order $order, Company $company, ?User $assignee): array
-    {
-        $reason     = null;
-        $state      = $order->ClosureState;
-        $production = $state?->Production;
-
-        if ($order->canceled) {
-            $reason = 'Ordem cancelada.';
-        } elseif ($this->isSapClosed((string) $order->statusSist)) {
-            $reason = 'Ordem já encerrada no SAP.';
-        } elseif (!$order->ClosureTarget) {
-            $reason = 'Ordem fora da meta de Encerramento.';
-        } elseif ($state && (!$production || (string) $production->company_id !== (string) $company->id || (string) $production->user_id !== (string) ($assignee?->id))) {
-            $reason = 'Ordem já vinculada a outro despacho.';
+            return [null, null];
         }
 
-        return ['id' => $order->id, 'ordem' => $order->ordem, 'note' => $order->Note?->note, 'eligible' => $reason === null, 'reason' => $reason];
+        $company = Company::query()->find($this->companyId);
+
+        if (!$company) {
+            $this->feedback('A empresa de destino não está mais disponível. Escolha outra empresa.', 'warning');
+
+            return [null, null];
+        }
+
+        $assignee = null;
+
+        if ($this->assigneeId) {
+            $assignee = User::query()->whereKey($this->assigneeId)->where('company_id', $company->id)->first();
+
+            if (!$assignee) {
+                $this->feedback('O usuário escolhido não pertence à empresa de destino.', 'warning');
+
+                return [null, null];
+            }
+        }
+
+        return [$company, $assignee];
     }
 
-    private function isSapClosed(string $status): bool
+    /** Uma notificação por Ordem atribuída com sucesso (o service de despacho não notifica). */
+    private function notifyAssigned(array $orderIds): void
     {
-        return str_starts_with($status, 'ENTE') || str_starts_with($status, 'ENCE');
+        if ($orderIds === []) {
+            return;
+        }
+
+        $notifier = app(ClosureNotifier::class);
+
+        foreach (ClosureOrderState::query()->whereIn('order_id', $orderIds)->get() as $state) {
+            try {
+                $notifier->orderAssigned($state, auth()->user());
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
     }
 
-    private function resetPageState(): void
+    private function loadSettings(): void
     {
-        $this->selectedOrderIds = [];
-        $this->showPreview      = false;
-        $this->previewRows      = [];
-        $this->previewNoteLabel = null;
-        $this->resetFeedback();
+        $settings = app(ClosureSettings::class);
+
+        $this->allowFutureCompletion = $settings->allowFutureCompletion();
+        $this->selfAssignEnabled     = $settings->selfAssignEnabled();
+        $this->selfAssignTypes       = $settings->selfAssignTypes();
+    }
+
+    private function authorizeDispatch(): void
+    {
+        abort_unless(auth()->user()?->can('closure.dispatch'), 403);
+    }
+
+    private function invalidatePreview(): void
+    {
+        $this->showPreview = false;
+        $this->previewRows = [];
     }
 
     private function feedback(string $message, string $type): void

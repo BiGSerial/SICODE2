@@ -465,6 +465,7 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/send_ads_form', 'sendAdsForm')->middleware('partner.permission:conclusion_reports.ads_delivery')->name('report.sendAdsForm');
     Route::get('/ads_requests', 'adsRequests')->middleware('partner.permission:conclusion_reports.ads_requests')->name('ads.requests');
     Route::get('/encerramento/pendencias', 'closureIssues')->middleware('partner.permission:closure.issues.list')->name('closure.issues');
+    Route::get('/encerramento/obra/{note}', 'closureWorkShow')->whereNumber('note')->middleware('partner.permission:closure.issues.respond')->name('closure.work.show');
     Route::get('/search_notes', 'searchNotes')->middleware('partner.permission:portal.search_notes')->name('search.notes.legacy');
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
@@ -587,7 +588,10 @@ Route::prefix('encerramento')->name('closure.')->middleware(['auth', 'can:closur
 Route::prefix('encerramento')->name('closure.')->middleware(['auth'])
     ->controller(\App\Http\Controllers\ClosureController::class)->group(function () {
         Route::get('/despacho', 'dispatch')->middleware('can:closure.dispatch')->name('dispatch');
+        Route::get('/despacho/painel', 'dispatchDashboard')->middleware('can:closure.dispatch')->name('dispatch.dashboard');
         Route::get('/minha-atividade', 'myWork')->middleware('can:closure.work')->name('work');
+        Route::get('/atividades-disponiveis', 'availableWork')->middleware('can:closure.work')->name('work.available');
+        Route::get('/obra/{note}', 'workShow')->whereNumber('note')->name('work.show');
     });
 
 Route::get('/encerramento/ordem/{order}', [\App\Http\Controllers\ClosureController::class, 'orderDetail'])

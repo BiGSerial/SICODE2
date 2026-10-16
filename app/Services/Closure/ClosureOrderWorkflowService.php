@@ -2,7 +2,7 @@
 
 namespace App\Services\Closure;
 
-use App\Models\Closure\{ClosureOrderEvent, ClosureOrderState, ClosureOrderStatePeriod};
+use App\Models\Closure\{ClosureIssue, ClosureOrderEvent, ClosureOrderState, ClosureOrderStatePeriod};
 use App\Models\{Company, Order, Production, User};
 use Illuminate\Support\Facades\DB;
 
@@ -14,7 +14,20 @@ class ClosureOrderWorkflowService
 
     public const STATUS_IN_PROGRESS = 'IN_PROGRESS';
 
-    public const STATUS_WAITING_RETURN = 'WAITING_RETURN';
+    public const STATUS_WAITING_PARTNER = 'WAITING_PARTNER';
+
+    /** @deprecated Use STATUS_WAITING_PARTNER (valor migrado de WAITING_RETURN). */
+    public const STATUS_WAITING_RETURN = self::STATUS_WAITING_PARTNER;
+
+    public const STATUS_DEPOSIT_BLOCKED = 'DEPOSIT_BLOCKED';
+
+    public const STATUS_DEPOSIT_RELEASED = 'DEPOSIT_RELEASED';
+
+    public const STATUS_PAUSED = 'PAUSED';
+
+    public const STATUS_FINISHED = 'FINISHED';
+
+    public const STATUS_WAITING = 'WAITING';
 
     public const STATUS_CLOSED = 'CLOSED';
 
@@ -27,6 +40,51 @@ class ClosureOrderWorkflowService
     public const HOLDER_SYSTEM = 'SYSTEM';
 
     public const ORIGIN_UI = 'UI';
+
+    public const ORIGIN_SAP_SYNC = 'SAP_SYNC';
+
+    public const ORIGIN_SCHEDULER = 'SCHEDULER';
+
+    /**
+     * Matriz de transições manuais (changeStatus). Chaves: status atual; valores: destinos permitidos.
+     * AVAILABLE não aparece: a Ordem precisa ser assumida/atribuída antes. FINISHED/WAITING só reabrem para IN_PROGRESS.
+     */
+    public const MANUAL_TRANSITIONS = [
+        self::STATUS_ASSIGNED         => [self::STATUS_IN_PROGRESS, self::STATUS_PAUSED, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED, self::STATUS_DEPOSIT_RELEASED],
+        self::STATUS_IN_PROGRESS      => [self::STATUS_PAUSED, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED, self::STATUS_DEPOSIT_RELEASED],
+        self::STATUS_PAUSED           => [self::STATUS_IN_PROGRESS, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED, self::STATUS_DEPOSIT_RELEASED],
+        self::STATUS_WAITING_PARTNER  => [self::STATUS_IN_PROGRESS, self::STATUS_PAUSED],
+        self::STATUS_DEPOSIT_BLOCKED  => [self::STATUS_DEPOSIT_RELEASED, self::STATUS_IN_PROGRESS, self::STATUS_PAUSED],
+        self::STATUS_DEPOSIT_RELEASED => [self::STATUS_IN_PROGRESS, self::STATUS_PAUSED, self::STATUS_DEPOSIT_BLOCKED, self::STATUS_WAITING_PARTNER],
+        self::STATUS_FINISHED         => [self::STATUS_IN_PROGRESS],
+        self::STATUS_WAITING          => [self::STATUS_IN_PROGRESS],
+    ];
+
+    /** Destinos que exigem motivo. */
+    public const REASON_REQUIRED_TARGETS = [
+        self::STATUS_PAUSED,
+        self::STATUS_WAITING_PARTNER,
+        self::STATUS_DEPOSIT_BLOCKED,
+    ];
+
+    /** Status em que o usuário ainda pode concluir (finish). */
+    public const FINISHABLE_STATUSES = [
+        self::STATUS_ASSIGNED,
+        self::STATUS_IN_PROGRESS,
+        self::STATUS_PAUSED,
+        self::STATUS_DEPOSIT_RELEASED,
+    ];
+
+    /** Status em que a Ordem ainda está sob tratativa/posse (podem ser movidos entre responsáveis). */
+    public const WORKING_STATUSES = [
+        self::STATUS_AVAILABLE,
+        self::STATUS_ASSIGNED,
+        self::STATUS_IN_PROGRESS,
+        self::STATUS_WAITING_PARTNER,
+        self::STATUS_DEPOSIT_BLOCKED,
+        self::STATUS_DEPOSIT_RELEASED,
+        self::STATUS_PAUSED,
+    ];
 
     public const EVENT_CLAIMED = 'CLAIMED';
 
@@ -46,6 +104,26 @@ class ClosureOrderWorkflowService
 
     public const EVENT_ISSUE_RELEASED = 'ISSUE_RELEASED';
 
+    public const EVENT_STATUS_CHANGED = 'STATUS_CHANGED';
+
+    public const EVENT_FINISHED = 'FINISHED';
+
+    public const EVENT_WAITING_FUTURE = 'WAITING_FUTURE';
+
+    public const EVENT_WAITING_PROMOTED = 'WAITING_PROMOTED';
+
+    public const EVENT_SAP_CLOSED = 'SAP_CLOSED';
+
+    public const EVENT_SAP_CANCELLED = 'SAP_CANCELLED';
+
+    public function __construct(
+        private ?ClosureMetaClassifier $classifier = null,
+        private ?ClosureSettings $settings = null,
+    ) {
+        $this->classifier ??= new ClosureMetaClassifier();
+        $this->settings ??= new ClosureSettings();
+    }
+
     public function claim(ClosureOrderState $state, User $actor, ?string $batchId = null): ClosureOrderState
     {
         return $this->transition($state, $actor, self::EVENT_CLAIMED, $batchId, function (ClosureOrderState $state) use ($actor): array {
@@ -63,12 +141,31 @@ class ClosureOrderWorkflowService
 
     public function assign(ClosureOrderState $state, Company $company, ?User $user, User $actor, ?string $reason = null, ?string $batchId = null): ClosureOrderState
     {
-        return $this->moveToDestination($state, $company, $user, $actor, self::EVENT_ASSIGNED, $reason, $batchId, false);
+        return $this->notifyNewAssignee(
+            $this->moveToDestination($state, $company, $user, $actor, self::EVENT_ASSIGNED, $reason, $batchId, false),
+            $actor,
+        );
     }
 
     public function transfer(ClosureOrderState $state, Company $company, ?User $user, User $actor, string $reason, ?string $batchId = null): ClosureOrderState
     {
-        return $this->moveToDestination($state, $company, $user, $actor, self::EVENT_TRANSFERRED, $reason, $batchId, true);
+        return $this->notifyNewAssignee(
+            $this->moveToDestination($state, $company, $user, $actor, self::EVENT_TRANSFERRED, $reason, $batchId, true),
+            $actor,
+        );
+    }
+
+    /**
+     * Avisa (sino + toast) o novo responsável uma única vez por transição; o notifier
+     * ignora o autor, adia para após o commit e deduplica por estado/usuário/entrada no status.
+     */
+    private function notifyNewAssignee(ClosureOrderState $state, User $actor): ClosureOrderState
+    {
+        if ($state->assigned_user_id && (string) $state->assigned_user_id !== (string) $actor->id) {
+            app(ClosureNotifier::class)->orderAssigned($state, $actor);
+        }
+
+        return $state;
     }
 
     public function returnToPool(ClosureOrderState $state, User $actor, string $reason, ?string $batchId = null): ClosureOrderState
@@ -76,7 +173,7 @@ class ClosureOrderWorkflowService
         $this->requireReason($reason);
 
         return $this->transition($state, $actor, self::EVENT_RETURNED_TO_POOL, $batchId, function (ClosureOrderState $state) use ($reason): array {
-            $this->requireStatus($state, [self::STATUS_ASSIGNED, self::STATUS_IN_PROGRESS, self::STATUS_WAITING_RETURN]);
+            $this->requireStatus($state, array_diff(self::WORKING_STATUSES, [self::STATUS_AVAILABLE]));
             $production = Production::query()->whereKey($state->production_id)->lockForUpdate()->firstOrFail();
 
             return [
@@ -111,7 +208,7 @@ class ClosureOrderWorkflowService
             $this->requireStatus($state, [self::STATUS_IN_PROGRESS]);
 
             return [
-                'operational_status'        => self::STATUS_WAITING_RETURN,
+                'operational_status'        => self::STATUS_WAITING_PARTNER,
                 'current_holder_type'       => self::HOLDER_SYSTEM,
                 'current_holder_user_id'    => null,
                 'current_holder_company_id' => null,
@@ -136,10 +233,10 @@ class ClosureOrderWorkflowService
         $this->requireReason($reason);
 
         return $this->transition($state, $actor, self::EVENT_ISSUE_BLOCKED, null, function (ClosureOrderState $state) use ($issueId, $reason): array {
-            $this->requireStatus($state, [self::STATUS_AVAILABLE, self::STATUS_ASSIGNED, self::STATUS_IN_PROGRESS]);
+            $this->requireStatus($state, array_diff(self::WORKING_STATUSES, [self::STATUS_WAITING_PARTNER]));
 
             return [
-                'operational_status'        => self::STATUS_WAITING_RETURN,
+                'operational_status'        => self::STATUS_WAITING_PARTNER,
                 'current_holder_type'       => self::HOLDER_SYSTEM,
                 'current_holder_user_id'    => null,
                 'current_holder_company_id' => null,
@@ -158,7 +255,7 @@ class ClosureOrderWorkflowService
         }
 
         return $this->transition($state, $actor, self::EVENT_ISSUE_RELEASED, null, function (ClosureOrderState $state) use ($issueId, $snapshot): array {
-            $this->requireStatus($state, [self::STATUS_WAITING_RETURN]);
+            $this->requireStatus($state, [self::STATUS_WAITING_PARTNER]);
 
             return [
                 'operational_status'        => $snapshot['operational_status'],
@@ -169,6 +266,213 @@ class ClosureOrderWorkflowService
                 'reason'                    => "Pendência #{$issueId} resolvida; atividade devolvida ao ponto anterior.",
             ];
         });
+    }
+
+    /**
+     * Mudança manual de status pelo dono da atividade (ou gestor), conforme MANUAL_TRANSITIONS.
+     */
+    public function changeStatus(ClosureOrderState $state, string $newStatus, User $actor, ?string $reason = null, ?string $batchId = null): ClosureOrderState
+    {
+        if (in_array($newStatus, self::REASON_REQUIRED_TARGETS, true)) {
+            $this->requireReason((string) $reason);
+        }
+
+        return $this->transition($state, $actor, self::EVENT_STATUS_CHANGED, $batchId, function (ClosureOrderState $state) use ($newStatus, $actor, $reason): array {
+            $this->assertOwnerOrManager($state, $actor);
+
+            $allowed = self::MANUAL_TRANSITIONS[$state->operational_status] ?? [];
+
+            if (!in_array($newStatus, $allowed, true)) {
+                throw new ClosureOrderWorkflowException('A transição não é permitida no estado operacional atual.');
+            }
+
+            if (in_array($state->operational_status, [self::STATUS_FINISHED, self::STATUS_WAITING], true)) {
+                $this->requireReason((string) $reason);
+            }
+
+            if ($state->operational_status === self::STATUS_WAITING_PARTNER && $this->hasOpenBlockingIssue($state)) {
+                throw new ClosureOrderWorkflowException('Há pendência bloqueadora aberta; resolva-a para sair de Aguardando Parceira.');
+            }
+
+            $changes = ['operational_status' => $newStatus, 'reason' => $reason !== null && trim($reason) !== '' ? trim($reason) : null];
+
+            if ($newStatus === self::STATUS_WAITING_PARTNER) {
+                return $changes + [
+                    'current_holder_type'       => self::HOLDER_SYSTEM,
+                    'current_holder_user_id'    => null,
+                    'current_holder_company_id' => null,
+                ];
+            }
+
+            return $changes + $this->workingHolder($state);
+        });
+    }
+
+    /**
+     * Conclusão técnica pelo usuário. Meta futura (F): recusa, ou vai para WAITING quando permitido nas configurações.
+     */
+    public function finish(ClosureOrderState $state, User $actor, ?string $batchId = null): ClosureOrderState
+    {
+        return $this->transition($state, $actor, self::EVENT_FINISHED, $batchId, function (ClosureOrderState $state) use ($actor): array {
+            $this->assertOwnerOrManager($state, $actor);
+            $this->requireStatus($state, self::FINISHABLE_STATUSES);
+
+            $order = Order::query()->findOrFail($state->order_id);
+            $type  = $this->classifier->typeFor($order);
+
+            if ($type === ClosureMetaClassifier::TYPE_FUTURE) {
+                if (!$this->settings->allowFutureCompletion()) {
+                    throw new ClosureOrderWorkflowException('Ordem de meta futura não pode ser finalizada antes do mês da meta.');
+                }
+
+                return [
+                    'operational_status' => self::STATUS_WAITING,
+                    'reason'             => 'Finalizada antes da meta (meta futura); aguardando o mês da meta.',
+                    'event_type'         => self::EVENT_WAITING_FUTURE,
+                    'meta'               => ['meta_type' => $type],
+                ];
+            }
+
+            return [
+                'operational_status' => self::STATUS_FINISHED,
+                'meta'               => ['meta_type' => $type],
+            ];
+        });
+    }
+
+    /**
+     * WAITING -> FINISHED quando a Ordem deixa de ser meta futura. Rotina diária (sistema).
+     *
+     * @return int quantidade promovida
+     */
+    public function promoteWaiting(): int
+    {
+        $promoted = 0;
+
+        ClosureOrderState::query()
+            ->where('operational_status', self::STATUS_WAITING)
+            ->with('Order')
+            ->chunkById(200, function ($states) use (&$promoted) {
+                $types = $this->classifier->typesFor($states->pluck('Order')->filter());
+
+                foreach ($states as $state) {
+                    $type = $types->get($state->order_id);
+
+                    if (!in_array($type, [ClosureMetaClassifier::TYPE_PASSIVE, ClosureMetaClassifier::TYPE_META], true)) {
+                        continue;
+                    }
+
+                    try {
+                        $this->transition($state, null, self::EVENT_WAITING_PROMOTED, null, fn () => [
+                            'operational_status' => self::STATUS_FINISHED,
+                            'reason'             => 'Meta futura chegou; atividade finalizada promovida automaticamente.',
+                            'meta'               => ['meta_type' => $type],
+                        ], true, self::ORIGIN_SCHEDULER);
+                        $promoted++;
+                    } catch (ClosureOrderWorkflowException) {
+                        // Ordem cancelada/encerrada no SAP: tratada por syncFromSap().
+                    }
+                }
+            });
+
+        return $promoted;
+    }
+
+    /**
+     * Detecta encerramento/cancelamento no SAP. Idempotente; nunca altera tipo já congelado.
+     *
+     * @return string|null novo status (CLOSED/CANCELLED) ou null quando nada mudou
+     */
+    public function syncFromSap(ClosureOrderState $state): ?string
+    {
+        $result = null;
+
+        DB::transaction(function () use ($state, &$result) {
+            $locked = ClosureOrderState::query()->whereKey($state->id)->lockForUpdate()->firstOrFail();
+
+            if (in_array($locked->operational_status, [self::STATUS_CLOSED, self::STATUS_CANCELLED], true)) {
+                return;
+            }
+
+            $order = Order::query()->whereKey($locked->order_id)->firstOrFail();
+
+            if ($order->canceled) {
+                $result = self::STATUS_CANCELLED;
+                $this->transition($locked, null, self::EVENT_SAP_CANCELLED, null, fn () => [
+                    'operational_status'          => self::STATUS_CANCELLED,
+                    'cancelled_at'                => now(),
+                    'cancelled_reason'            => 'Ordem cancelada.',
+                    'last_status_sist_seen'       => $order->statusSist,
+                    'last_status_sist_checked_at' => now(),
+                    'reason'                      => 'Ordem cancelada.',
+                ], true, self::ORIGIN_SAP_SYNC, false);
+            } elseif ($this->isSapClosed((string) $order->statusSist)) {
+                $result = self::STATUS_CLOSED;
+                // Referência = última vez que a Ordem foi vista aberta no SAP (anterior à detecção); senão, agora.
+                $asOf   = $locked->last_status_sist_checked_at ?? now();
+                $type   = $locked->closed_meta_type ?: $this->classifier->typeFor($order, $asOf);
+                $period = $locked->closed_meta_period ?: ClosureMetaClassifier::periodFor($asOf);
+
+                $this->transition($locked, null, self::EVENT_SAP_CLOSED, null, fn () => [
+                    'operational_status'          => self::STATUS_CLOSED,
+                    'closed_at'                   => now(),
+                    'closed_meta_type'            => $type,
+                    'closed_meta_period'          => $period,
+                    'last_status_sist_seen'       => $order->statusSist,
+                    'last_status_sist_checked_at' => now(),
+                    'reason'                      => "SAP: {$order->statusSist}",
+                    'meta'                        => ['meta_type' => $type],
+                ], true, self::ORIGIN_SAP_SYNC, false);
+            } else {
+                if ($locked->last_status_sist_seen !== $order->statusSist) {
+                    $locked->update(['last_status_sist_seen' => $order->statusSist]);
+                }
+
+                $locked->update(['last_status_sist_checked_at' => now()]);
+
+                return;
+            }
+
+            // Estado terminal não detém posse: encerra o período recém-aberto.
+            $final = $locked->fresh();
+            ClosureOrderStatePeriod::query()
+                ->where('closure_order_state_id', $final->id)
+                ->whereNull('ended_at')
+                ->update(['ended_at' => now(), 'ended_event_id' => $final->last_event_id]);
+        }, 3);
+
+        return $result;
+    }
+
+    private function assertOwnerOrManager(ClosureOrderState $state, User $actor): void
+    {
+        $isOwner = $state->assigned_user_id && (string) $state->assigned_user_id === (string) $actor->id;
+
+        if (!$isOwner && !$actor->can('closure.manage')) {
+            throw new ClosureOrderWorkflowException('Somente o responsável pela atividade ou um gestor pode realizar esta ação.');
+        }
+    }
+
+    private function hasOpenBlockingIssue(ClosureOrderState $state): bool
+    {
+        return ClosureIssue::query()
+            ->where('closure_order_state_id', $state->id)
+            ->where('blocking', true)
+            ->where('status', '!=', ClosureIssue::STATUS_RESOLVED)
+            ->exists();
+    }
+
+    /** @return array<string, mixed> */
+    private function workingHolder(ClosureOrderState $state): array
+    {
+        $companyId = $state->current_holder_company_id
+            ?? Production::query()->whereKey($state->production_id)->value('company_id');
+
+        return [
+            'current_holder_type'       => $state->assigned_user_id ? self::HOLDER_INTERNAL_USER : self::HOLDER_PARTNER_COMPANY,
+            'current_holder_user_id'    => $state->assigned_user_id,
+            'current_holder_company_id' => $companyId,
+        ];
     }
 
     private function moveToDestination(
@@ -186,7 +490,7 @@ class ClosureOrderWorkflowService
         }
 
         return $this->transition($state, $actor, $eventType, $batchId, function (ClosureOrderState $state) use ($company, $user, $reason, $reasonRequired): array {
-            $this->requireStatus($state, [self::STATUS_AVAILABLE, self::STATUS_ASSIGNED, self::STATUS_IN_PROGRESS, self::STATUS_WAITING_RETURN]);
+            $this->requireStatus($state, self::WORKING_STATUSES);
 
             if ($reasonRequired || ($state->assigned_user_id && (string) $state->assigned_user_id !== (string) ($user?->id))) {
                 $this->requireReason((string) $reason);
@@ -208,20 +512,32 @@ class ClosureOrderWorkflowService
     }
 
     /**
-     * @param callable(ClosureOrderState): array<string, mixed> $changes
+     * @param callable(ClosureOrderState): array<string, mixed> $changes pode devolver `reason`, `meta` (extra) e `event_type` (substitui o tipo do evento)
      */
-    private function transition(ClosureOrderState $state, User $actor, string $eventType, ?string $batchId, callable $changes, bool $rotatePeriod = true): ClosureOrderState
-    {
-        return DB::transaction(function () use ($state, $actor, $eventType, $batchId, $changes, $rotatePeriod) {
+    private function transition(
+        ClosureOrderState $state,
+        ?User $actor,
+        string $eventType,
+        ?string $batchId,
+        callable $changes,
+        bool $rotatePeriod = true,
+        string $origin = self::ORIGIN_UI,
+        bool $guard = true,
+    ): ClosureOrderState {
+        return DB::transaction(function () use ($state, $actor, $eventType, $batchId, $changes, $rotatePeriod, $origin, $guard) {
             $state = ClosureOrderState::query()->whereKey($state->id)->lockForUpdate()->firstOrFail();
             $order = Order::query()->whereKey($state->order_id)->lockForUpdate()->firstOrFail();
 
-            $this->assertOrderCanChange($order, $state);
+            if ($guard) {
+                $this->assertOrderCanChange($order, $state);
+            }
 
-            $before = $this->snapshot($state);
-            $data   = $changes($state);
-            $reason = $data['reason'] ?? null;
-            unset($data['reason']);
+            $before    = $this->snapshot($state);
+            $data      = $changes($state);
+            $reason    = $data['reason'] ?? null;
+            $extra     = $data['meta'] ?? [];
+            $eventType = $data['event_type'] ?? $eventType;
+            unset($data['reason'], $data['meta'], $data['event_type']);
 
             if ($rotatePeriod) {
                 $data['entered_current_status_at'] = now();
@@ -230,15 +546,17 @@ class ClosureOrderWorkflowService
             $state->update($data);
             $state->refresh();
 
+            $meta = array_filter(['reason' => $reason] + $extra, fn ($value) => $value !== null);
+
             $event = ClosureOrderEvent::query()->create([
                 'closure_order_state_id' => $state->id,
                 'order_id'               => $order->id,
-                'actor_id'               => $actor->id,
+                'actor_id'               => $actor?->id,
                 'type'                   => $eventType,
-                'origin'                 => self::ORIGIN_UI,
+                'origin'                 => $origin,
                 'before_data'            => $before,
                 'after_data'             => $this->snapshot($state),
-                'meta'                   => $reason ? ['reason' => $reason] : null,
+                'meta'                   => $meta ?: null,
                 'batch_id'               => $batchId,
             ]);
 

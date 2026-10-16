@@ -83,6 +83,13 @@ class Kernel extends ConsoleKernel
         ], 'sync-base-orders-operations')
             ->cron('30 5,8,10,12,14,16,20 * * *');
 
+        // Encerramento: detecta ENTE/ENCE/cancelamento logo após cada sync de Ordens/Operações do SAP.
+        $this->scheduleCommand($schedule, 'closure:sync-closed', 'closure-sync-closed')
+            ->cron('50 5,8,10,12,14,16,20 * * *');
+
+        $this->scheduleCommand($schedule, 'closure:promote-waiting', 'closure-promote-waiting')
+            ->dailyAt('06:00');
+
         $this->scheduleCommand($schedule, 'sicode:upd_baseov --full', 'upd-baseov-full')
             ->dailyAt('05:05');
 
@@ -350,6 +357,8 @@ class Kernel extends ConsoleKernel
             'sync-base-orders-operations'              => 'Base Ordens e Operações',
             'upd-baseov-full'                          => 'Base OV Full (05:05)',
             'upd-baseov-full-prazos'                   => 'Base OV Full Prazos (12:05)',
+            'closure-sync-closed'                      => 'Encerramento: detectar encerradas SAP',
+            'closure-promote-waiting'                  => 'Encerramento: promover aguardando',
             'sync-peps'                                => 'Sincronizar PEPs',
             'upd-base-ep'                              => 'Base EP',
             'sync-protests'                            => 'Sincronizar reclamações',

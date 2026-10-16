@@ -30,6 +30,10 @@ class ClosureOrderBatchWorkflowService
 
     public const ACTION_SET_PRIORITY = 'set_priority';
 
+    public const ACTION_CHANGE_STATUS = 'change_status';
+
+    public const ACTION_FINISH = 'finish';
+
     /**
      * @var array<int, string>
      */
@@ -41,6 +45,8 @@ class ClosureOrderBatchWorkflowService
         self::ACTION_START,
         self::ACTION_WAIT_FOR_RETURN,
         self::ACTION_SET_PRIORITY,
+        self::ACTION_CHANGE_STATUS,
+        self::ACTION_FINISH,
     ];
 
     public function __construct(private ClosureOrderWorkflowService $workflow)
@@ -217,6 +223,19 @@ class ClosureOrderBatchWorkflowService
             return 'Informe a prioridade desejada.';
         }
 
+        if ($action === self::ACTION_CHANGE_STATUS) {
+            $status = (string) ($payload['status'] ?? '');
+
+            if (!in_array($status, array_unique(array_merge(...array_values(ClosureOrderWorkflowService::MANUAL_TRANSITIONS))), true)) {
+                return 'Informe o novo status da atividade.';
+            }
+
+            if (in_array($status, ClosureOrderWorkflowService::REASON_REQUIRED_TARGETS, true)
+                && empty(trim((string) ($payload['reason'] ?? '')))) {
+                return 'Informe o motivo da mudança de status.';
+            }
+        }
+
         return null;
     }
 
@@ -261,6 +280,14 @@ class ClosureOrderBatchWorkflowService
                 $this->requiredReasonFromPayload($payload),
                 $batchId,
             ),
+            self::ACTION_CHANGE_STATUS => $this->workflow->changeStatus(
+                $state,
+                (string) $payload['status'],
+                $actor,
+                $this->reasonFromPayload($payload),
+                $batchId,
+            ),
+            self::ACTION_FINISH       => $this->workflow->finish($state, $actor, $batchId),
             self::ACTION_SET_PRIORITY => $this->workflow->setPriority(
                 $state,
                 (bool) $payload['priority'],

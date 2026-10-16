@@ -151,6 +151,45 @@ Mapeamento textual:
 - `assignment`, `atribuicao`, `atribuição` => `7`
 - `sla`, `deadline`, `vencimento` => `8`
 
+## Toast e chaves de `extras`
+
+Além do sino, uma notificação pode aparecer como toast. As chaves abaixo vão em `extras` do `UserNotificationData`:
+
+| Chave | Tipo | Efeito |
+|---|---|---|
+| `extras['toast']` | bool | `true` faz a notificação nova aparecer como toast (SweetAlert no canto superior direito). Sem a chave, só aparece no sino. |
+| `extras['event']` | string | Identificador do evento (ex.: `closure.order_assigned`). Informativo, para rastrear/filtrar; não altera a exibição. |
+| `extras['dedupe']` | string | Chave de deduplicação usada no envio (ex.: `closure:notify:{event}:{entidade}:{userId}`). Informativa; a deduplicação em si acontece antes do `notify()`. |
+
+### Como o toast é exibido
+
+1. `AllNotifies::pollForToasts()` (Livewire, em polling) lê as 20 últimas notificações do usuário e compara com os ids já vistos.
+2. Para cada notificação nova com `extras['toast']` verdadeiro, dispara o evento de navegador `notification:toast` com título, texto (sem HTML), ícone e URL.
+3. O layout `resources/views/layouts/padrao.blade.php` trata o evento com `Swal.fire({toast: true, ...})`: 5 s, ou 12 s com botão "Baixar agora" quando há URL; clicar no botão abre a URL.
+4. O ícone é de erro só quando o status é `error`; nos demais casos é de sucesso.
+
+Notificações já existentes no carregamento da página não geram toast (os ids iniciais são marcados como vistos).
+
+### Regra de disparo (exemplo: módulo Encerramento)
+
+O `App\Services\Closure\ClosureNotifier` é o modelo a seguir para eventos com toast:
+
+- **Só na transição**: chamado pelos services no momento em que o estado muda, nunca em render, polling ou `mount`.
+- **Após o commit**: o envio é adiado com `DB::afterCommit`; transação revertida ou repetida não notifica.
+- **Dedupe de 60 s**: `Cache::add("closure:notify:{evento}:{entidade}:{userId}", 1, 60)` por destinatário; se a chave já existe, não envia.
+- **Nunca o autor**: o usuário que executou a ação é removido dos destinatários.
+- O link aponta para um destino com autorização própria (Gestão da Obra ou caixa de pendências da parceira).
+
+```php
+$user->notify(new SystemNotification(new UserNotificationData(
+    title: 'Ordem atribuída a você',
+    message: 'Nota 123 / Ordem 456 foi atribuída a você no Encerramento.',
+    link: route('closure.work.show', ['note' => 123]),
+    status: 'assignment',
+    extras: ['toast' => true, 'event' => 'closure.order_assigned', 'dedupe' => $dedupeKey],
+)));
+```
+
 ## Checklist de PR (obrigatório)
 
 Antes de subir PR com notificação:

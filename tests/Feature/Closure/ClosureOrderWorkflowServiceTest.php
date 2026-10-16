@@ -1,56 +1,14 @@
 <?php
 
-use App\Models\Closure\{ClosureOrderEvent, ClosureOrderState, ClosureOrderStatePeriod};
-use App\Models\{Company, Note, Operation, Order, Production, Service, User};
+use App\Models\{Company, Operation, User};
 use App\Services\Closure\{ClosureOrderWorkflowException, ClosureOrderWorkflowService};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
+require_once __DIR__ . '/ClosureScreenFixture.php';
+
 uses(RefreshDatabase::class);
 
-function closureWorkflowFixture(string $status = ClosureOrderWorkflowService::STATUS_AVAILABLE): array
-{
-    $service = Service::query()->firstOrCreate(
-        ['folder' => 'encerramento'],
-        ['service' => 'Encerramento', 'project' => true, 'construction' => true, 'icon' => 'ri-checkbox-circle-line']
-    );
-    $company = Company::query()->create([
-        'name'  => 'Parceira Workflow ' . fake()->unique()->numerify('###'),
-        'email' => fake()->unique()->safeEmail(),
-    ]);
-    $actor      = User::factory()->create(['company_id' => $company->id]);
-    $note       = Note::query()->create(['note' => 'WF-' . fake()->unique()->numerify('######'), 'type_note' => 1]);
-    $order      = Order::query()->create(['note_id' => $note->id, 'ordem' => fake()->unique()->numerify('200#########'), 'statusSist' => 'LIB CNPA']);
-    $production = Production::query()->create([
-        'note_id'    => $note->id,
-        'service_id' => $service->uuid,
-        'company_id' => $company->id,
-    ]);
-    $state = ClosureOrderState::query()->create([
-        'order_id'                  => $order->id,
-        'production_id'             => $production->id,
-        'operational_status'        => $status,
-        'current_holder_type'       => ClosureOrderWorkflowService::HOLDER_PARTNER_COMPANY,
-        'current_holder_company_id' => $company->id,
-        'entered_current_status_at' => now()->subMinute(),
-    ]);
-    $event = ClosureOrderEvent::query()->create([
-        'closure_order_state_id' => $state->id,
-        'order_id'               => $order->id,
-        'type'                   => 'INITIALIZED',
-        'origin'                 => 'SYSTEM',
-    ]);
-    ClosureOrderStatePeriod::query()->create([
-        'closure_order_state_id' => $state->id,
-        'operational_status'     => $status,
-        'holder_type'            => $state->current_holder_type,
-        'holder_company_id'      => $company->id,
-        'started_at'             => $state->entered_current_status_at,
-        'started_event_id'       => $event->id,
-    ]);
-    $state->update(['last_event_id' => $event->id]);
-
-    return compact('company', 'actor', 'order', 'production', 'state');
-}
+beforeEach(fn () => \Illuminate\Support\Facades\Notification::fake());
 
 it('claims an available order while preserving the event and period audit trail', function () {
     ['actor' => $actor, 'order' => $order, 'state' => $state] = closureWorkflowFixture();
@@ -117,7 +75,7 @@ it('starts treatment, waits for return, and records priority without rotating th
     $periods  = $waiting->Periods()->count();
     $priority = $workflow->setPriority($waiting, true, $actor);
 
-    expect($waiting->operational_status)->toBe(ClosureOrderWorkflowService::STATUS_WAITING_RETURN)
+    expect($waiting->operational_status)->toBe(ClosureOrderWorkflowService::STATUS_WAITING_PARTNER)
         ->and($waiting->current_holder_type)->toBe(ClosureOrderWorkflowService::HOLDER_SYSTEM)
         ->and($priority->priority)->toBeTrue()
         ->and($priority->LastEvent->type)->toBe(ClosureOrderWorkflowService::EVENT_PRIORITY_CHANGED)

@@ -2,34 +2,26 @@
 
 ## O que é uma pendência
 
-Uma pendência registra de modo estruturado por que uma Ordem de Encerramento não pode avançar. Ela não altera o status SAP, nem o status das operações SAP. A atividade operacional fica identificada como **Aguardando retorno**, com a causa preservada na linha do tempo.
+Registra, de forma estruturada, por que uma Ordem não pode avançar e o que a parceira precisa fazer. Não altera o SAP nem as operações. Quando bloqueia a Ordem, ela fica em **Aguardando Parceira** e volta ao ponto anterior ao resolver a última pendência bloqueadora.
 
-## Abertura e classificação
+## Abrir (equipe interna)
 
-O responsável seleciona uma categoria e uma subcategoria compatível, informa a empresa parceira que deve agir e descreve a solicitação quando a subcategoria exigir detalhamento.
+Na **Gestão da Obra**, em **Enviar à parceira**, escolha categoria e subcategoria, empresa parceira, se é bloqueante, as Ordens envolvidas e descreva. Categorias: Material/MIGO pendente, Documentação/As-built, Medição, Depósito, Apontamento de horas/operações, Dados da obra e Outros. Categorias inativadas continuam visíveis nas pendências antigas.
 
-Categorias e subcategorias podem deixar de ser usadas no futuro, mas nunca desaparecem das pendências antigas. Por isso os filtros e relatórios futuros continuarão a explicar a causa original.
+## Fluxo
 
-## Fluxo de trabalho
+1. A equipe envia a pendência à parceira.
+2. A parceira responde.
+3. A equipe **valida**, **devolve** para correção (mesmo registro, novo ciclo) ou **resolve**.
 
-1. A pendência é aberta e, quando bloqueadora, pausa a tratativa no ponto atual.
-2. O responsável solicita o retorno à empresa parceira.
-3. A parceira responde à mesma pendência.
-4. O responsável valida a resposta, devolve para correção ou resolve.
-5. Ao resolver a última pendência bloqueadora, a atividade retorna ao ponto operacional anterior.
+Cada passo guarda data, autor, origem e mensagem, e aparece no chat da obra.
 
-Uma devolução não cria outra pendência: o mesmo registro recebe um novo ciclo. Assim, o histórico mostra quantas vezes houve correção e quem atuou em cada etapa.
+## Portal da parceira
 
-## Rastreabilidade e segurança
+- **Encerramento > Pendências**: lista só as pendências da sua empresa. Filtre por Nota/Ordem, situação e categoria.
+- Em **Aguardando resposta** ou **Devolvida para correção**, use **Responder**, escreva o retorno (anexos são aceitos) e envie.
+- Abra a **obra** para ver o chat. A parceira só vê mensagens marcadas como **Com parceira** e só de obras ligadas à sua empresa. Ela pode escrever no chat, mas não altera posse, status interno, SAP ou operações.
 
-Cada mudança guarda data/hora, ator, origem (interna ou parceira), estado anterior, estado seguinte e mensagem informada. A parceira só poderá responder pendências destinadas à sua própria empresa; ela não poderá transferir posse, alterar o SAP ou modificar operações.
+## Avisos
 
-## Caixa da parceira
-
-No portal parceiro, abra **Encerramento > Pendências**. A lista contém exclusivamente pendências destinadas à empresa do usuário. Use a busca por Nota/Ordem, situação e categoria para encontrar a demanda.
-
-Quando a situação for **Aguardando resposta** ou **Devolvida para correção**, selecione **Responder**, descreva o retorno e envie. A resposta fica registrada no histórico; a parceira não tem controles para alterar posse interna, SAP ou operações.
-
-## Limite temporário desta entrega
-
-A caixa e a resposta já estão implementadas, mas aguardam validação em banco no ambiente isolado. O envio de anexos/evidências ainda não está disponível: o mecanismo de arquivos atual é específico de cancelamentos e precisa ser adaptado com trilha própria.
+A parceira recebe sino e toast quando uma pendência é enviada ou devolvida e quando chega mensagem "Com parceira". A equipe é avisada quando a parceira responde ou escreve.
