@@ -3,11 +3,10 @@
 namespace App\Http\Livewire\Dispatchs;
 
 use App\Custom\RuleBuilder;
-use App\Models\Note;
-use App\Models\Service;
+use App\Models\{Note, Service};
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
+use Illuminate\Support\{Carbon, Str};
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class Dashboard extends Component
@@ -15,11 +14,24 @@ class Dashboard extends Component
     public $service;
 
     public string $noteType = '2';
+
     public bool $includeTrackingRubric = false;
 
     public string $statusChartId;
+
     public string $deadlineChartId;
+
     public string $userChartId;
+
+    public string $rangeFrom;
+
+    public string $rangeTo;
+
+    public string $adherenceDays = '8';
+
+    public string $bandSatelChartId;
+
+    public string $bandOwnChartId;
 
     public function mount($service): void
     {
@@ -28,10 +40,178 @@ class Dashboard extends Component
             ->where('uuid', $service)
             ->firstOrFail();
 
-        $suffix = Str::random(8);
-        $this->statusChartId = 'dispatchStatusAge-' . $suffix;
-        $this->deadlineChartId = 'dispatchDeadline-' . $suffix;
-        $this->userChartId = 'dispatchUsers-' . $suffix;
+        $suffix                 = Str::random(8);
+        $this->statusChartId    = 'dispatchStatusAge-' . $suffix;
+        $this->deadlineChartId  = 'dispatchDeadline-' . $suffix;
+        $this->userChartId      = 'dispatchUsers-' . $suffix;
+        $this->bandSatelChartId = 'dispatchBandSatel-' . $suffix;
+        $this->bandOwnChartId   = 'dispatchBandOwn-' . $suffix;
+
+        $this->rangeFrom = now()->startOfMonth()->toDateString();
+        $this->rangeTo   = now()->endOfMonth()->toDateString();
+    }
+
+    public function updatedAdherenceDays(): void
+    {
+        $this->adherenceDays = $this->adherenceDays === '6' ? '6' : '8';
+
+        $this->refreshBandCharts();
+    }
+
+    public function updatedRangeFrom(): void
+    {
+        $this->normalizeRange();
+        $this->refreshBandCharts();
+    }
+
+    public function updatedRangeTo(): void
+    {
+        $this->normalizeRange();
+        $this->refreshBandCharts();
+    }
+
+    protected function normalizeRange(): void
+    {
+        try {
+            $from = Carbon::parse($this->rangeFrom)->startOfDay();
+            $to   = Carbon::parse($this->rangeTo)->startOfDay();
+        } catch (\Throwable $e) {
+            $from = now()->startOfMonth();
+            $to   = now()->endOfMonth();
+        }
+
+        if ($to->lt($from)) {
+            $to = $from->copy();
+        }
+
+        $this->rangeFrom = $from->toDateString();
+        $this->rangeTo   = $to->toDateString();
+    }
+
+    protected function refreshBandCharts(): void
+    {
+        $charts = $this->bandCharts();
+
+        $this->dispatchBrowserEvent('grafico-atualizar-' . $this->bandSatelChartId, $charts['satel']);
+        $this->dispatchBrowserEvent('grafico-atualizar-' . $this->bandOwnChartId, $charts['own']);
+    }
+
+    /**
+     * Faixas de dias entre a data do status da nota (productions.dt_note) e a finalização,
+     * por mês de finalização, separadas por empresa (SATEL x PRÓPRIO). Somente OV (type_note = 2).
+     */
+    protected function bandCharts(): array
+    {
+        $limit = (int) $this->adherenceDays;
+
+        $from = Carbon::parse($this->rangeFrom)->startOfDay();
+        $to   = Carbon::parse($this->rangeTo)->endOfDay();
+
+        $rows = DB::table('productions as p')
+            ->join('notes', 'notes.id', '=', 'p.note_id')
+            ->leftJoin('companies', 'companies.id', '=', 'p.company_id')
+            ->where('p.service_id', $this->service->uuid)
+            ->where('p.completed', 1)
+            ->where(fn ($q) => $q->whereNull('p.returned')->orWhere('p.returned', 0))
+            ->where(fn ($q) => $q->whereNull('p.d5')->orWhere('p.d5', 0))
+            ->where(fn ($q) => $q->whereNull('p.dfive')->orWhere('p.dfive', 0))
+            ->where('notes.type_note', 2)
+            ->whereNotNull('p.dt_note')
+            ->whereNotNull('p.completed_at')
+            ->whereBetween('p.completed_at', [$from, $to])
+            ->selectRaw(
+                "DATE_FORMAT(p.completed_at, '%Y-%m') as ym,
+                LOWER(COALESCE(companies.name, '')) as company,
+                CASE
+                    WHEN GREATEST(DATEDIFF(p.completed_at, p.dt_note), 0) <= ? THEN 0
+                    WHEN GREATEST(DATEDIFF(p.completed_at, p.dt_note), 0) <= 15 THEN 1
+                    WHEN GREATEST(DATEDIFF(p.completed_at, p.dt_note), 0) <= 30 THEN 2
+                    ELSE 3
+                END as band,
+                COUNT(*) as total",
+                [$limit]
+            )
+            ->groupBy('ym', 'company', 'band')
+            ->get();
+
+        $months = [];
+
+        for ($cursor = $from->copy()->startOfMonth(); $cursor->lte($to); $cursor->addMonth()) {
+            $months[$cursor->format('Y-m')] = $cursor->copy();
+        }
+
+        $groups = ['satel' => [], 'own' => []];
+
+        foreach ($rows as $row) {
+            if (str_contains($row->company, 'satel')) {
+                $group = 'satel';
+            } elseif (str_contains($row->company, 'edp')) {
+                $group = 'own';
+            } else {
+                continue;
+            }
+
+            $groups[$group][$row->ym][(int) $row->band] = ($groups[$group][$row->ym][(int) $row->band] ?? 0) + (int) $row->total;
+        }
+
+        $second     = $limit + 1;
+        $bandLabels = ["0 a {$limit} dias", "{$second} a 15 dias", '16 a 30 dias', 'Acima de 30'];
+        $bandColors = ['#28FF52', '#BFC5C9', '#225E66', '#C00000'];
+
+        $charts = [];
+
+        foreach ($groups as $group => $data) {
+            $labels = [];
+            $series = array_fill(0, 4, []);
+
+            foreach ($months as $ym => $date) {
+                $counts = array_map(fn ($band) => $data[$ym][$band] ?? 0, range(0, 3));
+                $total  = array_sum($counts);
+                $pct    = $total > 0 ? number_format($counts[0] / $total * 100, 1, ',', '.') . '%' : '-';
+
+                $labels[] = [$date->locale('pt_BR')->translatedFormat('M/y'), "Total {$total}", $pct];
+
+                foreach ($counts as $band => $count) {
+                    $series[$band][] = $count;
+                }
+            }
+
+            $datasets = [];
+
+            foreach ($bandLabels as $band => $label) {
+                $datasets[] = [
+                    'label'           => $label,
+                    'data'            => $series[$band],
+                    'backgroundColor' => $bandColors[$band],
+                    'borderColor'     => $bandColors[$band],
+                    'borderRadius'    => 3,
+                    'stack'           => 'stack',
+                ];
+            }
+
+            $charts[$group] = [
+                'type'    => 'bar',
+                'data'    => ['labels' => $labels, 'datasets' => $datasets],
+                'options' => [
+                    'responsive'          => true,
+                    'maintainAspectRatio' => false,
+                    'plugins'             => [
+                        'legend'     => ['position' => 'top', 'labels' => ['usePointStyle' => true, 'boxWidth' => 8]],
+                        'tooltip'    => ['mode' => 'index', 'intersect' => false],
+                        'datalabels' => [
+                            'display' => '__VALUE_LABEL_NONZERO__',
+                            'font'    => ['weight' => '700', 'size' => 10],
+                        ],
+                    ],
+                    'scales' => [
+                        'x' => ['stacked' => true, 'grid' => ['display' => false]],
+                        'y' => ['stacked' => true, 'beginAtZero' => true, 'ticks' => ['precision' => 0]],
+                    ],
+                ],
+            ];
+        }
+
+        return $charts;
     }
 
     public function updatedNoteType(): void
@@ -135,7 +315,7 @@ class Dashboard extends Component
             fn ($label) => in_array((string) $label, $filledBuckets, true)
         ));
 
-        $assigned = array_fill_keys($labels, 0);
+        $assigned   = array_fill_keys($labels, 0);
         $unassigned = array_fill_keys($labels, 0);
 
         foreach ($rows as $row) {
@@ -154,8 +334,8 @@ class Dashboard extends Component
         }
 
         return [
-            'labels' => $labels,
-            'assigned' => array_values($assigned),
+            'labels'     => $labels,
+            'assigned'   => array_values($assigned),
             'unassigned' => array_values($unassigned),
         ];
     }
@@ -189,7 +369,7 @@ class Dashboard extends Component
             ->map(fn ($bucket) => (int) $bucket);
 
         $maxBucket = max(30, (int) ($numericBuckets->max() ?? 30));
-        $labels = array_map('strval', range($maxBucket, 0));
+        $labels    = array_map('strval', range($maxBucket, 0));
 
         if ($rows->contains(fn ($row) => (string) $row->bucket === 'Sem prazo')) {
             $labels[] = 'Sem prazo';
@@ -212,7 +392,7 @@ class Dashboard extends Component
 
         foreach ($rows as $row) {
             $bucket = (string) $row->bucket;
-            $name = (string) $row->series;
+            $name   = (string) $row->series;
 
             if (!in_array($bucket, $labels, true)) {
                 continue;
@@ -226,23 +406,29 @@ class Dashboard extends Component
         }
 
         $orderedSeries = [];
+
         foreach ($series as $name => $values) {
             if (str_contains(mb_strtolower($name), 'satel')) {
                 $orderedSeries[$name] = $values;
             }
         }
+
         foreach ($series as $name => $values) {
             $normalized = mb_strtolower($name);
+
             if ($name !== 'Na pilha' && !str_contains($normalized, 'satel') && str_contains($normalized, 'edp')) {
                 $orderedSeries[$name] = $values;
             }
         }
+
         foreach ($series as $name => $values) {
             $normalized = mb_strtolower($name);
+
             if ($name !== 'Na pilha' && !str_contains($normalized, 'satel') && !str_contains($normalized, 'edp')) {
                 $orderedSeries[$name] = $values;
             }
         }
+
         if (array_key_exists('Na pilha', $series)) {
             $orderedSeries['Na pilha'] = $series['Na pilha'];
         }
@@ -269,14 +455,14 @@ class Dashboard extends Component
             )
             ->first();
 
-        $total = (int) ($row->total ?? 0);
+        $total    = (int) ($row->total ?? 0);
         $assigned = (int) ($row->assigned ?? 0);
 
         return [
-            'total' => $total,
-            'assigned' => $assigned,
-            'unassigned' => max(0, $total - $assigned),
-            'overdue' => (int) ($row->overdue ?? 0),
+            'total'           => $total,
+            'assigned'        => $assigned,
+            'unassigned'      => max(0, $total - $assigned),
+            'overdue'         => (int) ($row->overdue ?? 0),
             'avg_status_days' => round((float) ($row->avg_status_days ?? 0), 1),
         ];
     }
@@ -304,17 +490,17 @@ class Dashboard extends Component
             ->get();
 
         $bucketLabels = ['Até 4 dias', '5 a 8 dias', 'Mais de 8 dias'];
-        $users = $rows
+        $users        = $rows
             ->groupBy('user_name')
             ->map(fn ($items) => [
-                'total' => (int) $items->sum('total'),
+                'total'   => (int) $items->sum('total'),
                 'buckets' => $items->pluck('total', 'age_bucket'),
             ])
             ->sortByDesc('total')
             ->take(12);
 
         return [
-            'labels' => $users->keys()->values()->toArray(),
+            'labels'  => $users->keys()->values()->toArray(),
             'buckets' => collect($bucketLabels)
                 ->mapWithKeys(fn ($bucket) => [
                     $bucket => $users
@@ -346,7 +532,12 @@ class Dashboard extends Component
                     WHEN notes.days_left IS NULL THEN NULL
                     WHEN (30 - notes.days_left) < 0 THEN 0
                     ELSE (30 - notes.days_left)
-                END as deadline_value
+                END as deadline_value,
+                CASE
+                    WHEN notes.dt_status IS NULL THEN NULL
+                    WHEN DATEDIFF(CURDATE(), notes.dt_status) < 0 THEN 0
+                    ELSE DATEDIFF(CURDATE(), notes.dt_status)
+                END as status_days
             ")
             ->selectRaw(
                 "CASE WHEN {$this->assignedExistsSql()} THEN 1 ELSE 0 END as assigned,
@@ -381,6 +572,7 @@ class Dashboard extends Component
                 'Rubrica',
                 'Municipio',
                 'Status',
+                'Dias no status',
                 'Prazo',
                 'Usuario',
             ], ';', '"', '');
@@ -394,6 +586,7 @@ class Dashboard extends Component
                             $item->category_name ?: '-',
                             $item->city_name ?: '-',
                             (int) $item->assigned === 1 ? 'Em atribuicao' : 'Na pilha',
+                            $item->status_days ?? '-',
                             $item->deadline_value ?? '-',
                             $item->assigned_user ?: '-',
                         ], ';', '"', '');
@@ -411,63 +604,63 @@ class Dashboard extends Component
         return [
             'type' => 'bar',
             'data' => [
-                'labels' => $bucketData['labels'],
+                'labels'   => $bucketData['labels'],
                 'datasets' => [
                     [
-                        'label' => 'Em atribuição',
-                        'data' => $bucketData['assigned'],
+                        'label'           => 'Em atribuição',
+                        'data'            => $bucketData['assigned'],
                         'backgroundColor' => '#28FF52',
-                        'borderColor' => '#28FF52',
-                        'borderRadius' => 4,
-                        'stack' => 'stack',
+                        'borderColor'     => '#28FF52',
+                        'borderRadius'    => 4,
+                        'stack'           => 'stack',
                     ],
                     [
-                        'label' => 'Na pilha',
-                        'data' => $bucketData['unassigned'],
+                        'label'           => 'Na pilha',
+                        'data'            => $bucketData['unassigned'],
                         'backgroundColor' => '#A9FFBA',
-                        'borderColor' => '#A9FFBA',
-                        'borderRadius' => 4,
-                        'stack' => 'stack',
+                        'borderColor'     => '#A9FFBA',
+                        'borderRadius'    => 4,
+                        'stack'           => 'stack',
                     ],
                 ],
             ],
             'options' => [
-                'responsive' => true,
+                'responsive'          => true,
                 'maintainAspectRatio' => false,
-                'plugins' => [
+                'plugins'             => [
                     'legend' => [
                         'position' => 'bottom',
-                        'labels' => [
+                        'labels'   => [
                             'usePointStyle' => true,
-                            'boxWidth' => 8,
+                            'boxWidth'      => 8,
                         ],
                     ],
                     'tooltip' => [
-                        'mode' => 'index',
+                        'mode'      => 'index',
                         'intersect' => false,
                     ],
                     'datalabels' => [
                         'display' => '__VALUE_LABEL_NONZERO__',
-                        'anchor' => 'end',
-                        'align' => 'top',
-                        'font' => ['weight' => '700', 'size' => 10],
+                        'anchor'  => 'end',
+                        'align'   => 'top',
+                        'font'    => ['weight' => '700', 'size' => 10],
                     ],
                 ],
                 'interaction' => [
-                    'mode' => 'index',
+                    'mode'      => 'index',
                     'intersect' => false,
                 ],
                 'scales' => [
                     'x' => [
                         'stacked' => true,
-                        'grid' => ['display' => false],
-                        'title' => ['display' => true, 'text' => $xTitle],
+                        'grid'    => ['display' => false],
+                        'title'   => ['display' => true, 'text' => $xTitle],
                     ],
                     'y' => [
-                        'stacked' => true,
+                        'stacked'     => true,
                         'beginAtZero' => true,
-                        'ticks' => ['precision' => 0],
-                        'title' => ['display' => true, 'text' => 'Qtd'],
+                        'ticks'       => ['precision' => 0],
+                        'title'       => ['display' => true, 'text' => 'Qtd'],
                     ],
                 ],
             ],
@@ -490,7 +683,7 @@ class Dashboard extends Component
         ];
 
         $datasets = [];
-        $index = 0;
+        $index    = 0;
 
         foreach ($bucketData['series'] as $label => $values) {
             $normalized = mb_strtolower($label);
@@ -506,58 +699,58 @@ class Dashboard extends Component
             }
 
             $datasets[] = [
-                'label' => $label,
-                'data' => array_values($values),
+                'label'           => $label,
+                'data'            => array_values($values),
                 'backgroundColor' => $color,
-                'borderColor' => $color,
-                'borderRadius' => 4,
-                'stack' => 'stack',
+                'borderColor'     => $color,
+                'borderRadius'    => 4,
+                'stack'           => 'stack',
             ];
         }
 
         return [
             'type' => 'bar',
             'data' => [
-                'labels' => $bucketData['labels'],
+                'labels'   => $bucketData['labels'],
                 'datasets' => $datasets,
             ],
             'options' => [
-                'responsive' => true,
+                'responsive'          => true,
                 'maintainAspectRatio' => false,
-                'plugins' => [
+                'plugins'             => [
                     'legend' => [
                         'position' => 'bottom',
-                        'labels' => [
+                        'labels'   => [
                             'usePointStyle' => true,
-                            'boxWidth' => 8,
+                            'boxWidth'      => 8,
                         ],
                     ],
                     'tooltip' => [
-                        'mode' => 'index',
+                        'mode'      => 'index',
                         'intersect' => false,
                     ],
                     'datalabels' => [
                         'display' => '__VALUE_LABEL_NONZERO__',
-                        'anchor' => 'end',
-                        'align' => 'top',
-                        'font' => ['weight' => '700', 'size' => 10],
+                        'anchor'  => 'end',
+                        'align'   => 'top',
+                        'font'    => ['weight' => '700', 'size' => 10],
                     ],
                 ],
                 'interaction' => [
-                    'mode' => 'index',
+                    'mode'      => 'index',
                     'intersect' => false,
                 ],
                 'scales' => [
                     'x' => [
                         'stacked' => true,
-                        'grid' => ['display' => false],
-                        'title' => ['display' => true, 'text' => 'Prazo real'],
+                        'grid'    => ['display' => false],
+                        'title'   => ['display' => true, 'text' => 'Prazo real'],
                     ],
                     'y' => [
-                        'stacked' => true,
+                        'stacked'     => true,
                         'beginAtZero' => true,
-                        'ticks' => ['precision' => 0],
-                        'title' => ['display' => true, 'text' => 'Qtd'],
+                        'ticks'       => ['precision' => 0],
+                        'title'       => ['display' => true, 'text' => 'Qtd'],
                     ],
                 ],
             ],
@@ -569,64 +762,64 @@ class Dashboard extends Component
         return [
             'type' => 'bar',
             'data' => [
-                'labels' => $userData['labels'],
+                'labels'   => $userData['labels'],
                 'datasets' => [
                     [
-                        'label' => 'Até 4 dias',
-                        'data' => $userData['buckets']['Até 4 dias'] ?? [],
+                        'label'           => 'Até 4 dias',
+                        'data'            => $userData['buckets']['Até 4 dias'] ?? [],
                         'backgroundColor' => '#A9FFBA',
-                        'borderColor' => '#A9FFBA',
-                        'borderRadius' => 5,
-                        'stack' => 'stack',
+                        'borderColor'     => '#A9FFBA',
+                        'borderRadius'    => 5,
+                        'stack'           => 'stack',
                     ],
                     [
-                        'label' => '5 a 8 dias',
-                        'data' => $userData['buckets']['5 a 8 dias'] ?? [],
+                        'label'           => '5 a 8 dias',
+                        'data'            => $userData['buckets']['5 a 8 dias'] ?? [],
                         'backgroundColor' => '#28FF52',
-                        'borderColor' => '#28FF52',
-                        'borderRadius' => 5,
-                        'stack' => 'stack',
+                        'borderColor'     => '#28FF52',
+                        'borderRadius'    => 5,
+                        'stack'           => 'stack',
                     ],
                     [
-                        'label' => 'Mais de 8 dias',
-                        'data' => $userData['buckets']['Mais de 8 dias'] ?? [],
+                        'label'           => 'Mais de 8 dias',
+                        'data'            => $userData['buckets']['Mais de 8 dias'] ?? [],
                         'backgroundColor' => '#A8B1E9',
-                        'borderColor' => '#A8B1E9',
-                        'borderRadius' => 5,
-                        'stack' => 'stack',
+                        'borderColor'     => '#A8B1E9',
+                        'borderRadius'    => 5,
+                        'stack'           => 'stack',
                     ],
                 ],
             ],
             'options' => [
-                'indexAxis' => 'y',
-                'responsive' => true,
+                'indexAxis'           => 'y',
+                'responsive'          => true,
                 'maintainAspectRatio' => false,
-                'plugins' => [
+                'plugins'             => [
                     'legend' => [
-                        'display' => true,
+                        'display'  => true,
                         'position' => 'top',
-                        'labels' => [
+                        'labels'   => [
                             'usePointStyle' => true,
-                            'boxWidth' => 8,
+                            'boxWidth'      => 8,
                         ],
                     ],
                     'datalabels' => [
                         'display' => '__VALUE_LABEL_NONZERO__',
-                        'anchor' => 'end',
-                        'align' => 'right',
-                        'font' => ['weight' => '700', 'size' => 10],
+                        'anchor'  => 'end',
+                        'align'   => 'right',
+                        'font'    => ['weight' => '700', 'size' => 10],
                     ],
                 ],
                 'scales' => [
                     'x' => [
-                        'stacked' => true,
+                        'stacked'     => true,
                         'beginAtZero' => true,
-                        'ticks' => ['precision' => 0],
-                        'grid' => ['color' => 'rgba(148, 163, 184, .18)'],
+                        'ticks'       => ['precision' => 0],
+                        'grid'        => ['color' => 'rgba(148, 163, 184, .18)'],
                     ],
                     'y' => [
                         'stacked' => true,
-                        'grid' => ['display' => false],
+                        'grid'    => ['display' => false],
                     ],
                 ],
             ],
@@ -635,14 +828,14 @@ class Dashboard extends Component
 
     protected function chartPayloads(): array
     {
-        $statusBuckets = $this->aggregateStackedBuckets($this->statusBucketSql(), $this->labelsForStatusAge());
+        $statusBuckets   = $this->aggregateStackedBuckets($this->statusBucketSql(), $this->labelsForStatusAge());
         $deadlineBuckets = $this->aggregateDeadlineBucketsByCompany();
-        $userData = $this->userDistribution();
+        $userData        = $this->userDistribution();
 
         return [
             'statusAgeChart' => $this->stackedChart($statusBuckets, 'Tempo no status'),
-            'deadlineChart' => $this->deadlineCompanyChart($deadlineBuckets),
-            'userChart' => $this->userChart($userData),
+            'deadlineChart'  => $this->deadlineCompanyChart($deadlineBuckets),
+            'userChart'      => $this->userChart($userData),
         ];
     }
 
@@ -660,12 +853,13 @@ class Dashboard extends Component
         $payloads = $this->chartPayloads();
 
         return view('livewire.dispatchs.dashboard', [
-            'summary' => $this->summary(),
+            'summary'        => $this->summary(),
             'statusAgeChart' => $payloads['statusAgeChart'],
-            'deadlineChart' => $payloads['deadlineChart'],
-            'userChart' => $payloads['userChart'],
-            'criticalItems' => $this->criticalStackItems(),
-            'lastUpdatedAt' => Carbon::now(),
+            'deadlineChart'  => $payloads['deadlineChart'],
+            'userChart'      => $payloads['userChart'],
+            'bandCharts'     => $this->bandCharts(),
+            'criticalItems'  => $this->criticalStackItems(),
+            'lastUpdatedAt'  => Carbon::now(),
         ]);
     }
 }

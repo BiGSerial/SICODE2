@@ -316,6 +316,14 @@
                 </div>
 
                 <div class="modal-footer five-footer">
+                    @if ($isSaving)
+                        <div wire:poll.5s="checkSavingTimeout" class="d-none"></div>
+                    @endif
+                    @if ($errors->any())
+                        <div class="alert alert-warning py-1 px-2 mb-0 me-auto small" role="alert">
+                            <i class="ri-error-warning-line me-1"></i>{{ $errors->first() }}
+                        </div>
+                    @endif
                     <button class="btn btn-outline-secondary" data-bs-dismiss="modal" wire:click="clearAll">Cancelar</button>
                     <button class="btn btn-success" wire:click="finishD5" @disabled($isSaving)
                         wire:loading.attr="disabled" wire:target="finishD5,toSave,evidenceSaved,evidenceSaveFailed">
@@ -943,5 +951,13 @@
                 }
             });
         })();
+
+        window.addEventListener('finish-d5-validation-failed', function() {
+            const field = document.querySelector('#finishD5Modal .is-invalid');
+            if (field) {
+                field.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                field.focus({ preventScroll: true });
+            }
+        });
     </script>
 </div>

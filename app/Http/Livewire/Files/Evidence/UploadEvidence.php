@@ -75,17 +75,40 @@ class UploadEvidence extends Component
             return;
         }
 
-        foreach ($this->files as $file) {
-            $this->tempFiles[] = [
-                'original_name' => $file->getClientOriginalName(),
-                'extension'     => strtolower($file->getClientOriginalExtension()),
-                'size'          => $file->getSize(),
-                'file'          => $file,
-            ];
+        try {
+            foreach ($this->files as $file) {
+                $this->tempFiles[] = [
+                    'original_name' => $file->getClientOriginalName(),
+                    'extension'     => strtolower($file->getClientOriginalExtension()),
+                    'size'          => $file->getSize(),
+                    'file'          => $file,
+                ];
+            }
+        } catch (\Throwable $e) {
+            $this->files = [];
+
+            Log::error('Falha ao receber upload de evidência da D5.', [
+                'five_note_id' => $this->five?->id,
+                'user_id'      => Auth::id(),
+                'exception'    => $e,
+            ]);
+
+            $this->dispatchBrowserEvent('evidence-upload-rejected', [
+                'componentId' => $this->id,
+                'message'     => 'Não foi possível processar o arquivo enviado (' . class_basename($e) . '). Remova-o e tente anexar novamente.',
+            ]);
+
+            return;
         }
 
         $uploadedCount = count($this->files);
-        $this->files   = []; // Limpa o input para novos uploads
+        Log::info('D5 evidências: arquivos recebidos.', [
+            'five_note_id' => $this->five?->id,
+            'user_id'      => Auth::id(),
+            'count'        => $uploadedCount,
+            'queue_total'  => count($this->tempFiles),
+        ]);
+        $this->files = []; // Limpa o input para novos uploads
         $this->emitUp('hasEvidence', count($this->tempFiles) > 0);
         $this->dispatchBrowserEvent('evidence-upload-accepted', [
             'componentId' => $this->id,
@@ -120,6 +143,13 @@ class UploadEvidence extends Component
 
             return;
         }
+
+        Log::info('D5 evidências: salvando.', [
+            'five_note_id' => $this->five->id,
+            'user_id'      => Auth::id(),
+            'count'        => count($this->tempFiles),
+            'bytes'        => array_sum(array_column($this->tempFiles, 'size')),
+        ]);
 
         DB::beginTransaction();
 
@@ -164,6 +194,7 @@ class UploadEvidence extends Component
             $this->emitUp('evidenceSaveFailed');
             $this->dispatchBrowserEvent('evidence-save-failed', [
                 'componentId' => $this->id,
+                'reason'      => class_basename($e),
             ]);
         }
     }

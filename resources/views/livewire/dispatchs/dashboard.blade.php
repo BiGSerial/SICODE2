@@ -349,6 +349,7 @@
                                 <th>Rubrica</th>
                                 <th>Município</th>
                                 <th class="text-center">Status</th>
+                                <th class="text-center" title="Dias desde a data do status da nota">Dias no status</th>
                                 <th class="text-center">Prazo</th>
                                 <th>Usuário</th>
                             </tr>
@@ -367,6 +368,15 @@
                                             <span class="badge-stack badge-open">Na pilha</span>
                                         @endif
                                     </td>
+                                    @php
+                                        $statusDays = $item->status_days;
+                                        $statusDaysClass = is_null($statusDays)
+                                            ? 'text-muted'
+                                            : ($statusDays > 8 ? 'text-danger' : ($statusDays <= 4 ? 'text-success' : 'text-warning'));
+                                    @endphp
+                                    <td class="text-center fw-bold {{ $statusDaysClass }}">
+                                        {{ is_null($statusDays) ? '-' : $statusDays }}
+                                    </td>
                                     <td class="text-center fw-bold @if (($item->deadline_value ?? 0) < 0) text-danger @endif">
                                         {{ $item->deadline_value ?? '-' }}
                                     </td>
@@ -374,7 +384,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="text-center text-muted py-4">Sem registros na pilha para o filtro atual.</td>
+                                    <td colspan="8" class="text-center text-muted py-4">Sem registros na pilha para o filtro atual.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -382,6 +392,52 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-12">
+            <div class="filter-panel">
+                <div class="row g-2 align-items-end">
+                    <div class="col-12 col-md-3">
+                        <label class="form-label mb-1" for="bandRangeFrom">Finalizadas de</label>
+                        <input type="date" id="bandRangeFrom" class="form-control" wire:model.lazy="rangeFrom">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label mb-1" for="bandRangeTo">até</label>
+                        <input type="date" id="bandRangeTo" class="form-control" wire:model.lazy="rangeTo">
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <label class="form-label mb-1" for="adherenceDays">Aderência aos prazos</label>
+                        <select id="adherenceDays" class="form-select" wire:model="adherenceDays">
+                            <option value="8">8 dias (Levantamento)</option>
+                            <option value="6">6 dias (Desenho / CIP)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        @foreach (['satel' => ['SATEL', $bandSatelChartId], 'own' => ['PRÓPRIO', $bandOwnChartId]] as $key => [$title, $chartId])
+            <div class="col-12 col-xl-6">
+                <div class="chart-card">
+                    <div class="chart-head">
+                        <div>
+                            <h3 class="chart-title">Faixa de dias — {{ $title }}</h3>
+                            <div class="chart-subtitle">Dias entre a data do status da nota e a finalização (somente OV); % = dentro de {{ $adherenceDays }} dias</div>
+                        </div>
+                        <div class="chart-actions">
+                            <button type="button" class="icon-action" title="Baixar imagem"
+                                aria-label="Baixar imagem do gráfico"
+                                onclick="window.dispatchDashboardDownloadChart(@js($chartId), 'faixa-dias-{{ $key }}')">
+                                <i class="ri-download-2-line"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="chart-body" wire:ignore>
+                        <x-grafico.apex :chart="$bandCharts[$key]" :chartId="$chartId" :showDataLabels="true" class="w-100 h-100" />
+                    </div>
+                </div>
+            </div>
+        @endforeach
     </div>
 
     <script>
