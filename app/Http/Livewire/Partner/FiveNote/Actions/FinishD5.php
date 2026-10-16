@@ -6,6 +6,7 @@ use App\Models\{EvidenceFile, FiveNote};
 use App\Services\D5\D5WorkflowService;
 use App\Services\Files\EvidenceFileService;
 use Illuminate\Support\Facades\{DB, Log};
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class FinishD5 extends Component
@@ -21,6 +22,11 @@ class FinishD5 extends Component
     public $editingDescription = false;
 
     public bool $isSaving = false;
+
+    public int $savingStartedAt = 0;
+
+    // Segundos sem resposta do upload/encerramento antes de liberar o botão e avisar o usuário.
+    private const SAVING_TIMEOUT_SECONDS = 90;
 
     public int $evidenceKey = 0;
 
@@ -103,11 +109,32 @@ class FinishD5 extends Component
     {
         $this->authorizePartnerAccess('d5_notes.finish');
 
-        if ($this->isSaving || !$this->five) {
+        if ($this->isSaving) {
+            $this->notifyFailure('Encerramento em andamento', 'A D5 já está sendo encerrada. Aguarde a conclusão.', 'info');
+
             return;
         }
 
-        $this->validate();
+        if (!$this->five) {
+            $this->notifyFailure('D5 não carregada', 'Feche a janela e abra a D5 novamente para encerrar.');
+
+            return;
+        }
+
+        try {
+            $this->validate();
+        } catch (ValidationException $e) {
+            // O erro de campo fica na coluna lateral, fora da área visível do modal.
+            // Sem este aviso o botão parecia não fazer nada.
+            $this->notifyFailure(
+                'Preencha os campos obrigatórios',
+                implode('<br>', array_unique($e->validator->errors()->all())),
+                'warning',
+            );
+            $this->dispatchBrowserEvent('finish-d5-validation-failed');
+
+            return;
+        }
 
         $this->dispatchBrowserEvent('alertar', [
             'title'        => 'ENCERRAR D5',
@@ -123,16 +150,34 @@ class FinishD5 extends Component
 
     }
 
+    private function notifyFailure(string $title, string $html, string $icon = 'error'): void
+    {
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => $icon,
+            'title'    => $title,
+            'html'     => $html,
+        ]);
+    }
+
     public function toSave(): void
     {
         if ($this->isSaving) {
             return;
         }
 
-        $this->isSaving = true;
+        $this->isSaving        = true;
+        $this->savingStartedAt = time();
+
+        Log::info('D5 encerramento: iniciado.', [
+            'five_note_id' => $this->five?->id,
+            'user_id'      => auth()->id(),
+            'has_evidence' => (bool) $this->hasEvidence,
+        ]);
 
         if (!$this->five) {
             $this->isSaving = false;
+            $this->notifyFailure('D5 não carregada', 'Feche a janela e abra a D5 novamente para encerrar.');
 
             return;
         }
@@ -148,12 +193,50 @@ class FinishD5 extends Component
 
     public function evidenceSaved()
     {
+        Log::info('D5 encerramento: evidências salvas.', [
+            'five_note_id' => $this->five?->id,
+            'elapsed_s'    => $this->savingStartedAt ? time() - $this->savingStartedAt : null,
+        ]);
+
         $this->finish();
+    }
+
+    /**
+     * Chamado por polling enquanto isSaving: se o upload/encerramento não responder,
+     * libera o botão e avisa, em vez de deixar o usuário preso em "Encerrando...".
+     */
+    public function checkSavingTimeout(): void
+    {
+        if (!$this->isSaving || !$this->savingStartedAt) {
+            return;
+        }
+
+        $elapsed = time() - $this->savingStartedAt;
+
+        if ($elapsed < self::SAVING_TIMEOUT_SECONDS) {
+            return;
+        }
+
+        Log::warning('D5 encerramento: sem resposta, liberando botão.', [
+            'five_note_id' => $this->five?->id,
+            'user_id'      => auth()->id(),
+            'elapsed_s'    => $elapsed,
+            'has_evidence' => (bool) $this->hasEvidence,
+        ]);
+
+        $this->isSaving        = false;
+        $this->savingStartedAt = 0;
+
+        $this->notifyFailure(
+            'O encerramento não respondeu',
+            'O envio das evidências ou o encerramento demorou mais que o esperado e foi interrompido. Verifique se a D5 foi encerrada antes de tentar novamente; se persistir, informe o suporte (D5 ' . e($this->five?->note_d5) . ').'
+        );
     }
 
     public function evidenceSaveFailed(): void
     {
-        $this->isSaving = false;
+        $this->isSaving        = false;
+        $this->savingStartedAt = 0;
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -219,6 +302,12 @@ class FinishD5 extends Component
 
             DB::commit();
 
+            Log::info('D5 encerramento: concluído.', [
+                'five_note_id' => $this->five->id,
+                'user_id'      => auth()->id(),
+                'elapsed_s'    => $this->savingStartedAt ? time() - $this->savingStartedAt : null,
+            ]);
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'success',
@@ -233,7 +322,8 @@ class FinishD5 extends Component
             if (DB::transactionLevel() > 0) {
                 DB::rollBack();
             }
-            $this->isSaving = false;
+            $this->isSaving        = false;
+            $this->savingStartedAt = 0;
 
             Log::error('Falha ao encerrar D5 pelo parceiro.', [
                 'five_note_id' => $this->five?->id,
@@ -245,7 +335,7 @@ class FinishD5 extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'OPERAÇÃO FALHOU',
-                'html'     => 'Não foi possível encerrar a D5. Tente novamente. Se o problema continuar, entre em contato com o suporte.',
+                'html'     => 'Não foi possível encerrar a D5. Tente novamente. Se o problema continuar, entre em contato com o suporte e informe: ' . class_basename($th) . ' — ' . e(\Illuminate\Support\Str::limit($th->getMessage(), 160)),
             ]);
         }
     }
