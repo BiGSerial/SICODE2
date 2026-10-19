@@ -5,9 +5,17 @@
         <div class="d-flex flex-wrap justify-content-between gap-3">
             <div>
                 <h2 class="dash-title">Ordem {{ $order->ordem }}</h2>
-                <div class="dash-subtitle">Nota/OV {{ $order->Note?->note ?? '—' }} · consulta operacional</div>
+                <div class="dash-subtitle d-flex flex-wrap align-items-center gap-2">
+                    {!! \App\Services\Closure\ClosureMetaClassifier::badge($metaType) !!}
+                    <span>Nota/OV {{ $order->Note?->note ?? '—' }} · Competência {{ \App\Services\Closure\ClosureMetaClassifier::competenceLabel($competence) }}</span>
+                </div>
             </div>
+            <div class="d-flex flex-wrap align-items-start gap-2">
+            @if ($order->note_id)
+                <a href="{{ route('closure.work.show', $order->note_id) }}" class="btn btn-sm btn-light">Gestão da Obra</a>
+            @endif
             <span class="badge {{ $isClosed ? 'bg-success' : ($situation === 'PASSIVO' ? 'bg-danger' : 'bg-warning text-dark') }} align-self-start px-3 py-2">{{ $situation }}</span>
+            </div>
         </div>
     </div>
 
@@ -22,8 +30,8 @@
         <div class="col-12 col-lg-4">
             <div class="metric-card h-100" style="--accent: var(--dash-teal);">
                 <div class="metric-label">Tratativa</div>
-                <div class="metric-value fs-4">{{ $state && $canViewOperational ? str_replace('_', ' ', $state->operational_status) : '—' }}</div>
-                <div class="metric-note">Status operacional separado do SAP e somente para consulta.</div>
+                <div class="metric-value fs-4">{{ $state && $canViewOperational ? \App\Enum\ClosureOperationalStatus::labelFor($state->operational_status) : 'Não despachada' }}</div>
+                <div class="metric-note">Acompanhamento operacional da Ordem, separado do SAP.</div>
             </div>
         </div>
         <div class="col-12 col-lg-4">
@@ -88,12 +96,23 @@
     @elseif ($state)
         <div class="alert alert-secondary">A situação operacional desta Ordem está disponível apenas para o detentor atual ou para a empresa responsável.</div>
     @else
-        <div class="alert alert-secondary">Esta Ordem ainda não possui uma tratativa operacional iniciada.</div>
+        <div class="alert alert-secondary d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span>Esta Ordem ainda não foi despachada: a tratativa começa no despacho (ou na auto-atribuição).</span>
+            @if ($canDispatch)
+                <button type="button" class="btn btn-sm btn-primary"
+                    onclick="window.dispatchEvent(new CustomEvent('closure-dispatch-open', { detail: { rows: [{ id: {{ $order->id }}, ordem: @js($order->ordem), note: @js($order->Note?->note), type: @js($metaType), comp: @js(\App\Services\Closure\ClosureMetaClassifier::competenceLabel($competence)) }] } }))">Despachar</button>
+            @endif
+        </div>
     @endif
 
     @if ($target?->is_exception)
         <div class="alert alert-warning mt-3 mb-0 small">
             <strong>Caso atípico — entrada por exceção.</strong> Justificativa: {{ $target->exception_reason }}.
         </div>
+    @endif
+
+    @if ($canDispatch)
+        @livewire('closure.dispatch.dispatch-modal')
+        <div x-data x-on:hidden.bs.modal.window="if ($event.target.id === 'closure_dispatch_modal') { $wire.$refresh() }"></div>
     @endif
 </div>

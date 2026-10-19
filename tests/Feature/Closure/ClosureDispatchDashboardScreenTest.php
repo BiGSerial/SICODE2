@@ -39,7 +39,7 @@ function dashOrder(?User $user, string $status, string $fim, ?Company $company =
 }
 
 it('rejects users without the dispatch gate', function () {
-    $this->actingAs(dashUser(['closure_operator' => true]))->get(route('closure.dispatch.dashboard'))->assertForbidden();
+    $this->actingAs(dashUser(['closure_operator' => true]))->get(route('dispatch.dashboard', ['service' => \App\Services\Closure\ClosureServiceLocator::uuid()]))->assertForbidden();
 
     $this->actingAs(dashUser(['closure_operator' => true]));
     Livewire::test(Dashboard::class)->assertStatus(403);
@@ -53,8 +53,8 @@ it('renders the analytical dashboard for the dispatcher with the matrix numbers'
     dashOrder($ana, 'IN_PROGRESS', now()->subMonthNoOverflow()->toDateString());
 
     // A página completa depende do menu/banco de dados de layout; aqui valida-se o contrato da rota.
-    $route = app('router')->getRoutes()->getByName('closure.dispatch.dashboard');
-    expect($route->getActionMethod())->toBe('dispatchDashboard')->and($route->middleware())->toContain('can:closure.dispatch');
+    $route = app('router')->getRoutes()->getByName('dispatch.dashboard');
+    expect($route->getActionMethod())->toBe('dashboard')->and($route->middleware())->toContain('check.service.dispatch:services');
 
     $this->actingAs($dispatcher);
     Livewire::test(Dashboard::class)

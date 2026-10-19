@@ -41,7 +41,7 @@
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span class="small opacity-75">Atualizado em {{ now()->format('d/m/Y H:i') }}</span>
-                <a href="{{ route('closure.dispatch') }}" class="btn btn-light btn-sm btn-dash">Lista de controle</a>
+                <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('dispatch.stack') }}" class="btn btn-light btn-sm btn-dash">Lista de controle</a>
             </div>
         </div>
     </div>
@@ -50,25 +50,7 @@
         <div class="alert alert-{{ $feedbackType }} mb-3" role="alert" id="closure-dash-feedback">{{ $feedbackMessage }}</div>
     @endif
 
-    @if ($transferReceipt)
-        <div class="table-card mb-3" id="closure-transfer-receipt">
-            <div class="chart-head">
-                <div>
-                    <h3 class="chart-title">Recibo da transferência</h3>
-                    <div class="chart-subtitle">
-                        Obra {{ $transferReceipt['note_id'] }} para {{ $transferReceipt['target'] }} ({{ $transferReceipt['company'] }}) em {{ $transferReceipt['at'] }}. Motivo: {{ $transferReceipt['reason'] }}
-                    </div>
-                </div>
-                <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="dismissReceipt">Fechar</button>
-            </div>
-            <div class="p-3 small">
-                <div><strong>Transferidas ({{ count($transferReceipt['moved']) }}):</strong> {{ implode(', ', $transferReceipt['moved']) ?: 'nenhuma' }}</div>
-                @foreach ($transferReceipt['skipped'] as $skipped)
-                    <div class="text-danger">Recusada {{ $skipped['ordem'] }}: {{ $skipped['reason'] }}</div>
-                @endforeach
-            </div>
-        </div>
-    @endif
+    @include('livewire.closure.dispatch._transfer-receipt')
 
     {{-- Filtros globais --}}
     <div class="table-card p-3 mb-3">
@@ -317,37 +299,7 @@
         </div>
     </div>
 
-    {{-- Pedidos de prioridade --}}
-    <div class="table-card mb-3" id="closure-priority-requests">
-        <div class="chart-head">
-            <div>
-                <h3 class="chart-title">Pedidos de prioridade</h3>
-                <div class="chart-subtitle">{{ $priorities->count() }} pendente(s). Aceitar marca todas as Ordens abertas da obra.</div>
-            </div>
-        </div>
-        <div class="table-responsive">
-            <table class="table table-sm align-middle mb-0">
-                <colgroup><col style="width: 130px"><col style="width: 190px"><col><col style="width: 150px"><col style="width: 330px"></colgroup>
-                <thead><tr><th class="ps-3">Obra</th><th>Solicitante</th><th>Motivo</th><th>Pedido em</th><th class="pe-3">Ações</th></tr></thead>
-                <tbody>
-                    @forelse ($priorities as $request)
-                        <tr wire:key="priority-{{ $request->id }}">
-                            <td class="ps-3 fw-semibold"><a href="{{ route('closure.work.show', $request->note_id) }}">{{ $request->Note?->note ?? $request->note_id }}</a></td>
-                            <td>{{ $request->RequestedBy?->name ?? '—' }}</td>
-                            <td title="{{ $request->reason }}">{{ $request->reason }}</td>
-                            <td>{{ $request->created_at->format('d/m/Y H:i') }}</td>
-                            <td class="pe-3">
-                                <button type="button" class="btn btn-success btn-sm btn-dash" onclick="closureDashDecide(this, {{ $request->id }}, 'accept')">Aceitar</button>
-                                <button type="button" class="btn btn-outline-danger btn-sm btn-dash" onclick="closureDashDecide(this, {{ $request->id }}, 'decline')">Recusar</button>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="5" class="text-muted py-4 text-center">Nenhum pedido pendente.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
+    @include('livewire.closure.dispatch._priority-requests')
 
     {{-- Interação usuário x parceira --}}
     <div class="row g-3 mb-3">
@@ -447,70 +399,7 @@
         </div>
     </div>
 
-    {{-- Transferência de responsabilidade --}}
-    @if ($transferNoteId)
-        <div class="table-card mb-3 border-primary" id="closure-transfer-form">
-            <div class="chart-head">
-                <div>
-                    <h3 class="chart-title">Transferir responsabilidade</h3>
-                    <div class="chart-subtitle">Todas as Ordens transferíveis da obra vão para o usuário escolhido ({{ $transferStates->count() }} Ordem(ns)).</div>
-                </div>
-                <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="cancelTransfer">Cancelar</button>
-            </div>
-            <div class="p-3">
-                <div class="row g-3">
-                    <div class="col-12 col-md-4">
-                        <label class="form-label small mb-1">Usuário de destino</label>
-                        <select class="form-select form-select-sm" wire:model="transferUserId">
-                            <option value="">Selecione...</option>
-                            @foreach ($transferUsers as $candidate)
-                                <option value="{{ $candidate->id }}">{{ $candidate->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="col-12 col-md-5">
-                        <label class="form-label small mb-1">Motivo (obrigatório)</label>
-                        <input type="text" class="form-control form-control-sm" wire:model.defer="transferReason" maxlength="500">
-                    </div>
-                    <div class="col-12 col-md-3 d-flex align-items-end">
-                        <button type="button" class="btn btn-primary btn-sm btn-dash w-100" wire:click="transfer" wire:loading.attr="disabled">Confirmar transferência</button>
-                    </div>
-                </div>
-                <div class="small text-muted mt-2">Ordens: {{ $transferStates->map(fn ($s) => $s->Order->ordem)->implode(', ') ?: 'nenhuma transferível (Ordens aguardando parceira ficam de fora)' }}</div>
-            </div>
-        </div>
-    @endif
+    @include('livewire.closure.dispatch._transfer-form')
 
-    @once
-        @push('script')
-            <script>
-                window.closureDashDecide = function (button, requestId, decision) {
-                    const root = button.closest('[wire\\:id]');
-                    const component = root ? window.Livewire.find(root.getAttribute('wire:id')) : null;
-                    if (!component) return;
-                    const accept = decision === 'accept';
-                    const send = (note) => component.call('decidePriority', requestId, decision, note || null);
-
-                    if (!window.Swal) {
-                        send(window.prompt(accept ? 'Nota de decisão (opcional):' : 'Motivo da recusa (opcional):'));
-                        return;
-                    }
-
-                    window.Swal.fire({
-                        title: accept ? 'Aceitar prioridade?' : 'Recusar pedido?',
-                        text: accept ? 'Todas as Ordens abertas da obra serão marcadas com prioridade.' : 'O solicitante será notificado da recusa.',
-                        icon: accept ? 'question' : 'warning',
-                        input: 'textarea',
-                        inputPlaceholder: 'Nota de decisão (opcional)',
-                        showCancelButton: true,
-                        confirmButtonText: accept ? 'Aceitar' : 'Recusar',
-                        cancelButtonText: 'Cancelar',
-                        reverseButtons: true,
-                    }).then((result) => {
-                        if (result.isConfirmed) send(result.value);
-                    });
-                };
-            </script>
-        @endpush
-    @endonce
+    @include('livewire.closure.dispatch._decide-script')
 </div>

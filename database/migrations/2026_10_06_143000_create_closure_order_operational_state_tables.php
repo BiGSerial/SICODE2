@@ -4,8 +4,57 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
+/*
+ * ESQUEMA LEGADO: o banco compartilhado/produção ainda tem closure_order_states / closure_order_events do
+ * esquema antigo do Encerramento (migrations de 2026-09-02, removidas desta branch). Esta migration os
+ * DESCARTA e recria no desenho novo. Decisão do usuário: o Encerramento ainda não é atividade em uso, então
+ * os dados legados são descartados de propósito. Idempotente: tabelas já no esquema novo nunca são dropadas.
+ */
 return new class () extends Migration {
     public function up(): void
+    {
+        $this->dropLegacyTables();
+
+        $createdStates = !Schema::hasTable('closure_order_states');
+        $createdEvents = !Schema::hasTable('closure_order_events');
+
+        if ($createdStates) {
+            $this->createStates();
+        }
+
+        if ($createdEvents) {
+            $this->createEvents();
+        }
+
+        if ($createdStates || $createdEvents) {
+            Schema::table('closure_order_states', function (Blueprint $table) {
+                $table->foreign('last_event_id')
+                    ->references('id')
+                    ->on('closure_order_events')
+                    ->nullOnDelete();
+            });
+        }
+
+        $this->createPeriods();
+    }
+
+    private function dropLegacyTables(): void
+    {
+        $legacyEvents = Schema::hasTable('closure_order_events') && !Schema::hasColumn('closure_order_events', 'closure_order_state_id');
+        $legacyStates = Schema::hasTable('closure_order_states') && !Schema::hasColumn('closure_order_states', 'operational_status');
+
+        if (!$legacyEvents && !$legacyStates) {
+            return;
+        }
+
+        Schema::disableForeignKeyConstraints();
+        Schema::dropIfExists('closure_order_state_periods');
+        Schema::dropIfExists('closure_order_events');
+        Schema::dropIfExists('closure_order_states');
+        Schema::enableForeignKeyConstraints();
+    }
+
+    private function createStates(): void
     {
         Schema::create('closure_order_states', function (Blueprint $table) {
             $table->id();
@@ -31,7 +80,10 @@ return new class () extends Migration {
             $table->index(['current_holder_company_id', 'operational_status'], 'closure_state_holder_company_status_index');
             $table->index(['assigned_user_id', 'operational_status'], 'closure_state_assignee_status_index');
         });
+    }
 
+    private function createEvents(): void
+    {
         Schema::create('closure_order_events', function (Blueprint $table) {
             $table->id();
             $table->foreignId('closure_order_state_id')->constrained('closure_order_states')->restrictOnDelete();
@@ -49,13 +101,13 @@ return new class () extends Migration {
             $table->index(['closure_order_state_id', 'created_at'], 'closure_order_event_state_created_index');
             $table->index('batch_id', 'closure_order_event_batch_index');
         });
+    }
 
-        Schema::table('closure_order_states', function (Blueprint $table) {
-            $table->foreign('last_event_id')
-                ->references('id')
-                ->on('closure_order_events')
-                ->nullOnDelete();
-        });
+    private function createPeriods(): void
+    {
+        if (Schema::hasTable('closure_order_state_periods')) {
+            return;
+        }
 
         Schema::create('closure_order_state_periods', function (Blueprint $table) {
             $table->id();
@@ -81,12 +133,11 @@ return new class () extends Migration {
 
     public function down(): void
     {
-        Schema::table('closure_order_states', function (Blueprint $table) {
-            $table->dropForeign(['last_event_id']);
-        });
+        Schema::disableForeignKeyConstraints();
 
         Schema::dropIfExists('closure_order_state_periods');
         Schema::dropIfExists('closure_order_events');
         Schema::dropIfExists('closure_order_states');
+        Schema::enableForeignKeyConstraints();
     }
 };

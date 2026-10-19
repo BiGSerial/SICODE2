@@ -22,26 +22,25 @@
         ? $toServices->filter(fn($service) => $service->service && $service->Service?->construction)
         : collect();
 
+    $postDispatchItems = auth()->user()->can('operator')
+        ? $toServices->filter(fn($service) => $service->dispatch && $service->Service?->post_construction)
+        : collect();
+
+    $postServiceItems = auth()->user()->can('user')
+        ? $toServices->filter(fn($service) => $service->service && $service->Service?->post_construction)
+        : collect();
+
+    $showPosObra = $postDispatchItems->isNotEmpty() || $postServiceItems->isNotEmpty();
     $showProjeto = $projectDispatchItems->isNotEmpty() || $projectServiceItems->isNotEmpty();
     $showConstrucao = $constructionDispatchItems->isNotEmpty() || $constructionServiceItems->isNotEmpty();
     $showQualityShortcut = auth()->user()->can('quality.access');
     $showProjectReviewShortcut = auth()->user()->can('analyst');
 
-    // Serviços com telas próprias: folder => rota/gate por tipo de menu.
-    $specializedRoutes = [
-        'encerramento' => [
-            'dispatch' => ['route' => 'closure.dispatch', 'can' => 'closure.dispatch'],
-            'service'  => ['route' => 'closure.work', 'can' => 'closure.work'],
-        ],
-    ];
-    $specialized = fn($service, string $kind) => $specializedRoutes[$service->Service->folder ?? ''][$kind] ?? null;
-
     $buildDispatchItems = fn($items) => $items
         ->map(fn($service) => [
             'label' => mb_strtoupper($service->Service->service),
-            'route' => $specialized($service, 'dispatch')['route'] ?? 'dispatch.main',
-            'routeParams' => $specialized($service, 'dispatch') ? [] : ['service' => $service->service_id],
-            'can' => $specialized($service, 'dispatch')['can'] ?? null,
+            'route' => 'dispatch.main',
+            'routeParams' => ['service' => $service->service_id],
             'icon' => $service->Service->icon,
             'iconClass' => 'text-danger',
         ])
@@ -49,22 +48,15 @@
         ->all();
 
     $buildServiceItems = fn($items) => $items
-        ->map(fn($service) => $specialized($service, 'service')
-            ? [
-                'label' => mb_strtoupper($service->Service->service),
-                'route' => $specialized($service, 'service')['route'],
-                'can' => $specialized($service, 'service')['can'],
-                'icon' => $service->Service->icon,
-            ]
-            : [
-                'label' => mb_strtoupper($service->Service->service),
-                'route' => 'services.main',
-                'routeParams' => ['service' => $service->service_id],
-                'icon' => $service->Service->icon,
-                'countComponent' => 'components.count.countnotes',
-                'countParams' => ['service' => $service->service_id],
-                'countKey' => 'menu' . $service->service_id,
-            ])
+        ->map(fn($service) => [
+            'label' => mb_strtoupper($service->Service->service),
+            'route' => 'services.main',
+            'routeParams' => ['service' => $service->service_id],
+            'icon' => $service->Service->icon,
+            'countComponent' => 'components.count.countnotes',
+            'countParams' => ['service' => $service->service_id],
+            'countKey' => 'menu' . $service->service_id,
+        ])
         ->values()
         ->all();
 
@@ -137,13 +129,39 @@
                 ])),
             ]
             : null,
+        $showPosObra
+            ? [
+                'kind' => 'group',
+                'label' => 'PÓS OBRA',
+                'open' => 'down',
+                'nodes' => array_values(array_filter([
+                    $postDispatchItems->isNotEmpty()
+                        ? [
+                            'kind' => 'group',
+                            'label' => 'DESPACHO',
+                            'open' => 'side',
+                            'accent' => 'danger',
+                            'nodes' => $buildDispatchItems($postDispatchItems),
+                        ]
+                        : null,
+                    $postServiceItems->isNotEmpty()
+                        ? [
+                            'kind' => 'group',
+                            'label' => 'SERVIÇO',
+                            'open' => 'side',
+                            'nodes' => $buildServiceItems($postServiceItems),
+                        ]
+                        : null,
+                ])),
+            ]
+            : null,
     ])
         ->filter()
         ->values()
         ->all();
 @endphp
 
-@if ($showProjeto || $showConstrucao || $showProjectReviewShortcut || $showQualityShortcut)
+@if ($showProjeto || $showConstrucao || $showPosObra || $showProjectReviewShortcut || $showQualityShortcut)
     <x-menu.dynamic-dropdown
         title="ATIVIDADES"
         :nodes="$nodes"

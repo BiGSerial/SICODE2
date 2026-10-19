@@ -1,6 +1,6 @@
 # Guia do usuário — Tratativa de Encerramento
 
-Para quem executa as Ordens (operador). Menu **ATIVIDADES > ENCERRAMENTO**.
+Para quem executa as Ordens (operador). Menu **ATIVIDADES > PÓS OBRA > SERVIÇO > ENCERRAMENTO**. Na barra lateral: **LISTA ENCERRAMENTO** (abas Minhas atividades e Atividades disponíveis), **ACOMPANHAMENTO** e **MEU HISTÓRICO** (suas Ordens já finalizadas ou encerradas, com o tipo P/M/F congelado).
 
 ## Minha atividade
 
@@ -8,7 +8,7 @@ Mostra as Ordens que estão com você (e a pilha da sua empresa). Filtre por **s
 
 ## Atividades disponíveis (auto-atribuição)
 
-O item **ATIVIDADES DISPONÍVEIS** só aparece se o despachante ligou a auto-atribuição. A lista traz Ordens disponíveis dos tipos liberados. Marque até 100, clique em assumir e confirme. Ordens que alguém pegou antes de você são recusadas no recibo. Quem assume não gera aviso para ninguém.
+A aba/item **ATIVIDADES DISPONÍVEIS** só aparece se o despachante ligou a auto-atribuição. A lista traz Ordens disponíveis dos tipos liberados. Marque até 100, clique em assumir e confirme. Ordens que alguém pegou antes de você são recusadas no recibo. Quem assume não gera aviso para ninguém.
 
 ## Status da Ordem
 

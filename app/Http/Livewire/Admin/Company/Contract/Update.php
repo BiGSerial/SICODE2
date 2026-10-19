@@ -37,11 +37,11 @@ class Update extends Component
 
         $this->contract_update = $contract->load('company', 'services');
 
-        $this->company      = $this->contract_update->company->name;
-        $this->number       = $this->contract_update->number;
-        $this->date_end     = $this->contract_update->date_end;
-        $this->construction = $this->contract_update->construction;
-        $this->service      = $this->contract_update->service;
+        $this->company          = $this->contract_update->company->name;
+        $this->number           = $this->contract_update->number;
+        $this->date_end         = $this->contract_update->date_end;
+        $this->construction     = $this->contract_update->construction;
+        $this->service          = $this->contract_update->service;
         $this->selectedServices = $this->contract_update->services
             ->pluck('id')
             ->map(fn ($id) => (string) $id)
@@ -50,7 +50,7 @@ class Update extends Component
         $this->serviceDispatch = $this->contract_update->services
             ->mapWithKeys(fn ($service) => [(string) $service->id => (bool) $service->pivot->dispatch])
             ->all();
-        $this->show_update  = true;
+        $this->show_update = true;
 
         $this->dispatchBrowserEvent('showModal', [
             'id' => 'update_modal',
@@ -136,11 +136,11 @@ class Update extends Component
 
     public function clean_all()
     {
-        $this->company      = '';
-        $this->number       = '';
-        $this->date_end     = '';
-        $this->construction = false;
-        $this->service      = false;
+        $this->company          = '';
+        $this->number           = '';
+        $this->date_end         = '';
+        $this->construction     = false;
+        $this->service          = false;
         $this->selectedServices = [];
         $this->serviceDispatch  = [];
         $this->activitySearch   = '';
@@ -169,8 +169,8 @@ class Update extends Component
     {
         return view('livewire.admin.company.contract.update', [
             'services_l' => Service::query()
-                ->when($this->service && !$this->construction, fn ($q) => $q->where('project', true))
-                ->when($this->construction && !$this->service, fn ($q) => $q->where('construction', true))
+                ->when($this->service && !$this->construction, fn ($q) => $q->where(fn ($w) => $w->where('project', true)->orWhere('post_construction', true)))
+                ->when($this->construction && !$this->service, fn ($q) => $q->where(fn ($w) => $w->where('construction', true)->orWhere('post_construction', true)))
                 ->when($this->activitySearch, fn ($q, $search) => $q->where('service', 'like', '%' . $search . '%'))
                 ->orderBy('service')
                 ->get(),

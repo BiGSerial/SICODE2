@@ -49,6 +49,11 @@
                 <label class="form-check-label" for="create-service-construction">Construção</label>
             </div>
             <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" role="switch" id="create-service-post-construction"
+                    wire:model.defer="post_construction">
+                <label class="form-check-label" for="create-service-post-construction">Pós obra</label>
+            </div>
+            <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" role="switch" id="create-service-returnable"
                     wire:model.defer="returnable">
                 <label class="form-check-label" for="create-service-returnable">Retornável</label>

@@ -90,6 +90,17 @@ class ClosureMetaClassifier
      */
     public function typesFor(Collection $orders, ?CarbonInterface $asOf = null): Collection
     {
+        return $this->classify($orders, $asOf)->map(fn (array $item) => $item['type']);
+    }
+
+    /**
+     * Tipo e competência (YYYY-MM) por Ordem, com as mesmas 3 consultas de typesFor().
+     *
+     * @param Collection<int, Order> $orders
+     * @return Collection<int, array{type: ?string, competence: ?string}>
+     */
+    public function classify(Collection $orders, ?CarbonInterface $asOf = null): Collection
+    {
         $ids = $orders->pluck('id')->filter()->unique()->values();
 
         if ($ids->isEmpty()) {
@@ -99,7 +110,8 @@ class ClosureMetaClassifier
         $frozen = ClosureOrderState::query()
             ->whereIn('order_id', $ids)
             ->whereNotNull('closed_meta_type')
-            ->pluck('closed_meta_type', 'order_id');
+            ->get(['order_id', 'closed_meta_type', 'closed_meta_period'])
+            ->keyBy('order_id');
 
         $targets = ClosureTarget::query()
             ->join('closure_cycles', 'closure_cycles.id', '=', 'closure_targets.closure_cycle_id')
@@ -121,13 +133,14 @@ class ClosureMetaClassifier
         $result  = collect();
 
         foreach ($ids as $id) {
-            $result[$id] = $this->resolve(
-                $frozen->get($id),
-                $targets->has($id) ? (int) $targets->get($id) : null,
-                $fimReal->get($id),
-                $current,
-                $asOf
-            );
+            $state  = $frozen->get($id);
+            $target = $targets->has($id) ? (int) $targets->get($id) : null;
+            $fim    = $fimReal->get($id);
+
+            $result[$id] = [
+                'type'       => $this->resolve($state?->closed_meta_type, $target, $fim, $current, $asOf),
+                'competence' => $this->competence($state?->closed_meta_period, $target, $fim, $current),
+            ];
         }
 
         return $result;
@@ -216,7 +229,8 @@ class ClosureMetaClassifier
         return [$sql, [$current, $current, $monthFrom, $monthTo, $prevFrom]];
     }
 
-    private function resolve(?string $frozen, ?int $targetPeriod, mixed $fimReal, int $current, CarbonInterface $asOf): ?string
+    /** Regra única de tipo (P/M/F) a partir de congelado, período do target e fimReal da 0020. */
+    public function resolve(?string $frozen, ?int $targetPeriod, mixed $fimReal, int $current, CarbonInterface $asOf): ?string
     {
         if ($frozen !== null && self::letter($frozen)) {
             return self::letter($frozen);
@@ -243,5 +257,68 @@ class ClosureMetaClassifier
             $date->format('Ym') === $asOf->copy()->subMonthNoOverflow()->format('Ym') => self::TYPE_META,
             default                                                                   => self::TYPE_PASSIVE,
         };
+    }
+
+    /**
+     * Competência (YYYY-MM) = mês da meta em que a Ordem entra: período congelado (encerrada), senão ciclo do
+     * target, senão o mês seguinte ao do fimReal da 0020 (F: mês corrente -> próximo; M: mês anterior -> corrente;
+     * P: competências anteriores). Null sem target/fimReal ou com fimReal além do mês corrente.
+     */
+    public function competence(?string $frozenPeriod, ?int $targetPeriod, mixed $fimReal, int $current): ?string
+    {
+        if ($frozenPeriod !== null && preg_match('/^\d{4}-\d{2}$/', $frozenPeriod)) {
+            return $frozenPeriod;
+        }
+
+        if ($targetPeriod !== null) {
+            return sprintf('%04d-%02d', intdiv($targetPeriod, 100), $targetPeriod % 100);
+        }
+
+        return self::competenceFromFim($fimReal, $current);
+    }
+
+    /** Parte da competência que depende só do fimReal (cacheável com o conjunto elegível). */
+    public static function competenceFromFim(mixed $fimReal, int $current): ?string
+    {
+        if ($fimReal === null) {
+            return null;
+        }
+
+        $date = Carbon::parse($fimReal);
+
+        if ((int) $date->format('Ym') > $current) {
+            return null;
+        }
+
+        return $date->copy()->startOfMonth()->addMonth()->format('Y-m');
+    }
+
+    /** 'YYYY-MM' -> 'MM/AAAA' (ou '—'). */
+    public static function competenceLabel(?string $competence): string
+    {
+        return $competence && preg_match('/^(\d{4})-(\d{2})$/', $competence, $m) ? $m[2] . '/' . $m[1] : '—';
+    }
+
+    /**
+     * Acrescenta a coluna `competence` (YYYY-MM) ao select; mesma regra de competence(). Espera `orders` na consulta.
+     */
+    public function withCompetence(Builder $query): Builder
+    {
+        $now     = now();
+        $monthTo = $now->copy()->startOfMonth()->addMonth()->toDateString();
+
+        $frozen = '(select s.closed_meta_period from closure_order_states s where s.order_id = orders.id and s.closed_meta_type is not null)';
+        $target = '(select (c.year * 100 + c.month) from closure_targets t'
+            . ' join closure_cycles c on c.id = t.closure_cycle_id where t.order_id = orders.id limit 1)';
+        $fim = "(select max(o.fimReal) from operations o where o.order_id = orders.id and o.operacao = '0020'"
+            . " and o.status like 'CONF%' and o.fimReal is not null)";
+
+        $sql = "coalesce({$frozen}, case"
+            . " when {$target} is not null then concat({$target} div 100, '-', lpad({$target} % 100, 2, '0'))"
+            . " when {$fim} is null then null"
+            . " when {$fim} >= ? then null"
+            . " else date_format(date_add({$fim}, interval 1 month), '%Y-%m') end)";
+
+        return $query->selectRaw("({$sql}) as competence", [$monthTo]);
     }
 }

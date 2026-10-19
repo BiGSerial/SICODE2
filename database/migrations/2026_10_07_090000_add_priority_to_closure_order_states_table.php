@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
+        if (Schema::hasColumn('closure_order_states', 'priority')) {
+            return;
+        }
+
         Schema::table('closure_order_states', function (Blueprint $table) {
             $table->boolean('priority')->default(false)->after('operational_status');
             $table->index(['priority', 'operational_status'], 'closure_state_priority_status_index');

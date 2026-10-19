@@ -65,3 +65,40 @@ it('restricts the partner overview to its own items and visible messages', funct
         ->and($overview['last_message']->body)->not->toBe('Sigilo interno.')
         ->and(fn () => $work->overview($f['note'], $f['outsider']))->toThrow(ClosureWorkException::class, 'acesso');
 });
+
+it('lists every order of the note, including undispatched ones, with type and competence keys', function () {
+    $f        = closureScreenFixture();
+    $undisp   = \App\Models\Order::query()->create(['note_id' => $f['note']->id, 'ordem' => '4099' . fake()->unique()->numerify('#######'), 'statusSist' => 'LIB', 'descricao' => 'Sem estado']);
+    $canceled = \App\Models\Order::query()->create(['note_id' => $f['note']->id, 'ordem' => '4098' . fake()->unique()->numerify('#######'), 'canceled' => true]);
+    $work     = app(ClosureWorkService::class);
+
+    $rows = collect($work->overview($f['note'], $f['dispatcher'])['orders']);
+
+    expect($rows)->toHaveCount(3)
+        ->and($rows->firstWhere('order_id', $undisp->id))->toMatchArray(['has_state' => false, 'state_id' => null, 'operational_status' => null, 'description' => 'Sem estado', 'ops_total' => 0])
+        ->and($rows->firstWhere('order_id', $undisp->id))->toHaveKeys(['type', 'competence', 'ops_confirmed'])
+        ->and($rows->firstWhere('order_id', $f['order']->id)['has_state'])->toBeTrue()
+        ->and($rows->pluck('order_id'))->not->toContain($canceled->id)
+        ->and(collect($work->overview($f['note'], $f['dispatcher'], true)['orders']))->toHaveCount(4)
+        ->and(collect($work->overview($f['note'], $f['internal'])['orders']))->toHaveCount(3);
+});
+
+it('lets the dispatcher open a note with no states and keeps the partner on its own orders', function () {
+    $f    = closureScreenFixture();
+    $work = app(ClosureWorkService::class);
+    $bare = \App\Models\Note::query()->create(['note' => 'SEM-' . fake()->unique()->numerify('#####'), 'type_note' => 1]);
+    \App\Models\Order::query()->create(['note_id' => $bare->id, 'ordem' => '4097' . fake()->unique()->numerify('#######')]);
+
+    expect($work->accessLevel($bare, $f['dispatcher']))->toBe(ClosureWorkService::LEVEL_DISPATCHER)
+        ->and($work->overview($bare, $f['dispatcher'])['orders'])->toHaveCount(1)
+        ->and($work->canAccess($bare, $f['outsider']))->toBeFalse();
+});
+
+it('shows the partner only the orders with its own states', function () {
+    $f     = closureScreenFixture();
+    $other = \App\Models\Order::query()->create(['note_id' => $f['note']->id, 'ordem' => '4096' . fake()->unique()->numerify('#######')]);
+    $rows  = collect(app(ClosureWorkService::class)->overview($f['note'], $f['partnerUser'])['orders']);
+
+    expect($rows->pluck('order_id')->all())->toBe([$f['partnerState']->order_id])
+        ->and($rows->pluck('order_id'))->not->toContain($other->id);
+});

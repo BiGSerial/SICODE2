@@ -20,15 +20,23 @@
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-3">
             <div>
                 <h2 class="dash-title">Obra {{ $note['number'] }} @if ($note['type']) <span class="badge bg-light text-dark align-middle">{{ $note['type'] }}</span> @endif</h2>
-                <div class="dash-subtitle">
-                    {{ $note['city'] ?: 'Município não informado' }} · {{ $note['client'] ?: 'Cliente não informado' }}
-                    @if ($overview['company']) · {{ $overview['company']['name'] }} @endif
-                    @if ($note['value'] !== null) · {{ $note['currency'] ?: 'R$' }} {{ number_format((float) $note['value'], 2, ',', '.') }} @endif
-                </div>
+                @php
+                    $subtitle = array_filter([
+                        $note['city'] ?: null,
+                        $note['client'] ?: null,
+                        $note['value'] !== null ? ($note['currency'] ?: 'R$') . ' ' . number_format((float) $note['value'], 2, ',', '.') : null,
+                    ]);
+                @endphp
+                @if ($subtitle)
+                    <div class="dash-subtitle">{{ implode(' · ', $subtitle) }}</div>
+                @endif
             </div>
             <div class="d-flex gap-2 flex-wrap">
                 @foreach ($typeSummary as $letter => $count)
                     <span class="badge {{ ClosureMetaClassifier::badgeClass($letter) }} px-3 py-2" title="{{ ClosureMetaClassifier::label($letter) }}">{{ $letter }} · {{ $count }}</span>
+                @endforeach
+                @foreach ($statusSummary as $statusKey => $count)
+                    <span class="badge {{ $statusKey === 'NOT_DISPATCHED' ? 'bg-secondary' : ClosureOperationalStatus::badgeClassFor($statusKey) }} px-3 py-2">{{ $statusKey === 'NOT_DISPATCHED' ? 'Não despachada' : ClosureOperationalStatus::labelFor($statusKey) }} · {{ $count }}</span>
                 @endforeach
                 @if ($overview['has_priority'] && $internal)
                     <span class="badge bg-danger px-3 py-2">Prioridade</span>
@@ -48,6 +56,12 @@
                 <div class="chart-title">Ordens da obra</div>
                 <div class="chart-subtitle">{{ count($rows) }} Ordem(ns) · {{ count($overview['open_issues']) }} pendência(s) aberta(s)</div>
             </div>
+            @if ($internal)
+                <div class="form-check form-switch ms-auto me-3 mb-0">
+                    <input class="form-check-input" type="checkbox" id="show-canceled" wire:model="showCanceled">
+                    <label class="form-check-label small" for="show-canceled">Mostrar canceladas</label>
+                </div>
+            @endif
             @if ($internal && $canFinishAny)
                 <button type="button" class="btn btn-dash btn-success btn-sm" wire:click="askFinish('all')">Finalizar obra</button>
             @endif
@@ -75,15 +89,32 @@
         @endif
 
         <div class="table-responsive">
-            <table class="table align-middle mb-0">
+            <table class="table align-middle mb-0" style="table-layout: fixed; min-width: 980px;">
+                <colgroup>
+                    <col style="width: 56px;">
+                    <col style="width: 92px;">
+                    <col style="width: 20%;">
+                    <col style="width: 110px;">
+                    <col style="width: 140px;">
+                    @if ($internal)
+                        <col style="width: 16%;">
+                        <col style="width: 90px;">
+                    @endif
+                    <col style="width: 90px;">
+                    <col style="width: 90px;">
+                    @if ($internal)
+                        <col style="width: 170px;">
+                    @endif
+                </colgroup>
                 <thead>
                     <tr>
                         <th>Tipo</th>
+                        <th>Compet.</th>
                         <th>Ordem</th>
                         <th>Status SAP</th>
-                        <th>Status da atividade</th>
+                        <th>Atividade</th>
                         @if ($internal)
-                            <th>Responsável / detentor</th>
+                            <th>Responsável</th>
                             <th>Prioridade</th>
                         @endif
                         <th class="text-center">Operações</th>
@@ -95,41 +126,62 @@
                 </thead>
                 <tbody>
                     @forelse ($rows as $row)
-                        <tr wire:key="work-order-{{ $row['state_id'] }}">
+                        <tr wire:key="work-order-{{ $row['order_id'] }}" @class(['table-light text-muted' => $row['canceled']])>
                             <td>{!! ClosureMetaClassifier::badge($row['type']) !!}</td>
+                            <td>{{ ClosureMetaClassifier::competenceLabel($row['competence']) }}</td>
                             <td>
                                 <strong>{{ $row['ordem'] }}</strong>
+                                @if ($row['canceled']) <span class="badge bg-dark">Cancelada</span> @endif
                                 @if ($internal && auth()->user()->can('closure.view'))
                                     <a href="{{ route('closure.order.detail', $row['order_id']) }}" class="small ms-1">detalhe</a>
                                 @endif
-                                <div class="text-muted small">{{ \Illuminate\Support\Str::limit($row['description'], 60) }}</div>
+                                @if ($row['description'])
+                                    <div class="text-muted small text-truncate" title="{{ $row['description'] }}">{{ $row['description'] }}</div>
+                                @endif
                             </td>
-                            <td>{{ $row['status_sist'] ?? '—' }}</td>
-                            <td><span class="badge {{ ClosureOperationalStatus::badgeClassFor($row['operational_status']) }}">{{ ClosureOperationalStatus::labelFor($row['operational_status']) }}</span></td>
+                            <td class="text-truncate" title="{{ $row['status_sist'] }}">{{ $row['status_sist'] ?? '—' }}</td>
+                            <td>
+                                @if ($row['has_state'])
+                                    <span class="badge {{ ClosureOperationalStatus::badgeClassFor($row['operational_status']) }}">{{ ClosureOperationalStatus::labelFor($row['operational_status']) }}</span>
+                                @else
+                                    <span class="badge bg-secondary">Não despachada</span>
+                                @endif
+                            </td>
                             @if ($internal)
-                                <td>{{ $row['assignee']['name'] ?? ($row['holder_company'] ?? '—') }}</td>
+                                <td class="text-truncate" title="{{ $row['assignee']['name'] ?? ($row['holder_company'] ?? '') }}">{{ $row['assignee']['name'] ?? ($row['holder_company'] ?? '—') }}</td>
                                 <td>{!! $row['priority'] ? '<span class="badge bg-danger">Sim</span>' : '<span class="text-muted">—</span>' !!}</td>
                             @endif
-                            <td class="text-center">{{ $row['ops'] }}</td>
+                            <td class="text-center">{{ $row['ops_confirmed'] }}/{{ $row['ops_total'] }}</td>
                             <td class="text-center">{{ $row['open_issues'] }}</td>
                             @if ($internal)
                                 <td class="text-end text-nowrap">
-                                    @if ($row['manage'])
-                                        <button type="button" class="btn btn-sm btn-outline-primary" wire:click="selectStateForStatus({{ $row['state_id'] }})">Status</button>
-                                    @endif
-                                    @if ($row['finish'])
-                                        <button type="button" class="btn btn-sm btn-outline-success" wire:click="askFinish('{{ $row['state_id'] }}')">Finalizar</button>
+                                    @if (!$row['has_state'])
+                                        @if ($canDispatch && !$row['canceled'])
+                                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="window.dispatchEvent(new CustomEvent('closure-dispatch-open', { detail: { rows: [{ id: {{ $row['order_id'] }}, ordem: @js($row['ordem']), note: @js($note['number']), type: @js($row['type']), comp: @js(ClosureMetaClassifier::competenceLabel($row['competence'])) }] } }))">Despachar</button>
+                                        @endif
+                                    @else
+                                        @if ($row['manage'])
+                                            <button type="button" class="btn btn-sm btn-outline-primary" wire:click="selectStateForStatus({{ $row['state_id'] }})">Status</button>
+                                        @endif
+                                        @if ($row['finish'])
+                                            <button type="button" class="btn btn-sm btn-outline-success" wire:click="askFinish('{{ $row['state_id'] }}')">Finalizar</button>
+                                        @endif
                                     @endif
                                 </td>
                             @endif
                         </tr>
                     @empty
-                        <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma Ordem disponível para você nesta obra.</td></tr>
+                        <tr><td colspan="9" class="text-center text-muted py-4">Nenhuma Ordem {{ $internal ? 'encontrada' : 'disponível para você' }} nesta obra.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </div>
+
+    @if ($canDispatch)
+        @livewire('closure.dispatch.dispatch-modal')
+        <div x-data x-on:hidden.bs.modal.window="if ($event.target.id === 'closure_dispatch_modal') { $wire.$refresh() }"></div>
+    @endif
 
     {{-- Alterar status --}}
     @if ($internal && $statusState)
@@ -287,11 +339,19 @@
                     <label class="form-label">Ordem(ns) alvo <span class="text-danger">*</span></label>
                     <div class="border rounded p-2 @error('issueOrderIds') border-danger @enderror">
                         @foreach ($rows as $row)
-                            <div class="form-check form-check-inline">
-                                <input class="form-check-input" type="checkbox" id="io-{{ $row['state_id'] }}" value="{{ $row['state_id'] }}" wire:model.defer="issueOrderIds">
-                                <label class="form-check-label" for="io-{{ $row['state_id'] }}">{{ $row['ordem'] }}</label>
+                            <div class="form-check form-check-inline" wire:key="io-{{ $row['order_id'] }}">
+                                @if ($row['has_state'])
+                                    <input class="form-check-input" type="checkbox" id="io-{{ $row['state_id'] }}" value="{{ $row['state_id'] }}" wire:model.defer="issueOrderIds">
+                                    <label class="form-check-label" for="io-{{ $row['state_id'] }}">{{ $row['ordem'] }}</label>
+                                @else
+                                    <input class="form-check-input" type="checkbox" disabled id="io-o{{ $row['order_id'] }}">
+                                    <label class="form-check-label text-muted" for="io-o{{ $row['order_id'] }}" title="Despache a Ordem primeiro">{{ $row['ordem'] }} (não despachada)</label>
+                                @endif
                             </div>
                         @endforeach
+                        @if ($rows->contains(fn ($r) => !$r['has_state']))
+                            <div class="small text-muted mt-1">Ordens não despachadas não podem ser enviadas à parceira: despache a Ordem primeiro.</div>
+                        @endif
                     </div>
                     @error('issueOrderIds') <div class="text-danger small">{{ $message }}</div> @enderror
                 </div>

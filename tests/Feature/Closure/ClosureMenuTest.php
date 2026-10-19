@@ -15,7 +15,7 @@ class ClosureMenuTest extends TestCase
     {
         return Service::query()->firstOrCreate(
             ['folder' => 'encerramento'],
-            ['service' => 'Encerramento', 'project' => true, 'construction' => true, 'icon' => 'ri-checkbox-circle-line'],
+            ['service' => 'Encerramento', 'project' => false, 'construction' => false, 'post_construction' => true, 'icon' => 'ri-checkbox-circle-line'],
         );
     }
 
@@ -41,54 +41,97 @@ class ClosureMenuTest extends TestCase
         return Blade::render('<x-menu.activities-dropdown />');
     }
 
-    public function test_service_link_shows_closure_under_construction_with_specialized_route(): void
+    public function test_service_link_shows_closure_under_post_construction_with_standard_routes(): void
     {
-        $user = $this->user();
-        ServiceUser::create(['user_id' => $user->id, 'service_id' => $this->service()->uuid, 'service' => true, 'dispatch' => true]);
+        $user    = $this->user();
+        $service = $this->service();
+        ServiceUser::create(['user_id' => $user->id, 'service_id' => $service->uuid, 'service' => true, 'dispatch' => true]);
 
         $html = $this->render($user);
 
-        $this->assertStringContainsString('CONSTRUÇÃO', $html);
+        $this->assertStringContainsString('PÓS OBRA', $html);
+        $this->assertStringNotContainsString('CONSTRUÇÃO', $html);
         $this->assertStringContainsString('ENCERRAMENTO', $html);
-        $this->assertStringContainsString(route('closure.dispatch'), $html);
-        $this->assertStringContainsString(route('closure.work'), $html);
-        $this->assertStringNotContainsString('href="' . route('closure.overview') . '"', $html);
+        $this->assertStringContainsString(route('dispatch.main', ['service' => $service->uuid]), $html);
+        $this->assertStringContainsString(route('services.main', ['service' => $service->uuid]), $html);
+        $this->assertStringNotContainsString('encerramento/despacho', $html);
+        $this->assertStringNotContainsString('encerramento/minha-atividade', $html);
     }
 
     public function test_dispatch_only_link_hides_service_route(): void
     {
-        $user = $this->user();
-        ServiceUser::create(['user_id' => $user->id, 'service_id' => $this->service()->uuid, 'service' => false, 'dispatch' => true]);
+        $user    = $this->user();
+        $service = $this->service();
+        ServiceUser::create(['user_id' => $user->id, 'service_id' => $service->uuid, 'service' => false, 'dispatch' => true]);
 
         $html = $this->render($user);
 
-        $this->assertStringContainsString(route('closure.dispatch'), $html);
-        $this->assertStringNotContainsString(route('closure.work'), $html);
+        $this->assertStringContainsString(route('dispatch.main', ['service' => $service->uuid]), $html);
+        $this->assertStringNotContainsString(route('services.main', ['service' => $service->uuid]), $html);
     }
 
     public function test_user_without_link_does_not_see_closure(): void
     {
-        $this->service();
+        $service = $this->service();
 
         $html = $this->render($this->user());
 
         $this->assertStringNotContainsString('ENCERRAMENTO', $html);
-        $this->assertStringNotContainsString(route('closure.dispatch'), $html);
+        $this->assertStringNotContainsString(route('dispatch.main', ['service' => $service->uuid]), $html);
     }
 
-    public function test_sidebar_links_follow_gates_and_self_assign_setting(): void
+    public function test_dispatch_sidebar_follows_the_standard_pattern_and_gates(): void
     {
+        $service = $this->service();
         $this->actingAs($this->user());
-        $html = view('closure.closure-menu')->render();
+        $html = view('dispatchs.encerramento.menu', ['service' => $service])->render();
 
-        foreach (['closure.dispatch', 'closure.dispatch.dashboard', 'closure.work', 'closure.overview', 'closure.meta', 'closure.passive'] as $name) {
+        foreach (['dispatch.main', 'dispatch.stack', 'dispatch.transprod', 'dispatch.dashboard'] as $name) {
+            $this->assertStringContainsString(route($name, ['service' => $service->uuid]), $html);
+        }
+
+        foreach (['closure.overview', 'closure.meta', 'closure.passive'] as $name) {
             $this->assertStringContainsString(route($name), $html);
         }
 
+        $this->assertStringContainsString('LISTA PARA', $html);
+        $this->assertStringContainsString('CONTROLE DE', $html);
+        $this->assertStringContainsString('TRANSFERÊNCIA', $html);
+
+        // Operador: sem itens de despacho nem de gestão.
+        $this->actingAs($this->user(operator: true, manager: false));
+        $html = view('dispatchs.encerramento.menu', ['service' => $service])->render();
+        $this->assertStringNotContainsString(route('dispatch.main', ['service' => $service->uuid]), $html);
+        $this->assertStringNotContainsString(route('closure.overview'), $html);
+    }
+
+    public function test_service_sidebar_respects_self_assign_setting(): void
+    {
+        $service = $this->service();
+        $user    = $this->user(operator: true, manager: false);
+        $this->actingAs($user);
+
+        $html = view('services.encerramento.menu', ['service' => $service])->render();
+        $this->assertStringContainsString(route('services.main', ['service' => $service->uuid]), $html);
+        $this->assertStringContainsString(route('services.accompany', ['service' => $service->uuid]), $html);
+        $this->assertStringContainsString(route('services.historic', ['service' => $service->uuid]), $html);
+        $this->assertStringNotContainsString('aba=disponiveis', $html);
+
+        app(\App\Services\Closure\ClosureSettings::class)->setSelfAssignEnabled(true, $user);
+        $html = view('services.encerramento.menu', ['service' => $service])->render();
+        $this->assertStringContainsString('aba=disponiveis', $html);
+    }
+
+    public function test_management_pages_sidebar_shim_picks_the_menu_by_gate(): void
+    {
+        $service = $this->service();
+
+        $this->actingAs($this->user());
+        $this->assertStringContainsString(route('dispatch.stack', ['service' => $service->uuid]), view('closure.closure-menu')->render());
+
         $this->actingAs($this->user(operator: true, manager: false));
         $html = view('closure.closure-menu')->render();
-        $this->assertStringContainsString(route('closure.work'), $html);
-        $this->assertStringNotContainsString('href="' . route('closure.overview') . '"', $html);
-        $this->assertStringNotContainsString(route('closure.dispatch'), $html);
+        $this->assertStringContainsString(route('services.accompany', ['service' => $service->uuid]), $html);
+        $this->assertStringNotContainsString(route('dispatch.stack', ['service' => $service->uuid]), $html);
     }
 }

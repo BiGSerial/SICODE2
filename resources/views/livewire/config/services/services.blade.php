@@ -77,6 +77,9 @@
                                     @if ($service->construction)
                                         <span class="badge text-bg-warning">Construção</span>
                                     @endif
+                                    @if ($service->post_construction)
+                                        <span class="badge text-bg-success">Pós obra</span>
+                                    @endif
 
                                     <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-1"
                                         title="Editar serviço"

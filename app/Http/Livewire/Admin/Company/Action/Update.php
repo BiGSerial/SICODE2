@@ -619,8 +619,8 @@ class Update extends Component
         return view('livewire.admin.company.action.update', [
             'partnerPermissionCatalog' => PartnerPermissionCatalog::groups(),
             'services_l'               => Service::query()
-                ->when($this->contractService && !$this->contractConstruction, fn ($q) => $q->where('project', true))
-                ->when($this->contractConstruction && !$this->contractService, fn ($q) => $q->where('construction', true))
+                ->when($this->contractService && !$this->contractConstruction, fn ($q) => $q->where(fn ($w) => $w->where('project', true)->orWhere('post_construction', true)))
+                ->when($this->contractConstruction && !$this->contractService, fn ($q) => $q->where(fn ($w) => $w->where('construction', true)->orWhere('post_construction', true)))
                 ->when($this->contractActivitySearch, fn ($q, $search) => $q->where('service', 'like', '%' . $search . '%'))
                 ->orderBy('service')
                 ->get(),

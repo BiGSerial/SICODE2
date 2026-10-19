@@ -3,7 +3,7 @@
 namespace App\Services\Closure;
 
 use App\Models\Closure\{ClosureIssue, ClosureOrderState, ClosurePriorityRequest, ClosureWorkMessage};
-use App\Models\{Note, Order, User};
+use App\Models\{Note, Operation, Order, User};
 use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Support\EvidenceFileUploader;
 use Illuminate\Support\Collection;
@@ -81,7 +81,7 @@ class ClosureWorkService
      *
      * @return array<string, mixed>
      */
-    public function overview(Note $note, ?User $viewer = null): array
+    public function overview(Note $note, ?User $viewer = null, bool $includeCanceled = false): array
     {
         $level = $viewer ? $this->accessLevel($note, $viewer) : self::LEVEL_DISPATCHER;
 
@@ -139,21 +139,8 @@ class ClosureWorkService
                 'currency'  => $note->currency,
                 'status'    => $note->status,
             ],
-            'company' => $company ? ['id' => $company->id, 'name' => $company->name] : null,
-            'orders'  => $states->map(fn (ClosureOrderState $s) => [
-                'order_id'           => $s->order_id,
-                'state_id'           => $s->id,
-                'ordem'              => $s->Order?->ordem,
-                'description'        => $s->Order?->descricao,
-                'status_sist'        => $s->Order?->statusSist,
-                'operational_status' => $s->operational_status,
-                'priority'           => (bool) $s->priority,
-                'assignee'           => $s->Assignee ? ['id' => $s->Assignee->id, 'name' => $s->Assignee->name] : null,
-                'holder_type'        => $s->current_holder_type,
-                'holder_company'     => $s->CurrentHolderCompany?->name,
-                'since'              => $s->entered_current_status_at,
-                'open_issues'        => (int) ($openByOrder[$s->order_id] ?? 0),
-            ])->all(),
+            'company'     => $company ? ['id' => $company->id, 'name' => $company->name] : null,
+            'orders'      => $this->orderRows($note, $states, $openByOrder, $partnerOnly, $includeCanceled),
             'open_issues' => $issues->map(fn (ClosureIssue $i) => [
                 'id'          => $i->id,
                 'order_id'    => $i->order_id,
@@ -171,6 +158,62 @@ class ClosureWorkService
             'has_priority' => $states->contains(fn ($s) => $s->priority),
             'last_message' => $lastMessage,
         ];
+    }
+
+    /**
+     * Ordens da Nota com e sem estado. A parceira só recebe as Ordens/estados dela ($states já filtrado);
+     * o interno recebe todas as Ordens da Nota (não canceladas, salvo $includeCanceled).
+     *
+     * @param Collection<int, ClosureOrderState> $states
+     * @param Collection<int, int> $openByOrder
+     * @return array<int, array<string, mixed>>
+     */
+    private function orderRows(Note $note, Collection $states, Collection $openByOrder, bool $partnerOnly, bool $includeCanceled): array
+    {
+        $byOrder = $states->keyBy('order_id');
+        $orders  = Order::query()
+            ->when(
+                $partnerOnly,
+                fn ($q) => $q->whereIn('id', $byOrder->keys()),
+                fn ($q) => $q->where('note_id', $note->id)->when(!$includeCanceled, fn ($w) => $w->where('canceled', false))
+            )
+            ->get()
+            ->sortBy(fn (Order $o) => (string) $o->ordem)
+            ->values();
+
+        if ($orders->isEmpty()) {
+            return [];
+        }
+
+        $classified = app(ClosureMetaClassifier::class)->classify($orders);
+        $ops        = Operation::query()->whereIn('order_id', $orders->pluck('id'))
+            ->selectRaw("order_id, COUNT(*) as total, SUM(CASE WHEN status LIKE 'CONF%' THEN 1 ELSE 0 END) as confirmed")
+            ->groupBy('order_id')->get()->keyBy('order_id');
+
+        return $orders->map(function (Order $o) use ($byOrder, $classified, $ops, $openByOrder) {
+            $s = $byOrder->get($o->id);
+
+            return [
+                'order_id'           => $o->id,
+                'state_id'           => $s?->id,
+                'has_state'          => $s !== null,
+                'ordem'              => $o->ordem,
+                'description'        => $o->descricao,
+                'canceled'           => (bool) $o->canceled,
+                'status_sist'        => $o->statusSist,
+                'type'               => $classified->get($o->id)['type'] ?? null,
+                'competence'         => $classified->get($o->id)['competence'] ?? null,
+                'operational_status' => $s?->operational_status,
+                'priority'           => (bool) $s?->priority,
+                'assignee'           => $s?->Assignee ? ['id' => $s->Assignee->id, 'name' => $s->Assignee->name] : null,
+                'holder_type'        => $s?->current_holder_type,
+                'holder_company'     => $s?->CurrentHolderCompany?->name,
+                'since'              => $s?->entered_current_status_at,
+                'ops_total'          => (int) ($ops->get($o->id)?->total ?? 0),
+                'ops_confirmed'      => (int) ($ops->get($o->id)?->confirmed ?? 0),
+                'open_issues'        => (int) ($openByOrder[$o->id] ?? 0),
+            ];
+        })->all();
     }
 
     /**

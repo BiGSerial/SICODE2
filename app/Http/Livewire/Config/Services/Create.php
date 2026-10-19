@@ -20,6 +20,8 @@ class Create extends Component
 
     public $construction;
 
+    public $post_construction;
+
     public $returnable;
 
     public $icon;
@@ -49,13 +51,13 @@ class Create extends Component
             return;
         }
 
-        if (!$this->project && !$this->construction) {
+        if (!$this->project && !$this->construction && !$this->post_construction) {
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
                 'title'    => 'SEM DEFINIÇÃO DE SERVIÇO',
-                'html'     => 'A definição do Serviço <strong>(Projeto/Construção)</strong> precisa ser definido.',
+                'html'     => 'A definição do Serviço <strong>(Projeto/Construção/Pós obra)</strong> precisa ser definido.',
                 'timer'    => 2500,
             ]);
 
@@ -63,13 +65,14 @@ class Create extends Component
         }
 
         if (Service::create([
-            'service'      => ucwords(mb_strtolower($this->service)),
-            'status'       => $this->status,
-            'folder'       => $this->folder_s,
-            'project'      => $this->project ? true : false,
-            'construction' => $this->construction ? true : false,
-            'canReturn'    => $this->returnable ? true : false,
-            'icon'         => $this->icon ?? $this->icon,
+            'service'           => ucwords(mb_strtolower($this->service)),
+            'status'            => $this->status,
+            'folder'            => $this->folder_s,
+            'project'           => $this->project ? true : false,
+            'construction'      => $this->construction ? true : false,
+            'post_construction' => $this->post_construction ? true : false,
+            'canReturn'         => $this->returnable ? true : false,
+            'icon'              => $this->icon ?? $this->icon,
         ])) {
 
             $this->dispatchBrowserEvent('swal', [

@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
+        if (Schema::hasTable('closure_work_messages')) {
+            return;
+        }
+
         Schema::create('closure_work_messages', function (Blueprint $table) {
             $table->id();
             $table->foreignId('note_id')->constrained('notes')->restrictOnDelete();

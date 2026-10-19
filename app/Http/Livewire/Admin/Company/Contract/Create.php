@@ -120,11 +120,11 @@ class Create extends Component
 
     public function clean_all()
     {
-        $this->company_s    = '';
-        $this->number       = '';
-        $this->date_end     = '';
-        $this->construction = false;
-        $this->service      = false;
+        $this->company_s        = '';
+        $this->number           = '';
+        $this->date_end         = '';
+        $this->construction     = false;
+        $this->service          = false;
         $this->selectedServices = [];
         $this->serviceDispatch  = [];
         $this->activitySearch   = '';
@@ -153,8 +153,8 @@ class Create extends Component
         return view('livewire.admin.company.contract.create', [
             'companies_l' => Company::orderBy('name')->get(),
             'services_l'  => Service::query()
-                ->when($this->service && !$this->construction, fn ($q) => $q->where('project', true))
-                ->when($this->construction && !$this->service, fn ($q) => $q->where('construction', true))
+                ->when($this->service && !$this->construction, fn ($q) => $q->where(fn ($w) => $w->where('project', true)->orWhere('post_construction', true)))
+                ->when($this->construction && !$this->service, fn ($q) => $q->where(fn ($w) => $w->where('construction', true)->orWhere('post_construction', true)))
                 ->when($this->activitySearch, fn ($q, $search) => $q->where('service', 'like', '%' . $search . '%'))
                 ->orderBy('service')
                 ->get(),

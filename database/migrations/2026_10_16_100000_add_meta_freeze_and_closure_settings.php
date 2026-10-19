@@ -7,10 +7,16 @@ use Illuminate\Support\Facades\Schema;
 return new class () extends Migration {
     public function up(): void
     {
-        Schema::table('closure_order_states', function (Blueprint $table) {
-            $table->char('closed_meta_type', 1)->nullable()->after('closed_at');
-            $table->char('closed_meta_period', 7)->nullable()->after('closed_meta_type');
-        });
+        if (!Schema::hasColumn('closure_order_states', 'closed_meta_type')) {
+            Schema::table('closure_order_states', function (Blueprint $table) {
+                $table->char('closed_meta_type', 1)->nullable()->after('closed_at');
+                $table->char('closed_meta_period', 7)->nullable()->after('closed_meta_type');
+            });
+        }
+
+        if (Schema::hasTable('closure_settings')) {
+            return;
+        }
 
         Schema::create('closure_settings', function (Blueprint $table) {
             $table->id();

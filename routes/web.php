@@ -587,10 +587,11 @@ Route::prefix('encerramento')->name('closure.')->middleware(['auth', 'can:closur
 
 Route::prefix('encerramento')->name('closure.')->middleware(['auth'])
     ->controller(\App\Http\Controllers\ClosureController::class)->group(function () {
-        Route::get('/despacho', 'dispatch')->middleware('can:closure.dispatch')->name('dispatch');
-        Route::get('/despacho/painel', 'dispatchDashboard')->middleware('can:closure.dispatch')->name('dispatch.dashboard');
-        Route::get('/minha-atividade', 'myWork')->middleware('can:closure.work')->name('work');
-        Route::get('/atividades-disponiveis', 'availableWork')->middleware('can:closure.work')->name('work.available');
+        // Legadas: redirect 302 para dispatch.* / services.* do Service Encerramento (o acesso é decidido lá).
+        Route::get('/despacho', 'dispatch')->name('dispatch');
+        Route::get('/despacho/painel', 'dispatchDashboard')->name('dispatch.dashboard');
+        Route::get('/minha-atividade', 'myWork')->name('work');
+        Route::get('/atividades-disponiveis', 'availableWork')->name('work.available');
         Route::get('/obra/{note}', 'workShow')->whereNumber('note')->name('work.show');
     });
 

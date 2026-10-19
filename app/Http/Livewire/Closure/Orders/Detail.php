@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Closure\Orders;
 
 use App\Models\{ClosureCycle, Order};
+use App\Services\Closure\ClosureMetaClassifier;
 use Livewire\Component;
 
 class Detail extends Component
@@ -49,6 +50,8 @@ class Detail extends Component
 
         $state              = $order->ClosureState;
         $canViewOperational = $this->canViewOperational($state);
+        $meta               = app(ClosureMetaClassifier::class)->classify(collect([$order]))->get($order->id);
+        $canDispatch        = !$state && !$isClosed && !$order->canceled && auth()->user()->can('closure.dispatch');
 
         return view('livewire.closure.orders.detail', [
             'order'              => $order,
@@ -58,6 +61,9 @@ class Detail extends Component
             'situation'          => $situation,
             'state'              => $state,
             'canViewOperational' => $canViewOperational,
+            'metaType'           => $meta['type'] ?? null,
+            'competence'         => $meta['competence'] ?? null,
+            'canDispatch'        => $canDispatch,
         ]);
     }
 

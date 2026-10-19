@@ -64,7 +64,7 @@ it('shows a clear message and no list when self assignment is disabled', functio
 
 it('enforces the closure.work gate', function () {
     $user = availUser(null, false);
-    $this->actingAs($user)->get(route('closure.work.available'))->assertForbidden();
+    $this->actingAs($user)->get(route('services.main', ['service' => \App\Services\Closure\ClosureServiceLocator::uuid(), 'aba' => 'disponiveis']))->assertForbidden();
     Livewire::test(Available::class)->assertStatus(403);
 });
 

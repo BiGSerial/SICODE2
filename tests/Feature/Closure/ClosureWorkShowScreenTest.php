@@ -247,3 +247,17 @@ it('re-checks access before deciding priority, even if the component level is st
 
     expect($request->fresh()->status)->toBe('PENDING');
 });
+
+it('lists undispatched orders on the work screen and offers dispatch only to the dispatcher', function () {
+    $f      = closureScreenFixture();
+    $undisp = \App\Models\Order::query()->create(['note_id' => $f['note']->id, 'ordem' => '4095' . fake()->unique()->numerify('#######'), 'descricao' => 'Ordem solta']);
+
+    Livewire::actingAs($f['dispatcher'])->test(Show::class, ['noteId' => $f['note']->id])
+        ->assertSee($undisp->ordem)->assertSee('Não despachada')->assertSee('Despachar')->assertSee('Ordem solta');
+
+    Livewire::actingAs($f['internal'])->test(Show::class, ['noteId' => $f['note']->id])
+        ->assertSee($undisp->ordem)->assertSee('Não despachada')->assertDontSee('closure-dispatch-open');
+
+    Livewire::actingAs($f['partnerUser'])->test(Show::class, ['noteId' => $f['note']->id])
+        ->assertDontSee($undisp->ordem);
+});

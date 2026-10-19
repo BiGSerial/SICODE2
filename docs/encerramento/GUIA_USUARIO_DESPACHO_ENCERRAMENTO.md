@@ -4,7 +4,7 @@ Para quem tem a permissão de despacho (gestor/despachante). O despacho trabalha
 
 ## Acesso
 
-Menu **ATIVIDADES > ENCERRAMENTO**: **DESPACHO** (lista e configurações) e **PAINEL ANALÍTICO**.
+Menu **ATIVIDADES > PÓS OBRA > DESPACHO > ENCERRAMENTO**. Na barra lateral: **LISTA PARA ENCERRAMENTO** (despachar e configurações), **CONTROLE DE ENCERRAMENTO** (o que já foi despachado: filtre por tipo, status, empresa, responsável e prioridade, e atribua, transfira ou priorize em lote), **TRANSFERÊNCIA DE ENCERRAMENTO** (pedidos de prioridade pendentes e transferência de responsabilidade por obra; o número vermelho mostra os pedidos pendentes) e **PAINEL ANALÍTICO**. Gestores veem ainda **GESTÃO DO CICLO** (Visão geral, Meta, Passivo).
 
 ## Tipos de Ordem: P, M e F
 
@@ -20,15 +20,25 @@ O tipo muda sozinho enquanto a Ordem está aberta (F vira M na virada do mês; M
 
 ## Como despachar
 
-1. Filtre por Nota, Ordem, tipo ou outros campos da lista.
-2. Escolha a **empresa de destino** e, se quiser, um **usuário** dessa empresa. Sem usuário, a Ordem vai para a pilha da empresa.
-3. Marque as Ordens (pode ser de Notas diferentes).
-4. Clique em **Ver prévia** e confira o que segue e o motivo de cada recusa.
-5. Clique em **Confirmar despacho**.
+A lista de Despacho tem busca, filtros em linha (Tipo P/M/F, status, empresa, município, **competência**, responsável e "só não despachadas") e cards-resumo clicáveis (Total, P, M, F, Não despachadas) que também filtram.
 
-O resultado mostra quantas foram despachadas, quantas já estavam despachadas (sem duplicar) e quantas foram recusadas (cancelada, já encerrada no SAP, fora da meta ou em outro despacho). As recusadas continuam marcadas para você corrigir. A situação é conferida de novo na confirmação.
+**Empresa (informe).** A coluna e o filtro **Empresa** mostram a empresa da relação com o **informe** da obra (a empreiteira que informou), a mesma da coluna EMPRESA da Lista para Medição. Regra por Ordem: o informe não cancelado ligado à Ordem (se houver vários, o mais recente); sem informe, a empresa da parcial da Ordem; sem parcial, o informe não cancelado da Nota. Ordens sem nenhum dos três mostram "—". Quem está com a Ordem agora (empresa do despacho) aparece ao passar o mouse sobre a célula. O resultado é guardado em cache por alguns minutos (mesmo TTL do conjunto de Ordens).
 
-Se a Ordem foi para um usuário, ele recebe aviso no sino e um toast.
+**Paginação.** A lista não tem janela de rolagem própria: a página rola normalmente e a rolagem horizontal só aparece em telas estreitas. O seletor **Itens por página** (10, 25, 50 ou 100) fica no cabeçalho do card e no rodapé, junto de "Exibindo X–Y de N" e dos links de página. A seleção de Ordens vale entre páginas. O Controle de Encerramento tem o mesmo seletor e rodapé.
+
+1. Filtre a lista e marque as Ordens (pode ser de Notas diferentes). Use **Selecionar página** ou **Selecionar todas filtradas** (limite de 1.000 por vez); a seleção vale entre páginas.
+2. Com ao menos uma Ordem marcada, o cabeçalho do card **Ordens** mostra o botão **Despachar selecionadas (N)** e um discreto **Limpar seleção** (não há barra flutuante). Para uma Ordem só, use o ícone de avião de papel na linha.
+3. O **modal abre na hora**, sem esperar o servidor: o resumo vem dos dados já exibidos na lista e as empresas/usuários já estão na página. Confira o resumo (contagem por tipo e por Nota) e a lista de Ordens. Escolha a **empresa de destino** e, se quiser, um **usuário**; sem usuário, a Ordem vai para a pilha da empresa. Só aparecem empresas e usuários habilitados no serviço Encerramento. A empresa do informe já vem **pré-selecionada** quando todas as Ordens escolhidas têm a mesma (e ela está habilitada no serviço); se divergirem ou faltar informe, o modal avisa e você escolhe manualmente.
+4. A prévia de elegibilidade é buscada logo após a abertura (a coluna Situação mostra uma animação até chegar) e refeita ao trocar empresa/usuário; **Confirmar despacho** só habilita quando a prévia chegou. Por Ordem: as recusadas ficam destacadas com o motivo (cancelada, já encerrada no SAP, fora da meta ou em outro despacho). Se houver recusadas, marque **Despachar só as elegíveis** para liberar o botão.
+5. Clique em **Confirmar despacho**. O servidor revalida tudo (permissão, empresa, usuário e elegibilidade). O botão mostra o andamento e o modal passa a exibir o **recibo por Ordem**: despachada, já despachada ou recusada (com o motivo). Feche o modal (botão Fechar, Esc ou clique fora).
+
+As recusadas continuam marcadas na lista para você corrigir e tentar de novo. A situação é conferida de novo na confirmação.
+
+Se a Ordem foi para um usuário, ele recebe aviso no sino (uma vez por Ordem) e você vê um toast ao concluir.
+
+### Coluna e filtro de Competência
+
+A coluna **Competência** (`MM/AAAA`, ex.: 10/2026) é o mês da meta em que a Ordem entra: o ciclo do alvo (target) quando existir; senão o mês seguinte ao do fim real da operação 0020 (Meta futura: fim real no mês corrente, entra no próximo mês; Meta atual: fim real no mês anterior, entra no mês corrente; Passivo: competências anteriores); para Ordem encerrada, a competência congelada no encerramento. Clique no título para ordenar (de novo para inverter). O filtro **Competência** lista as competências presentes, com a contagem de Ordens. A coluna também aparece no modal e nas listas do Controle, Minha atividade e Atividades disponíveis.
 
 ## Configurações
 

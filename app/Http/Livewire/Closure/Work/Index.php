@@ -8,11 +8,22 @@ use App\Models\Closure\ClosureOrderState;
 use App\Models\{Company, User};
 use App\Services\Closure\{ClosureMetaClassifier, ClosureOrderBatchWorkflowService, ClosureOrderWorkflowService, ClosureSettings};
 use Illuminate\Database\Eloquent\Builder;
-use Livewire\Component;
+use Livewire\{Component, WithPagination};
 
 class Index extends Component
 {
-    use ClosureWorkListing;
+    use ClosureWorkListing {
+        clearFilters as protected clearListingFilters;
+    }
+    use WithPagination;
+
+    public const PER_PAGE = 25;
+
+    public const PER_PAGE_OPTIONS = [10, 25, 50, 100];
+
+    protected $paginationTheme = 'bootstrap';
+
+    public int $perPage = self::PER_PAGE;
 
     public array $selectedStateIds = [];
 
@@ -55,7 +66,7 @@ class Index extends Component
         $settings = app(ClosureSettings::class);
 
         return view('livewire.closure.work.index', [
-            'states'            => $this->visibleStatesQuery()->limit(100)->get(),
+            'states'            => $this->visibleStatesQuery()->paginate($this->perPage),
             'selfAssignEnabled' => $settings->selfAssignEnabled(),
             'allowFuture'       => $settings->allowFutureCompletion(),
             'statusOptions'     => ClosureOperationalStatus::cases(),
@@ -64,17 +75,32 @@ class Index extends Component
 
     public function updatedStatus(): void
     {
+        $this->resetPage();
         $this->clearSelection();
     }
 
     public function updatedType(): void
     {
+        $this->resetPage();
         $this->clearSelection();
     }
 
     public function updatedSearch(): void
     {
+        $this->resetPage();
         $this->clearSelection();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->perPage = in_array((int) $this->perPage, self::PER_PAGE_OPTIONS, true) ? (int) $this->perPage : self::PER_PAGE;
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->clearListingFilters();
+        $this->resetPage();
     }
 
     public function updatedBatchAction(): void
@@ -121,7 +147,7 @@ class Index extends Component
 
     public function toggleVisibleStates(): void
     {
-        $visible  = $this->visibleStatesQuery()->limit(100)->pluck('closure_order_states.id')->map(fn ($id) => (int) $id);
+        $visible  = $this->visibleStatesQuery()->forPage(max(1, (int) $this->page), $this->perPage)->pluck('closure_order_states.id')->map(fn ($id) => (int) $id);
         $selected = collect($this->selectedStateIds)->map(fn ($id) => (int) $id);
 
         $this->selectedStateIds = $visible->every(fn (int $id) => $selected->contains($id))
@@ -359,7 +385,7 @@ class Index extends Component
         return $state->assigned_user_id && (string) $state->assigned_user_id === (string) auth()->id();
     }
 
-    private function isManager(): bool
+    protected function isManager(): bool
     {
         return (bool) auth()->user()?->can('closure.manage');
     }
@@ -452,7 +478,7 @@ class Index extends Component
         ]);
     }
 
-    private function visibleStatesQuery(): Builder
+    protected function visibleStatesQuery(): Builder
     {
         $user  = auth()->user();
         $query = $this->baseListingQuery();

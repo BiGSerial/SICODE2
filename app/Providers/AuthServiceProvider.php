@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\{CancellationCategory, CancellationRequest, QualityProcess, User};
 use App\Policies\{CancellationCategoryPolicy, CancellationRequestPolicy, QualityProcessPolicy};
+use App\Services\Closure\{ClosureServiceAccess};
 use App\Services\Quality\QualityRoles;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -99,13 +100,16 @@ class AuthServiceProvider extends ServiceProvider
         $isClosureOperator = fn (User $u) => $u->closure_operator || $u->superadm || $u->admin;
         $isClosureManager  = fn (User $u) => $u->closure_manager || $u->superadm || $u->admin;
 
-        // `closure.manager` é mantido como alias de compatibilidade para as
-        // telas da Fase 1. Os gates explícitos passam a ser usados pela
-        // atividade especializada a partir da Fase 2.
-        Gate::define('closure.manage', $isClosureManager);
-        Gate::define('closure.dispatch', $isClosureManager);
-        Gate::define('closure.work', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u));
+        // Além das flags, o vínculo em service_users com o Service Encerramento concede acesso
+        // (ver ClosureServiceAccess): dispatch => closure.dispatch/manage/view; service => closure.work/view.
+        $linkedDispatch = fn (User $u) => ClosureServiceAccess::has($u, ClosureServiceAccess::DISPATCH);
+        $linkedService  = fn (User $u) => ClosureServiceAccess::has($u, ClosureServiceAccess::SERVICE);
+
+        // `closure.manager` (Visão geral / Meta / Passivo) é só da flag de gestor (+ admin/superadm).
+        Gate::define('closure.manage', fn (User $u) => $isClosureManager($u) || $linkedDispatch($u));
+        Gate::define('closure.dispatch', fn (User $u) => $isClosureManager($u) || $linkedDispatch($u));
+        Gate::define('closure.work', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u) || $linkedService($u));
         Gate::define('closure.manager', $isClosureManager);
-        Gate::define('closure.view', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u));
+        Gate::define('closure.view', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u) || $linkedDispatch($u) || $linkedService($u));
     }
 }

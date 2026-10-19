@@ -18,8 +18,9 @@ it('provisions the closure service with its technical identity and no contract l
 
     expect($service->service)->toBe('Encerramento')
         ->and($service->uuid)->not->toBeEmpty()
-        ->and((bool) $service->project)->toBeTrue()
-        ->and((bool) $service->construction)->toBeTrue()
+        ->and((bool) $service->project)->toBeFalse()
+        ->and((bool) $service->construction)->toBeFalse()
+        ->and((bool) $service->post_construction)->toBeTrue()
         ->and($service->icon)->toBe('ri-checkbox-circle-line')
         ->and((bool) $service->canReturn)->toBeFalse()
         ->and(DB::table('service_contract_rules')->where('service_id', $service->id)->count())->toBe(0)

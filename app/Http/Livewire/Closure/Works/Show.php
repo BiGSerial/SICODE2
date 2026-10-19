@@ -4,11 +4,10 @@ namespace App\Http\Livewire\Closure\Works;
 
 use App\Enum\ClosureOperationalStatus;
 use App\Models\Closure\{ClosureIssue, ClosureIssueCategory, ClosureOrderState, ClosurePriorityRequest, ClosureWorkMessage};
-use App\Models\{Company, Note, Operation, Order};
+use App\Models\{Company, Note};
 use App\Services\Closure\{
     ClosureIssueWorkflowException,
     ClosureIssueWorkflowService,
-    ClosureMetaClassifier,
     ClosureOrderWorkflowException,
     ClosureOrderWorkflowService,
     ClosurePriorityException,
@@ -80,6 +79,8 @@ class Show extends Component
     public string $priorityReason = '';
 
     public string $priorityDecisionNote = '';
+
+    public bool $showCanceled = false;
 
     public ?string $feedback = null;
 
@@ -482,17 +483,10 @@ class Show extends Component
 
         $note     = $this->note();
         $user     = auth()->user();
-        $overview = app(ClosureWorkService::class)->overview($note, $user);
-        $orders   = Order::query()->whereIn('id', collect($overview['orders'])->pluck('order_id'))->get();
-        $types    = app(ClosureMetaClassifier::class)->typesFor($orders);
-        $ops      = Operation::query()->whereIn('order_id', $orders->pluck('id'))
-            ->selectRaw('order_id, COUNT(*) as total')->groupBy('order_id')->pluck('total', 'order_id');
-
-        $states = $this->noteStates()->get()->keyBy('id');
-        $rows   = collect($overview['orders'])->map(function (array $o) use ($types, $ops, $states) {
-            $state       = $states->get($o['state_id']);
-            $o['type']   = $types->get($o['order_id']);
-            $o['ops']    = (int) ($ops[$o['order_id']] ?? 0);
+        $overview = app(ClosureWorkService::class)->overview($note, $user, $this->showCanceled);
+        $states   = $this->noteStates()->get()->keyBy('id');
+        $rows     = collect($overview['orders'])->map(function (array $o) use ($states) {
+            $state       = $o['state_id'] ? $states->get($o['state_id']) : null;
             $o['manage'] = $state && $this->canManage($state);
             $o['finish'] = $o['manage'] && in_array($o['operational_status'], ClosureOrderWorkflowService::FINISHABLE_STATUSES, true);
 
@@ -504,18 +498,20 @@ class Show extends Component
         $internal = !$this->isPartner();
 
         return view('livewire.closure.works.show', [
-            'overview'     => $overview,
-            'rows'         => $rows,
-            'typeSummary'  => $rows->pluck('type')->filter()->countBy()->all(),
-            'messages'     => app(ClosureWorkService::class)->messages($note, $user),
-            'issues'       => $issues,
-            'internal'     => $internal,
-            'categories'   => $internal ? ClosureIssueCategory::query()->where('active', true)->with(['Subcategories' => fn ($q) => $q->where('active', true)->orderBy('display_order')->orderBy('name')])->orderBy('display_order')->orderBy('name')->get() : collect(),
-            'companies'    => $internal ? Company::query()->orderBy('name')->get(['id', 'name']) : collect(),
-            'statusState'  => $this->statusStateId ? $states->get($this->statusStateId) : null,
-            'canFinishAny' => $rows->contains(fn ($r) => $r['finish']),
-            'canRespond'   => $this->isPartner() && PartnerAccessGate::allows(auth()->user(), 'closure.issues.respond'),
-            'closedIssues' => $this->issuesQuery(true)->where('status', ClosureIssue::STATUS_RESOLVED)->count(),
+            'overview'      => $overview,
+            'rows'          => $rows,
+            'typeSummary'   => $rows->pluck('type')->filter()->countBy()->all(),
+            'statusSummary' => $rows->groupBy(fn ($r) => $r['has_state'] ? $r['operational_status'] : 'NOT_DISPATCHED')->map->count()->all(),
+            'canDispatch'   => !$this->isPartner() && (bool) auth()->user()?->can('closure.dispatch'),
+            'messages'      => app(ClosureWorkService::class)->messages($note, $user),
+            'issues'        => $issues,
+            'internal'      => $internal,
+            'categories'    => $internal ? ClosureIssueCategory::query()->where('active', true)->with(['Subcategories' => fn ($q) => $q->where('active', true)->orderBy('display_order')->orderBy('name')])->orderBy('display_order')->orderBy('name')->get() : collect(),
+            'companies'     => $internal ? Company::query()->orderBy('name')->get(['id', 'name']) : collect(),
+            'statusState'   => $this->statusStateId ? $states->get($this->statusStateId) : null,
+            'canFinishAny'  => $rows->contains(fn ($r) => $r['finish']),
+            'canRespond'    => $this->isPartner() && PartnerAccessGate::allows(auth()->user(), 'closure.issues.respond'),
+            'closedIssues'  => $this->issuesQuery(true)->where('status', ClosureIssue::STATUS_RESOLVED)->count(),
         ]);
     }
 

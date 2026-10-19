@@ -25,8 +25,9 @@ class Service extends Model
         'folder',
         'project',
         'construction',
+        'post_construction',
         'icon',
-        'canReturn'
+        'canReturn',
     ];
 
     public function Contracts()

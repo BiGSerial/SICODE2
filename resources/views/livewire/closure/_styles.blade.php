@@ -217,4 +217,107 @@
         border-color: #b8c8d0;
         border-radius: 6px;
     }
+
+    /* ---- Tabela moderna compartilhada (Despacho / Controle): colgroup + zebra ----
+       Sem janela de rolagem vertical: a página rola normalmente (o rodapé com paginação fica visível).
+       Rolagem horizontal só em telas estreitas. O thead não é sticky (não há scroller interno). */
+    .closure-dash .dash-scroll {
+        max-height: none;
+        overflow: visible;
+    }
+
+    @media (max-width: 1199.98px) {
+        .closure-dash .dash-scroll {
+            overflow-x: auto;
+        }
+    }
+
+    .closure-dash .dash-table thead th {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-top: .65rem;
+        padding-bottom: .65rem;
+    }
+
+    .closure-dash .dash-table tbody tr:nth-child(even) > td {
+        background-color: #f8fafb;
+    }
+
+    .closure-dash .dash-table tbody tr:hover > td {
+        background-color: #eef5f6;
+    }
+
+    .closure-dash .dash-table tbody tr.is-selected > td {
+        background-color: rgba(21, 95, 103, .1);
+        box-shadow: inset 3px 0 0 var(--dash-teal);
+    }
+
+    .closure-dash .dash-table tbody tr.is-selected > td:not(:first-child) {
+        box-shadow: none;
+    }
+
+    .closure-dash .dash-table td.cell-visible {
+        overflow: visible;
+    }
+
+    .closure-dash .type-dot {
+        align-items: center;
+        border-radius: 50%;
+        color: #fff;
+        display: inline-flex;
+        font-size: .78rem;
+        font-weight: 800;
+        height: 26px;
+        justify-content: center;
+        width: 26px;
+    }
+
+    .closure-dash .type-dot.bg-danger { background: var(--dash-red) !important; }
+    .closure-dash .type-dot.bg-success { background: var(--dash-green) !important; }
+    .closure-dash .type-dot.bg-primary { background: var(--dash-blue) !important; }
+
+    .closure-dash .status-dot {
+        border-radius: 50%;
+        display: inline-block;
+        flex: none;
+        height: 8px;
+        width: 8px;
+    }
+
+    .closure-dash .icon-btn {
+        align-items: center;
+        background: transparent;
+        border: 1px solid var(--dash-line);
+        border-radius: 6px;
+        color: var(--dash-teal);
+        display: inline-flex;
+        height: 30px;
+        justify-content: center;
+        text-decoration: none;
+        width: 30px;
+    }
+
+    .closure-dash .icon-btn:hover {
+        background: var(--dash-teal);
+        border-color: var(--dash-teal);
+        color: #fff;
+    }
+
+    .closure-dash .is-loading-soft {
+        opacity: .55;
+        pointer-events: none;
+        transition: opacity .15s ease;
+    }
+
+    .closure-dash .dash-empty {
+        color: var(--dash-muted);
+        padding: 48px 16px;
+        text-align: center;
+    }
+
+    .closure-dash .dash-empty i {
+        color: #b8c8d0;
+        font-size: 3rem;
+        line-height: 1;
+    }
 </style>

@@ -43,11 +43,16 @@ Novos/renomeados na UI:
 
 ## 5. Telas
 
-1. **Despacho** (`dispatch/encerramento`): lista por Ordem no padrão das demais atividades (colunas Tipo/Nota/Ordem/Obra/Município/Empresa/Status SAP/Operações/Prioridade…), seleção em massa de Ordens de várias Notas, painel de configurações (§4).
-2. **Painel analítico do despachante**: volumetria por usuário × tipo × status, interação usuário↔parceira (pendências abertas, tempo de resposta), pedido de prioridade para as Ordens de uma obra, transferência de responsabilidade.
-3. **Serviço** (`services/encerramento`): "Minha atividade" idêntica às demais; lista "Atividade Encerramento" para pegar atividade (se habilitada); alteração de status; finalizar.
-4. **Gestão da Obra** (por Nota): dados da obra, Ordens e status, chat entre usuários envolvidos, categorização do problema ao enviar à parceira, troca de status, finalizar.
-5. **Parceira**: caixa de pendências existente evolui para o chat/categorias.
+O Encerramento é um **Service como os demais** (`folder = encerramento`, grupo PÓS OBRA do menu ATIVIDADES): usa as rotas padrão `dispatch.*` / `services.*` e as views das pastas `dispatchs/encerramento` e `services/encerramento`, com a sidebar padrão (ACOMPANHAMENTO).
+
+1. **Despacho > Lista para Encerramento** (`dispatch.main`): lista por Ordem (Tipo P/M/F, Nota, Ordem, Obra/Município, Empresa, Status SAP, Operações, Prioridade), seleção em massa de Ordens de várias Notas (página ou todas as filtradas), cards-resumo/filtros em linha, despacho por **modal** (`Closure\Dispatch\DispatchModal`), painel de configurações (§4).
+2. **Despacho > Controle de Encerramento** (`dispatch.stack`): o que já foi despachado, de todos; filtros por tipo, status, empresa, responsável e prioridade; ações em lote (atribuir, transferir, prioridade, status).
+3. **Despacho > Transferência** (`dispatch.transprod`): pedidos de prioridade pendentes (aceitar/recusar), obras críticas e transferência de responsabilidade por obra, com recibo. Contador de pedidos pendentes no menu.
+4. **Despacho > Painel analítico** (`dispatch.dashboard`): volumetria por usuário × tipo × status, interação usuário↔parceira, prioridades, obras críticas.
+5. **Serviço > Lista / Acompanhamento** (`services.main` / `services.accompany`): "Minhas atividades" (ações por linha e em lote) e aba "Atividades disponíveis" (`?aba=disponiveis`, só com auto-atribuição ligada). **Meu histórico** (`services.historic`): Ordens finalizadas/encerradas/canceladas com o tipo congelado.
+6. **Gestão da Obra** (por Nota, `closure.work.show`) e **Detalhe da Ordem** (`closure.order.detail`): chat, categorização do problema, status, finalizar.
+7. **Gestão do ciclo** (Visão geral / Meta / Passivo, `closure.manager`): itens no menu do despacho.
+8. **Parceira**: contrato é redirecionado para `dispatch.partner` (`dispatchs/encerramento/partner_main` = `Partner\ClosureIssues\Index`); a caixa de pendências do portal continua.
 
 ## 6. Notificações
 
@@ -81,19 +86,26 @@ Só se marca `[x]` com evidência. "testes + relatório do agente" = suíte `tes
 
 ## 9. Entregue (o que realmente existe no código)
 
-### 9.1 Rotas e gates
+### 9.1 Rotas, views e gates
 
-| Rota (`closure.*`) | URL | Gate / acesso | Componente |
+| Menu | Rota | View | Componente |
 |---|---|---|---|
-| `closure.dispatch` | `/encerramento/despacho` | `can:closure.dispatch` | `Closure\Dispatch\Index` |
-| `closure.dispatch.dashboard` | `/encerramento/despacho/painel` | `can:closure.dispatch` | `Closure\Dispatch\Dashboard` |
-| `closure.work` | `/encerramento/minha-atividade` | `can:closure.work` | `Closure\Work\Index` |
-| `closure.work.available` | `/encerramento/atividades-disponiveis` | `can:closure.work` (menu só aparece com auto-atribuição ligada) | `Closure\Work\Available` |
-| `closure.work.show` | `/encerramento/obra/{note}` | `auth`; nível de acesso resolvido por `ClosureWorkService::accessLevel` | `Closure\Works\Show` |
-| `partner.closure.issues` | `/partner/encerramento/pendencias` | `partner.permission:closure.issues.list` | `Partner\ClosureIssues\Index` |
-| `partner.closure.work.show` | `/partner/encerramento/obra/{note}` | `partner.permission:closure.issues.respond` | `Closure\Works\Show` (view `partner/closure-work`) |
+| Despacho > LISTA PARA ENCERRAMENTO | `dispatch.main` | `dispatchs.encerramento.main` | `Closure\Dispatch\Index` + `Closure\Dispatch\DispatchModal` (evento `openForOrders`) |
+| Despacho > CONTROLE DE ENCERRAMENTO | `dispatch.stack` | `dispatchs.encerramento.stack` | `Closure\Dispatch\Control` (estende `Work\Index` em modo gestor) |
+| Despacho > TRANSFERÊNCIA | `dispatch.transprod` | `dispatchs.encerramento.transprod` | `Closure\Dispatch\Transfer` (trait `ManagesPriorityAndTransfer`, comum ao Painel) |
+| Despacho > PAINEL ANALÍTICO | `dispatch.dashboard` | `dispatchs.encerramento.dashboard` | `Closure\Dispatch\Dashboard` |
+| (contrato) | `dispatch.partner` | `dispatchs.encerramento.partner_main` | `Partner\ClosureIssues\Index` |
+| Serviço > LISTA / ATIVIDADES DISPONÍVEIS | `services.main` (`?aba=disponiveis`) | `services.encerramento.main` | `Work\Index` / `Work\Available` |
+| Serviço > ACOMPANHAMENTO | `services.accompany` | `services.encerramento.accompany` | `Closure\Work\Index` |
+| Serviço > MEU HISTÓRICO | `services.historic` | `services.encerramento.historic` | `Closure\Work\History` |
+| Gestão do ciclo | `closure.overview/meta/passive` | `closure.*` | `Closure\Cycles\*` (`can:closure.manager`) |
+| Obra / Ordem | `closure.work.show`, `closure.order.detail` | `closure.work-show`, `closure.order-detail` | `Works\Show`, `Orders\Detail` |
 
-Gates (`AuthServiceProvider`): `closure.dispatch` e `closure.manage` = flag `closure_manager`; `closure.work` e `closure.view` = `closure_operator` ou `closure_manager`; `closure.manager` é alias de compatibilidade. `admin`/`superadm` passam em todos. Níveis da Gestão da Obra: `DISPATCHER` (gate `closure.dispatch`), `INTERNAL` (tem Ordem atribuída/sob posse na Nota), `PARTNER` (empresa com item ou pendência na Nota), senão sem acesso. A rota `closure.order.detail` (detalhe de Ordem) continua existindo.
+As rotas `closure.dispatch`, `closure.dispatch.dashboard`, `closure.work` e `closure.work.available` são **redirects 302** para as rotas padrão (resolvendo o uuid por `ClosureServiceLocator`), só para não quebrar links antigos.
+
+Acesso: as rotas padrão passam pelo middleware `check.service.dispatch` (service_users `dispatch`/`service`; superadm passa). Para não dar 403 a quem tem só as flags, o middleware também libera o Service Encerramento a quem passa em `closure.dispatch` (rotas `dispatch`) ou `closure.work` (rotas `services`), o que inclui admin. Os componentes continuam checando os gates de domínio no `mount` e nas ações.
+
+Gates (`AuthServiceProvider` + `ClosureServiceAccess`): `closure.dispatch` e `closure.manage` = flag `closure_manager` **ou** `service_users.dispatch` no Encerramento; `closure.work` = `closure_operator`/`closure_manager` **ou** `service_users.service`; `closure.view` = qualquer um dos anteriores; `closure.manager` (Visão geral/Meta/Passivo) = só flag `closure_manager` (não vem de vínculo). `admin`/`superadm` passam em todos. Vínculo em outro Service não concede nada. Níveis da Gestão da Obra: `DISPATCHER` (gate `closure.dispatch`), `INTERNAL`, `PARTNER`, senão sem acesso.
 
 ### 9.2 Serviços (`app/Services/Closure/`)
 
@@ -155,23 +167,27 @@ Todos os eventos disparam sino + toast (`extras.toast=true`) pelo `ClosureNotifi
 
 ### 9.9 Telas (resumo funcional)
 
-- **Despacho**: lista por Ordem (`ClosureDispatchListQuery`), filtros, seleção em massa (várias Notas), prévia e confirmação com recibo (já despachada/recusada), painel de configurações (§9.5).
-- **Painel analítico**: filtros, matriz usuário×tipo×status clicável, gráficos, interação com parceiras, pedidos de prioridade, obras críticas, priorizar obra, transferir responsabilidade com recibo.
-- **Minha atividade**: lista com filtros (status, tipo, busca), ações por linha e em lote (prévia + recibo), mudança de status, finalizar.
-- **Atividades disponíveis**: lista de Ordens `AVAILABLE` dos tipos liberados, assumir até 100 por vez com confirmação. Não notifica ninguém.
-- **Gestão da Obra**: dados e Ordens, mudar status, finalizar (uma/todas), chat com anexos e visibilidade, enviar pendência à parceira (categoria, subcategoria, empresa, bloqueante, Ordens), validar/devolver/resolver/responder, pedir prioridade.
+- **Lista para Encerramento**: lista por Ordem (`ClosureDispatchListQuery`), filtros, seleção em massa (várias Notas), barra flutuante "N selecionadas · Despachar" e atalho por linha que abrem o modal de despacho (`DispatchModal`: resumo por tipo/Nota, destino Empresa → Usuário opcional/pilha, prévia de elegibilidade por Ordem, "despachar só as elegíveis", recibo por Ordem, toast único; chama `ClosureDispatchService::dispatchOrders`), painel de configurações (§9.5).
+- **Controle**: lista de todas as Ordens despachadas com filtros (tipo, status, empresa, responsável, prioridade) e ações em lote do gestor.
+- **Transferência**: pedidos de prioridade, obras críticas, transferir responsabilidade com recibo.
+- **Painel analítico**: filtros, matriz usuário×tipo×status clicável, gráficos, interação com parceiras, pedidos de prioridade, obras críticas, priorizar obra, transferir.
+- **Minhas atividades / Acompanhamento**: filtros (status, tipo, busca), ações por linha e em lote (prévia + recibo), mudança de status, finalizar.
+- **Atividades disponíveis**: Ordens `AVAILABLE` dos tipos liberados, assumir até 100 por vez com confirmação. Não notifica ninguém.
+- **Meu histórico**: Ordens do usuário finalizadas/em aguardando/encerradas/canceladas, com o tipo congelado.
+- **Gestão da Obra**: dados e Ordens, mudar status, finalizar (uma/todas), chat com anexos e visibilidade, enviar pendência à parceira, validar/devolver/resolver/responder, pedir prioridade.
 - **Parceira**: caixa de pendências existente + a mesma tela da obra restrita ao nível `PARTNER`.
 
 ## 10. Testes
 
-Suíte `tests/Feature/Closure`: **159 testes, 799 asserções, verdes em 2026-10-16** (rodar via `docker exec sicode2-app ./vendor/bin/pest tests/Feature/Closure`). Arquivos novos: `ClosureAvailableWorkTest`, `ClosureDispatchDashboardScreenTest`, `ClosureDispatchScreenTest`, `ClosureDispatcherAnalyticsTest`, `ClosureMenuTest`, `ClosureMetaClassifierTest`, `ClosureNotifierTest`, `ClosurePartnerWorkScreenTest`, `ClosurePriorityServiceTest`, `ClosureSettingsTest`, `ClosureStatusTransitionsTest`, `ClosureSyncClosedCommandTest`, `ClosureWorkMessagesTest`, `ClosureWorkScreenTest`, `ClosureWorkServiceTest`, `ClosureWorkShowScreenTest` (+ `ClosureScreenFixture`); ampliados: Dispatch, IssueWorkflow, OrderWorkflow, SpecializedNavigation.
+Suíte `tests/Feature/Closure`: **181 testes, verdes em 2026-10-16** (rodar via `docker exec sicode2-app ./vendor/bin/pest tests/Feature/Closure`). Arquivos novos: `ClosureAvailableWorkTest`, `ClosureDispatchDashboardScreenTest`, `ClosureDispatchScreenTest`, `ClosureDispatcherAnalyticsTest`, `ClosureMenuTest`, `ClosureMetaClassifierTest`, `ClosureNotifierTest`, `ClosurePartnerWorkScreenTest`, `ClosurePriorityServiceTest`, `ClosureSettingsTest`, `ClosureStatusTransitionsTest`, `ClosureSyncClosedCommandTest`, `ClosureWorkMessagesTest`, `ClosureWorkScreenTest`, `ClosureWorkServiceTest`, `ClosureWorkShowScreenTest` (+ `ClosureScreenFixture`); ampliados: Dispatch, IssueWorkflow, OrderWorkflow, SpecializedNavigation.
 
 ## 11. Pendências e limitações conhecidas
 
-- **Telas não testadas por GET de página inteira**: o layout legado (`Status\Bancosicode`) dá 500 no banco de teste; os testes validam rota, gate e o componente Livewire (403 HTTP preservado).
+- **GET de página inteira nos testes**: o layout legado (`Status\Bancosicode`) dá 500 sem um registro em `bancoupdates`; `ClosureSpecializedNavigationTest::full_pages_render_for_a_superadmin` cria esse registro antes.
+- **Contador do menu de serviço**: o item ATIVIDADES > ENCERRAMENTO usa o contador padrão `countnotes` (Productions), que fica zerado para o Encerramento.
 - **Validação visual no navegador pendente** (stack efêmera + toast + gráficos).
 - **Migrations ainda não aplicadas** no banco compartilhado; rodar antes de usar em QA (`deploy-sicode2 qa fast database`).
 - **2F**: fechar a `Production` da Nota quando todos os itens estiverem terminais — pendente.
 - **MIGO**: integração adiada (existe só como categoria da taxonomia).
-- **Notificação de atribuição**: `closure.order_assigned` é disparada apenas pelo Despacho (`Dispatch\Index`); transferências pelo painel analítico ou ações em lote da Minha atividade não notificam o novo responsável (verificado: nenhum uso de `ClosureNotifier` nesses componentes). Por isso F segue `[ ]`.
+- **Notificação de atribuição**: `closure.order_assigned` dispara no Despacho (`Dispatch\DispatchModal`) e também em `assign`/`transfer` do `ClosureOrderWorkflowService` (cobre transferência no painel/Transferência e ações em lote), com dedupe e após commit; o autor nunca é notificado. Pendente apenas a validação visual do toast.
 - Etapas H e I do checklist continuam abertas.

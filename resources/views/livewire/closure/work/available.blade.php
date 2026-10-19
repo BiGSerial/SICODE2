@@ -9,7 +9,7 @@
                 <div class="dash-subtitle">Ordens disponíveis para você assumir.</div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <a href="{{ route('closure.work') }}" class="btn btn-light btn-sm">Minha atividade</a>
+                <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('services.main') }}" class="btn btn-light btn-sm">Minha atividade</a>
                 @if ($enabled)
                     <span class="badge bg-light text-dark px-3 py-2">{{ count($selectedStateIds) }} selecionada(s)</span>
                 @endif
@@ -21,10 +21,10 @@
         <div class="table-card p-4" id="closure-available-disabled">
             <h3 class="chart-title mb-2">Escolha de atividades desabilitada</h3>
             <p class="mb-3">O despachante ainda não liberou a escolha de atividades de Encerramento. As Ordens chegam até você por despacho. Você será levado para <strong>Minha atividade</strong> em instantes.</p>
-            <a href="{{ route('closure.work') }}" class="btn btn-dash text-white" style="background: var(--dash-teal);">Ir para Minha atividade agora</a>
+            <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('services.main') }}" class="btn btn-dash text-white" style="background: var(--dash-teal);">Ir para Minha atividade agora</a>
         </div>
         <script>
-            setTimeout(function () { window.location.href = @json(route('closure.work')); }, 5000);
+            setTimeout(function () { window.location.href = @json(\App\Services\Closure\ClosureServiceLocator::url('services.main')); }, 5000);
         </script>
     @else
         <div class="table-card p-3 mb-3">
@@ -70,7 +70,7 @@
                                 <td class="pe-3 small text-muted">{{ $state->entered_current_status_at?->diffForHumans(null, true) ?? '—' }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="10" class="text-center text-muted py-4">Não há Ordens disponíveis para você neste momento.</td></tr>
+                            <tr><td colspan="11" class="text-center text-muted py-4">Não há Ordens disponíveis para você neste momento.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -5,12 +5,17 @@
     <div class="dash-hero mb-3">
         <div class="d-flex flex-wrap align-items-end justify-content-between gap-3">
             <div>
-                <h2 class="dash-title">Minha Atividade — Encerramento</h2>
-                <div class="dash-subtitle">Ordens atribuídas a você{{ auth()->user()->can('closure.manage') ? ' (como gestor, você vê as de todos)' : '' }}.</div>
+                @if ($controlMode ?? false)
+                    <h2 class="dash-title">Controle de Encerramento</h2>
+                    <div class="dash-subtitle">Ordens já despachadas, de todos os usuários e empresas: acompanhe, priorize, atribua e transfira.</div>
+                @else
+                    <h2 class="dash-title">Minha Atividade — Encerramento</h2>
+                    <div class="dash-subtitle">Ordens atribuídas a você{{ auth()->user()->can('closure.manage') ? ' (como gestor, você vê as de todos)' : '' }}.</div>
+                @endif
             </div>
             <div class="d-flex align-items-center gap-2">
-                @if ($selfAssignEnabled)
-                    <a href="{{ route('closure.work.available') }}" class="btn btn-light btn-sm">Pegar atividades</a>
+                @if ($selfAssignEnabled && !($controlMode ?? false))
+                    <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('services.main', ['aba' => 'disponiveis']) }}" class="btn btn-light btn-sm">Pegar atividades</a>
                 @endif
                 <span class="badge bg-light text-dark px-3 py-2">{{ count($selectedStateIds) }} selecionada(s)</span>
             </div>
@@ -20,6 +25,32 @@
     <div class="table-card p-3 mb-3">
         <div class="row g-3 align-items-end">
             @include('livewire.closure.work._filters')
+            @if ($controlMode ?? false)
+                <div class="col-12 col-md-3">
+                    <label for="closure-control-company" class="form-label fw-semibold">Empresa (posse atual)</label>
+                    <select id="closure-control-company" class="form-select" wire:model="filterCompany">
+                        <option value="">Todas</option>
+                        @foreach ($this->destinationCompanies as $company)
+                            <option value="{{ $company->id }}">{{ $company->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 col-md-3">
+                    <label for="closure-control-user" class="form-label fw-semibold">Responsável</label>
+                    <select id="closure-control-user" class="form-select" wire:model="filterUser">
+                        <option value="">Todos</option>
+                        @foreach ($this->controlUsers as $controlUser)
+                            <option value="{{ $controlUser->id }}">{{ $controlUser->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 col-md-3 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input id="closure-control-priority" type="checkbox" class="form-check-input" wire:model="onlyPriority">
+                        <label for="closure-control-priority" class="form-check-label">Só prioritárias</label>
+                    </div>
+                </div>
+            @endif
             <div class="col-12 col-md-3">
                 <label for="closure-work-status" class="form-label fw-semibold">Status da atividade</label>
                 <select id="closure-work-status" class="form-select" wire:model="status">
@@ -134,16 +165,29 @@
                 <h3 class="chart-title">Fila operacional</h3>
                 <div class="chart-subtitle">O status SAP é informativo; as ações abaixo não o alteram.</div>
             </div>
-            <div class="d-flex gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <div class="d-flex align-items-center gap-1 small text-muted">
+                    <label for="closure-work-per-page-top" class="mb-0">Itens por página</label>
+                    <select id="closure-work-per-page-top" class="form-select form-select-sm w-auto" wire:model="perPage" aria-label="Itens por página">
+                        @foreach (\App\Http\Livewire\Closure\Work\Index::PER_PAGE_OPTIONS as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </div>
                 <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="clearFilters">Limpar filtros</button>
                 <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="toggleVisibleStates">Selecionar/limpar visíveis</button>
             </div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-sm table-hover align-middle mb-0">
+        <div class="table-responsive dash-scroll">
+            <table class="table table-sm align-middle mb-0 dash-table">
+                <colgroup>
+                    <col style="width: 44px;"><col style="width: 56px;"><col style="width: 110px;"><col style="width: 120px;"><col style="width: 90px;">
+                    <col style="width: 16%;"><col style="width: 100px;"><col style="width: 15%;"><col style="width: 150px;">
+                    <col style="width: 100px;"><col style="width: 110px;"><col style="width: 360px;">
+                </colgroup>
                 <thead>
                     <tr>
-                        <th class="ps-3" style="width:48px"></th>
+                        <th class="ps-3" style="width:48px"><span class="visually-hidden">Selecionar</span></th>
                         @include('livewire.closure.work._order-head')
                         <th>Status da atividade</th>
                         <th>Prioridade</th>
@@ -157,7 +201,7 @@
                             $selected = in_array($state->id, $selectedStateIds);
                             $blocked  = $this->finishBlockedReason($state);
                         @endphp
-                        <tr wire:key="closure-work-state-{{ $state->id }}">
+                        <tr wire:key="closure-work-state-{{ $state->id }}" @class(['is-selected' => $selected])>
                             <td class="ps-3"><input type="checkbox" class="form-check-input" @checked($selected) wire:click="toggleState({{ $state->id }})"></td>
                             @include('livewire.closure.work._order-cells')
                             <td>
@@ -168,8 +212,8 @@
                             </td>
                             <td>@if ($state->priority)<span class="badge bg-danger">Prioritária</span>@else<span class="text-muted small">Normal</span>@endif</td>
                             <td class="small text-muted" title="{{ $this->holderLabel($state) }}">{{ $this->elapsedLabel($state) }}</td>
-                            <td class="pe-3 text-end text-nowrap">
-                                <div class="btn-group btn-group-sm" role="group" aria-label="Ações da Ordem {{ $state->Order?->ordem }}">
+                            <td class="pe-3 text-end cell-visible">
+                                <div class="btn-group btn-group-sm flex-wrap justify-content-end" role="group" aria-label="Ações da Ordem {{ $state->Order?->ordem }}">
                                     @if ($this->canRun($state, 'start'))
                                         <button type="button" class="btn btn-outline-success" wire:click="runAction({{ $state->id }}, 'start')">Iniciar</button>
                                     @endif
@@ -203,10 +247,24 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="13" class="text-center text-muted py-4">Não há Ordens nesta lista.@if ($selfAssignEnabled) Use "Pegar atividades" para assumir novas.@endif</td></tr>
+                        <tr><td colspan="14" class="text-center text-muted py-4">Não há Ordens nesta lista.@if ($selfAssignEnabled && !($controlMode ?? false)) Use "Pegar atividades" para assumir novas.@endif</td></tr>
                     @endforelse
                 </tbody>
             </table>
+        </div>
+        <div class="p-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div class="d-flex flex-wrap align-items-center gap-3 small text-muted">
+                <span class="d-inline-flex align-items-center gap-2">
+                    <label for="closure-work-per-page" class="mb-0">Itens por página</label>
+                    <select id="closure-work-per-page" class="form-select form-select-sm w-auto" wire:model="perPage">
+                        @foreach (\App\Http\Livewire\Closure\Work\Index::PER_PAGE_OPTIONS as $option)
+                            <option value="{{ $option }}">{{ $option }}</option>
+                        @endforeach
+                    </select>
+                </span>
+                <span>Exibindo {{ number_format((int) $states->firstItem(), 0, ',', '.') }}–{{ number_format((int) $states->lastItem(), 0, ',', '.') }} de {{ number_format($states->total(), 0, ',', '.') }}</span>
+            </div>
+            <div>{{ $states->links() }}</div>
         </div>
     </div>
 

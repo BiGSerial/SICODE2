@@ -18,7 +18,7 @@ trait ClosureWorkListing
 
     public string $search = '';
 
-    /** Consulta base por Ordem, já com a coluna `meta_type` (dinâmica; congelada se encerrada). */
+    /** Consulta base por Ordem, já com as colunas `meta_type` (dinâmica; congelada se encerrada) e `competence` (YYYY-MM). */
     protected function baseListingQuery(): Builder
     {
         $query = ClosureOrderState::query()
@@ -28,6 +28,7 @@ trait ClosureWorkListing
 
         $classifier = app(ClosureMetaClassifier::class);
         $classifier->withMetaType($query);
+        $classifier->withCompetence($query);
 
         if (in_array($this->type, ClosureMetaClassifier::TYPES, true)) {
             $classifier->whereMetaType($query, $this->type);

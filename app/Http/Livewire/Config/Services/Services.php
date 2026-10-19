@@ -132,7 +132,7 @@ class Services extends Component
         // Serviços legados (ex.: sobras de rollback) nunca têm Projeto nem
         // Construção definidos — a criação de um serviço hoje exige um dos dois.
         return Service::with('contracts.company')
-            ->where(fn ($query) => $query->where('project', true)->orWhere('construction', true))
+            ->where(fn ($query) => $query->where('project', true)->orWhere('construction', true)->orWhere('post_construction', true))
             ->orderBy('service')
             ->get();
     }
