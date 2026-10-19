@@ -1,6 +1,6 @@
 @php
     use App\Helpers\SelectOptions;
-    use App\Custom\NoteStatus;
+    use App\Custom\Notestatus;
 @endphp
 
 <div class="finish-five">
