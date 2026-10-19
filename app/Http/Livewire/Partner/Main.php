@@ -124,9 +124,11 @@ class Main extends Component
      */
     protected function buildExecutiveData(): array
     {
-        $end    = Carbon::parse($this->dt_fim ?: now())->endOfMonth();
-        $months = collect(range(5, 0))->map(fn ($back) => $end->copy()->startOfMonth()->subMonths($back));
-        $from   = $months->first()->copy()->startOfMonth();
+        // Consolidado mensal do ano de referência (jan–dez); meses futuros ficam sem valor.
+        $year   = Carbon::parse($this->dt_fim ?: now())->year;
+        $months = collect(range(1, 12))->map(fn ($month) => Carbon::create($year, $month, 1));
+        $end    = Carbon::create($year, 12, 31)->endOfDay();
+        $from   = Carbon::create($year, 1, 1)->startOfDay();
         $keys   = $months->map(fn (Carbon $month) => $month->format('Y-m'));
 
         $finalByMonth = Adsform::query()
@@ -166,24 +168,14 @@ class Main extends Component
             ->get()
             ->keyBy('ym');
 
-        $overdue = WorkReport::query()->active()
-            ->where('rejected', false)
-            ->whereNotNull('informed_at')
-            ->where('informed_at', '<', now()->subDays(3)->startOfDay())
-            ->whereDoesntHave('Note.Adsform')
-            ->whereDoesntHave('Note.OldAds');
-        $this->scopeByCompany($overdue);
-        $aging = $overdue
-            ->selectRaw('DATEDIFF(CURDATE(), informed_at) as age')
-            ->pluck('age')
-            ->map(fn ($age) => (int) $age);
+        $aging = $this->getWorkReportsWithoutAdsOverdue()->map(fn ($workReport) => (int) $workReport->ads_late_days);
 
         $buckets = [
+            ['label' => '1–3 dias', 'min' => 1, 'max' => 3],
             ['label' => '4–7 dias', 'min' => 4, 'max' => 7],
             ['label' => '8–15 dias', 'min' => 8, 'max' => 15],
             ['label' => '16–30 dias', 'min' => 16, 'max' => 30],
-            ['label' => '31–90 dias', 'min' => 31, 'max' => 90],
-            ['label' => 'Acima de 90 dias', 'min' => 91, 'max' => PHP_INT_MAX],
+            ['label' => 'Acima de 30 dias', 'min' => 31, 'max' => PHP_INT_MAX],
         ];
 
         $dueAds  = $this->getWorkReportsWithoutAdsDueSoon()->groupBy('ads_days_left')->map->count();
@@ -192,7 +184,8 @@ class Main extends Component
         )->map->count();
 
         return [
-            'labels'          => $months->map(fn (Carbon $month) => $month->translatedFormat('M/y'))->all(),
+            'labels'          => $months->map(fn (Carbon $month) => mb_strtolower($month->translatedFormat('M')))->all(),
+            'last_index'      => $year === now()->year ? now()->month - 1 : 11,
             'final_amount'    => $keys->map(fn ($key) => (float) ($finalByMonth[$key] ?? 0))->all(),
             'partial_amount'  => $keys->map(fn ($key) => (float) ($partialByMonth[$key] ?? 0))->all(),
             'informs_valid'   => $keys->map(fn ($key) => (int) ($informsByMonth[$key]->valid ?? 0))->all(),
@@ -352,6 +345,41 @@ class Main extends Component
             ->values();
     }
 
+    /**
+     * Informes ativos sem ADS cujo prazo de entrega (AdsDeadlinePolicy: dias úteis ou corridos conforme
+     * SicodeRules) já venceu. Cada item ganha ads_due_at e ads_late_days.
+     */
+    public function getWorkReportsWithoutAdsOverdue(): Collection
+    {
+        $deadlinePolicy = app(AdsDeadlinePolicy::class);
+
+        // Em qualquer regra o prazo vence depois de pelo menos N dias corridos: só esses entram na análise.
+        $query = WorkReport::query()->active()
+            ->where('rejected', false)
+            ->whereNotNull('informed_at')
+            ->where('informed_at', '<', Carbon::today()->subDays(\App\Support\SicodeRules::adsDeliveryDeadlineDays())->startOfDay())
+            ->whereDoesntHave('Note.Adsform')
+            ->whereDoesntHave('Note.OldAds')
+            ->with(['Company:id,name', 'Company.Address']);
+
+        $this->scopeByCompany($query);
+
+        $reports = $query->get(['work_reports.id', 'work_reports.company_id', 'work_reports.note_id', 'work_reports.informed_at']);
+        $deadlinePolicy->preloadAdjustments($reports->pluck('id'));
+        $now = now();
+
+        return $reports
+            ->map(function (WorkReport $workReport) use ($deadlinePolicy, $now) {
+                $state                     = $deadlinePolicy->stateForWorkReport($workReport);
+                $workReport->ads_due_at    = $deadlinePolicy->dueAt($workReport->informed_at, $state, (int) $workReport->id);
+                $workReport->ads_late_days = $deadlinePolicy->lateDays($workReport->ads_due_at, null, $now, $state, (int) $workReport->id);
+
+                return $workReport;
+            })
+            ->filter(fn (WorkReport $workReport) => $workReport->ads_late_days >= 1)
+            ->values();
+    }
+
     public function getTacitAdsOverdueWithoutDelivery(): Collection
     {
         $query = WorkReport::query()->active()
@@ -421,14 +449,6 @@ class Main extends Component
             ->whereHas('Viabilities', function ($q) {
                 $this->scopeByCompany($q);
             });
-
-        $workReportsWithoutAdsOverdueBase = WorkReport::query()->active()
-            ->where('rejected', false)
-            ->whereNotNull('informed_at')
-            ->where('informed_at', '<', now()->subDays(3)->startOfDay())
-            ->whereDoesntHave('Note.Adsform')
-            ->whereDoesntHave('Note.OldAds');
-        $this->scopeByCompany($workReportsWithoutAdsOverdueBase);
 
         return [
             'pending_viability' => (clone $baseViability)

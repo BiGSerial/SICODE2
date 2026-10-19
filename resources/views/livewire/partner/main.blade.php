@@ -297,7 +297,8 @@
         .pd-hero-card .hc-value { font-size: 2.1rem; font-weight: 800; line-height: 1.1; margin: 0.15rem 0; }
         .pd-hero-card .hc-note { font-size: 0.8rem; opacity: 0.92; }
         .pd-hero-card .hc-icon { position: absolute; right: 1rem; top: 0.8rem; font-size: 2.6rem; opacity: 0.22; }
-        .pd-hero-card svg.spark { display: block; width: 100%; height: 52px; margin-top: 0.35rem; }
+        .pd-hero-card svg.spark { display: block; width: 100%; height: 60px; margin-top: 0.35rem; }
+        .pd-hero-card .spark-months { display: flex; justify-content: space-between; font-size: 0.62rem; opacity: 0.85; padding: 0.15rem 0 0.3rem; }
         .pd-hbar { display: grid; grid-template-columns: 120px 1fr 48px; gap: 0.6rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.45rem; }
         .pd-hbar .track { height: 14px; border-radius: 7px; background: #e2e8f0; overflow: hidden; }
         .pd-hbar .fill { height: 100%; border-radius: 7px; }
@@ -505,9 +506,29 @@
             return '<svg class="spark" viewBox="0 0 100 52" preserveAspectRatio="none"><polygon points="0,52 ' . $line . ' 100,52" fill="rgba(255,255,255,0.22)"/><polyline points="' . $line . '" fill="none" stroke="' . $stroke . '" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
         };
         $exec = $executive ?? [];
+        $lastIndex = (int) ($exec['last_index'] ?? 11);
+        $monthly = function (array $values) use ($exec, $lastIndex) {
+            $values = array_slice(array_values($values), 0, $lastIndex + 1);
+            $max    = max(array_merge($values, [0.0001]));
+            $points = [];
+
+            foreach ($values as $i => $value) {
+                $points[] = round(($i / 11) * 100, 2) . ',' . round(46 - ($value / $max) * 40, 2);
+            }
+
+            $line = implode(' ', $points);
+            $lastX = round((max(count($values) - 1, 0) / 11) * 100, 2);
+            $labels = collect($exec['labels'] ?? [])->map(fn ($label) => '<span>' . e($label) . '</span>')->implode('');
+
+            return '<svg class="spark" viewBox="0 0 100 52" preserveAspectRatio="none"><polygon points="0,52 ' . $line . ' ' . $lastX . ',52" fill="rgba(255,255,255,0.28)"/><polyline points="' . $line . '" fill="none" stroke="#ffffff" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg><div class="spark-months">' . $labels . '</div>';
+        };
+        $bestOf = function (array $values) use ($exec, $lastIndex) {
+            $values = array_slice(array_values($values), 0, $lastIndex + 1);
+            $max = collect($values)->max();
+
+            return $max > 0 ? ['label' => ($exec['labels'] ?? [])[collect($values)->search($max)] ?? '', 'value' => $max] : null;
+        };
         $money = fn ($value) => 'R$ ' . number_format((float) $value, 2, ',', '.');
-        $bestFinal = collect($exec['final_amount'] ?? [])->max();
-        $bestFinalLabel = ($exec['labels'] ?? [])[collect($exec['final_amount'] ?? [])->search($bestFinal)] ?? null;
         $agingMax = max(1, collect($exec['aging'] ?? [])->max('total'));
         $dueMax = max(1, collect($exec['due_by_day'] ?? [])->map(fn ($d) => $d['ads'] + $d['viability'])->max());
         $trendMax = max(1, collect($exec['informs_valid'] ?? [])->map(fn ($v, $i) => $v + ($exec['informs_invalid'][$i] ?? 0))->max());
@@ -522,8 +543,9 @@
                 <i class="ri-money-dollar-circle-line hc-icon"></i>
                 <div class="hc-label">ADS final solicitado</div>
                 <div class="hc-value">{{ $money($workReportKpis['ads_amount_total'] ?? 0) }}</div>
-                <div class="hc-note">{{ $workReportKpis['ads_delivered_total'] ?? 0 }} ADS entregues no período{{ $bestFinalLabel && $bestFinal > 0 ? ' · melhor mês: ' . $bestFinalLabel : '' }}</div>
-                {!! $spark($exec['final_amount'] ?? []) !!}
+                @php $bestF = $bestOf($exec['final_amount'] ?? []); @endphp
+                <div class="hc-note">Período: {{ $workReportKpis['ads_delivered_total'] ?? 0 }} ADS entregues{{ $bestF ? ' · Melhor mês: ' . $bestF['label'] . ' ' . $money($bestF['value']) : '' }}</div>
+                {!! $monthly($exec['final_amount'] ?? []) !!}
             </div>
         </div>
         <div class="col-12 col-md-6 col-xl-3">
@@ -531,8 +553,9 @@
                 <i class="ri-percent-line hc-icon"></i>
                 <div class="hc-label">ADS parcial solicitado</div>
                 <div class="hc-value">{{ $money($workReportKpis['partials_amount_total'] ?? 0) }}</div>
-                <div class="hc-note">{{ $workReportKpis['partials_completed_total'] ?? 0 }} de {{ $workReportKpis['partials_total'] ?? 0 }} parciais finalizadas</div>
-                {!! $spark($exec['partial_amount'] ?? []) !!}
+                @php $bestP = $bestOf($exec['partial_amount'] ?? []); @endphp
+                <div class="hc-note">Período: {{ $workReportKpis['partials_completed_total'] ?? 0 }} de {{ $workReportKpis['partials_total'] ?? 0 }} finalizadas{{ $bestP ? ' · Melhor mês: ' . $bestP['label'] . ' ' . $money($bestP['value']) : '' }}</div>
+                {!! $monthly($exec['partial_amount'] ?? []) !!}
             </div>
         </div>
         <div class="col-12 col-md-6 col-xl-3">
@@ -540,7 +563,7 @@
                 <i class="ri-alarm-warning-line hc-icon"></i>
                 <div class="hc-label">Entregas de ADS em atraso</div>
                 <div class="hc-value">{{ $exec['overdue_total'] ?? ($kpis['work_without_ads_overdue'] ?? 0) }}</div>
-                <div class="hc-note">{{ ($exec['overdue_total'] ?? 0) - ($exec['overdue_old'] ?? 0) }} até 90 dias · {{ $exec['overdue_old'] ?? 0 }} acima de 90 dias</div>
+                <div class="hc-note">{{ ($exec['overdue_total'] ?? 0) - ($exec['overdue_old'] ?? 0) }} até 30 dias de atraso · {{ $exec['overdue_old'] ?? 0 }} acima de 30</div>
                 {!! $spark(collect($exec['aging'] ?? [])->pluck('total')->all()) !!}
             </div>
         </div>
@@ -570,7 +593,7 @@
                             <span class="num">{{ $bucket['total'] }}</span>
                         </div>
                     @endforeach
-                    <div class="small text-muted mt-2">Informes sem ADS entregue, a partir de 4 dias da conclusão informada.</div>
+                    <div class="small text-muted mt-2">Dias de atraso após o prazo de entrega da ADS ({{ \App\Support\SicodeRules::adsDeliveryDeadlineDays() }} dias {{ \App\Support\SicodeRules::adsDeliveryDeadlineUsesBusinessDays() ? 'úteis' : 'corridos' }} da conclusão informada).</div>
                 </div>
             </div>
         </div>
@@ -593,7 +616,7 @@
         <div class="col-12 col-xl-4">
             <div class="card pd-panel h-100">
                 <div class="card-header d-flex justify-content-between">
-                    <h6 class="mb-0">Informes finais por mês</h6>
+                    <h6 class="mb-0">Informes finais por mês ({{ Carbon::parse($dt_fim)->year }})</h6>
                     <span class="small text-muted"><span class="badge" style="background:#0f766e">válidos</span> <span class="badge" style="background:#ef4444">cancel./rejeit.</span></span>
                 </div>
                 <div class="card-body">
@@ -821,7 +844,7 @@
             <div class="metric-card danger">
                 <div class="metric-label">Entregas de ADS em atraso</div>
                 <div class="metric-value">{{ $kpis['work_without_ads_overdue'] ?? 0 }}</div>
-                <div class="metric-subtitle">Sem ADS há mais de 3 dias</div>
+                <div class="metric-subtitle">Prazo de entrega da ADS vencido</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
