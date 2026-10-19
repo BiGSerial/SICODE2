@@ -242,8 +242,14 @@ class BaseOV extends Command
     {
         $divergent = collect();
 
+        $this->info('Checking divergent nstats/days_left across the whole source...');
+        $scanBar = $this->createProgressBar((clone $baseQuery)->distinct()->count('OV'));
+        $scanBar->setFormat('%current%/%max% [%bar%] %percent%% (ETA: %remaining%) divergent: %divergent%');
+        $scanBar->setMessage('0', 'divergent');
+        $scanBar->start();
+
         (clone $baseQuery)->select('OV')->distinct()->orderBy('OV')
-            ->chunk($chunkSize, function ($ovRows) use ($baseQuery, &$divergent) {
+            ->chunk($chunkSize, function ($ovRows) use ($baseQuery, &$divergent, $scanBar) {
                 $ovs = $ovRows->pluck('OV')->filter()->unique()->values();
 
                 $sourceByOv = (clone $baseQuery)
@@ -271,7 +277,13 @@ class BaseOV extends Command
                         $divergent->push($ov);
                     }
                 }
+
+                $scanBar->setMessage((string) $divergent->count(), 'divergent');
+                $scanBar->advance($ovs->count());
             });
+
+        $scanBar->finish();
+        $this->info('');
 
         return $divergent;
     }
