@@ -457,7 +457,7 @@ class Main extends Component
                 ->count(),
             'viability_due_soon'         => $this->getViabilityDueDate()->count(),
             'work_without_ads_due_soon'  => $this->getWorkReportsWithoutAdsDueSoon()->count(),
-            'work_without_ads_overdue'   => $workReportsWithoutAdsOverdueBase->count(),
+            'work_without_ads_overdue'   => $this->getWorkReportsWithoutAdsOverdue()->count(),
             'd5_pending'                 => $d5PendingBase->count(),
             'd5_returned'                => $d5ReturnedBase->count(),
             'viability_rejected_waiting' => $rejectedViabilityBase->count(),
