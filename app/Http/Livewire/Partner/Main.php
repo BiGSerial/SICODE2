@@ -41,6 +41,8 @@ class Main extends Component
 
     public array $companyBreakdown = [];
 
+    public array $executive = [];
+
     public $dadospizza1 = [
         'labels' => ['A', 'B', 'C'],
         'data'   => [10, 20, 70],
@@ -107,12 +109,106 @@ class Main extends Component
         $this->atualizaViabilityAgeHistogram();
         $this->atualizaD5AgeHistogram();
         $this->atualizaRejectedWorkReasonChart();
+        $this->executive        = $this->buildExecutiveData();
         $this->companyBreakdown = $this->buildCompanyBreakdown();
     }
 
     public function updatedPartnerCompanyFilter(): void
     {
         $this->toUpdateGraphs();
+    }
+
+    /**
+     * Dados do painel executivo: séries de 6 meses (valores de ADS final/parcial e informes),
+     * aging do atraso de ADS e vencimentos dos próximos dias. Respeita o filtro de empresa.
+     */
+    protected function buildExecutiveData(): array
+    {
+        $end    = Carbon::parse($this->dt_fim ?: now())->endOfMonth();
+        $months = collect(range(5, 0))->map(fn ($back) => $end->copy()->startOfMonth()->subMonths($back));
+        $from   = $months->first()->copy()->startOfMonth();
+        $keys   = $months->map(fn (Carbon $month) => $month->format('Y-m'));
+
+        $finalByMonth = Adsform::query()
+            ->join('work_reports', 'work_reports.id', '=', 'adsforms.work_report_id')
+            ->whereNotNull('work_reports.informed_at')
+            ->whereBetween('work_reports.informed_at', [$from, $end])
+            ->where('work_reports.canceled', false)
+            ->where('work_reports.rejected', false)
+            ->where(function ($q) {
+                $q->where('adsforms.tacit', false)
+                    ->orWhereNull('adsforms.tacit')
+                    ->orWhereNotNull('adsforms.tacit_delivered_at');
+            });
+        $this->scopeByCompany($finalByMonth, 'work_reports.company_id');
+        $finalByMonth = $finalByMonth
+            ->selectRaw("DATE_FORMAT(work_reports.informed_at, '%Y-%m') as ym, SUM(adsforms.amount) as total")
+            ->groupBy('ym')
+            ->pluck('total', 'ym');
+
+        $partialByMonth = Partial::query()
+            ->whereBetween('created_at', [$from, $end])
+            ->where('payment', true)
+            ->where('deny', false);
+        $this->scopeByCompany($partialByMonth);
+        $partialByMonth = $partialByMonth
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(value) as total")
+            ->groupBy('ym')
+            ->pluck('total', 'ym');
+
+        $informsByMonth = WorkReport::query()
+            ->whereNotNull('informed_at')
+            ->whereBetween('informed_at', [$from, $end]);
+        $this->scopeByCompany($informsByMonth);
+        $informsByMonth = $informsByMonth
+            ->selectRaw("DATE_FORMAT(informed_at, '%Y-%m') as ym, COUNT(*) as total, SUM(CASE WHEN canceled = 0 AND rejected = 0 THEN 1 ELSE 0 END) as valid")
+            ->groupBy('ym')
+            ->get()
+            ->keyBy('ym');
+
+        $overdue = WorkReport::query()->active()
+            ->where('rejected', false)
+            ->whereNotNull('informed_at')
+            ->where('informed_at', '<', now()->subDays(3)->startOfDay())
+            ->whereDoesntHave('Note.Adsform')
+            ->whereDoesntHave('Note.OldAds');
+        $this->scopeByCompany($overdue);
+        $aging = $overdue
+            ->selectRaw('DATEDIFF(CURDATE(), informed_at) as age')
+            ->pluck('age')
+            ->map(fn ($age) => (int) $age);
+
+        $buckets = [
+            ['label' => '4–7 dias', 'min' => 4, 'max' => 7],
+            ['label' => '8–15 dias', 'min' => 8, 'max' => 15],
+            ['label' => '16–30 dias', 'min' => 16, 'max' => 30],
+            ['label' => '31–90 dias', 'min' => 31, 'max' => 90],
+            ['label' => 'Acima de 90 dias', 'min' => 91, 'max' => PHP_INT_MAX],
+        ];
+
+        $dueAds  = $this->getWorkReportsWithoutAdsDueSoon()->groupBy('ads_days_left')->map->count();
+        $dueViab = $this->getViabilityDueDate()->groupBy(
+            fn ($viability) => Carbon::today()->diffInDays(Carbon::parse($viability->sended_at)->addDays(7 + $viability->getDays())->startOfDay(), false)
+        )->map->count();
+
+        return [
+            'labels'          => $months->map(fn (Carbon $month) => $month->translatedFormat('M/y'))->all(),
+            'final_amount'    => $keys->map(fn ($key) => (float) ($finalByMonth[$key] ?? 0))->all(),
+            'partial_amount'  => $keys->map(fn ($key) => (float) ($partialByMonth[$key] ?? 0))->all(),
+            'informs_valid'   => $keys->map(fn ($key) => (int) ($informsByMonth[$key]->valid ?? 0))->all(),
+            'informs_invalid' => $keys->map(fn ($key) => (int) (($informsByMonth[$key]->total ?? 0) - ($informsByMonth[$key]->valid ?? 0)))->all(),
+            'aging'           => collect($buckets)->map(fn ($bucket) => [
+                'label' => $bucket['label'],
+                'total' => $aging->filter(fn ($age) => $age >= $bucket['min'] && $age <= $bucket['max'])->count(),
+            ])->all(),
+            'overdue_total' => $aging->count(),
+            'overdue_old'   => $aging->filter(fn ($age) => $age > 90)->count(),
+            'due_by_day'    => collect(range(0, $this->daysAhead))->map(fn ($day) => [
+                'label'     => $day === 0 ? 'Hoje' : ($day === 1 ? 'Amanhã' : "Em {$day} dias"),
+                'ads'       => (int) ($dueAds[$day] ?? 0),
+                'viability' => (int) ($dueViab[$day] ?? 0),
+            ])->all(),
+        ];
     }
 
     /**

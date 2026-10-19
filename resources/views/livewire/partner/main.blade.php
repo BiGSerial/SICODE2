@@ -288,6 +288,26 @@
         .pd-bar { height: 6px; border-radius: 4px; background: #e2e8f0; overflow: hidden; min-width: 70px; }
         .pd-bar > span { display: block; height: 100%; }
 
+        .pd-hero-card { position: relative; overflow: hidden; border-radius: 16px; padding: 1.1rem 1.25rem 0.6rem; color: #fff; height: 100%; box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22); }
+        .pd-hero-card.final { background: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%); }
+        .pd-hero-card.partial { background: linear-gradient(135deg, #0f766e 0%, #22c55e 100%); }
+        .pd-hero-card.late { background: linear-gradient(135deg, #7f1d1d 0%, #ef4444 100%); }
+        .pd-hero-card.soon { background: linear-gradient(135deg, #92400e 0%, #f59e0b 100%); }
+        .pd-hero-card .hc-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.9; }
+        .pd-hero-card .hc-value { font-size: 2.1rem; font-weight: 800; line-height: 1.1; margin: 0.15rem 0; }
+        .pd-hero-card .hc-note { font-size: 0.8rem; opacity: 0.92; }
+        .pd-hero-card .hc-icon { position: absolute; right: 1rem; top: 0.8rem; font-size: 2.6rem; opacity: 0.22; }
+        .pd-hero-card svg.spark { display: block; width: 100%; height: 52px; margin-top: 0.35rem; }
+        .pd-hbar { display: grid; grid-template-columns: 120px 1fr 48px; gap: 0.6rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.45rem; }
+        .pd-hbar .track { height: 14px; border-radius: 7px; background: #e2e8f0; overflow: hidden; }
+        .pd-hbar .fill { height: 100%; border-radius: 7px; }
+        .pd-hbar .num { text-align: right; font-weight: 700; }
+        .pd-trend { display: flex; align-items: flex-end; gap: 0.6rem; height: 150px; padding-top: 0.5rem; }
+        .pd-trend .col-m { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; font-size: 0.72rem; color: var(--pd-muted); }
+        .pd-trend .stack { width: 70%; max-width: 46px; display: flex; flex-direction: column; justify-content: flex-end; border-radius: 6px 6px 0 0; overflow: hidden; }
+        .pd-trend .stack .ok { background: #0f766e; }
+        .pd-trend .stack .bad { background: #ef4444; }
+
         .pd-section-title {
             margin: 0 0 0.75rem;
             color: var(--pd-ink);
@@ -464,6 +484,139 @@
             </button>
         </div>
     @endif
+
+    @php
+        $spark = function (array $values, string $stroke = '#ffffff') {
+            $values = array_values($values);
+            $count  = count($values);
+            $max    = max(array_merge($values, [0.0001]));
+            $min    = min(array_merge($values, [0]));
+            $span   = max($max - $min, 0.0001);
+            $points = [];
+
+            foreach ($values as $i => $value) {
+                $x        = $count > 1 ? ($i / ($count - 1)) * 100 : 50;
+                $y        = 46 - (($value - $min) / $span) * 40;
+                $points[] = round($x, 2) . ',' . round($y, 2);
+            }
+
+            $line = implode(' ', $points);
+
+            return '<svg class="spark" viewBox="0 0 100 52" preserveAspectRatio="none"><polygon points="0,52 ' . $line . ' 100,52" fill="rgba(255,255,255,0.22)"/><polyline points="' . $line . '" fill="none" stroke="' . $stroke . '" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
+        };
+        $exec = $executive ?? [];
+        $money = fn ($value) => 'R$ ' . number_format((float) $value, 2, ',', '.');
+        $bestFinal = collect($exec['final_amount'] ?? [])->max();
+        $bestFinalLabel = ($exec['labels'] ?? [])[collect($exec['final_amount'] ?? [])->search($bestFinal)] ?? null;
+        $agingMax = max(1, collect($exec['aging'] ?? [])->max('total'));
+        $dueMax = max(1, collect($exec['due_by_day'] ?? [])->map(fn ($d) => $d['ads'] + $d['viability'])->max());
+        $trendMax = max(1, collect($exec['informs_valid'] ?? [])->map(fn ($v, $i) => $v + ($exec['informs_invalid'][$i] ?? 0))->max());
+        $dueAdsTotal = (int) ($kpis['work_without_ads_due_soon'] ?? 0);
+        $dueViabTotal = (int) ($kpis['viability_due_soon'] ?? 0);
+    @endphp
+
+    <div class="mb-1 pd-section-title">Painel executivo{{ $selectedCompany ? ' · ' . $selectedCompany->name : '' }}</div>
+    <div class="row g-3 mb-2">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-hero-card final">
+                <i class="ri-money-dollar-circle-line hc-icon"></i>
+                <div class="hc-label">ADS final solicitado</div>
+                <div class="hc-value">{{ $money($workReportKpis['ads_amount_total'] ?? 0) }}</div>
+                <div class="hc-note">{{ $workReportKpis['ads_delivered_total'] ?? 0 }} ADS entregues no período{{ $bestFinalLabel && $bestFinal > 0 ? ' · melhor mês: ' . $bestFinalLabel : '' }}</div>
+                {!! $spark($exec['final_amount'] ?? []) !!}
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-hero-card partial">
+                <i class="ri-percent-line hc-icon"></i>
+                <div class="hc-label">ADS parcial solicitado</div>
+                <div class="hc-value">{{ $money($workReportKpis['partials_amount_total'] ?? 0) }}</div>
+                <div class="hc-note">{{ $workReportKpis['partials_completed_total'] ?? 0 }} de {{ $workReportKpis['partials_total'] ?? 0 }} parciais finalizadas</div>
+                {!! $spark($exec['partial_amount'] ?? []) !!}
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-hero-card late">
+                <i class="ri-alarm-warning-line hc-icon"></i>
+                <div class="hc-label">Entregas de ADS em atraso</div>
+                <div class="hc-value">{{ $exec['overdue_total'] ?? ($kpis['work_without_ads_overdue'] ?? 0) }}</div>
+                <div class="hc-note">{{ ($exec['overdue_total'] ?? 0) - ($exec['overdue_old'] ?? 0) }} até 90 dias · {{ $exec['overdue_old'] ?? 0 }} acima de 90 dias</div>
+                {!! $spark(collect($exec['aging'] ?? [])->pluck('total')->all()) !!}
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-hero-card soon">
+                <i class="ri-time-line hc-icon"></i>
+                <div class="hc-label">A vencer em {{ $daysAhead }} dias</div>
+                <div class="hc-value">{{ $dueAdsTotal + $dueViabTotal }}</div>
+                <div class="hc-note">{{ $dueAdsTotal }} entregas de ADS · {{ $dueViabTotal }} viabilidades</div>
+                {!! $spark(collect($exec['due_by_day'] ?? [])->map(fn ($d) => $d['ads'] + $d['viability'])->all()) !!}
+            </div>
+        </div>
+    </div>
+    <div class="pd-disclaimer mb-3" style="max-width: none">
+        {!! app(\App\Services\Partner\DashboardLegalNotices::class)->valuesDisclaimerText() !!}
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-4">
+            <div class="card pd-panel h-100">
+                <div class="card-header"><h6 class="mb-0">Atraso de ADS por tempo</h6></div>
+                <div class="card-body">
+                    @foreach ($exec['aging'] ?? [] as $bucket)
+                        <div class="pd-hbar">
+                            <span>{{ $bucket['label'] }}</span>
+                            <span class="track"><span class="fill d-block" style="width: {{ round($bucket['total'] / $agingMax * 100) }}%; background: {{ $loop->last ? '#7f1d1d' : ($loop->index >= 2 ? '#ef4444' : '#f59e0b') }}"></span></span>
+                            <span class="num">{{ $bucket['total'] }}</span>
+                        </div>
+                    @endforeach
+                    <div class="small text-muted mt-2">Informes sem ADS entregue, a partir de 4 dias da conclusão informada.</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="card pd-panel h-100">
+                <div class="card-header"><h6 class="mb-0">Vencimentos dos próximos dias</h6></div>
+                <div class="card-body">
+                    @foreach ($exec['due_by_day'] ?? [] as $day)
+                        @php $dayTotal = $day['ads'] + $day['viability']; @endphp
+                        <div class="pd-hbar">
+                            <span>{{ $day['label'] }}</span>
+                            <span class="track"><span class="fill d-block" style="width: {{ round($dayTotal / $dueMax * 100) }}%; background: {{ $loop->first ? '#b91c1c' : '#f59e0b' }}"></span></span>
+                            <span class="num">{{ $dayTotal }}</span>
+                        </div>
+                        <div class="small text-muted mb-2" style="margin-top:-0.25rem">{{ $day['ads'] }} ADS · {{ $day['viability'] }} viabilidades</div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="card pd-panel h-100">
+                <div class="card-header d-flex justify-content-between">
+                    <h6 class="mb-0">Informes finais por mês</h6>
+                    <span class="small text-muted"><span class="badge" style="background:#0f766e">válidos</span> <span class="badge" style="background:#ef4444">cancel./rejeit.</span></span>
+                </div>
+                <div class="card-body">
+                    <div class="pd-trend">
+                        @foreach ($exec['labels'] ?? [] as $i => $label)
+                            @php
+                                $valid = $exec['informs_valid'][$i] ?? 0;
+                                $invalid = $exec['informs_invalid'][$i] ?? 0;
+                            @endphp
+                            <div class="col-m" title="{{ $valid }} válidos · {{ $invalid }} cancelados/rejeitados">
+                                <div class="fw-bold text-dark">{{ $valid + $invalid }}</div>
+                                <div class="stack" style="height: {{ round(($valid + $invalid) / $trendMax * 100) }}%">
+                                    <div class="bad" style="flex: {{ $invalid }}"></div>
+                                    <div class="ok" style="flex: {{ $valid }}"></div>
+                                </div>
+                                <div>{{ $label }}</div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div class="mb-1 pd-section-title">Resumo executivo{{ $selectedCompany ? ' · ' . $selectedCompany->name : (count($companyBreakdown) ? ' · total consolidado' : '') }}</div>
     <div class="row g-2 mb-3">
