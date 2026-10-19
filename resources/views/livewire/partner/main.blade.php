@@ -799,20 +799,6 @@
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="metric-card warn">
-                <div class="metric-label">Viabilidade a vencer</div>
-                <div class="metric-value">{{ $kpis['viability_due_soon'] ?? 0 }}</div>
-                <div class="metric-subtitle">Vence em até {{ $daysAhead }} dias</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3 col-xl-2">
-            <div class="metric-card warn">
-                <div class="metric-label">Entregas de ADS a vencer</div>
-                <div class="metric-value">{{ $kpis['work_without_ads_due_soon'] ?? 0 }}</div>
-                <div class="metric-subtitle">A vencer</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3 col-xl-2">
             <div class="metric-card">
                 <div class="metric-label">D5 aguardando solução</div>
                 <div class="metric-value">{{ $kpis['d5_pending'] ?? 0 }}</div>
@@ -841,13 +827,6 @@
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
-            <div class="metric-card danger">
-                <div class="metric-label">Entregas de ADS em atraso</div>
-                <div class="metric-value">{{ $kpis['work_without_ads_overdue'] ?? 0 }}</div>
-                <div class="metric-subtitle">Prazo de entrega da ADS vencido</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3 col-xl-2">
             <div class="metric-card warn">
                 <div class="metric-label">Reclamações pendentes</div>
                 <div class="metric-value">{{ $kpis['reclaims_pending'] ?? 0 }}</div>
@@ -857,14 +836,9 @@
     </div>
 
     <div class="mb-3">
-        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 align-items-lg-start mb-2">
-            <h3 class="pd-section-title">Informes</h3>
-            <div class="pd-disclaimer">
-                {!! app(\App\Services\Partner\DashboardLegalNotices::class)->valuesDisclaimerText() !!}
-            </div>
-        </div>
+        <h3 class="pd-section-title mb-2">Informes</h3>
         <div class="pd-subsection-title mb-2">Informes parciais</div>
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-2 mb-3">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-2 mb-3">
             <div class="col">
                 <div class="metric-card">
                     <div class="metric-label">Parciais totais</div>
@@ -886,19 +860,10 @@
                     <div class="metric-subtitle">Aprovadas e pagas no fluxo</div>
                 </div>
             </div>
-            <div class="col">
-                <div class="metric-card money">
-                    <div class="metric-label">Valor total parcial solicitado</div>
-                    <div class="metric-value">
-                        R$ {{ number_format($workReportKpis['partials_amount_total'] ?? 0, 2, ',', '.') }}
-                    </div>
-                    <div class="metric-subtitle">Somente parciais válidas</div>
-                </div>
-            </div>
         </div>
 
         <div class="pd-subsection-title mb-2">Informes finais</div>
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-2">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-2">
             <div class="col">
                 <div class="metric-card">
                     <div class="metric-label">Obras informadas</div>
@@ -925,15 +890,6 @@
                     <div class="metric-label">ADS não entregues</div>
                     <div class="metric-value">{{ $workReportKpis['ads_not_delivered_total'] ?? 0 }}</div>
                     <div class="metric-subtitle">Informes válidos* sem ADS entregue</div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="metric-card money">
-                    <div class="metric-label">Valor solicitado</div>
-                    <div class="metric-value">
-                        R$ {{ number_format($workReportKpis['ads_amount_total'] ?? 0, 2, ',', '.') }}
-                    </div>
-                    <div class="metric-subtitle">Somatório das ADS válidas*</div>
                 </div>
             </div>
         </div>
