@@ -31,9 +31,9 @@ class AdsDeadlinePolicyTest extends TestCase
         $this->assertSame('2026-04-09 23:59:59', $dueAt->format('Y-m-d H:i:s'));
     }
 
-    public function test_due_date_counts_calendar_days_when_rule_is_not_business_days(): void
+    public function test_sp_ruleset_counts_calendar_days_from_registration_day_zero(): void
     {
-        config(['sicode.rules.es.ads.delivery_deadline.business_days' => false]);
+        config(['sicode.ruleset' => 'sp']);
 
         $policy = app(AdsDeadlinePolicy::class);
         // Sexta-feira + 3 dias corridos = segunda-feira.

@@ -46,7 +46,7 @@ return [
     'rules' => [
         'es' => [
             'ads' => [
-                // Prazo de entrega da ADS: dias úteis (true) ou corridos (false).
+                // Prazo de entrega da ADS: dias úteis (true) ou corridos (false). O dia do registro é o dia 0; vence às 23:59 do 3º dia.
                 'delivery_deadline' => [
                     'days'          => 3,
                     'business_days' => true,
@@ -116,7 +116,7 @@ return [
                 // Prazo de entrega da ADS: dias úteis (true) ou corridos (false).
                 'delivery_deadline' => [
                     'days'          => 3,
-                    'business_days' => true,
+                    'business_days' => false,
                 ],
             ],
             'payment' => [
