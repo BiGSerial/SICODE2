@@ -2,38 +2,46 @@
 
 namespace App\Http\Livewire\Services\Supervision;
 
-use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
+use App\Http\Livewire\Services\Concerns\{BuildsCanceledWorkReportTags, BuildsLegalNoteTags};
 use App\Jobs\Services\ExportSupervisionProductionListJob;
 use App\Models\{File, Production, Service, User};
 use App\Models\WorkReportFlowProduction;
-use App\Support\SicodeRules;
 use App\Services\Files\FileStorageService;
+use App\Support\SicodeRules;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
     use WithPagination;
     use BuildsLegalNoteTags;
+    use BuildsCanceledWorkReportTags;
 
     protected $paginationTheme = 'bootstrap';
 
     public $service;           // Service (objeto)
+
     public $perPage = 30;
+
     public $search;
+
     public $note_type = '';
 
     public $rubrica_s = [];
+
     public $limit_pause = 50;
 
     public $user_l;            // lista de usuários p/ filtro
+
     public $user_s;            // usuário selecionado
+
     public $user_search;       // busca do usuário
 
     public $analise;
+
     private string $filter_group = 'supervision';
+
     private array $filter = [];
 
     protected $listeners = [
@@ -63,6 +71,7 @@ class Main extends Component
         }
 
         $filters = session("filter.{$this->filter_group}", []);
+
         if ((!is_array($filters) || $filters === []) && isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
             $filters = $_SESSION['filter'][$this->filter_group];
         }
@@ -172,6 +181,7 @@ class Main extends Component
     {
         // Sem if (!session()->isStarted()) { session()->start(); } use helper nativo
         $waitingForm = session('waitingForm');
+
         return $waitingForm && (int)$status !== 27;
     }
 
@@ -225,9 +235,9 @@ class Main extends Component
             ->all();
 
         // Cálculos (MariaDB)
-        $daysAssignedExpr = "DATEDIFF(CURDATE(), productions.att_at)";
-        $daysDispatchExpr = "DATEDIFF(CURDATE(), productions.dispatch_at)";
-        $daysLeftExpr     = "IFNULL(DATEDIFF(CURDATE(), linked_work_reports.informed_at), 0)";
+        $daysAssignedExpr  = "DATEDIFF(CURDATE(), productions.att_at)";
+        $daysDispatchExpr  = "DATEDIFF(CURDATE(), productions.dispatch_at)";
+        $daysLeftExpr      = "IFNULL(DATEDIFF(CURDATE(), linked_work_reports.informed_at), 0)";
         $linkedWorkReports = DB::table('work_report_flow_productions as wrfp')
             ->join('work_reports as wr', 'wr.id', '=', 'wrfp.work_report_id')
             ->where('wrfp.stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
@@ -237,30 +247,30 @@ class Main extends Component
 
         return Production::query()
                     ->with([
-                'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status,type_note',
-                // WorkForm é o nome da relação no modelo Note que aponta para WorkReport (tabela work_reports)
-                'Note.WorkForm:id,note_id,informed_at,rejected',
-                'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-                // belongsToMany via order_work_report: NÃO existe work_form_id em orders
-                'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
-                // D5 legada (sem informe) - fallback quando o informe atual nao tem D5 propria.
-                'Note.FiveNote:id,note_id,work_report_id,note_d5,is_completed,is_supervisioned',
-                'Note.OldAds:id,note_id,date',
-                'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-                'Wpas:id,production_id,dd,created_at',
-                'fiveNotes:five_notes.id,note_id,work_report_id,note_d5,is_completed,is_supervisioned,is_archived',
-                'WorkReportFlowProductions' => fn ($q) => $q
-                    ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
-                    ->where('is_current', true)
-                    ->with([
-                        'WorkReport:id,note_id,informed_at,created_at,rejected,selected_final_scopes',
-                        'WorkReport.Orders' => fn ($orders) => $orders->select('orders.id', 'orders.ordem'),
-                        'WorkReport.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
-                        // D5 vinculada ao informe atual desta producao.
-                        'WorkReport.FiveNote:id,note_id,work_report_id,note_d5,is_completed,is_supervisioned',
-                    ]),
-                'Note.Files:id,service_id,note_id,file_name,path,ext',
-            ])
+                        'Note:id,note,material,mmgd,rubrica,lexp,postes,dt_status,type_note',
+                        // WorkForm é o nome da relação no modelo Note que aponta para WorkReport (tabela work_reports)
+                        'Note.WorkForm:id,note_id,informed_at,rejected',
+                        'Note.WorkForm.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        // belongsToMany via order_work_report: NÃO existe work_form_id em orders
+                        'Note.WorkForm.Orders' => fn ($q) => $q->select('orders.id', 'orders.ordem'),
+                        // D5 legada (sem informe) - fallback quando o informe atual nao tem D5 propria.
+                        'Note.FiveNote:id,note_id,work_report_id,note_d5,is_completed,is_supervisioned',
+                        'Note.OldAds:id,note_id,date',
+                        'Note.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                        'Wpas:id,production_id,dd,created_at',
+                        'fiveNotes:five_notes.id,note_id,work_report_id,note_d5,is_completed,is_supervisioned,is_archived',
+                        'WorkReportFlowProductions' => fn ($q) => $q
+                            ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                            ->where('is_current', true)
+                            ->with([
+                                'WorkReport:id,note_id,informed_at,created_at,rejected,selected_final_scopes',
+                                'WorkReport.Orders' => fn ($orders) => $orders->select('orders.id', 'orders.ordem'),
+                                'WorkReport.Adsform:id,work_report_id,note_id,tacit,tacit_due_at,tacit_delivered_at,created_at',
+                                // D5 vinculada ao informe atual desta producao.
+                                'WorkReport.FiveNote:id,note_id,work_report_id,note_d5,is_completed,is_supervisioned',
+                            ]),
+                        'Note.Files:id,service_id,note_id,file_name,path,ext',
+                    ])
 
             // JOIN necessário para created_at e days_left, sem multiplicar por todos os informes da nota.
             ->leftJoinSub($linkedWorkReports, 'linked_work_reports', function ($join) {
@@ -327,8 +337,6 @@ class Main extends Component
             ->selectRaw("$daysLeftExpr as days_left");
     }
 
-
-
     public function getListsProperty()
     {
         // Lista de usuários p/ filtro (somente o que é necessário)
@@ -344,8 +352,7 @@ class Main extends Component
                     })
                     : $q->whereRaw('0 = 1');
             })
-            ->when($this->user_search, fn ($q) =>
-                $q->where('name', 'like', '%' . $this->user_search . '%'))
+            ->when($this->user_search, fn ($q) => $q->where('name', 'like', '%' . $this->user_search . '%'))
             ->orderBy('name')
             ->get();
 
@@ -358,8 +365,9 @@ class Main extends Component
         $lists = $this->lists->paginate($this->perPage);
 
         return view('livewire.services.supervision.main', [
-            'lists' => $lists,
-            'legalTagsByNoteId' => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
+            'lists'                => $lists,
+            'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds(collect($lists->items())->pluck('id')->all()),
+            'legalTagsByNoteId'    => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
         ]);
     }
 }

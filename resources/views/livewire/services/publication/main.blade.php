@@ -151,6 +151,7 @@
                                 @if (Auth()->User()->management || Auth()->User()->superadm || ($block && $production->user_id === Auth()->User()->id))
                                     <td class="fw-bold {{ $rowClass }}" data-value="{{ $list->note }}">
                                         {{ $list->note }}
+                                        <div><x-work-report.canceled-badge :report="$production ? ($canceledByProduction[$production->id] ?? null) : null" /></div>
                                     </td>
                                 @else
                                     <td class="{{ $rowClass }}"></td>
@@ -254,6 +255,7 @@
                 {{ $lists->total() }} registros.</span>
         </div>
     </div>
+    @livewire('components.workform.canceled-info', key('WorkCanceledInfo'))
 </div>
 
 @push('script')

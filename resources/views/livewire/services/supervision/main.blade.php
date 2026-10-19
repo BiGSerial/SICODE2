@@ -297,6 +297,9 @@
                                             <i class="ri-file-copy-line ms-1 copy-text"
                                                 data-value="{{ $note->note }}" style="cursor:pointer;"></i>
                                             <div class="mt-1">
+                                                <x-work-report.canceled-badge :report="$canceledByProduction[$list->id] ?? null" />
+                                            </div>
+                                            <div class="mt-1">
                                                 <x-legal.note-demand-tags
                                                     :demands="$legalTagsByNoteId[$list->note_id] ?? []"
                                                     :row-key="'services-supervision-accompany-'.$list->id"
@@ -506,6 +509,7 @@
     @livewire('services.supervision.forms.jobform', key('JobForm'))
     @livewire('components.status.show-status', key('show_status_note'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
+    @livewire('components.workform.canceled-info', key('WorkCanceledInfo'))
     @livewire('partner.show.show-partial-info', key('PartialInfo'))
     @livewire('components.d5.d5details', key('ViewD5Details'))
     @livewire('production.return.return-work', key('returnWorkfomr'))

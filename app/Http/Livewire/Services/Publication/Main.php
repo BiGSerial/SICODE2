@@ -2,15 +2,15 @@
 
 namespace App\Http\Livewire\Services\Publication;
 
-use App\Custom\RuleBuilder;
-use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
-use Livewire\{Component, WithPagination};
+use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User, WorkReportFlowProduction};
 use App\Services\Publication\NoteFilter;
 use Illuminate\Support\Facades\DB;
+use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
     use WithPagination;
+    use \App\Http\Livewire\Services\Concerns\BuildsCanceledWorkReportTags;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -29,6 +29,7 @@ class Main extends Component
     public $last_update;
 
     public $notes_limits = 12;
+
     public $notes_limits_max = 21;
 
     //Botão de  nao atribuído.
@@ -37,7 +38,6 @@ class Main extends Component
     public $assigned_mmgd = false;
 
     public $btzeroform = true;
-
 
     protected $queryString = [
         'search' => ['except' => '', 'as' => 'buscar'],
@@ -59,7 +59,6 @@ class Main extends Component
     {
         $this->noteFilter = $noteFilter;
     }
-
 
     public function mount($service)
     {
@@ -106,10 +105,10 @@ class Main extends Component
         //     return;
         // }
 
-        $user_id = Auth()->user()->id;
-        $service_uuid = $this->service->uuid;
+        $user_id       = Auth()->user()->id;
+        $service_uuid  = $this->service->uuid;
         $initial_limit = $this->notes_limits; // Limite inicial de notas atribuídas
-        $limit_max = $this->notes_limits_max - $this->notes_limits;
+        $limit_max     = $this->notes_limits_max - $this->notes_limits;
         // Contagem de notas em produção não finalizadas (status 2)
         $qtd_production = Production::where('service_id', $service_uuid)
             ->where('user_id', $user_id)
@@ -126,8 +125,6 @@ class Main extends Component
 
         if ($paused_count > 0) {
             $add = floor($paused_count / 3) + 1;
-
-
 
             if ($add >= $limit_max) {
                 $add = $limit_max;
@@ -230,11 +227,11 @@ class Main extends Component
         if ($production) {
 
             Notetimeline::Create([
-                'note_id'      => $this->note->id,
-                'service_id'   => $production->service_id,
-                'user_id'      => Auth()->User()->id,
-                'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
-                'status'       => 2,
+                'note_id'       => $this->note->id,
+                'service_id'    => $production->service_id,
+                'user_id'       => Auth()->User()->id,
+                'info'          => "Usuário {$user->name} atribuiu a Nota/OV.",
+                'status'        => 2,
                 'production_id' => $production->id,
             ]);
 
@@ -256,16 +253,24 @@ class Main extends Component
 
     public function hasPublication(Note $note)
     {
-        $production = $note->Productions->where('service_id', $this->service->uuid)->last();
+        $productions = $note->Productions->where('service_id', $this->service->uuid);
+        $workReportId = $note->WorkForm?->id;
 
-        if ($production) {
-            return $production;
-        } else {
-            return false;
+        if ($workReportId && $productions->isNotEmpty()) {
+            // A produção pertence ao informe a que está ligada. Produção ligada a outro informe
+            // da nota não é exibida aqui; sem nenhum vínculo (legado/Ramal) mantém o comportamento antigo.
+            $links = WorkReportFlowProduction::query()
+                ->whereIn('production_id', $productions->pluck('id'))
+                ->where('stage', WorkReportFlowProduction::STAGE_PUBLICATION)
+                ->where('is_current', true)
+                ->pluck('work_report_id', 'production_id');
+
+            $productions = $productions->filter(fn ($production) => !$links->has($production->id)
+                || (int) $links[$production->id] === (int) $workReportId);
         }
+
+        return $productions->last() ?: false;
     }
-
-
 
     public function filterStatus()
     {
@@ -340,8 +345,6 @@ class Main extends Component
         ->paginate($this->perPage);
     }
 
-
-
     public function render()
     {
         // $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
@@ -350,10 +353,10 @@ class Main extends Component
         //     $this->lists
         // );
 
-
         return view('livewire.services.publication.main', [
-            'lists'  => $this->lists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'                => $this->lists,
+            'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds($this->serviceProductionIds($this->lists instanceof \Illuminate\Contracts\Pagination\Paginator ? $this->lists->items() : $this->lists, $this->service->uuid)),
+            'update'               => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
     }
 }

@@ -19,6 +19,7 @@ class Main extends Component
     use WithPagination;
     use TextFormatter;
     use BulkSelfAssignable;
+    use \App\Http\Livewire\Services\Concerns\BuildsCanceledWorkReportTags;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -1102,8 +1103,9 @@ class Main extends Component
         $lists = $this->lists;
 
         return view('livewire.services.payment.main', [
-            'lists'  => $lists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'                => $lists,
+            'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds($this->serviceProductionIds($lists instanceof \Illuminate\Contracts\Pagination\Paginator ? $lists->items() : $lists, $this->service->uuid)),
+            'update'               => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
         ]);
     }
 }

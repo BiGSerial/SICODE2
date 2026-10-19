@@ -234,8 +234,11 @@
 
             <div class="row mt-3">
                 <div class="col-12">
-                    <div class="oexterno-subcard">
+                    <div class="oexterno-subcard" style="height:auto">
                         <div class="section-title">Ordens</div>
+                        @if($cancellationRequest->Orders->isEmpty())
+                            <p class="mb-0 small text-muted">Nenhuma ordem vinculada. Esta solicitação atua apenas sobre informes.</p>
+                        @else
                         <div class="table-responsive">
                             <table class="table table-sm table-striped">
                                 <thead>
@@ -250,12 +253,13 @@
                                         <tr>
                                             <td>{{ $order->ordem }}</td>
                                             <td>{{ $order->statusUser ?? $order->statusSist ?? '-' }}</td>
-                                            <td>{{ $order->canceled ? 'Sim' : 'Não' }}</td>
+                                            <td>@if($order->canceled)<span class="badge bg-danger">Cancelada</span>@else<span class="badge bg-light text-muted border">Ativa</span>@endif</td>
                                         </tr>
                                     @endforeach
                                 </tbody>
                             </table>
                         </div>
+                        @endif
                     </div>
                     <x-cancellation.request-work-reports :request="$cancellationRequest" />
                 </div>
