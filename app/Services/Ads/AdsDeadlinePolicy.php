@@ -15,6 +15,9 @@ class AdsDeadlinePolicy
     /** @var array<string, array<string, bool>> */
     private array $holidayCache = [];
 
+    /** @var array<string, list<string>> feriados que caem em dia útil, por UF */
+    private array $weekdayHolidays = [];
+
     /** @var array<int, array<string, bool>> */
     private array $adjustmentCache = [];
 
@@ -100,13 +103,60 @@ class AdsDeadlinePolicy
             return 0;
         }
 
-        $days = 0;
-        while ($cursor->lte($end)) {
-            if ($this->countsAsDeadlineDay($cursor, $state, $workReportId)) {
+        if (!SicodeRules::adsDeliveryDeadlineUsesBusinessDays()) {
+            return $cursor->diffInDays($end) + 1;
+        }
+
+        return $this->businessDaysBetween($cursor, $end, $state, $workReportId);
+    }
+
+    /**
+     * Dias úteis em [$from, $to] (inclusive) sem iterar dia a dia: semanas inteiras valem 5 dias,
+     * o resto é percorrido e feriados/ajustes do informe dentro do intervalo são descontados.
+     */
+    private function businessDaysBetween(Carbon $from, Carbon $to, ?string $state, ?int $workReportId): int
+    {
+        $total = $from->diffInDays($to) + 1;
+        $days  = intdiv($total, 7) * 5;
+        $day   = $from->copy()->addDays(intdiv($total, 7) * 7);
+
+        for ($i = 0; $i < $total % 7; $i++, $day->addDay()) {
+            if (!$day->isWeekend()) {
                 $days++;
             }
+        }
 
-            $cursor->addDay();
+        $state = $this->normalizeState($state);
+        $this->holidayCache[$state] ??= Holiday::query()
+            ->where('state', $state)
+            ->pluck('date')
+            ->mapWithKeys(fn ($holiday) => [Carbon::parse($holiday)->toDateString() => true])
+            ->all();
+        $this->weekdayHolidays[$state] ??= array_keys(array_filter(
+            $this->holidayCache[$state],
+            fn ($value, $date) => !Carbon::parse($date)->isWeekend(),
+            ARRAY_FILTER_USE_BOTH
+        ));
+
+        $start = $from->toDateString();
+        $end   = $to->toDateString();
+
+        foreach ($this->weekdayHolidays[$state] as $date) {
+            if ($date >= $start && $date <= $end) {
+                $days--;
+            }
+        }
+
+        if ($workReportId) {
+            if (!isset($this->adjustmentCache[$workReportId])) {
+                $this->preloadAdjustments(collect([$workReportId]));
+            }
+
+            foreach (array_keys($this->adjustmentCache[$workReportId]) as $date) {
+                if ($date >= $start && $date <= $end && !isset($this->holidayCache[$state][$date]) && !Carbon::parse($date)->isWeekend()) {
+                    $days--;
+                }
+            }
         }
 
         return $days;

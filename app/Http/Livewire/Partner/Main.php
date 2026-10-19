@@ -85,6 +85,8 @@ class Main extends Component
         'total'  => 0,
     ];
 
+    protected array $overdueCache = [];
+
     public function mount()
     {
         $this->pizza1                  = 'chart-' . Str::random(8);
@@ -350,6 +352,12 @@ class Main extends Component
      * SicodeRules) já venceu. Cada item ganha ads_due_at e ads_late_days.
      */
     public function getWorkReportsWithoutAdsOverdue(): Collection
+    {
+        // Chamado por KPIs e painel executivo na mesma requisição: calcula uma vez (propriedade protected não é serializada).
+        return $this->overdueCache[(string) $this->partnerCompanyFilter] ??= $this->buildWorkReportsWithoutAdsOverdue();
+    }
+
+    protected function buildWorkReportsWithoutAdsOverdue(): Collection
     {
         $deadlinePolicy = app(AdsDeadlinePolicy::class);
 
