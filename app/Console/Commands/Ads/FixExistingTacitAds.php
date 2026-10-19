@@ -4,6 +4,7 @@ namespace App\Console\Commands\Ads;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Services\Ads\AdsDeadlinePolicy;
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -17,13 +18,13 @@ class FixExistingTacitAds extends Command
         {--dry : Simula sem gravar alterações}
         {--chunk=500 : Tamanho do lote de processamento}';
 
-    protected $description = 'Corrige ADS tácitas existentes conforme regra de 3 dias úteis por informed_at do WorkReport.';
+    protected $description = 'Corrige ADS tácitas existentes conforme o prazo de entrega da ADS (SicodeRules ads.delivery_deadline) por informed_at do WorkReport.';
 
     public function handle(): int
     {
         try {
-            $dryRun = (bool) $this->option('dry');
-            $chunkSize = max(100, (int) $this->option('chunk'));
+            $dryRun         = (bool) $this->option('dry');
+            $chunkSize      = max(100, (int) $this->option('chunk'));
             $deadlinePolicy = app(AdsDeadlinePolicy::class);
 
             $query = DB::table('adsforms as af')
@@ -48,13 +49,14 @@ class FixExistingTacitAds extends Command
 
             if ($total === 0) {
                 $this->info('Nada para corrigir.');
+
                 return self::SUCCESS;
             }
 
-            $dueUpdated = 0;
-            $tacitCleared = 0;
-            $adsDeleted = 0;
-            $processed = 0;
+            $dueUpdated    = 0;
+            $tacitCleared  = 0;
+            $adsDeleted    = 0;
+            $processed     = 0;
             $dryDeleteList = [];
 
             $bar = $this->createProgressBar($total);
@@ -71,11 +73,11 @@ class FixExistingTacitAds extends Command
                     );
 
                     $currentDueAt = $row->tacit_due_at ? Carbon::parse($row->tacit_due_at) : null;
-                    $deliveredAt = $row->tacit_delivered_at ? Carbon::parse($row->tacit_delivered_at) : null;
+                    $deliveredAt  = $row->tacit_delivered_at ? Carbon::parse($row->tacit_delivered_at) : null;
 
-                    $mustUpdateDue = !$currentDueAt || !$currentDueAt->equalTo($newDueAt);
+                    $mustUpdateDue        = !$currentDueAt || !$currentDueAt->equalTo($newDueAt);
                     $mustClearTacitFields = $deliveredAt && $deliveredAt->lte($newDueAt);
-                    $mustDeleteAdsForm = !$deliveredAt && now()->lte($newDueAt);
+                    $mustDeleteAdsForm    = !$deliveredAt && now()->lte($newDueAt);
 
                     if ($mustUpdateDue && !$mustClearTacitFields && !$mustDeleteAdsForm) {
                         $dueUpdated++;
@@ -87,10 +89,11 @@ class FixExistingTacitAds extends Command
 
                     if ($mustDeleteAdsForm) {
                         $adsDeleted++;
+
                         if ($dryRun) {
                             $dryDeleteList[] = [
-                                'id' => (int) $row->id,
-                                'informed_at' => Carbon::parse($row->informed_at)->format('Y-m-d H:i:s'),
+                                'id'                => (int) $row->id,
+                                'informed_at'       => Carbon::parse($row->informed_at)->format('Y-m-d H:i:s'),
                                 'calculated_due_at' => $newDueAt->format('Y-m-d H:i:s'),
                             ];
                         }
@@ -105,17 +108,17 @@ class FixExistingTacitAds extends Command
                             DB::table('adsforms')
                                 ->where('id', $row->id)
                                 ->update([
-                                    'tacit' => false,
-                                    'tacit_due_at' => null,
+                                    'tacit'              => false,
+                                    'tacit_due_at'       => null,
                                     'tacit_delivered_at' => null,
-                                    'updated_at' => now(),
+                                    'updated_at'         => now(),
                                 ]);
                         } elseif ($mustUpdateDue) {
                             DB::table('adsforms')
                                 ->where('id', $row->id)
                                 ->update([
                                     'tacit_due_at' => $newDueAt,
-                                    'updated_at' => now(),
+                                    'updated_at'   => now(),
                                 ]);
                         }
                     }
@@ -130,13 +133,14 @@ class FixExistingTacitAds extends Command
             $this->info('Correção concluída.');
             $this->line('Modo: ' . ($dryRun ? 'DRY RUN (sem gravação)' : 'ATUALIZAÇÃO REAL'));
             $this->line("ADS processadas: {$processed}");
-            $this->line("Prazo tácito corrigido (3 dias úteis): {$dueUpdated}");
-            $this->line("Tácito limpo (entrega ate o prazo de 3 dias úteis): {$tacitCleared}");
+            $this->line("Prazo tácito corrigido (" . SicodeRules::adsDeliveryDeadlineLabel() . "): {$dueUpdated}");
+            $this->line("Tácito limpo (entrega ate o prazo de " . SicodeRules::adsDeliveryDeadlineLabel() . "): {$tacitCleared}");
             $this->line("ADS removida (sem entrega e ainda no prazo): {$adsDeleted}");
 
             if ($dryRun && !empty($dryDeleteList)) {
                 $this->newLine();
                 $this->warn('No DRY RUN, as ADS abaixo seriam DELETADAS:');
+
                 foreach ($dryDeleteList as $item) {
                     $this->line(
                         " - adsform_id={$item['id']} | informed_at={$item['informed_at']} | due_at={$item['calculated_due_at']}"
@@ -148,6 +152,7 @@ class FixExistingTacitAds extends Command
         } catch (Throwable $e) {
             report($e);
             $this->error($e->getMessage());
+
             return self::FAILURE;
         }
     }

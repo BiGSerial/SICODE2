@@ -392,7 +392,7 @@
                                         <label class="form-check-label" for="keep_ads_no">
                                             Remover ADS existente. Se houver arquivo vinculado, ele será apagado do
                                             servidor junto com a associação da ADS. Será necessário enviar uma nova ADS
-                                            pela área <strong>Entregar ADS</strong>, com prazo de 3 dias úteis a partir deste reenvio.
+                                            pela área <strong>Entregar ADS</strong>, com prazo de {{ \App\Support\SicodeRules::adsDeliveryDeadlineLabel() }} a partir deste reenvio.
                                         </label>
                                     </div>
                                 </div>
