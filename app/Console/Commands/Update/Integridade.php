@@ -140,7 +140,7 @@ class Integridade extends Command
                 // Mesmo com as contagens por status íntegras, sincroniza sempre a
                 // janela mínima recente para corrigir nstats, days_left e demais
                 // campos alterados na origem sem divergência de quantidade.
-                $this->info('<bg=blue;fg=white> INFO </>  RUNNING THE BASE OV UPDATE (180-DAY WINDOW + DIVERGENCES)...');
+                $this->info('<bg=blue;fg=white> INFO </>  RUNNING THE BASE OV UPDATE (180-DAY WINDOW)...');
                 $this->call('sicode:upd_baseov', ['--days' => 180]);
                 $this->runPostIntegrityCommands();
             }
