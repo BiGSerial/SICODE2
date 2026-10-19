@@ -48,10 +48,15 @@ class BaseOV extends Command
         $days = max(0, (int) $this->option('days'));
 
         // O recorte operacional deve ser feito pelo contador da origem
-        // (diasNoStatus / days_stat), e não por dhStat. Assim detectamos
-        // alterações de days_left dentro da janela sem varrer toda a BaseOV.
+        // (diasNoStatus / days_stat), e não por dhStat, somado às OVs abertas
+        // (ver abaixo) para não perder alterações de days_left.
         $baseQuery = Edp_depcBaseOV::where('ultimoStatus', 1)
-            ->when(!$this->option('full'), fn ($q) => $q->where('diasNoStatus', '<=', $days))
+            // days_left muda todo dia mesmo sem mudança de status; por isso, fora do --full, além da janela
+            // por diasNoStatus entram todas as OVs abertas (numStat < 98). A divergência decide quem grava.
+            ->when(!$this->option('full'), fn ($q) => $q->where(function ($window) use ($days) {
+                $window->where('diasNoStatus', '<=', $days)
+                    ->orWhere('numStat', '<', 98);
+            }))
             ->when($this->option('prazos'), function ($q) {
                 $q->where('numStat', '<', 98)
                     ->where(function ($query) {
