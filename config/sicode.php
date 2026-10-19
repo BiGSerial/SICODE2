@@ -45,6 +45,13 @@ return [
     // work_report.dd_mode: required (default) | optional | hidden.
     'rules' => [
         'es' => [
+            'ads' => [
+                // Prazo de entrega da ADS: dias úteis (true) ou corridos (false). O dia do registro é o dia 0; vence às 23:59 do 3º dia.
+                'delivery_deadline' => [
+                    'days'          => 3,
+                    'business_days' => true,
+                ],
+            ],
             'payment' => [
                 'measurement_deadline' => [
                     'days'          => 15,
@@ -105,6 +112,13 @@ return [
         ],
 
         'sp' => [
+            'ads' => [
+                // Prazo de entrega da ADS: dias úteis (true) ou corridos (false).
+                'delivery_deadline' => [
+                    'days'          => 3,
+                    'business_days' => false,
+                ],
+            ],
             'payment' => [
                 'measurement_deadline' => [
                     'days'          => 8,

@@ -4,8 +4,8 @@ namespace App\Console\Commands\Update;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
-use App\Models\Edp_depc\BaseOV;
 use App\Models\{Bancoupdate, HistoricNote, Note};
+use App\Models\Edp_depc\BaseOV;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Throwable;
@@ -39,7 +39,7 @@ class LoteBaseOV extends Command
             $DaysAgo      = date('Y-m-d 0:00:00', strtotime('-7 days'));
             $chunkSize    = 500;
             $totalRecords = BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->count();
-            $log = new RegistroJson('upd_baseOV_lote', $this->options(), $totalRecords);
+            $log          = new RegistroJson('upd_baseOV_lote', $this->options(), $totalRecords);
             $totalInserts = ceil($totalRecords / $chunkSize);
 
             $progressBar = $this->createProgressBar($totalRecords);
@@ -54,89 +54,96 @@ class LoteBaseOV extends Command
 
             BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
 
-            $recordsToInsert  = [];
-            $recordsToUpdate  = [];
-            $recordsToHistory = [];
+                $recordsToInsert  = [];
+                $recordsToUpdate  = [];
+                $recordsToHistory = [];
 
-            $progressBar->setMessage('Inserting in bulk');
-            $notes = Note::WhereIn('note', $records->pluck('OV'))->get();
+                $progressBar->setMessage('Inserting in bulk');
+                $notes = Note::WhereIn('note', $records->pluck('OV'))->get();
 
-            foreach ($records as $record) {
-                // $existingRecord = Note::where('note', $record->OV)->first();
-                $existingRecord = $notes->where('note', $record->OV)->first();
+                foreach ($records as $record) {
+                    // $existingRecord = Note::where('note', $record->OV)->first();
+                    $existingRecord = $notes->where('note', $record->OV)->first();
 
-                $nstatsDiverged = $existingRecord
-                    && (string) $existingRecord->nstats !== (string) $record->numStat;
-                $daysLeftDiverged = $existingRecord
-                    && (string) $existingRecord->days_left !== (string) $record->diasPVencimento;
+                    // Só compara quando a origem traz valor; vazio na origem não sobrescreve o destino.
+                    $nstatsDiverged = $existingRecord
+                        && $this->hasSourceValue($record->numStat)
+                        && (string) $existingRecord->nstats !== (string) $record->numStat;
+                    $daysLeftDiverged = $existingRecord
+                        && $this->hasSourceValue($record->diasPVencimento)
+                        && (string) $existingRecord->days_left !== (string) $record->diasPVencimento;
+                    $statusDateIsNewer = $existingRecord
+                        && $this->hasSourceValue($record->dhStat)
+                        && strtotime((string) $existingRecord->dt_status) < strtotime((string) $record->dhStat);
 
-                if ($existingRecord && (
-                    strtotime($existingRecord->dt_status) < strtotime($record->dhStat)
-                    || $nstatsDiverged
-                    || $daysLeftDiverged
-                )) {
+                    if ($existingRecord && ($statusDateIsNewer || $nstatsDiverged || $daysLeftDiverged)) {
+                        if ($nstatsDiverged) {
+                            $recordsToHistory[] = [
+                                'note_id'  => $existingRecord->id,
+                                'old_date' => $existingRecord->dt_status,
+                                'old_stat' => $existingRecord->nstats,
+                                'new_date' => $record->dhStat,
+                                'new_stat' => $record->numStat,
+                            ];
+                        }
 
-                    if ($nstatsDiverged) {
-                        $recordsToHistory[] = [
-                            'note_id'  => $existingRecord->id,
-                            'old_date' => $existingRecord->dt_status,
-                            'old_stat' => $existingRecord->nstats,
-                            'new_date' => $record->dhStat,
-                            'new_stat' => $record->numStat,
-                        ];
-                        $recordsToUpdate[] = $this->prepareRecordForUpdate($record);
+                        // Atualiza em qualquer divergência (status, prazo ou data), não só quando muda o status.
+                        $recordsToUpdate[] = array_merge(
+                            $this->prepareRecordForUpdate($record),
+                            ['note_id' => $existingRecord->id]
+                        );
                         $count['upd']++;
+                    } elseif (!$existingRecord) {
+                        $recordsToInsert[] = $this->prepareRecordForInsert($record);
+                        $count['ins']++;
                     }
 
-                } elseif (!$existingRecord) {
-                    $recordsToInsert[] = $this->prepareRecordForInsert($record);
-                    $count['ins']++;
+                    $progressBar->setMessage($count['upd'], 'upd');
+                    $progressBar->setMessage($count['ins'], 'ins');
+                    $progressBar->setMessage($count['tins'], 'tins');
+
+                    $progressBar->advance();
                 }
 
-                $progressBar->setMessage($count['upd'], 'upd');
-                $progressBar->setMessage($count['ins'], 'ins');
-                $progressBar->setMessage($count['tins'], 'tins');
+                $count['tins']++;
+                $progressBar->setMessage('Discharging bulk...');
 
-                $progressBar->advance();
-            }
-
-            $count['tins']++;
-            $progressBar->setMessage('Discharging bulk...');
-
-            // Inserção em lote dos registros novos
-            if (!empty($recordsToInsert)) {
-                $chk = Note::insert($recordsToInsert);
-
-                if (!$chk) {
-                    $count['errors']++;
-                }
-            }
-
-            // Atualização em lote dos registros existentes
-            if (!empty($recordsToUpdate)) {
-                // $noteIdsToUpdate = array_column($recordsToUpdate, 'note_id');
-                // Note::whereIn('id', $noteIdsToUpdate)->update($recordsToUpdate);
-                foreach ($recordsToUpdate as $recordToUpdate) {
-                    $noteId = $recordToUpdate['note_id'];
-                    unset($recordToUpdate['note_id']);
-                    $chk = Note::where('id', $noteId)->update($recordToUpdate);
+                // Inserção em lote dos registros novos
+                if (!empty($recordsToInsert)) {
+                    $chk = Note::insert($recordsToInsert);
 
                     if (!$chk) {
                         $count['errors']++;
                     }
                 }
-            }
 
-            // Inserção em lote dos registros de histórico
-            if (!empty($recordsToHistory)) {
-                HistoricNote::insert($recordsToHistory);
-            }
+                // Atualização em lote dos registros existentes
+                if (!empty($recordsToUpdate)) {
+                    // $noteIdsToUpdate = array_column($recordsToUpdate, 'note_id');
+                    // Note::whereIn('id', $noteIdsToUpdate)->update($recordsToUpdate);
+                    foreach ($recordsToUpdate as $recordToUpdate) {
+                        $noteId = $recordToUpdate['note_id'];
+                        unset($recordToUpdate['note_id']);
+                    // Não substitui valor existente quando a origem vier vazia.
+                    $recordToUpdate = array_filter($recordToUpdate, fn ($value) => $this->hasSourceValue($value));
+                        $chk = Note::where('id', $noteId)->update($recordToUpdate);
+
+                        if (!$chk) {
+                            $count['errors']++;
+                        }
+                    }
+                }
+
+                // Inserção em lote dos registros de histórico
+                if (!empty($recordsToHistory)) {
+                    HistoricNote::insert($recordsToHistory);
+                }
 
             });
 
             $progressBar->finish();
 
-        // Registra atualizações
+            // Registra atualizações
             Bancoupdate::Create([
                 'last_update' => date('Y-m-d H:i:s'),
                 'error'       => $count['errors'],
@@ -149,10 +156,12 @@ class LoteBaseOV extends Command
             $this->info('Data transfer completed.');
             $log->setCreated($count['ins']);
             $log->setUpdated($count['upd']);
+
             if ($count['errors'] > 0) {
                 $log->setErrorMessage("Erros durante processamento: {$count['errors']}");
             }
             $log->save();
+
             return self::SUCCESS;
         } catch (Throwable $e) {
             if ($log instanceof RegistroJson) {
@@ -162,6 +171,11 @@ class LoteBaseOV extends Command
 
             return self::FAILURE;
         }
+    }
+
+    private function hasSourceValue($value): bool
+    {
+        return $value !== null && !(is_string($value) && trim($value) === '');
     }
 
     private function prepareRecordForUpdate($record)

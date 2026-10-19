@@ -3,8 +3,8 @@
 namespace App\Services\Engineers;
 
 use App\Models\Edp_depc\BaseCosts;
-use App\Services\Ads\AdsDeadlinePolicy;
-use App\Services\Ads\TacitFineCalculator;
+use App\Services\Ads\{AdsDeadlinePolicy, TacitFineCalculator};
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -17,8 +17,7 @@ class AdsSituationService
     public function __construct(
         private TacitFineCalculator $fineCalculator,
         private AdsDeadlinePolicy $deadlinePolicy
-    )
-    {
+    ) {
     }
 
     public function paginate(array $filters, int $perPage = 25): LengthAwarePaginator
@@ -41,18 +40,18 @@ class AdsSituationService
 
     public function summarize(array $filters): array
     {
-        $summaryFilters = $filters;
+        $summaryFilters                       = $filters;
         $summaryFilters['detailStatusFilter'] = 'all';
 
         $summary = [
-            'total' => 0,
-            'passivo' => 0,
-            'a_informar' => 0,
-            'no_prazo' => 0,
-            'vencendo_3_dias' => 0,
+            'total'               => 0,
+            'passivo'             => 0,
+            'a_informar'          => 0,
+            'no_prazo'            => 0,
+            'vencendo_3_dias'     => 0,
             'vencida_sem_entrega' => 0,
-            'com_entrega' => 0,
-            'entregue_atraso' => 0,
+            'com_entrega'         => 0,
+            'entregue_atraso'     => 0,
         ];
 
         $overdueByCompany = [];
@@ -61,6 +60,7 @@ class AdsSituationService
             $enriched = $this->enrichRow($row);
 
             $summary['total']++;
+
             if (!$enriched['has_delivery']) {
                 $summary['a_informar']++;
             }
@@ -68,7 +68,7 @@ class AdsSituationService
             $summary[$enriched['status_code']] = ($summary[$enriched['status_code']] ?? 0) + 1;
 
             if ($enriched['status_code'] === 'vencida_sem_entrega') {
-                $company = $enriched['company_name'] ?: '—';
+                $company                    = $enriched['company_name'] ?: '—';
                 $overdueByCompany[$company] = ($overdueByCompany[$company] ?? 0) + 1;
             }
         }
@@ -85,11 +85,11 @@ class AdsSituationService
 
     private function buildQuery(array $filters, bool $applyStatusFilter)
     {
-        $search = trim((string) ($filters['search'] ?? ''));
-        $dateIn = $filters['date_in'] ?? null;
-        $dateOut = $filters['date_out'] ?? null;
-        $companyIds = $filters['companyIds'] ?? [];
-        $scopeFilter = (string) ($filters['statusFilter'] ?? 'disabled');
+        $search             = trim((string) ($filters['search'] ?? ''));
+        $dateIn             = $filters['date_in'] ?? null;
+        $dateOut            = $filters['date_out'] ?? null;
+        $companyIds         = $filters['companyIds'] ?? [];
+        $scopeFilter        = (string) ($filters['statusFilter'] ?? 'disabled');
         $detailStatusFilter = (string) ($filters['detailStatusFilter'] ?? 'all');
 
         $query = DB::table('work_reports as wr')
@@ -121,6 +121,7 @@ class AdsSituationService
                     if ($dateIn) {
                         $range->whereDate('wr.informed_at', '>=', $dateIn);
                     }
+
                     if ($dateOut) {
                         $range->whereDate('wr.informed_at', '<=', $dateOut);
                     }
@@ -156,6 +157,7 @@ class AdsSituationService
     {
         if ($scopeFilter === 'disabled') {
             $query->whereRaw('1 = 0');
+
             return;
         }
 
@@ -172,6 +174,7 @@ class AdsSituationService
                     ->where('o_v.statusSist', 'not like', 'ENT%')
                     ->where('o_v.statusSist', 'not like', 'ENC%');
             });
+
             return;
         }
 
@@ -180,6 +183,7 @@ class AdsSituationService
                 $q->whereNotNull('af.id')
                     ->orWhereDate('wr.informed_at', '>=', self::LEGACY_NO_ADS_CUTOFF);
             });
+
             return;
         }
     }
@@ -190,11 +194,12 @@ class AdsSituationService
             return;
         }
 
-        $dueExpr = $this->dueAtExpression();
+        $dueExpr      = $this->dueAtExpression();
         $deliveryExpr = $this->deliveryExpression();
 
         if ($detailStatusFilter === 'a_informar') {
             $query->whereRaw("{$deliveryExpr} IS NULL");
+
             return;
         }
 
@@ -202,6 +207,7 @@ class AdsSituationService
             $query->whereRaw("{$deliveryExpr} IS NULL")
                 ->whereRaw("NOW() <= {$dueExpr}")
                 ->whereRaw("TIMESTAMPDIFF(DAY, NOW(), {$dueExpr}) > 3");
+
             return;
         }
 
@@ -209,17 +215,20 @@ class AdsSituationService
             $query->whereRaw("{$deliveryExpr} IS NULL")
                 ->whereRaw("NOW() <= {$dueExpr}")
                 ->whereRaw("TIMESTAMPDIFF(DAY, NOW(), {$dueExpr}) BETWEEN 0 AND 3");
+
             return;
         }
 
         if ($detailStatusFilter === 'vencida_sem_entrega') {
             $query->whereRaw("{$deliveryExpr} IS NULL")
                 ->whereRaw("NOW() > {$dueExpr}");
+
             return;
         }
 
         if ($detailStatusFilter === 'com_entrega') {
             $query->whereRaw("{$deliveryExpr} IS NOT NULL");
+
             return;
         }
 
@@ -231,14 +240,14 @@ class AdsSituationService
 
     private function enrichRow(object $row): array
     {
-        $informedAt = $this->asCarbon($row->informed_at ?? null);
-        $dueAt = $this->resolveDueAt($row);
+        $informedAt  = $this->asCarbon($row->informed_at ?? null);
+        $dueAt       = $this->resolveDueAt($row);
         $deliveredAt = $this->resolveDeliveredAt($row);
-        $state = $this->deadlinePolicy->normalizeState($row->state ?? null);
-        $daysToDue = $this->resolveDaysToDue($dueAt, $deliveredAt);
+        $state       = $this->deadlinePolicy->normalizeState($row->state ?? null);
+        $daysToDue   = $this->resolveDaysToDue($dueAt, $deliveredAt);
 
         $hasDelivery = $deliveredAt !== null;
-        $statusCode = $this->resolveStatusCode($informedAt, $dueAt, $deliveredAt);
+        $statusCode  = $this->resolveStatusCode($informedAt, $dueAt, $deliveredAt);
         $statusLabel = $this->statusLabel($statusCode);
         $statusBadge = $this->statusBadge($statusCode);
 
@@ -248,21 +257,21 @@ class AdsSituationService
             : 0;
 
         return [
-            'work_report_id' => (int) $row->work_report_id,
-            'note_number' => (string) ($row->note_number ?? '—'),
-            'company_name' => (string) ($row->company_name ?? '—'),
-            'informed_at' => $informedAt,
-            'state' => $state,
-            'due_at' => $dueAt,
-            'delivered_at' => $deliveredAt,
-            'has_delivery' => $hasDelivery,
-            'status_code' => $statusCode,
-            'status_label' => $statusLabel,
-            'status_badge' => $statusBadge,
-            'delay_days' => $delayDays,
-            'days_to_due' => $daysToDue,
+            'work_report_id'     => (int) $row->work_report_id,
+            'note_number'        => (string) ($row->note_number ?? '—'),
+            'company_name'       => (string) ($row->company_name ?? '—'),
+            'informed_at'        => $informedAt,
+            'state'              => $state,
+            'due_at'             => $dueAt,
+            'delivered_at'       => $deliveredAt,
+            'has_delivery'       => $hasDelivery,
+            'status_code'        => $statusCode,
+            'status_label'       => $statusLabel,
+            'status_badge'       => $statusBadge,
+            'delay_days'         => $delayDays,
+            'days_to_due'        => $daysToDue,
             'penalty_percentage' => $this->deadlinePolicy->penaltyPercentage($delayDays),
-            'penalty_band' => $this->deadlinePolicy->penaltyBand($delayDays),
+            'penalty_band'       => $this->deadlinePolicy->penaltyBand($delayDays),
         ];
     }
 
@@ -299,21 +308,22 @@ class AdsSituationService
 
         if ($orders->isEmpty()) {
             return [
-                'base_amount' => 0.0,
+                'base_amount'       => 0.0,
                 'daily_fine_amount' => 0.0,
                 'total_fine_amount' => 0.0,
-                'fine_percentage' => 0.0,
+                'fine_percentage'   => 0.0,
             ];
         }
 
         $orderNumbers = $orders->pluck('ordem')->filter()->unique()->values()->all();
-        $loadedCosts = BaseCosts::query()
+        $loadedCosts  = BaseCosts::query()
             ->whereIn('ordem', $orderNumbers)
             ->select('ordem', DB::raw('SUM(qtdNecessaria * preco) as base_cost'))
             ->groupBy('ordem')
             ->pluck('base_cost', 'ordem');
 
         $baseAmount = 0.0;
+
         foreach ($orders as $order) {
             $cost = round((float) ($loadedCosts[$order->ordem] ?? 0), 2);
             $baseAmount += $cost;
@@ -322,26 +332,26 @@ class AdsSituationService
                 ->where('id', $order->id)
                 ->update([
                     'service_cost' => $cost,
-                    'updated_at' => now(),
+                    'updated_at'   => now(),
                 ]);
         }
 
-        $dueAt = $this->resolveDueAt($row);
+        $dueAt       = $this->resolveDueAt($row);
         $deliveredAt = $this->resolveDeliveredAt($row);
-        $state = $this->deadlinePolicy->normalizeState($row->state ?? null);
-        $status = $this->resolveStatusCode($this->asCarbon($row->informed_at), $dueAt, $deliveredAt);
-        $delayDays = in_array($status, ['vencida_sem_entrega', 'entregue_atraso', 'passivo'], true)
+        $state       = $this->deadlinePolicy->normalizeState($row->state ?? null);
+        $status      = $this->resolveStatusCode($this->asCarbon($row->informed_at), $dueAt, $deliveredAt);
+        $delayDays   = in_array($status, ['vencida_sem_entrega', 'entregue_atraso', 'passivo'], true)
             ? $this->deadlinePolicy->lateDays($dueAt, $deliveredAt, now(), $state, $workReportId)
             : 0;
 
         $fine = $this->fineCalculator->calcularMultaPrevistaLinear($baseAmount, $delayDays);
 
         return [
-            'base_amount' => round($baseAmount, 2),
+            'base_amount'       => round($baseAmount, 2),
             'daily_fine_amount' => $fine['valor_diario'],
             'total_fine_amount' => $fine['valor_total'],
-            'fine_percentage' => $fine['percentual_aplicado'],
-            'penalty_band' => $this->deadlinePolicy->penaltyBand($delayDays),
+            'fine_percentage'   => $fine['percentual_aplicado'],
+            'penalty_band'      => $this->deadlinePolicy->penaltyBand($delayDays),
         ];
     }
 
@@ -379,17 +389,20 @@ class AdsSituationService
         }
 
         $days = now()->startOfDay()->diffInDays($dueAt->copy()->startOfDay(), false);
+
         return $days >= 0 ? $days : null;
     }
 
     private function resolveDueAt(object $row): ?Carbon
     {
         $dueAt = $this->asCarbon($row->tacit_due_at ?? null);
+
         if ($dueAt) {
             return $dueAt;
         }
 
         $informedAt = $this->asCarbon($row->informed_at ?? null);
+
         if (!$informedAt) {
             return null;
         }
@@ -417,27 +430,27 @@ class AdsSituationService
     private function statusLabel(string $status): string
     {
         return match ($status) {
-            'passivo' => 'PASSIVO',
-            'a_informar' => 'A INFORMAR',
-            'no_prazo' => 'NO PRAZO',
-            'vencendo_3_dias' => 'VENCE EM ATÉ 3 DIAS',
+            'passivo'             => 'PASSIVO',
+            'a_informar'          => 'A INFORMAR',
+            'no_prazo'            => 'NO PRAZO',
+            'vencendo_3_dias'     => 'VENCE EM ATÉ 3 DIAS',
             'vencida_sem_entrega' => 'VENCIDA TÁCITA SEM ENTREGA',
-            'com_entrega' => 'COM ENTREGA',
-            'entregue_atraso' => 'ENTREGUE EM ATRASO',
-            default => strtoupper($status),
+            'com_entrega'         => 'COM ENTREGA',
+            'entregue_atraso'     => 'ENTREGUE EM ATRASO',
+            default               => strtoupper($status),
         };
     }
 
     private function statusBadge(string $status): string
     {
         return match ($status) {
-            'passivo' => 'bg-dark',
-            'no_prazo' => 'bg-success',
-            'vencendo_3_dias' => 'bg-warning text-dark',
+            'passivo'             => 'bg-dark',
+            'no_prazo'            => 'bg-success',
+            'vencendo_3_dias'     => 'bg-warning text-dark',
             'vencida_sem_entrega' => 'bg-danger',
-            'com_entrega' => 'bg-primary',
-            'entregue_atraso' => 'bg-secondary',
-            default => 'bg-dark',
+            'com_entrega'         => 'bg-primary',
+            'entregue_atraso'     => 'bg-secondary',
+            default               => 'bg-dark',
         };
     }
 
@@ -452,7 +465,15 @@ class AdsSituationService
 
     private function dueAtExpression(): string
     {
-        return "COALESCE(af.tacit_due_at, TIMESTAMP(DATE(DATE_ADD(wr.informed_at, INTERVAL 7 DAY)), '23:59:59'))";
+        $days = SicodeRules::adsDeliveryDeadlineDays();
+
+        // Mesma regra de AdsDeadlinePolicy (dia do registro = dia 0, vence às 23:59 do último dia).
+        // Em dias úteis o SQL pula fins de semana, mas não conhece feriados/abonos (só o PHP conhece).
+        $fallback = SicodeRules::adsDeliveryDeadlineUsesBusinessDays()
+            ? "DATE_ADD(DATE_SUB(DATE(wr.informed_at), INTERVAL GREATEST(WEEKDAY(wr.informed_at) - 4, 0) DAY), INTERVAL ({$days} + 2 * FLOOR((LEAST(WEEKDAY(wr.informed_at), 4) + {$days}) / 5)) DAY)"
+            : "DATE_ADD(DATE(wr.informed_at), INTERVAL {$days} DAY)";
+
+        return "COALESCE(af.tacit_due_at, TIMESTAMP({$fallback}, '23:59:59'))";
     }
 
     private function deliveryExpression(): string

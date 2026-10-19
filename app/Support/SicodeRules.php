@@ -129,6 +129,31 @@ class SicodeRules
         return self::boolRule('payment.measurement_deadline.business_days', self::ruleset() === 'sp');
     }
 
+    /**
+     * Prazo de entrega da ADS após a conclusão informada. Por padrão 3 dias úteis; a região pode
+     * trocar para dias corridos (ads.delivery_deadline.business_days) ou mudar a quantidade.
+     */
+    public static function adsDeliveryDeadlineDays(): int
+    {
+        $value = self::databaseRule('ads.delivery_deadline.days')
+            ?? config('sicode.rules.' . self::ruleset() . '.ads.delivery_deadline.days');
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : 3;
+    }
+
+    public static function adsDeliveryDeadlineUsesBusinessDays(): bool
+    {
+        return self::boolRule('ads.delivery_deadline.business_days', true);
+    }
+
+    /** Texto do prazo para telas e mensagens: "3 dias úteis" ou "3 dias corridos". */
+    public static function adsDeliveryDeadlineLabel(): string
+    {
+        $days = self::adsDeliveryDeadlineDays();
+
+        return $days . ' ' . ($days === 1 ? 'dia' : 'dias') . ' ' . (self::adsDeliveryDeadlineUsesBusinessDays() ? 'úteis' : 'corridos');
+    }
+
     public static function analysisEnvironmentWithoutReason(): bool
     {
         return self::boolRule('analysis.environment_without_reason', false);

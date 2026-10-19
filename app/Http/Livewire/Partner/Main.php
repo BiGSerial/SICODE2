@@ -2,18 +2,11 @@
 
 namespace App\Http\Livewire\Partner;
 
-use App\Models\FiveNote;
-use App\Models\Partial;
-use App\Models\Reclaim;
-use App\Models\ReturnWork;
-use App\Models\Viability;
-use App\Models\WorkReport;
-use App\Models\Adsform;
+use App\Models\{Adsform, FiveNote, Partial, Reclaim, ReturnWork, Viability, WorkReport};
 use App\Services\Ads\AdsDeadlinePolicy;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
+use Illuminate\Support\{Collection, Str};
 use Livewire\Component;
 
 class Main extends Component
@@ -21,74 +14,90 @@ class Main extends Component
     use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
 
     public $pizza1;
+
     public $pizza2;
+
     public $backlogChart;
+
     public $dailyViabilityChart;
+
     public $viabilityAgeChart;
+
     public $d5AgeChart;
+
     public $rejectedWorkReasonChart;
 
     public $month;
+
     public $dt_ini;
+
     public $dt_fim;
 
     public int $daysAhead = 3;
+
     public array $kpis = [];
+
     public array $workReportKpis = [];
+
+    public array $companyBreakdown = [];
+
+    public array $executive = [];
 
     public $dadospizza1 = [
         'labels' => ['A', 'B', 'C'],
-        'data' => [10, 20, 70],
+        'data'   => [10, 20, 70],
     ];
 
     public $dadospizza2 = [
         'labels' => ['A', 'B', 'C'],
-        'data' => [10, 20, 70],
+        'data'   => [10, 20, 70],
     ];
 
     public $dadosBacklog = [
         'labels' => ['A', 'B', 'C'],
-        'data' => [10, 20, 70],
+        'data'   => [10, 20, 70],
     ];
 
     public $dadosDailyViability = [
         'labels' => ['A', 'B', 'C'],
-        'data' => [10, 20, 70],
+        'data'   => [10, 20, 70],
     ];
 
     public $dadosViabilityAgeHistogram = [
-        'labels' => [],
-        'data' => [],
-        'total' => 0,
-        'oldest' => 0,
+        'labels'  => [],
+        'data'    => [],
+        'total'   => 0,
+        'oldest'  => 0,
         'average' => 0,
     ];
 
     public $dadosD5AgeHistogram = [
-        'labels' => [],
-        'data' => [],
-        'total' => 0,
-        'oldest' => 0,
+        'labels'  => [],
+        'data'    => [],
+        'total'   => 0,
+        'oldest'  => 0,
         'average' => 0,
     ];
 
     public $dadosRejectedWorkReasons = [
         'labels' => [],
-        'data' => [],
-        'total' => 0,
+        'data'   => [],
+        'total'  => 0,
     ];
+
+    protected array $overdueCache = [];
 
     public function mount()
     {
-        $this->pizza1 = 'chart-' . Str::random(8);
-        $this->pizza2 = 'chart-' . Str::random(8);
-        $this->backlogChart = 'chart-' . Str::random(8);
-        $this->dailyViabilityChart = 'chart-' . Str::random(8);
-        $this->viabilityAgeChart = 'chart-' . Str::random(8);
-        $this->d5AgeChart = 'chart-' . Str::random(8);
+        $this->pizza1                  = 'chart-' . Str::random(8);
+        $this->pizza2                  = 'chart-' . Str::random(8);
+        $this->backlogChart            = 'chart-' . Str::random(8);
+        $this->dailyViabilityChart     = 'chart-' . Str::random(8);
+        $this->viabilityAgeChart       = 'chart-' . Str::random(8);
+        $this->d5AgeChart              = 'chart-' . Str::random(8);
         $this->rejectedWorkReasonChart = 'chart-' . Str::random(8);
 
-        $this->month = now()->format('Y-m');
+        $this->month  = now()->format('Y-m');
         $this->dt_ini = now()->startOfMonth()->format('Y-m-d');
         $this->dt_fim = now()->endOfMonth()->format('Y-m-d');
 
@@ -97,11 +106,149 @@ class Main extends Component
 
     public function toUpdateGraphs()
     {
-        $this->kpis = $this->getDashboardKpis();
+        $this->kpis           = $this->getDashboardKpis();
         $this->workReportKpis = $this->getWorkReportPeriodKpis();
         $this->atualizaViabilityAgeHistogram();
         $this->atualizaD5AgeHistogram();
         $this->atualizaRejectedWorkReasonChart();
+        $this->executive        = $this->buildExecutiveData();
+        $this->companyBreakdown = $this->buildCompanyBreakdown();
+    }
+
+    public function updatedPartnerCompanyFilter(): void
+    {
+        $this->toUpdateGraphs();
+    }
+
+    /**
+     * Dados do painel executivo: séries de 6 meses (valores de ADS final/parcial e informes),
+     * aging do atraso de ADS e vencimentos dos próximos dias. Respeita o filtro de empresa.
+     */
+    protected function buildExecutiveData(): array
+    {
+        // Consolidado mensal do ano de referência (jan–dez); meses futuros ficam sem valor.
+        $year   = Carbon::parse($this->dt_fim ?: now())->year;
+        $months = collect(range(1, 12))->map(fn ($month) => Carbon::create($year, $month, 1));
+        $end    = Carbon::create($year, 12, 31)->endOfDay();
+        $from   = Carbon::create($year, 1, 1)->startOfDay();
+        $keys   = $months->map(fn (Carbon $month) => $month->format('Y-m'));
+
+        $finalByMonth = Adsform::query()
+            ->join('work_reports', 'work_reports.id', '=', 'adsforms.work_report_id')
+            ->whereNotNull('work_reports.informed_at')
+            ->whereBetween('work_reports.informed_at', [$from, $end])
+            ->where('work_reports.canceled', false)
+            ->where('work_reports.rejected', false)
+            ->where(function ($q) {
+                $q->where('adsforms.tacit', false)
+                    ->orWhereNull('adsforms.tacit')
+                    ->orWhereNotNull('adsforms.tacit_delivered_at');
+            });
+        $this->scopeByCompany($finalByMonth, 'work_reports.company_id');
+        $finalByMonth = $finalByMonth
+            ->selectRaw("DATE_FORMAT(work_reports.informed_at, '%Y-%m') as ym, SUM(adsforms.amount) as total")
+            ->groupBy('ym')
+            ->pluck('total', 'ym');
+
+        $partialByMonth = Partial::query()
+            ->whereBetween('created_at', [$from, $end])
+            ->where('payment', true)
+            ->where('deny', false);
+        $this->scopeByCompany($partialByMonth);
+        $partialByMonth = $partialByMonth
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as ym, SUM(value) as total")
+            ->groupBy('ym')
+            ->pluck('total', 'ym');
+
+        $informsByMonth = WorkReport::query()
+            ->whereNotNull('informed_at')
+            ->whereBetween('informed_at', [$from, $end]);
+        $this->scopeByCompany($informsByMonth);
+        $informsByMonth = $informsByMonth
+            ->selectRaw("DATE_FORMAT(informed_at, '%Y-%m') as ym, COUNT(*) as total, SUM(CASE WHEN canceled = 0 AND rejected = 0 THEN 1 ELSE 0 END) as valid")
+            ->groupBy('ym')
+            ->get()
+            ->keyBy('ym');
+
+        $aging = $this->getWorkReportsWithoutAdsOverdue()->map(fn ($workReport) => (int) $workReport->ads_late_days);
+
+        $buckets = [
+            ['label' => '1–3 dias', 'min' => 1, 'max' => 3],
+            ['label' => '4–7 dias', 'min' => 4, 'max' => 7],
+            ['label' => '8–15 dias', 'min' => 8, 'max' => 15],
+            ['label' => '16–30 dias', 'min' => 16, 'max' => 30],
+            ['label' => 'Acima de 30 dias', 'min' => 31, 'max' => PHP_INT_MAX],
+        ];
+
+        $dueAds  = $this->getWorkReportsWithoutAdsDueSoon()->groupBy('ads_days_left')->map->count();
+        $dueViab = $this->getViabilityDueDate()->groupBy(
+            fn ($viability) => Carbon::today()->diffInDays(Carbon::parse($viability->sended_at)->addDays(7 + $viability->getDays())->startOfDay(), false)
+        )->map->count();
+
+        return [
+            'labels'          => $months->map(fn (Carbon $month) => mb_strtolower($month->translatedFormat('M')))->all(),
+            'last_index'      => $year === now()->year ? now()->month - 1 : 11,
+            'final_amount'    => $keys->map(fn ($key) => (float) ($finalByMonth[$key] ?? 0))->all(),
+            'partial_amount'  => $keys->map(fn ($key) => (float) ($partialByMonth[$key] ?? 0))->all(),
+            'informs_valid'   => $keys->map(fn ($key) => (int) ($informsByMonth[$key]->valid ?? 0))->all(),
+            'informs_invalid' => $keys->map(fn ($key) => (int) (($informsByMonth[$key]->total ?? 0) - ($informsByMonth[$key]->valid ?? 0)))->all(),
+            'aging'           => collect($buckets)->map(fn ($bucket) => [
+                'label' => $bucket['label'],
+                'total' => $aging->filter(fn ($age) => $age >= $bucket['min'] && $age <= $bucket['max'])->count(),
+            ])->all(),
+            'overdue_total' => $aging->count(),
+            'overdue_old'   => $aging->filter(fn ($age) => $age > 90)->count(),
+            'due_by_day'    => collect(range(0, $this->daysAhead))->map(fn ($day) => [
+                'label'     => $day === 0 ? 'Hoje' : ($day === 1 ? 'Amanhã' : "Em {$day} dias"),
+                'ads'       => (int) ($dueAds[$day] ?? 0),
+                'viability' => (int) ($dueViab[$day] ?? 0),
+            ])->all(),
+        ];
+    }
+
+    /**
+     * Visão por empresa/filial: mesmos KPIs do painel, calculados separadamente para cada empresa visível.
+     * Só existe na visão consolidada (sem filtro de empresa) e para perfis com mais de uma empresa.
+     */
+    protected function buildCompanyBreakdown(): array
+    {
+        $user = auth()->user();
+
+        if (!$user || $user->superadm || (string) ($this->partnerCompanyFilter ?? '') !== '') {
+            return [];
+        }
+
+        $ids = \App\Services\PartnerAccess\PartnerAccessGate::visibleCompanyIdsFor($user);
+
+        if (count($ids) < 2) {
+            return [];
+        }
+
+        $companies = \App\Models\Company::withTrashed()
+            ->whereIn('id', $ids)
+            ->get(['id', 'name', 'parent_id'])
+            ->sortBy('name');
+
+        $original = $this->partnerCompanyFilter;
+        $rows     = [];
+
+        try {
+            foreach ($companies as $company) {
+                $this->partnerCompanyFilter = (string) $company->id;
+
+                $rows[] = [
+                    'id'        => (string) $company->id,
+                    'name'      => $company->name,
+                    'is_branch' => (bool) $company->parent_id,
+                    'kpis'      => $this->getDashboardKpis(),
+                    'period'    => $this->getWorkReportPeriodKpis(),
+                ];
+            }
+        } finally {
+            $this->partnerCompanyFilter = $original;
+        }
+
+        return $rows;
     }
 
     public function updatedMonth()
@@ -126,8 +273,8 @@ class Main extends Component
 
     protected function companyIds(): array
     {
-        $user = auth()->user();
-        $companyIds = \App\Services\PartnerAccess\PartnerAccessGate::visibleCompanyIdsFor($user);
+        $user              = auth()->user();
+        $companyIds        = \App\Services\PartnerAccess\PartnerAccessGate::visibleCompanyIdsFor($user);
         $selectedCompanyId = (string) ($this->partnerCompanyFilter ?? '');
 
         if ($selectedCompanyId !== '' && (empty($companyIds) || in_array($selectedCompanyId, $companyIds, true))) {
@@ -144,7 +291,7 @@ class Main extends Component
 
     public function getViabilityDueDate(): Collection
     {
-        $today = Carbon::today();
+        $today    = Carbon::today();
         $dueLimit = Carbon::today()->addDays($this->daysAhead);
 
         $query = Viability::query()
@@ -160,6 +307,7 @@ class Main extends Component
         return $query->get()
             ->filter(function ($viability) use ($today, $dueLimit) {
                 $dueDate = Carbon::parse($viability->sended_at)->addDays(7 + $viability->getDays());
+
                 return $dueDate->betweenIncluded($today, $dueLimit);
             })
             ->sortBy(function ($viability) {
@@ -170,8 +318,8 @@ class Main extends Component
 
     public function getWorkReportsWithoutAdsDueSoon(): Collection
     {
-        $today = Carbon::today();
-        $dueLimit = Carbon::today()->addDays($this->daysAhead);
+        $today          = Carbon::today();
+        $dueLimit       = Carbon::today()->addDays($this->daysAhead);
         $deadlinePolicy = app(AdsDeadlinePolicy::class);
 
         $query = WorkReport::query()->active()
@@ -188,14 +336,55 @@ class Main extends Component
 
         return $query->get()
             ->map(function (WorkReport $workReport) use ($deadlinePolicy, $today) {
-                $state = $deadlinePolicy->stateForWorkReport($workReport);
-                $dueAt = $deadlinePolicy->dueAt($workReport->informed_at, $state, (int) $workReport->id);
-                $workReport->ads_due_at = $dueAt;
+                $state                     = $deadlinePolicy->stateForWorkReport($workReport);
+                $dueAt                     = $deadlinePolicy->dueAt($workReport->informed_at, $state, (int) $workReport->id);
+                $workReport->ads_due_at    = $dueAt;
                 $workReport->ads_days_left = $today->copy()->startOfDay()->diffInDays($dueAt->copy()->startOfDay(), false);
 
                 return $workReport;
             })
             ->filter(fn (WorkReport $workReport) => $workReport->ads_days_left >= 0 && $workReport->ads_days_left <= $this->daysAhead)
+            ->values();
+    }
+
+    /**
+     * Informes ativos sem ADS cujo prazo de entrega (AdsDeadlinePolicy: dias úteis ou corridos conforme
+     * SicodeRules) já venceu. Cada item ganha ads_due_at e ads_late_days.
+     */
+    public function getWorkReportsWithoutAdsOverdue(): Collection
+    {
+        // Chamado por KPIs e painel executivo na mesma requisição: calcula uma vez (propriedade protected não é serializada).
+        return $this->overdueCache[(string) $this->partnerCompanyFilter] ??= $this->buildWorkReportsWithoutAdsOverdue();
+    }
+
+    protected function buildWorkReportsWithoutAdsOverdue(): Collection
+    {
+        $deadlinePolicy = app(AdsDeadlinePolicy::class);
+
+        // Em qualquer regra o prazo vence depois de pelo menos N dias corridos: só esses entram na análise.
+        $query = WorkReport::query()->active()
+            ->where('rejected', false)
+            ->whereNotNull('informed_at')
+            ->where('informed_at', '<', Carbon::today()->subDays(\App\Support\SicodeRules::adsDeliveryDeadlineDays())->startOfDay())
+            ->whereDoesntHave('Note.Adsform')
+            ->whereDoesntHave('Note.OldAds')
+            ->with(['Company:id,name', 'Company.Address']);
+
+        $this->scopeByCompany($query);
+
+        $reports = $query->get(['work_reports.id', 'work_reports.company_id', 'work_reports.note_id', 'work_reports.informed_at']);
+        $deadlinePolicy->preloadAdjustments($reports->pluck('id'));
+        $now = now();
+
+        return $reports
+            ->map(function (WorkReport $workReport) use ($deadlinePolicy, $now) {
+                $state                     = $deadlinePolicy->stateForWorkReport($workReport);
+                $workReport->ads_due_at    = $deadlinePolicy->dueAt($workReport->informed_at, $state, (int) $workReport->id);
+                $workReport->ads_late_days = $deadlinePolicy->lateDays($workReport->ads_due_at, null, $now, $state, (int) $workReport->id);
+
+                return $workReport;
+            })
+            ->filter(fn (WorkReport $workReport) => $workReport->ads_late_days >= 1)
             ->values();
     }
 
@@ -224,7 +413,7 @@ class Main extends Component
 
         return $query->get()
             ->map(function (WorkReport $workReport) use ($deadlinePolicy) {
-                $state = $deadlinePolicy->stateForWorkReport($workReport);
+                $state                     = $deadlinePolicy->stateForWorkReport($workReport);
                 $workReport->ads_late_days = $deadlinePolicy->lateDays(
                     $workReport->Adsform?->tacit_due_at,
                     $workReport->Adsform?->tacit_delivered_at,
@@ -269,27 +458,19 @@ class Main extends Component
                 $this->scopeByCompany($q);
             });
 
-        $workReportsWithoutAdsOverdueBase = WorkReport::query()->active()
-            ->where('rejected', false)
-            ->whereNotNull('informed_at')
-            ->where('informed_at', '<', now()->subDays(3)->startOfDay())
-            ->whereDoesntHave('Note.Adsform')
-            ->whereDoesntHave('Note.OldAds');
-        $this->scopeByCompany($workReportsWithoutAdsOverdueBase);
-
         return [
             'pending_viability' => (clone $baseViability)
                 ->where('completed', false)
                 ->where('status', 1)
                 ->count(),
-            'viability_due_soon' => $this->getViabilityDueDate()->count(),
-            'work_without_ads_due_soon' => $this->getWorkReportsWithoutAdsDueSoon()->count(),
-            'work_without_ads_overdue' => $workReportsWithoutAdsOverdueBase->count(),
-            'd5_pending' => $d5PendingBase->count(),
-            'd5_returned' => $d5ReturnedBase->count(),
+            'viability_due_soon'         => $this->getViabilityDueDate()->count(),
+            'work_without_ads_due_soon'  => $this->getWorkReportsWithoutAdsDueSoon()->count(),
+            'work_without_ads_overdue'   => $this->getWorkReportsWithoutAdsOverdue()->count(),
+            'd5_pending'                 => $d5PendingBase->count(),
+            'd5_returned'                => $d5ReturnedBase->count(),
             'viability_rejected_waiting' => $rejectedViabilityBase->count(),
-            'reclaims_pending' => $reclaimsBase->distinct('reclaims.id')->count('reclaims.id'),
-            'informs_rejected' => (clone $baseWorkReport)->where('rejected', true)->count(),
+            'reclaims_pending'           => $reclaimsBase->distinct('reclaims.id')->count('reclaims.id'),
+            'informs_rejected'           => (clone $baseWorkReport)->where('rejected', true)->count(),
         ];
     }
 
@@ -312,9 +493,9 @@ class Main extends Component
             ->where('canceled', false)
             ->where('rejected', false);
 
-        $workReportIds = (clone $baseQuery)->select('id');
+        $workReportIds      = (clone $baseQuery)->select('id');
         $validWorkReportIds = (clone $validBaseQuery)->select('id');
-        $adsBaseQuery = Adsform::query()
+        $adsBaseQuery       = Adsform::query()
             ->whereIn('work_report_id', $validWorkReportIds)
             ->where(function ($q) {
                 $q->where('tacit', false)
@@ -334,28 +515,28 @@ class Main extends Component
 
         $this->scopeByCompany($partialBaseQuery);
 
-        $validInformedTotal = (clone $validBaseQuery)->count();
-        $adsDeliveredTotal = (clone $adsBaseQuery)->distinct('work_report_id')->count('work_report_id');
-        $partialsTotal = (clone $partialBaseQuery)->count();
+        $validInformedTotal           = (clone $validBaseQuery)->count();
+        $adsDeliveredTotal            = (clone $adsBaseQuery)->distinct('work_report_id')->count('work_report_id');
+        $partialsTotal                = (clone $partialBaseQuery)->count();
         $paidNotRejectedPartialsQuery = (clone $partialBaseQuery)
             ->where('payment', true)
             ->where('deny', false);
         $partialsAmountTotal = (float) (clone $paidNotRejectedPartialsQuery)->sum('value');
 
         return [
-            'informed_total' => (clone $baseQuery)->count(),
-            'valid_informed_total' => $validInformedTotal,
+            'informed_total'          => (clone $baseQuery)->count(),
+            'valid_informed_total'    => $validInformedTotal,
             'canceled_rejected_total' => (clone $baseQuery)
                 ->where(function ($q) {
                     $q->where('canceled', true)
                         ->orWhere('rejected', true);
                 })
                 ->count(),
-            'ads_delivered_total' => $adsDeliveredTotal,
-            'ads_not_delivered_total' => max(0, $validInformedTotal - $adsDeliveredTotal),
-            'ads_amount_total' => (float) (clone $adsBaseQuery)->sum('amount'),
-            'partials_total' => $partialsTotal,
-            'partials_rejected_total' => (clone $partialBaseQuery)->where('deny', true)->count(),
+            'ads_delivered_total'      => $adsDeliveredTotal,
+            'ads_not_delivered_total'  => max(0, $validInformedTotal - $adsDeliveredTotal),
+            'ads_amount_total'         => (float) (clone $adsBaseQuery)->sum('amount'),
+            'partials_total'           => $partialsTotal,
+            'partials_rejected_total'  => (clone $partialBaseQuery)->where('deny', true)->count(),
             'partials_completed_total' => (clone $partialBaseQuery)
                 ->where('payment', true)
                 ->where('deny', false)
@@ -402,7 +583,7 @@ class Main extends Component
         $counts = $this->getViabilityCounts();
 
         $labels = ['Em Viabilidade', 'Realizadas', 'Não Realizadas'];
-        $data = [
+        $data   = [
             $counts['inViability'],
             $counts['realized'],
             $counts['notRealized'],
@@ -410,7 +591,7 @@ class Main extends Component
 
         $this->dadospizza1 = [
             'labels' => $labels,
-            'data' => $data,
+            'data'   => $data,
         ];
 
         $this->updateDataPizza($this->pizza1, $labels, $data);
@@ -421,6 +602,7 @@ class Main extends Component
         $baseQuery = ReturnWork::query();
 
         $companyIds = $this->companyIds();
+
         if (!empty($companyIds)) {
             $baseQuery->whereRelation('Workreport', function ($q) use ($companyIds) {
                 $q->whereIn('company_id', $companyIds);
@@ -448,19 +630,20 @@ class Main extends Component
         if ($returnWorkReports->isEmpty()) {
             $this->dadospizza2 = [
                 'labels' => [],
-                'data' => [],
+                'data'   => [],
             ];
 
             $this->updateDataPizza($this->pizza2, [], []);
+
             return;
         }
 
         $labels = $returnWorkReports->pluck('category')->toArray();
-        $data = $returnWorkReports->pluck('total')->toArray();
+        $data   = $returnWorkReports->pluck('total')->toArray();
 
         $this->dadospizza2 = [
             'labels' => $labels,
-            'data' => $data,
+            'data'   => $data,
         ];
 
         $this->updateDataPizza($this->pizza2, $labels, $data);
@@ -477,8 +660,8 @@ class Main extends Component
 
         $this->dadosRejectedWorkReasons = [
             'labels' => $labels,
-            'data' => $data,
-            'total' => array_sum($data),
+            'data'   => $data,
+            'total'  => array_sum($data),
         ];
 
         $this->dispatchHorizontalBarChart(
@@ -516,7 +699,7 @@ class Main extends Component
 
         $this->dadosBacklog = [
             'labels' => $labels,
-            'data' => $data,
+            'data'   => $data,
         ];
 
         $this->updateDataPizza($this->backlogChart, $labels, $data);
@@ -549,7 +732,7 @@ class Main extends Component
 
         $this->dadosDailyViability = [
             'labels' => $labels,
-            'data' => $series,
+            'data'   => $series,
         ];
 
         $this->updateDataPizza($this->dailyViabilityChart, $labels, $series);
@@ -582,24 +765,24 @@ class Main extends Component
         $this->scopeByCompany($query);
 
         $buckets = array_fill(0, 22, 0);
-        $ages = [];
+        $ages    = [];
 
         $query->get(['sended_at'])->each(function ($viability) use (&$buckets, &$ages) {
-            $age = max(0, Carbon::parse($viability->sended_at)->startOfDay()->diffInDays(now()->startOfDay(), false));
+            $age    = max(0, Carbon::parse($viability->sended_at)->startOfDay()->diffInDays(now()->startOfDay(), false));
             $bucket = min($age, 21);
 
             $buckets[$bucket]++;
             $ages[] = $age;
         });
 
-        $labels = array_map(fn ($day) => (string) $day, range(0, 20));
+        $labels   = array_map(fn ($day) => (string) $day, range(0, 20));
         $labels[] = '21+';
 
         return [
-            'labels' => $labels,
-            'data' => array_values($buckets),
-            'total' => count($ages),
-            'oldest' => empty($ages) ? 0 : max($ages),
+            'labels'  => $labels,
+            'data'    => array_values($buckets),
+            'total'   => count($ages),
+            'oldest'  => empty($ages) ? 0 : max($ages),
             'average' => empty($ages) ? 0 : round(array_sum($ages) / count($ages), 1),
         ];
     }
@@ -621,13 +804,13 @@ class Main extends Component
 
         $this->scopeByCompany($query);
 
-        $waitingBuckets = array_fill(0, 31, 0);
+        $waitingBuckets  = array_fill(0, 31, 0);
         $rejectedBuckets = array_fill(0, 31, 0);
-        $ages = [];
-        $passiveTotal = 0;
+        $ages            = [];
+        $passiveTotal    = 0;
 
         $query->get(['dispatch_at', 'returned', 'isPassive'])->each(function ($fiveNote) use (&$waitingBuckets, &$rejectedBuckets, &$ages, &$passiveTotal) {
-            $age = max(0, Carbon::parse($fiveNote->dispatch_at)->startOfDay()->diffInDays(now()->startOfDay(), false));
+            $age    = max(0, Carbon::parse($fiveNote->dispatch_at)->startOfDay()->diffInDays(now()->startOfDay(), false));
             $bucket = min($age, 30);
 
             if ($fiveNote->isPassive) {
@@ -643,47 +826,47 @@ class Main extends Component
             $ages[] = $age;
         });
 
-        $labels = array_map(fn ($day) => (string) $day, range(0, 29));
-        $labels[] = '30+';
-        $waitingData = array_values($waitingBuckets);
+        $labels       = array_map(fn ($day) => (string) $day, range(0, 29));
+        $labels[]     = '30+';
+        $waitingData  = array_values($waitingBuckets);
         $rejectedData = array_values($rejectedBuckets);
 
         return [
-            'labels' => $labels,
-            'data' => $waitingData,
+            'labels'        => $labels,
+            'data'          => $waitingData,
             'rejected_data' => $rejectedData,
-            'datasets' => [
+            'datasets'      => [
                 [
-                    'label' => 'Em espera',
-                    'data' => $waitingData,
+                    'label'           => 'Em espera',
+                    'data'            => $waitingData,
                     'backgroundColor' => '#2563eb',
-                    'borderColor' => '#2563eb',
-                    'borderRadius' => 6,
+                    'borderColor'     => '#2563eb',
+                    'borderRadius'    => 6,
                     'maxBarThickness' => 34,
-                    'stack' => 'd5',
+                    'stack'           => 'd5',
                 ],
                 [
-                    'label' => 'Rejeitados',
-                    'data' => $rejectedData,
+                    'label'           => 'Rejeitados',
+                    'data'            => $rejectedData,
                     'backgroundColor' => '#dc2626',
-                    'borderColor' => '#dc2626',
-                    'borderRadius' => 6,
+                    'borderColor'     => '#dc2626',
+                    'borderRadius'    => 6,
                     'maxBarThickness' => 34,
-                    'stack' => 'd5',
+                    'stack'           => 'd5',
                 ],
             ],
-            'total' => count($ages),
-            'waiting_total' => array_sum($waitingData),
+            'total'          => count($ages),
+            'waiting_total'  => array_sum($waitingData),
             'rejected_total' => array_sum($rejectedData),
-            'passive_total' => $passiveTotal,
-            'oldest' => empty($ages) ? 0 : max($ages),
-            'average' => empty($ages) ? 0 : round(array_sum($ages) / count($ages), 1),
+            'passive_total'  => $passiveTotal,
+            'oldest'         => empty($ages) ? 0 : max($ages),
+            'average'        => empty($ages) ? 0 : round(array_sum($ages) / count($ages), 1),
         ];
     }
 
     public function exportSummaryCsv()
     {
-        $kpis = $this->kpis ?: $this->getDashboardKpis();
+        $kpis     = $this->kpis ?: $this->getDashboardKpis();
         $fileName = now()->format('YmdHis') . '-partner-dashboard-resumo.csv';
 
         return response()->streamDownload(function () use ($kpis) {
@@ -711,7 +894,7 @@ class Main extends Component
     {
         $fileName = now()->format('YmdHis') . '-partner-dashboard-pendencias.csv';
 
-        $viabilityDueSoon = $this->getViabilityDueDate();
+        $viabilityDueSoon      = $this->getViabilityDueDate();
         $workWithoutAdsDueSoon = $this->getWorkReportsWithoutAdsDueSoon();
 
         return response()->streamDownload(function () use ($viabilityDueSoon, $workWithoutAdsDueSoon) {
@@ -720,7 +903,7 @@ class Main extends Component
             fputcsv($out, ['Tipo', 'Nota', 'Empresa', 'Recebido em', 'Vence em', 'Dias restantes']);
 
             foreach ($viabilityDueSoon as $item) {
-                $dueDate = $item->sended_at?->copy()->addDays(7 + $item->getDays());
+                $dueDate  = $item->sended_at?->copy()->addDays(7 + $item->getDays());
                 $daysLeft = $dueDate
                     ? now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false)
                     : null;
@@ -736,7 +919,7 @@ class Main extends Component
             }
 
             foreach ($workWithoutAdsDueSoon as $item) {
-                $dueDate = $this->getAdsTacitDueAt($item->informed_at);
+                $dueDate  = $this->getAdsTacitDueAt($item->informed_at);
                 $daysLeft = $dueDate
                     ? now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false)
                     : null;
@@ -759,7 +942,7 @@ class Main extends Component
     {
         $this->dispatchBrowserEvent('updateGraph' . Str::studly($chartId), [
             'labels' => $labels,
-            'data' => $data,
+            'data'   => $data,
         ]);
 
         $this->dispatchBarChart($chartId, $labels, $data);
@@ -775,22 +958,22 @@ class Main extends Component
     ): void {
         $this->dispatchBrowserEvent('chart-update', [
             'chartId' => $chartId,
-            'chart' => [
+            'chart'   => [
                 'type' => 'bar',
                 'data' => [
-                    'labels' => $labels,
+                    'labels'   => $labels,
                     'datasets' => [[
-                        'label' => $label,
-                        'data' => $data,
+                        'label'           => $label,
+                        'data'            => $data,
                         'backgroundColor' => $color,
-                        'borderColor' => $color,
-                        'borderRadius' => 6,
+                        'borderColor'     => $color,
+                        'borderRadius'    => 6,
                         'maxBarThickness' => 34,
                     ]],
                 ],
                 'options' => [
                     'plugins' => [
-                        'legend' => ['display' => false],
+                        'legend'  => ['display' => false],
                         'tooltip' => [
                             'callbacks' => [
                                 'label' => '__VALUE_LABEL__',
@@ -800,12 +983,12 @@ class Main extends Component
                     'scales' => [
                         'x' => [
                             'title' => ['display' => true, 'text' => $xTitle],
-                            'grid' => ['display' => false],
+                            'grid'  => ['display' => false],
                         ],
                         'y' => [
                             'beginAtZero' => true,
-                            'title' => ['display' => true, 'text' => 'Quantidade'],
-                            'ticks' => ['precision' => 0],
+                            'title'       => ['display' => true, 'text' => 'Quantidade'],
+                            'ticks'       => ['precision' => 0],
                         ],
                     ],
                 ],
@@ -817,15 +1000,15 @@ class Main extends Component
     {
         $this->dispatchBrowserEvent('chart-update', [
             'chartId' => $chartId,
-            'chart' => [
+            'chart'   => [
                 'type' => 'bar',
                 'data' => [
-                    'labels' => $histogram['labels'] ?? [],
+                    'labels'   => $histogram['labels'] ?? [],
                     'datasets' => $histogram['datasets'] ?? [],
                 ],
                 'options' => [
                     'plugins' => [
-                        'legend' => ['display' => true, 'position' => 'top'],
+                        'legend'  => ['display' => true, 'position' => 'top'],
                         'tooltip' => [
                             'callbacks' => [
                                 'label' => '__VALUE_LABEL__',
@@ -835,14 +1018,14 @@ class Main extends Component
                     'scales' => [
                         'x' => [
                             'stacked' => true,
-                            'title' => ['display' => true, 'text' => 'Dias desde o despacho'],
-                            'grid' => ['display' => false],
+                            'title'   => ['display' => true, 'text' => 'Dias desde o despacho'],
+                            'grid'    => ['display' => false],
                         ],
                         'y' => [
-                            'stacked' => true,
+                            'stacked'     => true,
                             'beginAtZero' => true,
-                            'title' => ['display' => true, 'text' => 'Quantidade'],
-                            'ticks' => ['precision' => 0],
+                            'title'       => ['display' => true, 'text' => 'Quantidade'],
+                            'ticks'       => ['precision' => 0],
                         ],
                     ],
                 ],
@@ -859,23 +1042,23 @@ class Main extends Component
     ): void {
         $this->dispatchBrowserEvent('chart-update', [
             'chartId' => $chartId,
-            'chart' => [
+            'chart'   => [
                 'type' => 'bar',
                 'data' => [
-                    'labels' => $labels,
+                    'labels'   => $labels,
                     'datasets' => [[
-                        'label' => $label,
-                        'data' => $data,
+                        'label'           => $label,
+                        'data'            => $data,
                         'backgroundColor' => $color,
-                        'borderColor' => $color,
-                        'borderRadius' => 6,
+                        'borderColor'     => $color,
+                        'borderRadius'    => 6,
                         'maxBarThickness' => 26,
                     ]],
                 ],
                 'options' => [
                     'indexAxis' => 'y',
-                    'plugins' => [
-                        'legend' => ['display' => false],
+                    'plugins'   => [
+                        'legend'  => ['display' => false],
                         'tooltip' => [
                             'callbacks' => [
                                 'label' => '__VALUE_LABEL__',
@@ -885,8 +1068,8 @@ class Main extends Component
                     'scales' => [
                         'x' => [
                             'beginAtZero' => true,
-                            'title' => ['display' => true, 'text' => 'Quantidade'],
-                            'ticks' => ['precision' => 0],
+                            'title'       => ['display' => true, 'text' => 'Quantidade'],
+                            'ticks'       => ['precision' => 0],
                         ],
                         'y' => [
                             'grid' => ['display' => false],
@@ -910,13 +1093,13 @@ class Main extends Component
     public function render()
     {
         return view('livewire.partner.main', [
-            'dueSoon' => $this->getViabilityDueDate(),
-            'workReportsWithoutAdsDueSoon' => $this->getWorkReportsWithoutAdsDueSoon(),
+            'dueSoon'                        => $this->getViabilityDueDate(),
+            'workReportsWithoutAdsDueSoon'   => $this->getWorkReportsWithoutAdsDueSoon(),
             'tacitAdsOverdueWithoutDelivery' => $this->getTacitAdsOverdueWithoutDelivery(),
-            'openViabilityAgeHistogram' => $this->dadosViabilityAgeHistogram,
-            'openD5AgeHistogram' => $this->dadosD5AgeHistogram,
-            'rejectedWorkReasons' => $this->dadosRejectedWorkReasons,
-            'workReportKpis' => $this->workReportKpis,
+            'openViabilityAgeHistogram'      => $this->dadosViabilityAgeHistogram,
+            'openD5AgeHistogram'             => $this->dadosD5AgeHistogram,
+            'rejectedWorkReasons'            => $this->dadosRejectedWorkReasons,
+            'workReportKpis'                 => $this->workReportKpis,
         ]);
     }
 }

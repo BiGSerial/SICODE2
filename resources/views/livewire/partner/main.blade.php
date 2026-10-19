@@ -268,6 +268,47 @@
             line-height: 1.15;
         }
 
+        .pd-exec-tile { border: 1px solid var(--pd-border); border-radius: 14px; background: var(--pd-surface); box-shadow: var(--pd-shadow); padding: 1rem 1.1rem; height: 100%; border-left: 6px solid #94a3b8; }
+        .pd-exec-tile.ok { border-left-color: #15803d; }
+        .pd-exec-tile.warn { border-left-color: var(--pd-warn); }
+        .pd-exec-tile.bad { border-left-color: var(--pd-danger); }
+        .pd-exec-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--pd-muted); }
+        .pd-exec-value { font-size: 2rem; font-weight: 800; line-height: 1.1; color: var(--pd-ink); }
+        .pd-exec-tile.ok .pd-exec-value { color: #15803d; }
+        .pd-exec-tile.warn .pd-exec-value { color: var(--pd-warn); }
+        .pd-exec-tile.bad .pd-exec-value { color: var(--pd-danger); }
+        .pd-exec-note { font-size: 0.78rem; color: var(--pd-muted); }
+        .pd-branch-table th, .pd-branch-table td { white-space: nowrap; vertical-align: middle; }
+        .pd-branch-table thead th { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--pd-muted); }
+        .pd-branch-table .grp { text-align: center; border-bottom: 2px solid var(--pd-primary); color: var(--pd-ink); }
+        .pd-branch-table tfoot td { font-weight: 800; background: #f1f5f9; border-top: 2px solid var(--pd-ink); }
+        .pd-cell-bad { color: var(--pd-danger); font-weight: 700; }
+        .pd-cell-warn { color: var(--pd-warn); font-weight: 700; }
+        .pd-cell-zero { color: #94a3b8; }
+        .pd-bar { height: 6px; border-radius: 4px; background: #e2e8f0; overflow: hidden; min-width: 70px; }
+        .pd-bar > span { display: block; height: 100%; }
+
+        .pd-hero-card { position: relative; overflow: hidden; border-radius: 16px; padding: 1.1rem 1.25rem 0.6rem; color: #fff; height: 100%; box-shadow: 0 18px 36px rgba(15, 23, 42, 0.22); }
+        .pd-hero-card.final { background: linear-gradient(135deg, #1d4ed8 0%, #0ea5e9 100%); }
+        .pd-hero-card.partial { background: linear-gradient(135deg, #0f766e 0%, #22c55e 100%); }
+        .pd-hero-card.late { background: linear-gradient(135deg, #7f1d1d 0%, #ef4444 100%); }
+        .pd-hero-card.soon { background: linear-gradient(135deg, #92400e 0%, #f59e0b 100%); }
+        .pd-hero-card .hc-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; opacity: 0.9; }
+        .pd-hero-card .hc-value { font-size: 2.1rem; font-weight: 800; line-height: 1.1; margin: 0.15rem 0; }
+        .pd-hero-card .hc-note { font-size: 0.8rem; opacity: 0.92; }
+        .pd-hero-card .hc-icon { position: absolute; right: 1rem; top: 0.8rem; font-size: 2.6rem; opacity: 0.22; }
+        .pd-hero-card svg.spark { display: block; width: 100%; height: 60px; margin-top: 0.35rem; }
+        .pd-hero-card .spark-months { display: flex; justify-content: space-between; font-size: 0.62rem; opacity: 0.85; padding: 0.15rem 0 0.3rem; }
+        .pd-hbar { display: grid; grid-template-columns: 120px 1fr 48px; gap: 0.6rem; align-items: center; font-size: 0.82rem; margin-bottom: 0.45rem; }
+        .pd-hbar .track { height: 14px; border-radius: 7px; background: #e2e8f0; overflow: hidden; }
+        .pd-hbar .fill { height: 100%; border-radius: 7px; }
+        .pd-hbar .num { text-align: right; font-weight: 700; }
+        .pd-trend { display: flex; align-items: flex-end; gap: 0.6rem; height: 150px; padding-top: 0.5rem; }
+        .pd-trend .col-m { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; font-size: 0.72rem; color: var(--pd-muted); }
+        .pd-trend .stack { width: 70%; max-width: 46px; display: flex; flex-direction: column; justify-content: flex-end; border-radius: 6px 6px 0 0; overflow: hidden; }
+        .pd-trend .stack .ok { background: #0f766e; }
+        .pd-trend .stack .bad { background: #ef4444; }
+
         .pd-section-title {
             margin: 0 0 0.75rem;
             color: var(--pd-ink);
@@ -419,26 +460,342 @@
         </div>
     </div>
 
+@php
+        $pct = fn ($part, $whole) => $whole > 0 ? round(($part / $whole) * 100) : null;
+        $tone = fn ($value, $good, $warn, $higherIsBetter = true) => $value === null
+            ? ''
+            : ($higherIsBetter
+                ? ($value >= $good ? 'ok' : ($value >= $warn ? 'warn' : 'bad'))
+                : ($value <= $good ? 'ok' : ($value <= $warn ? 'warn' : 'bad')));
+        $actionKeys = ['work_without_ads_overdue', 'work_without_ads_due_soon', 'viability_due_soon', 'viability_rejected_waiting', 'd5_returned', 'informs_rejected'];
+        $actionTotal = collect($actionKeys)->sum(fn ($key) => (int) ($kpis[$key] ?? 0));
+        $adsRate = $pct($workReportKpis['ads_delivered_total'] ?? 0, $workReportKpis['valid_informed_total'] ?? 0);
+        $rejectRate = $pct($workReportKpis['canceled_rejected_total'] ?? 0, $workReportKpis['informed_total'] ?? 0);
+        $partialRate = $pct($workReportKpis['partials_completed_total'] ?? 0, $workReportKpis['partials_total'] ?? 0);
+        $selectedCompany = (string) ($partnerCompanyFilter ?? '') !== ''
+            ? $this->partnerCompanyFilterOptions()->firstWhere('id', $partnerCompanyFilter)
+            : null;
+    @endphp
+
+    @if ($selectedCompany)
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2">
+            <span>Exibindo somente <strong>{{ $selectedCompany->name }}</strong>.</span>
+            <button type="button" class="btn btn-sm btn-outline-primary" wire:click="$set('partnerCompanyFilter', '')">
+                Ver todas as empresas
+            </button>
+        </div>
+    @endif
+
+    @php
+        $spark = function (array $values, string $stroke = '#ffffff') {
+            $values = array_values($values);
+            $count  = count($values);
+            $max    = max(array_merge($values, [0.0001]));
+            $min    = min(array_merge($values, [0]));
+            $span   = max($max - $min, 0.0001);
+            $points = [];
+
+            foreach ($values as $i => $value) {
+                $x        = $count > 1 ? ($i / ($count - 1)) * 100 : 50;
+                $y        = 46 - (($value - $min) / $span) * 40;
+                $points[] = round($x, 2) . ',' . round($y, 2);
+            }
+
+            $line = implode(' ', $points);
+
+            return '<svg class="spark" viewBox="0 0 100 52" preserveAspectRatio="none"><polygon points="0,52 ' . $line . ' 100,52" fill="rgba(255,255,255,0.22)"/><polyline points="' . $line . '" fill="none" stroke="' . $stroke . '" stroke-width="1.6" vector-effect="non-scaling-stroke"/></svg>';
+        };
+        $exec = $executive ?? [];
+        $lastIndex = (int) ($exec['last_index'] ?? 11);
+        $monthly = function (array $values) use ($exec, $lastIndex) {
+            $values = array_slice(array_values($values), 0, $lastIndex + 1);
+            $max    = max(array_merge($values, [0.0001]));
+            $points = [];
+
+            foreach ($values as $i => $value) {
+                $points[] = round(($i / 11) * 100, 2) . ',' . round(46 - ($value / $max) * 40, 2);
+            }
+
+            $line = implode(' ', $points);
+            $lastX = round((max(count($values) - 1, 0) / 11) * 100, 2);
+            $labels = collect($exec['labels'] ?? [])->map(fn ($label) => '<span>' . e($label) . '</span>')->implode('');
+
+            return '<svg class="spark" viewBox="0 0 100 52" preserveAspectRatio="none"><polygon points="0,52 ' . $line . ' ' . $lastX . ',52" fill="rgba(255,255,255,0.28)"/><polyline points="' . $line . '" fill="none" stroke="#ffffff" stroke-width="1.8" vector-effect="non-scaling-stroke"/></svg><div class="spark-months">' . $labels . '</div>';
+        };
+        $bestOf = function (array $values) use ($exec, $lastIndex) {
+            $values = array_slice(array_values($values), 0, $lastIndex + 1);
+            $max = collect($values)->max();
+
+            return $max > 0 ? ['label' => ($exec['labels'] ?? [])[collect($values)->search($max)] ?? '', 'value' => $max] : null;
+        };
+        $money = fn ($value) => 'R$ ' . number_format((float) $value, 2, ',', '.');
+        $agingMax = max(1, collect($exec['aging'] ?? [])->max('total'));
+        $dueMax = max(1, collect($exec['due_by_day'] ?? [])->map(fn ($d) => $d['ads'] + $d['viability'])->max());
+        $trendMax = max(1, collect($exec['informs_valid'] ?? [])->map(fn ($v, $i) => $v + ($exec['informs_invalid'][$i] ?? 0))->max());
+        $dueAdsTotal = (int) ($kpis['work_without_ads_due_soon'] ?? 0);
+        $dueViabTotal = (int) ($kpis['viability_due_soon'] ?? 0);
+    @endphp
+
+    <div class="mb-1 pd-section-title">Painel executivo{{ $selectedCompany ? ' · ' . $selectedCompany->name : '' }}</div>
+    <div class="row g-3 mb-2">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-hero-card final">
+                <i class="ri-money-dollar-circle-line hc-icon"></i>
+                <div class="hc-label">ADS final solicitado</div>
+                <div class="hc-value">{{ $money($workReportKpis['ads_amount_total'] ?? 0) }}</div>
+                @php $bestF = $bestOf($exec['final_amount'] ?? []); @endphp
+                <div class="hc-note">Período: {{ $workReportKpis['ads_delivered_total'] ?? 0 }} ADS entregues{{ $bestF ? ' · Melhor mês: ' . $bestF['label'] . ' ' . $money($bestF['value']) : '' }}</div>
+                {!! $monthly($exec['final_amount'] ?? []) !!}
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-hero-card partial">
+                <i class="ri-percent-line hc-icon"></i>
+                <div class="hc-label">ADS parcial solicitado</div>
+                <div class="hc-value">{{ $money($workReportKpis['partials_amount_total'] ?? 0) }}</div>
+                @php $bestP = $bestOf($exec['partial_amount'] ?? []); @endphp
+                <div class="hc-note">Período: {{ $workReportKpis['partials_completed_total'] ?? 0 }} de {{ $workReportKpis['partials_total'] ?? 0 }} finalizadas{{ $bestP ? ' · Melhor mês: ' . $bestP['label'] . ' ' . $money($bestP['value']) : '' }}</div>
+                {!! $monthly($exec['partial_amount'] ?? []) !!}
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-hero-card late">
+                <i class="ri-alarm-warning-line hc-icon"></i>
+                <div class="hc-label">Entregas de ADS em atraso</div>
+                <div class="hc-value">{{ $exec['overdue_total'] ?? ($kpis['work_without_ads_overdue'] ?? 0) }}</div>
+                <div class="hc-note">{{ ($exec['overdue_total'] ?? 0) - ($exec['overdue_old'] ?? 0) }} até 30 dias de atraso · {{ $exec['overdue_old'] ?? 0 }} acima de 30</div>
+                {!! $spark(collect($exec['aging'] ?? [])->pluck('total')->all()) !!}
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-hero-card soon">
+                <i class="ri-time-line hc-icon"></i>
+                <div class="hc-label">A vencer em {{ $daysAhead }} dias</div>
+                <div class="hc-value">{{ $dueAdsTotal + $dueViabTotal }}</div>
+                <div class="hc-note">{{ $dueAdsTotal }} entregas de ADS · {{ $dueViabTotal }} viabilidades</div>
+                {!! $spark(collect($exec['due_by_day'] ?? [])->map(fn ($d) => $d['ads'] + $d['viability'])->all()) !!}
+            </div>
+        </div>
+    </div>
+    <div class="pd-disclaimer mb-3" style="max-width: none">
+        {!! app(\App\Services\Partner\DashboardLegalNotices::class)->valuesDisclaimerText() !!}
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-4">
+            <div class="card pd-panel h-100">
+                <div class="card-header"><h6 class="mb-0">Atraso de ADS por tempo</h6></div>
+                <div class="card-body">
+                    @foreach ($exec['aging'] ?? [] as $bucket)
+                        <div class="pd-hbar">
+                            <span>{{ $bucket['label'] }}</span>
+                            <span class="track"><span class="fill d-block" style="width: {{ round($bucket['total'] / $agingMax * 100) }}%; background: {{ $loop->last ? '#7f1d1d' : ($loop->index >= 2 ? '#ef4444' : '#f59e0b') }}"></span></span>
+                            <span class="num">{{ $bucket['total'] }}</span>
+                        </div>
+                    @endforeach
+                    <div class="small text-muted mt-2">Dias de atraso após o prazo de entrega da ADS ({{ \App\Support\SicodeRules::adsDeliveryDeadlineDays() }} dias {{ \App\Support\SicodeRules::adsDeliveryDeadlineUsesBusinessDays() ? 'úteis' : 'corridos' }} da conclusão informada).</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="card pd-panel h-100">
+                <div class="card-header"><h6 class="mb-0">Vencimentos dos próximos dias</h6></div>
+                <div class="card-body">
+                    @foreach ($exec['due_by_day'] ?? [] as $day)
+                        @php $dayTotal = $day['ads'] + $day['viability']; @endphp
+                        <div class="pd-hbar">
+                            <span>{{ $day['label'] }}</span>
+                            <span class="track"><span class="fill d-block" style="width: {{ round($dayTotal / $dueMax * 100) }}%; background: {{ $loop->first ? '#b91c1c' : '#f59e0b' }}"></span></span>
+                            <span class="num">{{ $dayTotal }}</span>
+                        </div>
+                        <div class="small text-muted mb-2" style="margin-top:-0.25rem">{{ $day['ads'] }} ADS · {{ $day['viability'] }} viabilidades</div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-xl-4">
+            <div class="card pd-panel h-100">
+                <div class="card-header d-flex justify-content-between">
+                    <h6 class="mb-0">Informes finais por mês ({{ Carbon::parse($dt_fim)->year }})</h6>
+                    <span class="small text-muted"><span class="badge" style="background:#0f766e">válidos</span> <span class="badge" style="background:#ef4444">cancel./rejeit.</span></span>
+                </div>
+                <div class="card-body">
+                    <div class="pd-trend">
+                        @foreach ($exec['labels'] ?? [] as $i => $label)
+                            @php
+                                $valid = $exec['informs_valid'][$i] ?? 0;
+                                $invalid = $exec['informs_invalid'][$i] ?? 0;
+                            @endphp
+                            <div class="col-m" title="{{ $valid }} válidos · {{ $invalid }} cancelados/rejeitados">
+                                <div class="fw-bold text-dark">{{ $valid + $invalid }}</div>
+                                <div class="stack" style="height: {{ round(($valid + $invalid) / $trendMax * 100) }}%">
+                                    <div class="bad" style="flex: {{ $invalid }}"></div>
+                                    <div class="ok" style="flex: {{ $valid }}"></div>
+                                </div>
+                                <div>{{ $label }}</div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-1 pd-section-title">Resumo executivo{{ $selectedCompany ? ' · ' . $selectedCompany->name : (count($companyBreakdown) ? ' · total consolidado' : '') }}</div>
+    <div class="row g-2 mb-3">
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-exec-tile {{ $actionTotal === 0 ? 'ok' : ($actionTotal <= 10 ? 'warn' : 'bad') }}">
+                <div class="pd-exec-label">Exigem ação agora</div>
+                <div class="pd-exec-value">{{ $actionTotal }}</div>
+                <div class="pd-exec-note">
+                    {{ $kpis['work_without_ads_overdue'] ?? 0 }} ADS em atraso ·
+                    {{ ($kpis['work_without_ads_due_soon'] ?? 0) + ($kpis['viability_due_soon'] ?? 0) }} a vencer ·
+                    {{ ($kpis['informs_rejected'] ?? 0) + ($kpis['viability_rejected_waiting'] ?? 0) + ($kpis['d5_returned'] ?? 0) }} devolvidos
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-exec-tile {{ $tone($adsRate, 90, 70) }}">
+                <div class="pd-exec-label">Entrega de ADS no período</div>
+                <div class="pd-exec-value">{{ $adsRate === null ? '—' : $adsRate . '%' }}</div>
+                <div class="pd-exec-note">{{ $workReportKpis['ads_delivered_total'] ?? 0 }} de {{ $workReportKpis['valid_informed_total'] ?? 0 }} informes válidos</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-exec-tile {{ $tone($rejectRate, 5, 15, false) }}">
+                <div class="pd-exec-label">Rejeição/cancelamento de informes</div>
+                <div class="pd-exec-value">{{ $rejectRate === null ? '—' : $rejectRate . '%' }}</div>
+                <div class="pd-exec-note">{{ $workReportKpis['canceled_rejected_total'] ?? 0 }} de {{ $workReportKpis['informed_total'] ?? 0 }} informes do período</div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+            <div class="pd-exec-tile {{ $tone($partialRate, 70, 40) }}">
+                <div class="pd-exec-label">Parciais finalizadas</div>
+                <div class="pd-exec-value">{{ $partialRate === null ? '—' : $partialRate . '%' }}</div>
+                <div class="pd-exec-note">{{ $workReportKpis['partials_completed_total'] ?? 0 }} de {{ $workReportKpis['partials_total'] ?? 0 }} · R$ {{ number_format($workReportKpis['partials_amount_total'] ?? 0, 2, ',', '.') }} pagos</div>
+            </div>
+        </div>
+    </div>
+
+    @if (count($companyBreakdown))
+        @php
+            $rows = collect($companyBreakdown)->map(function ($row) use ($pct, $actionKeys) {
+                $row['action'] = collect($actionKeys)->sum(fn ($key) => (int) ($row['kpis'][$key] ?? 0));
+                $row['ads_rate'] = $pct($row['period']['ads_delivered_total'] ?? 0, $row['period']['valid_informed_total'] ?? 0);
+                $row['reject_rate'] = $pct($row['period']['canceled_rejected_total'] ?? 0, $row['period']['informed_total'] ?? 0);
+
+                return $row;
+            });
+            $worst = $rows->sortByDesc('action')->first();
+            $sum = fn ($group, $key) => $rows->sum(fn ($row) => (float) ($row[$group][$key] ?? 0));
+            $cell = fn ($value, $class = 'pd-cell-bad') => $value > 0 ? $class : 'pd-cell-zero';
+        @endphp
+        <div class="card pd-panel mb-3">
+            <div class="card-header d-flex flex-column flex-md-row justify-content-between gap-1">
+                <div>
+                    <h6 class="mb-0">Desempenho por empresa / filial</h6>
+                    <div class="small text-muted">Período e pendências de cada empresa, com o total consolidado no rodapé. Clique em “Detalhar” para abrir o painel só daquela empresa.</div>
+                </div>
+                @if ($worst && $worst['action'] > 0)
+                    <div class="small align-self-md-center">
+                        <span class="badge text-bg-danger">Maior atenção</span> {{ $worst['name'] }} ({{ $worst['action'] }} itens)
+                    </div>
+                @endif
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 pd-branch-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Empresa</th>
+                            <th colspan="6" class="grp">Período</th>
+                            <th colspan="7" class="grp">Pendências atuais</th>
+                            <th rowspan="2"></th>
+                        </tr>
+                        <tr>
+                            <th class="text-end">Obras informadas</th>
+                            <th class="text-end">Rejeição/cancel.</th>
+                            <th>ADS entregues</th>
+                            <th class="text-end">Valor ADS</th>
+                            <th class="text-end">Parciais</th>
+                            <th class="text-end">Valor parciais</th>
+                            <th class="text-end">ADS atrasadas</th>
+                            <th class="text-end">A vencer</th>
+                            <th class="text-end">Viab. pend.</th>
+                            <th class="text-end">D5 pend.</th>
+                            <th class="text-end">D5 devolv.</th>
+                            <th class="text-end">Inf. rejeit.</th>
+                            <th class="text-end">Reclam.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rows as $row)
+                            @php
+                                $k = $row['kpis'];
+                                $p = $row['period'];
+                                $dueSoon = (int) ($k['work_without_ads_due_soon'] ?? 0) + (int) ($k['viability_due_soon'] ?? 0);
+                                $barColor = $row['ads_rate'] === null ? '#cbd5e1' : ($row['ads_rate'] >= 90 ? '#15803d' : ($row['ads_rate'] >= 70 ? '#b45309' : '#b91c1c'));
+                            @endphp
+                            <tr wire:key="branch-{{ $row['id'] }}">
+                                <td class="fw-semibold">
+                                    {{ $row['name'] }}
+                                    @if ($row['is_branch'])
+                                        <span class="badge text-bg-light border ms-1">Filial</span>
+                                    @endif
+                                </td>
+                                <td class="text-end">{{ $p['informed_total'] ?? 0 }}</td>
+                                <td class="text-end {{ ($row['reject_rate'] ?? 0) > 15 ? 'pd-cell-bad' : (($row['reject_rate'] ?? 0) > 5 ? 'pd-cell-warn' : '') }}">{{ $row['reject_rate'] === null ? '—' : $row['reject_rate'] . '%' }}</td>
+                                <td>
+                                    <div class="small">{{ $row['ads_rate'] === null ? '—' : $row['ads_rate'] . '%' }}</div>
+                                    <div class="pd-bar"><span style="width: {{ $row['ads_rate'] ?? 0 }}%; background: {{ $barColor }}"></span></div>
+                                </td>
+                                <td class="text-end">R$ {{ number_format($p['ads_amount_total'] ?? 0, 2, ',', '.') }}</td>
+                                <td class="text-end">{{ $p['partials_total'] ?? 0 }}</td>
+                                <td class="text-end">R$ {{ number_format($p['partials_amount_total'] ?? 0, 2, ',', '.') }}</td>
+                                <td class="text-end {{ $cell($k['work_without_ads_overdue'] ?? 0) }}">{{ $k['work_without_ads_overdue'] ?? 0 }}</td>
+                                <td class="text-end {{ $cell($dueSoon, 'pd-cell-warn') }}">{{ $dueSoon }}</td>
+                                <td class="text-end">{{ $k['pending_viability'] ?? 0 }}</td>
+                                <td class="text-end">{{ $k['d5_pending'] ?? 0 }}</td>
+                                <td class="text-end {{ $cell($k['d5_returned'] ?? 0, 'pd-cell-warn') }}">{{ $k['d5_returned'] ?? 0 }}</td>
+                                <td class="text-end {{ $cell($k['informs_rejected'] ?? 0) }}">{{ $k['informs_rejected'] ?? 0 }}</td>
+                                <td class="text-end {{ $cell($k['reclaims_pending'] ?? 0, 'pd-cell-warn') }}">{{ $k['reclaims_pending'] ?? 0 }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary"
+                                        wire:click="$set('partnerCompanyFilter', '{{ $row['id'] }}')">Detalhar</button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td>Total consolidado</td>
+                            <td class="text-end">{{ (int) $sum('period', 'informed_total') }}</td>
+                            <td class="text-end">{{ $rejectRate === null ? '—' : $rejectRate . '%' }}</td>
+                            <td>{{ $adsRate === null ? '—' : $adsRate . '%' }}</td>
+                            <td class="text-end">R$ {{ number_format($sum('period', 'ads_amount_total'), 2, ',', '.') }}</td>
+                            <td class="text-end">{{ (int) $sum('period', 'partials_total') }}</td>
+                            <td class="text-end">R$ {{ number_format($sum('period', 'partials_amount_total'), 2, ',', '.') }}</td>
+                            <td class="text-end">{{ (int) $sum('kpis', 'work_without_ads_overdue') }}</td>
+                            <td class="text-end">{{ (int) ($sum('kpis', 'work_without_ads_due_soon') + $sum('kpis', 'viability_due_soon')) }}</td>
+                            <td class="text-end">{{ (int) $sum('kpis', 'pending_viability') }}</td>
+                            <td class="text-end">{{ (int) $sum('kpis', 'd5_pending') }}</td>
+                            <td class="text-end">{{ (int) $sum('kpis', 'd5_returned') }}</td>
+                            <td class="text-end">{{ (int) $sum('kpis', 'informs_rejected') }}</td>
+                            <td class="text-end">{{ (int) $sum('kpis', 'reclaims_pending') }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    @endif
+
+    <div class="mb-1 pd-section-title">Pendências detalhadas</div>
     <div class="row g-2 mb-3">
         <div class="col-6 col-lg-3 col-xl-2">
             <div class="metric-card">
                 <div class="metric-label">Viabilidade pendente</div>
                 <div class="metric-value">{{ $kpis['pending_viability'] ?? 0 }}</div>
                 <div class="metric-subtitle">Ainda não concluídas</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3 col-xl-2">
-            <div class="metric-card warn">
-                <div class="metric-label">Viabilidade a vencer</div>
-                <div class="metric-value">{{ $kpis['viability_due_soon'] ?? 0 }}</div>
-                <div class="metric-subtitle">Vence em até {{ $daysAhead }} dias</div>
-            </div>
-        </div>
-        <div class="col-6 col-lg-3 col-xl-2">
-            <div class="metric-card warn">
-                <div class="metric-label">Entregas de ADS a vencer</div>
-                <div class="metric-value">{{ $kpis['work_without_ads_due_soon'] ?? 0 }}</div>
-                <div class="metric-subtitle">A vencer</div>
             </div>
         </div>
         <div class="col-6 col-lg-3 col-xl-2">
@@ -479,14 +836,9 @@
     </div>
 
     <div class="mb-3">
-        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 align-items-lg-start mb-2">
-            <h3 class="pd-section-title">Informes</h3>
-            <div class="pd-disclaimer">
-                {!! app(\App\Services\Partner\DashboardLegalNotices::class)->valuesDisclaimerText() !!}
-            </div>
-        </div>
+        <h3 class="pd-section-title mb-2">Informes</h3>
         <div class="pd-subsection-title mb-2">Informes parciais</div>
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-2 mb-3">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-3 g-2 mb-3">
             <div class="col">
                 <div class="metric-card">
                     <div class="metric-label">Parciais totais</div>
@@ -508,19 +860,10 @@
                     <div class="metric-subtitle">Aprovadas e pagas no fluxo</div>
                 </div>
             </div>
-            <div class="col">
-                <div class="metric-card money">
-                    <div class="metric-label">Valor total parcial solicitado</div>
-                    <div class="metric-value">
-                        R$ {{ number_format($workReportKpis['partials_amount_total'] ?? 0, 2, ',', '.') }}
-                    </div>
-                    <div class="metric-subtitle">Somente parciais válidas</div>
-                </div>
-            </div>
         </div>
 
         <div class="pd-subsection-title mb-2">Informes finais</div>
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-5 g-2">
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-xl-4 g-2">
             <div class="col">
                 <div class="metric-card">
                     <div class="metric-label">Obras informadas</div>
@@ -547,15 +890,6 @@
                     <div class="metric-label">ADS não entregues</div>
                     <div class="metric-value">{{ $workReportKpis['ads_not_delivered_total'] ?? 0 }}</div>
                     <div class="metric-subtitle">Informes válidos* sem ADS entregue</div>
-                </div>
-            </div>
-            <div class="col">
-                <div class="metric-card money">
-                    <div class="metric-label">Valor solicitado</div>
-                    <div class="metric-value">
-                        R$ {{ number_format($workReportKpis['ads_amount_total'] ?? 0, 2, ',', '.') }}
-                    </div>
-                    <div class="metric-subtitle">Somatório das ADS válidas*</div>
                 </div>
             </div>
         </div>

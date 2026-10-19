@@ -1352,7 +1352,7 @@
         @endif
 
         @php
-            $workForms = $lists->WorkForms ?? collect();
+            $workForms = $lists->WorkFormsAny ?? collect();
         @endphp
 
         {{-- INFORMES DE OBRA (Parciais, Ramal, Work) --}}
@@ -1553,6 +1553,9 @@
                                         <div class="d-grid gap-1">
                                             @if ($workFormCanceled)
                                                 <span class="badge bg-danger text-wrap">Cancelado Sistemicamente</span>
+                                                @if ($workForm->canceled_at)
+                                                    <small class="text-muted">em {{ date('d/m/Y H:i', strtotime($workForm->canceled_at)) }}</small>
+                                                @endif
                                             @else
                                                 @if ($workForm->rejected)
                                                     <span class="badge bg-warning text-wrap">Informe em Revisão</span>

@@ -497,7 +497,7 @@ class DispatchWorkflowService
             ->where('confirmed', false)
             ->lockForUpdate();
 
-        $stage         = $this->workReportFlowStageForService($serviceKey);
+        $stage         = $this->informeGuardStage($serviceKey, $explicitWorkReportId);
         $workReportIds = $explicitWorkReportId
             ? [$explicitWorkReportId]
             : $this->targetWorkReportIdsForDispatch($note, $serviceKey, $finalScopes);
@@ -527,6 +527,20 @@ class DispatchWorkflowService
 
         $production->update(['partial' => true]);
         $production->partialInforms()->syncWithoutDetaching([$partialId]);
+    }
+
+    /**
+     * Publicação não é etapa bloqueante (corre junto com a Fiscalização), então não entra em
+     * workReportFlowStageForService. Mas, com informe explícito, a atividade aberta/pilha só vale
+     * para aquele informe, e não para outro da mesma nota.
+     */
+    private function informeGuardStage(string $serviceKey, ?int $explicitWorkReportId): ?string
+    {
+        if ($serviceKey === 'publication' && $explicitWorkReportId) {
+            return WorkReportFlowProduction::STAGE_PUBLICATION;
+        }
+
+        return $this->workReportFlowStageForService($serviceKey);
     }
 
     private function workReportFlowStageForService(string $serviceKey): ?string
@@ -675,7 +689,7 @@ class DispatchWorkflowService
             ->where('completed', false)
             ->where('confirmed', false)
             ->when($workReportId, function ($query) use ($service, $workReportId) {
-                $stage = $this->workReportFlowStageForService($this->contextResolver->serviceKey($service));
+                $stage = $this->informeGuardStage($this->contextResolver->serviceKey($service), $workReportId);
 
                 return $stage
                     ? $query->whereHas("WorkReportFlowProductions", fn ($link) => $link

@@ -417,6 +417,7 @@
                                     @else
                                         {{ $list->note }}
                                     @endif
+                                    <div><x-work-report.canceled-badge :report="$production ? ($canceledByProduction[$production->id] ?? null) : null" /></div>
                                 </td>
 
                                 <td class="fw-bold text-center {{ $rowClass }}">
@@ -685,6 +686,7 @@
     </div>
 
     @livewire('components.pep.financial-modal', key('payment-pep-financial-modal'))
+    @livewire('components.workform.canceled-info', key('WorkCanceledInfo'))
     @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('services-payment-self-assign-modal'))
 
     @push('script')

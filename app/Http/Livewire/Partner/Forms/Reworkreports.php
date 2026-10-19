@@ -169,7 +169,7 @@ class Reworkreports extends Workreports
             } elseif ($this->hasExistingAds) {
                 $adsMessage = $this->asBool($this->keepExistingAds)
                     ? '<p>A ADS existente será mantida. A data de entrega da ADS será atualizada para a data deste reenvio e o prazo de fiscalização será recalculado a partir da nova data.</p>'
-                    : '<p>A ADS existente será removida. Se houver arquivo vinculado à ADS, ele será apagado do servidor e a associação da ADS será removida. O usuário terá 3 dias úteis, contados a partir deste reenvio, para enviar a ADS pela área <strong>Entregar ADS</strong>.</p>';
+                    : '<p>A ADS existente será removida. Se houver arquivo vinculado à ADS, ele será apagado do servidor e a associação da ADS será removida. O usuário terá ' . \App\Support\SicodeRules::adsDeliveryDeadlineLabel() . ', contados a partir deste reenvio, para enviar a ADS pela área <strong>Entregar ADS</strong>.</p>';
             }
 
             $this->dispatchBrowserEvent('alertar', [
