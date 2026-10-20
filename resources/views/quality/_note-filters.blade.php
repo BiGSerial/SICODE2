@@ -21,7 +21,11 @@
                         <div class="nf-field">
                             <label class="nf-label" for="nf-{{ $key }}">{{ $label($key) }}</label>
                             <select id="nf-{{ $key }}" name="{{ $key }}[]" multiple size="5" class="form-select form-select-sm nf-select">
-                                @if ($key === 'city')
+                                @if ($key === 'regional')
+                                    @foreach ($noteFilterOptions['regional'] ?? [] as $regional)
+                                        <option value="{{ $regional['name'] }}" data-regions="{{ json_encode($regional['regions']) }}" @selected(in_array($regional['name'], $selected('regional'), true))>{{ $regional['name'] }}</option>
+                                    @endforeach
+                                @elseif ($key === 'city')
                                     @foreach ($noteFilterOptions['city'] ?? [] as $city)
                                         <option value="{{ $city['id'] }}" data-region="{{ $city['regiao'] }}" data-regional="{{ $city['regional'] }}" @selected(in_array($city['id'], $selected('city'), true))>{{ $city['name'] }}</option>
                                     @endforeach
@@ -45,7 +49,7 @@
             </div>
         </div>
         <div class="nf-foot">
-            <span class="small text-muted">Segure Ctrl (ou ⌘) para marcar mais de uma opção. Região e Regional restringem os municípios listados.</span>
+            <span class="small text-muted">Segure Ctrl (ou ⌘) para marcar mais de uma opção. Região restringe as Regionais, e Região/Regional restringem os municípios listados.</span>
             <span class="d-flex gap-2"><button class="btn btn-sm btn-primary btn-dash">Aplicar filtros</button><a class="btn btn-sm btn-outline-secondary" href="{{ url()->current() }}{{ request('fila') ? '?fila=' . request('fila') : '' }}">Limpar filtros</a></span>
         </div>
     </div>
@@ -72,7 +76,15 @@
             if (!city) return;
             const picked = el => el ? Array.from(el.selectedOptions).map(o => o.value) : [];
             const apply = () => {
-                const rg = picked(region), rl = picked(regional);
+                const rg = picked(region);
+                if (regional) {
+                    Array.from(regional.options).forEach(o => {
+                        const ok = !rg.length || JSON.parse(o.dataset.regions || '[]').some(r => rg.includes(r));
+                        o.hidden = !ok; o.disabled = !ok;
+                        if (!ok) o.selected = false;
+                    });
+                }
+                const rl = picked(regional);
                 Array.from(city.options).forEach(o => {
                     const ok = (!rg.length || rg.includes(o.dataset.region)) && (!rl.length || rl.includes(o.dataset.regional));
                     o.hidden = !ok; o.disabled = !ok;

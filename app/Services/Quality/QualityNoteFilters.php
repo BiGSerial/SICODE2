@@ -71,14 +71,15 @@ class QualityNoteFilters
     /** @return array<string, array<int, string|array<string, string>>> opções dos filtros (cache de 1h). */
     public function options(): array
     {
-        return Cache::remember('quality.note-filter-options.v2', 3600, function () {
+        return Cache::remember('quality.note-filter-options.v3', 3600, function () {
             $options = [];
 
             foreach (array_keys(self::COLUMNS) as $column) {
                 $options[$column] = Note::query()->where('type_note', 1)->whereNotNull($column)->where($column, '!=', '')->distinct()->orderBy($column)->limit(400)->pluck($column)->map(fn ($v) => (string) $v)->all();
             }
             $options['region']   = City::query()->whereNotNull('regiao')->distinct()->orderBy('regiao')->pluck('regiao')->all();
-            $options['regional'] = City::query()->whereNotNull('baseConstrucao')->distinct()->orderBy('baseConstrucao')->pluck('baseConstrucao')->all();
+            $options['regional'] = City::query()->whereNotNull('baseConstrucao')->distinct()->orderBy('baseConstrucao')->get(['baseConstrucao', 'regiao'])
+                ->groupBy('baseConstrucao')->map(fn ($rows, $name) => ['name' => (string) $name, 'regions' => $rows->pluck('regiao')->filter()->unique()->values()->all()])->values()->all();
             // Município: rótulo = nome, valor = rdMunicipio (é o que a Nota guarda em nexp); região/regional alimentam o filtro em cascata.
             $options['city'] = City::query()->whereNotNull('rdMunicipio')->orderBy('municipio')
                 ->get(['rdMunicipio', 'municipio', 'cidade', 'regiao', 'baseConstrucao'])
