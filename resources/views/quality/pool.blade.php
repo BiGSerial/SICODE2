@@ -61,36 +61,42 @@
                 @if ($pool->total() > $pool->count())<a href="#" id="wk-pick-all" class="fw-bold">Selecionar as {{ min($pool->total(), 2000) }} Notas de todas as páginas</a>@endif
                 <span id="wk-all-picked" class="d-none fw-bold">Todas as {{ min($pool->total(), 2000) }} Notas do filtro estão selecionadas. <a href="#" id="wk-clear-all">Desfazer</a></span>
             </div>
-            <div class="ob-list">
+            <div class="table-responsive"><table class="table wk-table mb-0">
+                <thead>
+                    <tr>
+                        <th class="text-center wk-col-check" aria-label="Selecionar Notas"><i class="ri-checkbox-multiple-line"></i></th>
+                        <th>Nota</th>
+                        <th>Material</th>
+                        <th>Localização</th>
+                        <th>Status</th>
+                        <th>Data do status</th>
+                        <th class="text-end">Prazo</th>
+                    </tr>
+                </thead>
+                <tbody>
                 @forelse ($pool as $note)
                     @php
                         $days = $note->days_left;
                         $tone = $days === null ? 'ok' : ($days <= 3 ? 'late' : ($days <= 10 ? 'warn' : 'ok'));
                     @endphp
-                    <div class="ob is-{{ $tone }}">
-                        <div class="ob-check"><input class="form-check-input wk-row" type="checkbox" name="note_ids[]" value="{{ $note->id }}" aria-label="Selecionar Nota {{ $note->note }}"></div>
-                        <div class="ob-main">
-                            <div class="d-flex align-items-baseline gap-2 flex-wrap"><span class="ob-note">{{ $note->note }}</span>@if ($note->nstats)<span class="chip chip-cycle">Status {{ $note->nstats }}</span>@endif</div>
-                            <div class="ob-material" title="{{ $note->material }}">{{ $note->material ?: '—' }}</div>
-                            <div class="ob-chips">
-                                @if ($note->rubrica)<span class="chip">{{ $note->rubrica }}</span>@endif
-                                @if ($note->lexp)<span class="chip chip-where"><i class="ri-map-pin-line"></i>{{ $note->lexp }}</span>@endif
-                                @if ($note->group1)<span class="chip">{{ $note->group1 }}</span>@endif
-                            </div>
-                        </div>
-                        <div class="ob-side">
-                            <div class="ob-age">@if ($days !== null)<span class="badge text-bg-{{ ['ok' => 'success', 'warn' => 'warning', 'late' => 'danger'][$tone] }}">{{ $days }} dia(s)</span><small>prazo restante</small>@else<span class="text-muted">—</span><small>sem prazo</small>@endif</div>
-                            <div class="ob-age"><span class="fw-bold">{{ $note->dt_status ? \Illuminate\Support\Carbon::parse($note->dt_status)->format('d/m/Y') : '—' }}</span><small>data do status</small></div>
-                        </div>
-                    </div>
+                    <tr class="wk-table-row is-{{ $tone }}">
+                        <td class="text-center wk-col-check"><input class="form-check-input wk-row" type="checkbox" name="note_ids[]" value="{{ $note->id }}" aria-label="Selecionar Nota {{ $note->note }}"></td>
+                        <td class="wk-note text-nowrap"><span class="ob-note">{{ $note->note }}</span></td>
+                        <td class="wk-material" title="{{ $note->material }}">{{ $note->material ?: '—' }}</td>
+                        <td class="wk-location text-nowrap"><span>{{ $note->rubrica ?: '—' }}</span>@if ($note->lexp)<span class="chip chip-where ms-1"><i class="ri-map-pin-line"></i>{{ $note->lexp }}</span>@endif @if ($note->group1)<span class="chip ms-1">{{ $note->group1 }}</span>@endif</td>
+                        <td class="text-nowrap">@if ($note->nstats)<span class="chip chip-cycle">Status {{ $note->nstats }}</span>@else — @endif</td>
+                        <td class="text-nowrap">{{ $note->dt_status ? \Illuminate\Support\Carbon::parse($note->dt_status)->format('d/m/Y') : '—' }}</td>
+                        <td class="text-end text-nowrap">@if ($days !== null)<span class="badge text-bg-{{ ['ok' => 'success', 'warn' => 'warning', 'late' => 'danger'][$tone] }}">{{ $days }} dia(s)</span>@else<span class="text-muted">sem prazo</span>@endif</td>
+                    </tr>
                 @empty
-                    <div class="ob-empty">
+                    <tr><td colspan="7" class="ob-empty">
                         <i class="ri-inbox-2-line"></i>
                         @if ($rules->isEmpty())<div class="fw-bold">Nenhum critério configurado.</div><div class="small">Sem critérios o Pool fica vazio de propósito. Defina em Configuração › Critérios e atividades.</div>
                         @else<div class="fw-bold">Nenhuma Nota elegível.</div><div class="small">Nenhuma Nota atende aos critérios e filtros atuais.</div>@endif
-                    </div>
+                    </td></tr>
                 @endforelse
-            </div>
+                </tbody>
+            </table></div>
             <div class="p-3">{{ $pool->withQueryString()->links('quality._pagination') }}</div>
 
             <div class="wk-bulkbar" id="wk-bulkbar">
@@ -127,7 +133,7 @@
                 const n = all ? total : rows().filter(r => r.checked).length;
                 bar.classList.toggle('is-visible', n > 0);
                 document.getElementById('wk-count').textContent = n;
-                rows().forEach(r => r.closest('.ob').classList.toggle('is-selected', r.checked));
+                rows().forEach(r => r.closest('tr').classList.toggle('is-selected', r.checked));
                 const pageAll = rows().length > 0 && rows().every(r => r.checked);
                 document.getElementById('wk-check-page').checked = pageAll;
                 banner.classList.toggle('d-none', !pageAll);
