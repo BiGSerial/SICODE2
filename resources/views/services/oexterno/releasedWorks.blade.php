@@ -52,5 +52,21 @@
                 }
             });
         });
+
+        window.addEventListener('confirm-external-organ-bulk-rejection', function(e) {
+            Swal.fire({
+                title: 'Recusar Órgão Externo em massa?',
+                html: '<strong>' + Number(e.detail.count) + '</strong> nota(s) serão removidas da fila de OE e liberadas para aprovação de projeto.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Sim, recusar OE',
+                cancelButtonText: 'Cancelar',
+                reverseButtons: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Livewire.emit('rejectSelectedExternalOrgan');
+                }
+            });
+        });
     </script>
 @endpush

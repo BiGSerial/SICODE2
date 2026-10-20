@@ -7,7 +7,7 @@ Controlar projetos de Desenho que dependem de aprovacao de Orgao Externo antes d
 ## Separacao dos dados
 
 - `notes.doe`: indicador de negocio. Informa se a nota depende de Orgao Externo.
-- `external_organ_releases`: controle operacional da fila Obras Liberadas. Registra a pendencia criada pelo encerramento do Desenho, a exportacao e a confirmacao automatica de saida para `20` ou `11`.
+- `external_organ_releases`: controle operacional da fila Obras Liberadas. Registra a pendencia criada pelo encerramento do Desenho, a exportacao e a confirmacao automatica de saida para `20`, `11`, `51`, `98` ou `99`.
 
 Essa separacao evita que uma marcacao manual antiga em `notes.doe` bloqueie listas sem uma pendencia operacional criada pelo fluxo.
 
@@ -31,7 +31,7 @@ Quando um encerramento grava `Nao`, pendencias ainda nao exportadas e ainda nao 
 A lista exibe pendencias de `external_organ_releases` conforme a visao selecionada.
 
 - `Novas`: pendencias sem `exported_at`, sem `released_at` e com a nota em `nstats` `47`, `48`, `49` ou `50`.
-- `Exportadas aguardando 20/11`: pendencias com `exported_at` preenchido e `released_at` vazio.
+- `Exportadas aguardando liberação (20, 11, 51, 98 ou 99)`: pendencias com `exported_at` preenchido e `released_at` vazio.
 - `Liberadas`: pendencias com `released_at` preenchido.
 - `Todas pendentes`: pendencias com `released_at` vazio.
 
@@ -80,7 +80,7 @@ O status `51` nao entra na fila Obras Liberadas; ele e usado apenas como proteca
 
 O comando `sicode:external-organ-releases:close` roda de hora em hora pelo scheduler.
 
-Ele fecha pendencias quando a nota chega em `nstats` `20` ou `11`, preenchendo:
+Ele fecha pendencias quando a nota chega em `nstats` `20`, `11`, `51`, `98` ou `99`, preenchendo:
 
 - `released_at = notes.dt_status`
 - `release_dt_status = notes.dt_status`
@@ -92,4 +92,4 @@ Ele fecha pendencias quando a nota chega em `nstats` `20` ou `11`, preenchendo:
 
 ## Saida para o fluxo padrao de OE
 
-Quando a base atualizar a nota para `20` ou `11`, ela deixa de atender ao bloqueio das listas de obra e passa a ficar disponivel no fluxo normal de Orgao Externo, em `A Protocolar`, respeitando as regras ja existentes do modulo.
+Quando a base atualizar a nota para `20`, `11`, `51`, `98` ou `99`, ela deixa de atender ao bloqueio das listas de obra e passa a ficar disponivel no fluxo normal de Orgao Externo, em `A Protocolar`, respeitando as regras ja existentes do modulo.

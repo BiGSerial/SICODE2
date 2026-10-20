@@ -8,8 +8,7 @@ use App\Jobs\Services\ExportExternalOrganReleasedWorksJob;
 use App\Models\{CancellationCategory, ExternalOrganRelease, Service};
 use App\Services\Payment\CancellationRequestService;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{Auth, DB};
 use Livewire\{Component, WithPagination};
 use RuntimeException;
 
@@ -38,12 +37,17 @@ class ReleasedWorks extends Component
 
     public string $costType = '';
 
+    public string $noteStatus = '';
+
     public array $selectedReleaseIds = [];
+
+    public bool $selectAllPage = false;
 
     private bool $closedReleasedStatuses = false;
 
     protected $listeners = [
         'rejectExternalOrganRequirement' => 'rejectExternalOrganRequirement',
+        'rejectSelectedExternalOrgan'    => 'rejectSelectedExternalOrgan',
     ];
 
     protected $queryString = [
@@ -52,6 +56,7 @@ class ReleasedWorks extends Component
         'releaseStatusDateFrom' => ['except' => '', 'as' => 'liberacao_de'],
         'releaseStatusDateTo'   => ['except' => '', 'as' => 'liberacao_ate'],
         'costType'              => ['except' => '', 'as' => 'custo'],
+        'noteStatus'            => ['except' => '', 'as' => 'status_nota'],
         'page'                  => ['except' => 1, 'as' => 'p'],
     ];
 
@@ -67,7 +72,35 @@ class ReleasedWorks extends Component
     public function updatedTab(): void
     {
         $this->selectedReleaseIds = [];
+        $this->selectAllPage      = false;
         $this->resetPage();
+    }
+
+    public function updatedNoteStatus(): void
+    {
+        $this->selectedReleaseIds = [];
+        $this->selectAllPage      = false;
+        $this->resetPage();
+    }
+
+    public function updatedSelectAllPage(bool $value): void
+    {
+        $this->selectedReleaseIds = $value
+            ? $this->releases->getCollection()->pluck('id')->map(fn ($id) => (string) $id)->all()
+            : [];
+    }
+
+    public function getNoteStatusOptionsProperty(): array
+    {
+        return ExternalOrganRelease::query()
+            ->join('notes', 'notes.id', '=', 'external_organ_releases.note_id')
+            ->whereNull('external_organ_releases.released_at')
+            ->where('notes.type_note', 2)
+            ->distinct()
+            ->orderBy('notes.nstats')
+            ->pluck('notes.nstats')
+            ->map(fn ($status) => (int) $status)
+            ->all();
     }
 
     public function updatedSearch(): void
@@ -110,7 +143,9 @@ class ReleasedWorks extends Component
         $this->releaseStatusDateFrom = '';
         $this->releaseStatusDateTo   = '';
         $this->costType              = '';
+        $this->noteStatus            = '';
         $this->selectedReleaseIds    = [];
+        $this->selectAllPage         = false;
         $this->resetPage();
     }
 
@@ -227,6 +262,90 @@ class ReleasedWorks extends Component
             return;
         }
 
+        $this->performExternalOrganRejection($release);
+
+        $this->selectedReleaseIds = array_values(array_diff(
+            $this->selectedReleaseIds,
+            [$releaseId, (string) $releaseId]
+        ));
+        $this->tab = 'released';
+        $this->resetPage();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Pendência de OE recusada.',
+            'html'     => 'A obra foi removida do bloqueio de Órgão Externo e poderá seguir para aprovação de projeto.',
+            'timer'    => 3200,
+        ]);
+    }
+
+    public function confirmRejectSelectedExternalOrgan(): void
+    {
+        if ($this->tab !== 'pending') {
+            return;
+        }
+
+        $count = count($this->selectedReleaseIds);
+
+        if (!$count) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Selecione ao menos uma nota.',
+                'timer'    => 2500,
+            ]);
+
+            return;
+        }
+
+        $this->dispatchBrowserEvent('confirm-external-organ-bulk-rejection', ['count' => $count]);
+    }
+
+    public function rejectSelectedExternalOrgan(): void
+    {
+        if ($this->tab !== 'pending') {
+            return;
+        }
+
+        $ids = collect($this->selectedReleaseIds)
+            ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $releases = $this->baseQuery()
+            ->whereIn('external_organ_releases.id', $ids->all())
+            ->whereNull('released_at')
+            ->with('note:id,nstats,dt_status,type_note')
+            ->get();
+
+        foreach ($releases as $release) {
+            $this->performExternalOrganRejection($release);
+        }
+
+        $processed = $releases->count();
+        $skipped   = $ids->count() - $processed;
+
+        $this->selectedReleaseIds = [];
+        $this->selectAllPage      = false;
+        $this->resetPage();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => $processed ? 'success' : 'warning',
+            'title'    => "{$processed} pendência(s) de OE recusada(s).",
+            'html'     => $skipped ? "{$skipped} item(ns) estavam indisponíveis e foram ignorados." : null,
+            'timer'    => 3600,
+        ]);
+    }
+
+    private function performExternalOrganRejection(ExternalOrganRelease $release): void
+    {
         $note = $release->note;
         $now  = now();
 
@@ -245,21 +364,6 @@ class ReleasedWorks extends Component
 
             $this->removePendingExternalEntityLinks($note);
         });
-
-        $this->selectedReleaseIds = array_values(array_diff(
-            $this->selectedReleaseIds,
-            [$releaseId, (string) $releaseId]
-        ));
-        $this->tab = 'released';
-        $this->resetPage();
-
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => 'Pendência de OE recusada.',
-            'html'     => 'A obra foi removida do bloqueio de Órgão Externo e poderá seguir para aprovação de projeto.',
-            'timer'    => 3200,
-        ]);
     }
 
     private function removePendingExternalEntityLinks($note): void
@@ -437,6 +541,10 @@ class ReleasedWorks extends Component
 
         if (in_array($this->costType, ['client', 'company'], true)) {
             $this->applyCostTypeFilter($query);
+        }
+
+        if (filled($this->noteStatus)) {
+            $query->whereHas('note', fn ($q) => $q->where('nstats', (int) $this->noteStatus));
         }
 
         return $query;

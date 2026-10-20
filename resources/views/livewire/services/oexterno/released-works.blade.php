@@ -64,7 +64,7 @@
     <div class="container-fluid">
         @include('livewire.services.partials.user-activity-hero', [
             'context' => 'Obras liberadas',
-            'subtitle' => 'Projetos dependentes de Órgão Externo aguardando saída para 20 ou 11',
+            'subtitle' => 'Projetos dependentes de Órgão Externo aguardando saída para 20, 11, 51, 98 ou 99',
             'total' => $releases->total(),
             'accent' => '#334155',
         ])
@@ -133,13 +133,23 @@
                                 <input type="date" class="form-control border border-secondary"
                                     id="releaseStatusDateTo" wire:model="releaseStatusDateTo">
                             </div>
-                            <div class="col-12">
+                            <div class="col-6">
                                 <label class="form-label small text-muted mb-1" for="releasedWorksCostType">Custo</label>
                                 <select class="form-select border border-secondary" id="releasedWorksCostType"
                                     wire:model="costType">
                                     <option value="">Todos</option>
                                     <option value="client">Custo cliente</option>
                                     <option value="company">Custo empresa</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label small text-muted mb-1" for="releasedWorksNoteStatus">Status da nota</label>
+                                <select class="form-select border border-secondary" id="releasedWorksNoteStatus"
+                                    wire:model="noteStatus">
+                                    <option value="">Todos</option>
+                                    @foreach ($this->noteStatusOptions as $status)
+                                        <option value="{{ $status }}">{{ $status }}</option>
+                                    @endforeach
                                 </select>
                             </div>
                         </div>
@@ -197,7 +207,7 @@
                             @if ($tab === 'cancel_90')
                                 Notas em status 70 há mais de 90 dias, disponíveis para envio ao cancelamento total.
                             @else
-                                Exportar marca a pendência como enviada; a liberação ocorre quando o status chegar em 20 ou 11, ou por recusa manual de OE.
+                                Exportar marca a pendência como enviada; a liberação ocorre quando o status chegar em 20, 11, 51, 98 ou 99, ou por recusa manual de OE.
                             @endif
                         </div>
                     </div>
@@ -206,6 +216,15 @@
                             <button wire:click="sendSelectedToCancellation" class="btn btn-danger"
                                 @if (!count($selectedReleaseIds)) disabled @endif>
                                 <i class="ri-close-circle-line me-2"></i>Enviar selecionadas para cancelamento
+                                @if (count($selectedReleaseIds))
+                                    <span class="badge text-bg-light ms-1">{{ count($selectedReleaseIds) }}</span>
+                                @endif
+                            </button>
+                        @endif
+                        @if ($tab === 'pending')
+                            <button wire:click="confirmRejectSelectedExternalOrgan" class="btn btn-danger"
+                                @if (!count($selectedReleaseIds)) disabled @endif>
+                                <i class="ri-close-circle-line me-2"></i>Recusar OE selecionadas
                                 @if (count($selectedReleaseIds))
                                     <span class="badge text-bg-light ms-1">{{ count($selectedReleaseIds) }}</span>
                                 @endif
@@ -222,6 +241,11 @@
                             <tr>
                                 @if ($tab === 'cancel_90')
                                     <th class="text-center">Sel.</th>
+                                @elseif ($tab === 'pending')
+                                    <th class="text-center">
+                                        <input type="checkbox" class="form-check-input" wire:model="selectAllPage"
+                                            title="Selecionar todas desta página">
+                                    </th>
                                 @endif
                                 <th>Nota/OV</th>
                                 <th>Cliente / Município</th>
@@ -240,7 +264,7 @@
                                     $costSummary = $this->projectReviewCostSummary($release);
                                 @endphp
                                 <tr>
-                                    @if ($tab === 'cancel_90')
+                                    @if (in_array($tab, ['cancel_90', 'pending'], true))
                                         <td class="text-center">
                                             <input type="checkbox" class="form-check-input"
                                                 wire:model="selectedReleaseIds"
@@ -306,7 +330,7 @@
                                                 <div class="released-work-muted">Status {{ $release->release_nstats }}</div>
                                             @endif
                                         @else
-                                            <div class="mt-1"><span class="badge text-bg-warning">Aguardando 20/11</span></div>
+                                            <div class="mt-1"><span class="badge text-bg-warning">Aguardando liberação</span></div>
                                         @endif
                                     </td>
                                     <td>
