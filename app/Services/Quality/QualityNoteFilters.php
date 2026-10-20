@@ -72,10 +72,10 @@ class QualityNoteFilters
         return !empty($input['dt_from']) || !empty($input['dt_to']) || is_numeric($input['days_left_max'] ?? null);
     }
 
-    /** @return array<string, array<int, string>> opções dos filtros (cache curto). */
+    /** @return array<string, array<int, string>> opções dos filtros (cache de 1h). */
     public function options(): array
     {
-        return Cache::remember('quality.note-filter-options', 600, function () {
+        return Cache::remember('quality.note-filter-options', 3600, function () {
             $options = [];
 
             foreach (array_keys(self::COLUMNS) as $column) {
