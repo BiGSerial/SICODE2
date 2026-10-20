@@ -15,247 +15,157 @@
         'text-info'      => 'rgba(13,202,240,0.12)',
         'text-secondary' => 'rgba(108,117,125,0.10)',
     ];
+
+    $groupLabel = function ($date) {
+        $date = \Carbon\Carbon::parse($date);
+
+        return match (true) {
+            $date->isToday()                          => 'Hoje',
+            $date->isYesterday()                      => 'Ontem',
+            $date->gte(now()->subDays(7)->startOfDay()) => 'Últimos 7 dias',
+            $date->gte(now()->subDays(30)->startOfDay()) => 'Últimos 30 dias',
+            default                                   => 'Mais antigas',
+        };
+    };
+    $groups = $notifies->getCollection()->groupBy(fn ($n) => $groupLabel($n->created_at));
 @endphp
 
 <div wire:poll.5s="pollForToasts">
 <style>
-    /* ── Modal ─────────────────────────────────────────────── */
-    #notificationsModal .modal-content {
-        border: none; border-radius: 0.6rem; overflow: hidden;
-        box-shadow: 0 16px 48px rgba(33,46,62,0.28);
-    }
-    #notificationsModal .modal-header {
-        background: #212E3E; border-bottom: none; padding: 0.75rem 1.25rem;
-    }
-    #notificationsModal .modal-header .modal-title {
-        font-size: 0.88rem; font-weight: 700;
-        letter-spacing: 0.12em; text-transform: uppercase; color: #fff;
-    }
-    #notificationsModal .modal-body {
-        background: #eef2f7; padding: 1rem 1.1rem;
-    }
-    #notificationsModal .modal-footer {
-        background: #eef2f7; border-top: 1px solid #dde3ec; padding: 0.6rem 1.1rem;
-    }
+    #notificationsModal .modal-content { border: none; border-radius: 1rem; overflow: hidden; box-shadow: 0 24px 64px rgba(15,23,42,.35); }
+    #notificationsModal .modal-header { background: linear-gradient(135deg, #1b2736, #243447); border-bottom: none; padding: .9rem 1.25rem; }
+    #notificationsModal .modal-title { font-size: .95rem; font-weight: 700; color: #fff; display: flex; align-items: center; gap: .55rem; }
+    #notificationsModal .modal-title .nm-count { font-size: .7rem; font-weight: 700; background: rgba(255,255,255,.14); border-radius: 999px; padding: .15rem .6rem; }
+    #notificationsModal .modal-body { background: #f4f6fa; padding: 0; }
+    #notificationsModal .modal-footer { background: #fff; border-top: 1px solid #e5e9f0; padding: .55rem 1.1rem; justify-content: space-between; }
 
-    /* ── Barra de ações ─────────────────────────────────────── */
-    .notif-modal-toolbar {
-        display: flex; align-items: center; justify-content: space-between;
-        flex-wrap: wrap; gap: 0.6rem;
-        padding: 0.6rem 0.85rem;
-        background: #fff; border: 1px solid #dde3ec; border-radius: 0.45rem;
-        margin-bottom: 0.85rem;
-    }
-    .notif-modal-stats {
-        display: flex; align-items: center; gap: 0.5rem;
-        font-size: 0.78rem; color: #64748b;
-    }
-    .notif-modal-stats strong { color: #212E3E; }
-    .notif-stat-unread {
-        display: inline-flex; align-items: center; gap: 0.3rem;
-        background: #fef2f2; color: #dc3545;
-        border: 1px solid #fca5a5; border-radius: 100px;
-        padding: 0.1rem 0.55rem; font-size: 0.72rem; font-weight: 700;
-    }
+    /* Barra fixa: filtro (segmentado) + ações */
+    .nm-bar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem; padding: .7rem 1.1rem; background: rgba(255,255,255,.96); backdrop-filter: blur(6px); border-bottom: 1px solid #e5e9f0; }
+    .nm-seg { display: inline-flex; background: #eef1f6; border-radius: 999px; padding: 3px; }
+    .nm-seg button { border: 0; background: transparent; border-radius: 999px; padding: .3rem .9rem; font-size: .78rem; font-weight: 600; color: #64748b; transition: all .15s; display: inline-flex; align-items: center; gap: .4rem; }
+    .nm-seg button:hover { color: #1e293b; }
+    .nm-seg button.is-on { background: #fff; color: #1b2736; box-shadow: 0 1px 4px rgba(15,23,42,.14); }
+    .nm-seg .nm-pill { background: #ef4444; color: #fff; border-radius: 999px; font-size: .64rem; padding: 0 .4rem; line-height: 1.35; }
+    .nm-actions { display: flex; align-items: center; gap: .25rem; }
+    .nm-link { border: 0; background: transparent; font-size: .76rem; font-weight: 600; padding: .3rem .6rem; border-radius: 8px; color: #475569; display: inline-flex; align-items: center; gap: .35rem; transition: background .15s; }
+    .nm-link:hover { background: #eef1f6; color: #1b2736; }
+    .nm-link:disabled { opacity: .4; pointer-events: none; }
+    .nm-link--danger { color: #dc2626; }
+    .nm-link--danger:hover { background: #fef2f2; color: #b91c1c; }
 
-    /* ════════════════════════════════════════════════════════════
-       CARD NÃO LIDO
-       Fundo branco com sombra + borda esquerda colorida (por status)
-       + título bold + badge "NÃO LIDA" vermelho
-    ════════════════════════════════════════════════════════════ */
-    .notif-card--unread {
-        background: #ffffff;
-        border: 1px solid #dde3ec;
-        border-radius: 0.45rem;
-        margin-bottom: 0.5rem;
-        overflow: hidden;
-        box-shadow: 0 2px 10px rgba(38,60,200,0.10);
-        transition: box-shadow 0.12s ease;
-    }
-    .notif-card--unread:hover {
-        box-shadow: 0 4px 16px rgba(38,60,200,0.18);
-    }
-    .notif-card--unread .notif-card-title {
-        font-size: 0.86rem; font-weight: 700; color: #1a2540;
-    }
-    .notif-card--unread .notif-card-msg { color: #374151; }
+    /* Lista agrupada por data */
+    .nm-list { padding: .4rem 1.1rem 1rem; }
+    .nm-group-title { position: sticky; top: 53px; z-index: 2; margin: 0 -1.1rem; padding: .85rem 1.1rem .35rem; background: linear-gradient(#f4f6fa 70%, rgba(244,246,250,0)); font-size: .66rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8492a6; }
+    .nm-item { position: relative; display: flex; gap: .85rem; align-items: flex-start; padding: .8rem .95rem; margin-bottom: .45rem; background: #fff; border: 1px solid #e5e9f0; border-radius: .75rem; transition: box-shadow .15s, transform .15s, border-color .15s; cursor: default; }
+    .nm-item:hover { box-shadow: 0 6px 18px rgba(15,23,42,.08); border-color: #d5dbe6; }
+    .nm-item.is-unread { border-color: #cdd7ff; background: linear-gradient(90deg, #f5f7ff, #fff 40%); cursor: pointer; }
+    .nm-dot { position: absolute; left: -4px; top: 50%; width: 8px; height: 8px; margin-top: -4px; border-radius: 50%; background: #263cc8; box-shadow: 0 0 0 3px rgba(38,60,200,.18); }
+    .nm-ico { flex: 0 0 2.5rem; height: 2.5rem; border-radius: .7rem; display: grid; place-items: center; font-size: 1.05rem; }
+    .nm-main { flex: 1; min-width: 0; }
+    .nm-top { display: flex; justify-content: space-between; gap: .75rem; align-items: baseline; }
+    .nm-title { font-size: .86rem; font-weight: 500; color: #475569; line-height: 1.3; }
+    .is-unread .nm-title { font-weight: 700; color: #111c33; }
+    .nm-time { font-size: .7rem; color: #94a3b8; white-space: nowrap; display: inline-flex; align-items: center; gap: .25rem; }
+    .nm-msg { font-size: .8rem; line-height: 1.5; color: #64748b; margin-top: .15rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .is-unread .nm-msg { color: #334155; }
+    .nm-foot { display: flex; align-items: center; gap: .4rem; margin-top: .6rem; }
+    .nm-btn { border: 1px solid #d5dbe6; background: #fff; color: #1b2736; border-radius: 8px; padding: .25rem .75rem; font-size: .76rem; font-weight: 600; display: inline-flex; align-items: center; gap: .35rem; transition: all .15s; }
+    .nm-btn:hover { background: #1b2736; border-color: #1b2736; color: #fff; }
+    .is-unread .nm-btn--primary { background: #263cc8; border-color: #263cc8; color: #fff; }
+    .is-unread .nm-btn--primary:hover { background: #1d2fa3; border-color: #1d2fa3; }
+    .nm-btn--ghost { border-color: transparent; background: transparent; color: #94a3b8; padding: .25rem .5rem; }
+    .nm-btn--ghost:hover { background: #fef2f2; border-color: transparent; color: #dc2626; }
 
-    /* ════════════════════════════════════════════════════════════
-       CARD LIDO
-       Fundo cinza lavado + borda neutra + sem sombra + texto muted
-    ════════════════════════════════════════════════════════════ */
-    .notif-card--read {
-        background: #f0f2f5;
-        border: 1px solid #d8dce4;
-        border-left-width: 4px !important;
-        border-radius: 0.45rem;
-        margin-bottom: 0.5rem;
-        overflow: hidden;
-        opacity: 0.78;
-        transition: opacity 0.12s ease;
-    }
-    .notif-card--read:hover { opacity: 1; }
-    .notif-card--read .notif-card-title {
-        font-size: 0.85rem; font-weight: 400; color: #64748b;
-    }
-    .notif-card--read .notif-card-msg { color: #94a3b8; }
-    .notif-card--read .notif-card-icon { opacity: 0.5; }
-
-    /* ── Corpo do card ──────────────────────────────────────── */
-    .notif-card-body {
-        display: flex; align-items: flex-start; gap: 0.75rem;
-        padding: 0.75rem 0.9rem;
-    }
-    .notif-card-icon {
-        flex-shrink: 0; width: 2.4rem; height: 2.4rem;
-        border-radius: 50%; display: flex; align-items: center; justify-content: center;
-        font-size: 1rem; margin-top: 0.05rem;
-    }
-    .notif-card-content { flex: 1; min-width: 0; }
-    .notif-card-top {
-        display: flex; align-items: flex-start; justify-content: space-between;
-        gap: 0.5rem; margin-bottom: 0.25rem;
-    }
-    .notif-card-title { line-height: 1.3; }
-    .notif-card-time {
-        font-size: 0.7rem; color: #94a3b8; white-space: nowrap; flex-shrink: 0;
-    }
-    .notif-card-msg {
-        font-size: 0.8rem; line-height: 1.5; margin-bottom: 0.55rem;
-    }
-
-    /* Badges lida / não lida */
-    .notif-read-badge {
-        display: inline-flex; align-items: center; gap: 0.25rem;
-        font-size: 0.67rem; font-weight: 700;
-        border-radius: 100px; padding: 0.12rem 0.55rem;
-        text-transform: uppercase; letter-spacing: 0.04em;
-    }
-    .notif-read-badge--unread {
-        background: #fef2f2; color: #dc3545; border: 1px solid #fca5a5;
-    }
-    .notif-read-badge--read {
-        background: #f1f5f9; color: #94a3b8; border: 1px solid #cbd5e1;
-    }
-
-    /* ── Estado vazio ───────────────────────────────────────── */
-    .notif-modal-empty {
-        display: flex; flex-direction: column; align-items: center; gap: 0.6rem;
-        padding: 3rem 1rem; color: #94a3b8; text-align: center;
-    }
-    .notif-modal-empty i { font-size: 2.5rem; opacity: 0.4; }
-    .notif-modal-empty p { font-size: 0.88rem; margin: 0; }
+    .nm-empty { display: flex; flex-direction: column; align-items: center; gap: .5rem; padding: 4rem 1rem; color: #94a3b8; text-align: center; }
+    .nm-empty i { font-size: 2.8rem; opacity: .45; }
+    .nm-empty strong { color: #475569; font-size: .95rem; }
+    .nm-pager { padding: .25rem 0 0; }
+    @media (max-width: 576px) { .nm-time { display: none; } .nm-item { padding: .7rem; } }
 </style>
     <div class="modal fade" id="notificationsModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
 
-                {{-- Header navy --}}
                 <div class="modal-header">
                     <h5 class="modal-title">
-                        <i class="bi bi-bell me-2"></i> Todas as Notificações
+                        <i class="bi bi-bell"></i> Central de notificações
+                        <span class="nm-count">{{ $notifies->total() }}</span>
                     </h5>
-                    <button type="button" class="btn-close btn-close-white"
-                            data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
 
                 <div class="modal-body">
-
-                    {{-- Toolbar --}}
-                    <div class="notif-modal-toolbar">
-                        <div class="d-flex align-items-center gap-2">
-                            <button class="btn btn-sm btn-outline-success" wire:click.stop="recognize_all">
-                                <i class="bi bi-check2-all me-1"></i> Marcar todas como lidas
-                            </button>
-                            <button class="btn btn-sm btn-outline-danger" wire:click.stop="delete_all"
-                                    onclick="return confirm('Apagar TODAS as notificações?') || event.stopImmediatePropagation()">
-                                <i class="bi bi-trash me-1"></i> Apagar todas
+                    <div class="nm-bar">
+                        <div class="nm-seg" role="tablist">
+                            <button type="button" class="{{ !$onlyUnread ? 'is-on' : '' }}" wire:click.stop="$set('onlyUnread', false)">Todas</button>
+                            <button type="button" class="{{ $onlyUnread ? 'is-on' : '' }}" wire:click.stop="$set('onlyUnread', true)">
+                                Não lidas @if ($unreadTotal)<span class="nm-pill">{{ $unreadTotal }}</span>@endif
                             </button>
                         </div>
-                        <div class="notif-modal-stats">
-                            <span>Total: <strong>{{ $notifies->total() }}</strong></span>
-                            @if ($unreadTotal)
-                                <span class="notif-stat-unread">
-                                    <i class="bi bi-envelope"></i>
-                                    {{ $unreadTotal }} não lida{{ $unreadTotal > 1 ? 's' : '' }}
-                                </span>
-                            @endif
+                        <div class="nm-actions">
+                            <button type="button" class="nm-link" wire:click.stop="recognize_all" @disabled(!$unreadTotal)>
+                                <i class="bi bi-check2-all"></i> Marcar todas como lidas
+                            </button>
+                            <button type="button" class="nm-link nm-link--danger" wire:click.stop="delete_all" @disabled(!$notifies->total())
+                                    onclick="return confirm('Apagar TODAS as notificações?') || event.stopImmediatePropagation()">
+                                <i class="bi bi-trash"></i> Apagar todas
+                            </button>
                         </div>
                     </div>
 
-                    {{-- Lista --}}
-                    @forelse ($notifies as $notify)
-                        @php
-                            $payload     = \App\Support\Notifications\UserNotificationData::fromArray($notify->data);
-                            $status      = \App\Helpers\NotifyStatus::getStatus($payload->status());
-                            $isUnread    = is_null($notify->read_at);
-                            $borderColor = $statusBorderColor[$status->color ?? ''] ?? '#6c757d';
-                            $iconBg      = $statusBgColor[$status->color ?? ''] ?? 'rgba(108,117,125,0.10)';
-                        @endphp
-
-                        <div x-data="{ wasUnread: {{ $isUnread ? 'true' : 'false' }} }"
-                             @click="if (wasUnread) { $wire.markAsRead('{{ $notify->id }}'); wasUnread = false; }"
-                             class="{{ $isUnread ? 'notif-card--unread' : 'notif-card--read' }}"
-                             style="border-left: 4px solid {{ $borderColor }};"
-                             wire:key="item-{{ $notify->id }}">
-
-                            <div class="notif-card-body">
-
-                                {{-- Ícone de status --}}
-                                <div class="notif-card-icon" style="background: {{ $iconBg }};">
-                                    <i class="{{ $status->icon ?? 'bi bi-info-circle' }} {{ $status->color ?? 'text-secondary' }}"></i>
-                                </div>
-
-                                <div class="notif-card-content">
-
-                                    {{-- Título + badges + hora --}}
-                                    <div class="notif-card-top">
-                                        <div class="d-flex align-items-center gap-2 flex-wrap">
-                                            <span class="notif-card-title">{{ $payload->title() }}</span>
-                                            <span class="notif-read-badge {{ $isUnread ? 'notif-read-badge--unread' : 'notif-read-badge--read' }}">
-                                                <i class="bi {{ $isUnread ? 'bi-envelope-fill' : 'bi-envelope-open' }}"></i>
-                                                {{ $isUnread ? 'Não lida' : 'Lida' }}
-                                            </span>
+                    <div class="nm-list">
+                        @forelse ($groups as $label => $items)
+                            <div class="nm-group-title">{{ $label }}</div>
+                            @foreach ($items as $notify)
+                                @php
+                                    $payload  = \App\Support\Notifications\UserNotificationData::fromArray($notify->data);
+                                    $status   = \App\Helpers\NotifyStatus::getStatus($payload->status());
+                                    $isUnread = is_null($notify->read_at);
+                                    $iconBg   = $statusBgColor[$status->color ?? ''] ?? 'rgba(108,117,125,0.10)';
+                                    $created  = \Carbon\Carbon::parse($notify->created_at);
+                                @endphp
+                                <div x-data="{ wasUnread: {{ $isUnread ? 'true' : 'false' }} }"
+                                     @click="if (wasUnread) { $wire.markAsRead('{{ $notify->id }}'); wasUnread = false; }"
+                                     class="nm-item {{ $isUnread ? 'is-unread' : '' }}"
+                                     wire:key="item-{{ $notify->id }}">
+                                    @if ($isUnread)<span class="nm-dot" title="Não lida"></span>@endif
+                                    <div class="nm-ico" style="background: {{ $iconBg }};">
+                                        <i class="{{ $status->icon ?? 'bi bi-info-circle' }} {{ $status->color ?? 'text-secondary' }}"></i>
+                                    </div>
+                                    <div class="nm-main">
+                                        <div class="nm-top">
+                                            <span class="nm-title">{{ $payload->title() }}</span>
+                                            <span class="nm-time" title="{{ $created->format('d/m/Y H:i') }}"><i class="bi bi-clock"></i>{{ $created->diffForHumans() }}</span>
                                         </div>
-                                        <span class="notif-card-time">
-                                            <i class="bi bi-clock me-1"></i>
-                                            {{ \Carbon\Carbon::parse($notify->created_at)->diffForHumans() }}
-                                        </span>
-                                    </div>
-
-                                    {{-- Mensagem --}}
-                                    <div class="notif-card-msg">{!! $payload->message() !!}</div>
-
-                                    {{-- Ações --}}
-                                    <div class="d-flex align-items-center gap-2 flex-wrap">
-                                        <button class="btn btn-sm {{ $isUnread ? 'btn-success' : 'btn-outline-secondary' }}"
-                                                wire:click.stop="open('{{ $notify->id }}')">
-                                            <i class="{{ $payload->actionIcon() ?: ($isUnread ? 'bi bi-check2' : 'bi bi-eye') }} me-1"></i>
-                                            {{ $payload->actionLabel() }}
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger"
-                                                wire:click.stop="delete('{{ $notify->id }}')"
-                                                onclick="return confirm('Apagar esta notificação?') || event.stopImmediatePropagation()">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
+                                        <div class="nm-msg">{!! $payload->message() !!}</div>
+                                        <div class="nm-foot">
+                                            <button type="button" class="nm-btn nm-btn--primary" wire:click.stop="open('{{ $notify->id }}')">
+                                                <i class="{{ $payload->actionIcon() ?: ($isUnread ? 'bi bi-check2' : 'bi bi-eye') }}"></i> {{ $payload->actionLabel() }}
+                                            </button>
+                                            <button type="button" class="nm-btn nm-btn--ghost ms-auto" title="Apagar" aria-label="Apagar notificação"
+                                                    wire:click.stop="delete('{{ $notify->id }}')"
+                                                    onclick="return confirm('Apagar esta notificação?') || event.stopImmediatePropagation()">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
+                            @endforeach
+                        @empty
+                            <div class="nm-empty">
+                                <i class="bi {{ $onlyUnread ? 'bi-check2-circle' : 'bi-bell-slash' }}"></i>
+                                <strong>{{ $onlyUnread ? 'Tudo em dia!' : 'Sem notificações' }}</strong>
+                                <span class="small">{{ $onlyUnread ? 'Você não tem notificações não lidas.' : 'Quando algo novo chegar, aparece aqui.' }}</span>
                             </div>
-                        </div>
+                        @endforelse
 
-                    @empty
-                        <div class="notif-modal-empty">
-                            <i class="bi bi-bell-slash"></i>
-                            <p>Sem notificações no momento.</p>
-                        </div>
-                    @endforelse
-
-                    <div class="mt-3">{{ $notifies->onEachSide(1)->links() }}</div>
+                        <div class="nm-pager">{{ $notifies->onEachSide(1)->links() }}</div>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-secondary"
-                            data-bs-dismiss="modal">Fechar</button>
+                    <span class="small text-muted">Clique em uma notificação não lida para marcá-la como lida.</span>
+                    <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Fechar</button>
                 </div>
             </div>
         </div>
