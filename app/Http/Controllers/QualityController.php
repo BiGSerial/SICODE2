@@ -263,7 +263,7 @@ class QualityController extends Controller
 
         return view('quality.pool', [
             'bulkNotes'         => $bulkNotes, 'bulkReport' => $report,
-            'pool'              => $query->select(['id', 'note', 'numPedido', 'material', 'nstats', 'rubrica', 'lexp', 'group1', 'days_left', 'dt_status'])->paginate(20)->withQueryString(),
+            'pool'              => $query->with('City:rdMunicipio,municipio,cidade')->select(['id', 'nexp', 'note', 'numPedido', 'material', 'nstats', 'rubrica', 'lexp', 'group1', 'days_left', 'dt_status'])->paginate(20)->withQueryString(),
             'noteFilterOptions' => $filters->options(),
             'companies'         => Company::query()->whereIn('id', QualityMember::query()->where('role', QualityMember::N1)->where('active', true)->pluck('company_id'))->orderBy('name')->get(),
             'rules'             => $eligibility->rules(),

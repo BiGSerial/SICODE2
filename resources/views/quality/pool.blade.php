@@ -14,6 +14,22 @@
 
 @section('content')
     @include('quality._styles')
+    <style>
+        .pool-table { font-size: .82rem; }
+        .pool-table thead th { position: sticky; top: 0; z-index: 1; padding: .65rem .75rem; }
+        .pool-table td { padding: .7rem .75rem; }
+        .pool-table tbody tr:nth-child(even) { background: #fbfcfe; }
+        .pool-table .wk-table-row { cursor: default; }
+        .pool-table .wk-table-row:hover { background: #f1f5ff; }
+        .pool-table .ob-note { font-size: 1rem; font-weight: 800; letter-spacing: .01em; }
+        .pool-table .wk-material { font-weight: 500; color: #1e293b; }
+        .pool-table .wk-city { font-weight: 600; color: #334155; }
+        .pool-table .chip { border-radius: 999px; padding: .15rem .55rem; font-weight: 700; }
+        .pool-table .badge { border-radius: 999px; padding: .4em .8em; font-weight: 700; }
+        .pool-table .pool-nodue { color: #94a3b8; font-size: .75rem; font-style: italic; }
+        .pool-table .wk-col-check .form-check-input { width: 1.1rem; height: 1.1rem; cursor: pointer; }
+        .table-card .table-responsive { border-top: 1px solid #e8edf3; margin-top: .75rem; }
+    </style>
     <div class="closure-dash">
         <div class="dash-hero mb-3">
             <h1 class="dash-title">Pool de Notas</h1>
@@ -61,13 +77,14 @@
                 @if ($pool->total() > $pool->count())<a href="#" id="wk-pick-all" class="fw-bold">Selecionar as {{ min($pool->total(), 2000) }} Notas de todas as páginas</a>@endif
                 <span id="wk-all-picked" class="d-none fw-bold">Todas as {{ min($pool->total(), 2000) }} Notas do filtro estão selecionadas. <a href="#" id="wk-clear-all">Desfazer</a></span>
             </div>
-            <div class="table-responsive"><table class="table wk-table mb-0">
+            <div class="table-responsive"><table class="table wk-table pool-table mb-0">
                 <thead>
                     <tr>
                         <th class="text-center wk-col-check" aria-label="Selecionar Notas"><i class="ri-checkbox-multiple-line"></i></th>
                         <th>Nota</th>
                         <th>Material</th>
                         <th>Localização</th>
+                        <th>Município</th>
                         <th>Status</th>
                         <th>Data do status</th>
                         <th class="text-end">Prazo</th>
@@ -84,12 +101,13 @@
                         <td class="wk-note text-nowrap"><span class="ob-note">{{ $note->note }}</span></td>
                         <td class="wk-material" title="{{ $note->material }}">{{ $note->material ?: '—' }}</td>
                         <td class="wk-location text-nowrap"><span>{{ $note->rubrica ?: '—' }}</span>@if ($note->lexp)<span class="chip chip-where ms-1"><i class="ri-map-pin-line"></i>{{ $note->lexp }}</span>@endif @if ($note->group1)<span class="chip ms-1">{{ $note->group1 }}</span>@endif</td>
+                        <td class="wk-city text-nowrap" title="Cód. {{ $note->nexp }}">@if ($note->City?->municipio ?? $note->City?->cidade)<i class="ri-building-line text-muted"></i> {{ $note->City->municipio ?: $note->City->cidade }}@else<span class="text-muted">—</span>@endif</td>
                         <td class="text-nowrap">@if ($note->nstats)<span class="chip chip-cycle">Status {{ $note->nstats }}</span>@else — @endif</td>
                         <td class="text-nowrap">{{ $note->dt_status ? \Illuminate\Support\Carbon::parse($note->dt_status)->format('d/m/Y') : '—' }}</td>
-                        <td class="text-end text-nowrap">@if ($days !== null)<span class="badge text-bg-{{ ['ok' => 'success', 'warn' => 'warning', 'late' => 'danger'][$tone] }}">{{ $days }} dia(s)</span>@else<span class="text-muted">sem prazo</span>@endif</td>
+                        <td class="text-end text-nowrap">@if ($days !== null)<span class="badge text-bg-{{ ['ok' => 'success', 'warn' => 'warning', 'late' => 'danger'][$tone] }}">{{ $days }} dia(s)</span>@else<span class="pool-nodue">sem prazo</span>@endif</td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="ob-empty">
+                    <tr><td colspan="8" class="ob-empty">
                         <i class="ri-inbox-2-line"></i>
                         @if ($rules->isEmpty())<div class="fw-bold">Nenhum critério configurado.</div><div class="small">Sem critérios o Pool fica vazio de propósito. Defina em Configuração › Critérios e atividades.</div>
                         @else<div class="fw-bold">Nenhuma Nota elegível.</div><div class="small">Nenhuma Nota atende aos critérios e filtros atuais.</div>@endif
