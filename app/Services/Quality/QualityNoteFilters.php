@@ -16,10 +16,6 @@ class QualityNoteFilters
     public const COLUMNS = [
         'rubrica' => 'Rubrica',
         'nstats'  => 'Status da Nota',
-        'lexp'    => 'Localização',
-        'group1'  => 'Grupo 1',
-        'group2'  => 'Grupo 2',
-        'group5'  => 'Grupo 5',
     ];
 
     /** parâmetros derivados de `cities` (mapeiam para notes.nexp). */

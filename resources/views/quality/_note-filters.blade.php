@@ -5,13 +5,13 @@
     $selected  = fn ($key) => array_map('strval', (array) request($key));
     $activeCnt = collect(array_keys($columns + $geo))->filter(fn ($key) => filled(request($key)))->count() + (int) filled(request('dt_from')) + (int) filled(request('dt_to')) + (int) is_numeric(request('days_left_max'));
     $groups    = [
-        'Nota'  => ['rubrica', 'nstats', 'group1', 'group2', 'group5'],
-        'Local' => ['region', 'regional', 'city', 'lexp'],
+        'Nota'  => ['rubrica', 'nstats'],
+        'Local' => ['region', 'regional', 'city'],
     ];
     $label = fn ($key) => $columns[$key] ?? $geo[$key];
 @endphp
 <details class="nf mt-2" @if ($activeCnt) open @endif>
-    <summary class="nf-summary"><i class="ri-filter-3-line"></i> Mais filtros <span class="nf-hint">rubrica, região, município, localização…</span>@if ($activeCnt)<span class="badge rounded-pill text-bg-primary ms-1">{{ $activeCnt }} ativo(s)</span>@endif</summary>
+    <summary class="nf-summary"><i class="ri-filter-3-line"></i> Mais filtros <span class="nf-hint">rubrica, status, região, município…</span>@if ($activeCnt)<span class="badge rounded-pill text-bg-primary ms-1">{{ $activeCnt }} ativo(s)</span>@endif</summary>
     <div class="nf-body">
         @foreach ($groups as $title => $keys)
             <div class="nf-group">
