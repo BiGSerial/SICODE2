@@ -79,6 +79,9 @@ class AllNotifies extends Component
                 'url'   => $payload->actionUrl(),
             ]);
         }
+
+        // O poll só serve para os toasts: re-renderizar o modal a cada 5 s fechava-o sozinho e deixava o backdrop preso.
+        $this->skipRender();
     }
 
     protected function baseQuery()

@@ -146,7 +146,7 @@
     .notif-modal-empty i { font-size: 2.5rem; opacity: 0.4; }
     .notif-modal-empty p { font-size: 0.88rem; margin: 0; }
 </style>
-    <div class="modal fade" id="notificationsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="notificationsModal" tabindex="-1" aria-hidden="true" wire:ignore.self>
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content">
 
