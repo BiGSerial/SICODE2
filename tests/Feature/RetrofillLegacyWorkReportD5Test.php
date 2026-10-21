@@ -242,6 +242,76 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
         $this->assertFalse((bool) $early->fresh()->dfive);
     }
 
+    public function test_production_inside_a_canceled_informe_window_links_to_it_and_the_rest_to_the_active_one(): void
+    {
+        $canceled = $this->report('2026-03-01 08:00:00');
+        $canceled->forceFill(['canceled' => true, 'canceled_at' => '2026-03-20 08:00:00'])->save();
+        $active = $this->report('2026-03-25 08:00:00');
+
+        $old = $this->production($this->fiscal, ['dispatch_at' => '2026-03-10 08:00:00']);
+        $new = $this->production($this->fiscal, ['dispatch_at' => '2026-03-28 08:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertDatabaseHas('work_report_flow_productions', ['production_id' => $old->id, 'work_report_id' => $canceled->id]);
+        $this->assertDatabaseHas('work_report_flow_productions', ['production_id' => $new->id, 'work_report_id' => $active->id]);
+    }
+
+    public function test_d5_created_inside_a_canceled_informe_window_is_associated_to_it(): void
+    {
+        $canceled = $this->report('2026-03-01 08:00:00');
+        $canceled->forceFill(['canceled' => true, 'canceled_at' => '2026-03-20 08:00:00'])->save();
+        $this->report('2026-03-25 08:00:00');
+
+        $five = FiveNote::create(['note_id' => $this->note->id, 'note_d5' => uniqid('D5')]);
+        // legada: o model associa ao informe vigente na criação; aqui simulamos a D5 ainda sem informe
+        DB::table('five_notes')->where('id', $five->id)->update(['work_report_id' => null, 'created_at' => '2026-03-10 08:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertSame($canceled->id, $five->fresh()->work_report_id);
+    }
+
+    public function test_partial_is_matched_by_completion_date_when_dispatch_order_alone_is_ambiguous(): void
+    {
+        $this->partial(['decision_at' => '2026-03-01 10:00:00', 'supervision' => true, 'supervision_at' => '2026-03-08 10:00:00']);
+        $second = $this->partial(['decision_at' => '2026-03-10 10:00:00', 'supervision' => true, 'supervision_at' => '2026-03-18 15:00:00']);
+        $prod   = $this->production($this->fiscal, ['partial' => true, 'completed' => true, 'dispatch_at' => '2026-03-20 09:00:00', 'completed_at' => '2026-03-18 15:01:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertSame([$prod->id], $second->productions()->pluck('productions.id')->all());
+    }
+
+    public function test_passive_d5_without_informe_starts_at_the_partner_completion(): void
+    {
+        $five = FiveNote::create(['note_id' => $this->note->id, 'note_d5' => uniqid('D5'), 'isPassive' => true, 'is_completed' => true, 'completed_at' => '2026-03-20 10:00:00']);
+        $c2   = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
+        Analise::create(['production_id' => $c2->id, 'conclusion' => 'FISCALIZADO SEM PENDENCIAS']);
+        $m2 = $this->production($this->payment, ['completed' => true, 'dispatch_at' => '2026-03-26 08:00:00', 'completed_at' => '2026-03-27 11:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $five->refresh();
+        $this->assertNull($five->work_report_id);
+        $this->assertTrue((bool) $c2->fresh()->dfive);
+        $this->assertTrue((bool) $m2->fresh()->dfive);
+        $this->assertSame('2026-03-25 14:00:00', $five->supervisioned_at->format('Y-m-d H:i:s'));
+        $this->assertTrue($five->is_archived);
+    }
+
+    public function test_passive_d5_ignores_productions_before_the_partner_completion(): void
+    {
+        $five  = FiveNote::create(['note_id' => $this->note->id, 'note_d5' => uniqid('D5'), 'isPassive' => true, 'is_completed' => true, 'completed_at' => '2026-03-20 10:00:00']);
+        $early = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-10 09:00:00', 'completed_at' => '2026-03-11 14:00:00']);
+        Analise::create(['production_id' => $early->id, 'conclusion' => 'FISCALIZADO SEM PENDENCIAS']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertFalse($five->fresh()->is_supervisioned);
+        $this->assertFalse((bool) $early->fresh()->dfive);
+    }
+
     public function test_running_twice_is_idempotent(): void
     {
         $report = $this->report('2026-03-10 08:00:00');

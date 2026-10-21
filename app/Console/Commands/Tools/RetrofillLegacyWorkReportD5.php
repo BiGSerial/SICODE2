@@ -192,7 +192,7 @@ class RetrofillLegacyWorkReportD5 extends Command
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('productionables as pa')->whereColumn('pa.production_id', 'p.id')->where('pa.productionable_type', Partial::class))
             ->distinct()->pluck('p.note_id');
 
-        $fives = DB::table('five_notes')->where('is_archived', false)->where('isPassive', false)->distinct()->pluck('note_id');
+        $fives = DB::table('five_notes')->where('is_archived', false)->distinct()->pluck('note_id');
 
         return $productions->merge($fives)->filter()->unique()->sort()->values();
     }
@@ -230,7 +230,11 @@ class RetrofillLegacyWorkReportD5 extends Command
             $open = $group->reject(fn ($p) => $linkedPartial->has($p->id) || $this->hasFlowLink($p->id))
                 ->map(fn ($p) => ['id' => $p->id, 'at' => $this->dispatchAt($p)])->values()->all();
 
-            $result = $this->matcher->match($markers, $open, $fixed, false);
+            // Evidência direta: a data de baixa da parcial é o completed_at da produção que a baixou.
+            [$byDate, $open, $fixed] = $this->partialsByCompletionDate($partials, $markers, $open, $fixed, $group, $serviceId === $this->fiscalId ? 'supervision_at' : 'payment_at');
+
+            $result          = $this->matcher->match($markers, $open, $fixed, false);
+            $result['links'] = $byDate + $result['links'];
 
             foreach ($result['links'] as $productionId => $link) {
                 $this->bump('parciais_vinculadas');
@@ -251,6 +255,46 @@ class RetrofillLegacyWorkReportD5 extends Command
 
             $this->repairPartialDates($noteId, $group, $result['links'], $linkedPartial, $serviceId === $this->fiscalId);
         }
+    }
+
+    /**
+     * Casa produção concluída com a parcial cuja data de baixa (`supervision_at`/`payment_at`) coincide com o seu
+     * `completed_at` (±2 min), respeitando o piso do despacho. Só vale quando o casamento é único.
+     *
+     * @return array{0: array<int, array{marker: int, reassigned: bool}>, 1: array, 2: array}
+     */
+    private function partialsByCompletionDate(Collection $partials, array $markers, array $open, array $fixed, Collection $group, string $column): array
+    {
+        $byId     = $group->keyBy('id');
+        $consumed = array_flip(array_map(fn (array $item) => (int) $item['marker'], $fixed));
+        $links    = [];
+
+        foreach ($open as $item) {
+            $production = $byId[$item['id']];
+
+            if (!$production->completed || !$production->completed_at) {
+                continue;
+            }
+
+            $matches = $partials->filter(fn ($partial) => $partial->{$column}
+                && !isset($consumed[$partial->id])
+                && isset($markers[$partial->id])
+                && $markers[$partial->id]->lte($item['at'])
+                && abs(Carbon::parse($partial->{$column})->diffInSeconds(Carbon::parse($production->completed_at), false)) <= self::TOLERANCE_SECONDS);
+
+            if ($matches->count() !== 1) {
+                continue;
+            }
+
+            $partialId            = (int) $matches->first()->id;
+            $consumed[$partialId] = true;
+            $links[$item['id']]   = ['marker' => $partialId, 'reassigned' => false];
+            $fixed[]              = ['id' => $item['id'], 'at' => $item['at'], 'marker' => $partialId];
+        }
+
+        $open = array_values(array_filter($open, fn (array $item) => !isset($links[$item['id']])));
+
+        return [$links, $open, $fixed];
     }
 
     /** `supervision_at`/`payment_at` da parcial = `completed_at` da produção que a baixou. */
@@ -298,9 +342,11 @@ class RetrofillLegacyWorkReportD5 extends Command
 
     private function finals(int $noteId): void
     {
-        $reports = WorkReport::query()->withCount('Returnwork')->where('note_id', $noteId)->where('canceled', false)->get();
+        $all      = WorkReport::query()->withCount('Returnwork')->where('note_id', $noteId)->get();
+        $reports  = $all->where('canceled', false)->values();
+        $canceled = $all->where('canceled', true)->values();
 
-        if ($reports->isEmpty()) {
+        if ($all->isEmpty()) {
             return;
         }
 
@@ -334,13 +380,30 @@ class RetrofillLegacyWorkReportD5 extends Command
             $open = $group->reject(fn ($p) => $links->has($p->id))
                 ->map(fn ($p) => ['id' => $p->id, 'at' => $this->dispatchAt($p)])->values()->all();
 
+            // Informe cancelado: a produção cujas datas caem dentro dele pertence a ele, não ao informe vigente.
+            $viaCanceled = [];
+            $open        = array_values(array_filter($open, function (array $item) use ($canceled, $all, &$viaCanceled): bool {
+                $report = $this->canceledReportFor($item['at'], $canceled, $all);
+
+                if ($report) {
+                    $viaCanceled[$item['id']] = $report;
+                }
+
+                return !$report;
+            }));
+
             $result = $this->matcher->match($markers, $open, $fixed, true);
+
+            foreach ($viaCanceled as $productionId => $report) {
+                $markers[$report->id]           = $this->reportMarker($report);
+                $result['links'][$productionId] = ['marker' => $report->id, 'reassigned' => false, 'canceled' => true];
+            }
 
             $byId = $group->keyBy('id');
 
             foreach ($result['links'] as $productionId => $link) {
                 $this->bump("finais_vinculadas_{$stage}");
-                $this->log('final', $noteId, 'production', $productionId, "vincular_{$stage}", $link['reassigned'] ? 'reatribuicao' : '', [
+                $this->log('final', $noteId, 'production', $productionId, "vincular_{$stage}", $link['reassigned'] ? 'reatribuicao' : (($link['canceled'] ?? false) ? 'informe_cancelado' : ''), [
                     'work_report_id' => $link['marker'], 'marco' => $markers[$link['marker']]->toDateTimeString(), 'dispatch_at' => $this->dispatchAt($byId[$productionId])->toDateTimeString(),
                 ]);
 
@@ -363,6 +426,27 @@ class RetrofillLegacyWorkReportD5 extends Command
                 $this->log('final', $noteId, 'production', $productionId, 'ignorar', $reason, ['stage' => $stage, 'dispatch_at' => $this->dispatchAt($byId[$productionId])->toDateTimeString()]);
             }
         }
+    }
+
+    /**
+     * Informe cancelado cuja janela contém a data (da produção/D5): de seu marco até `canceled_at` (ou até o marco
+     * do informe seguinte, quando não há data de cancelamento).
+     */
+    private function canceledReportFor(Carbon $at, Collection $canceled, Collection $all): ?WorkReport
+    {
+        return $canceled->filter(function (WorkReport $report) use ($at, $all): bool {
+            $start = $this->reportMarker($report);
+
+            if ($at->lt($start)) {
+                return false;
+            }
+
+            $end = $report->canceled_at
+                ? Carbon::parse($report->canceled_at)
+                : $all->map(fn (WorkReport $other) => $this->reportMarker($other))->filter(fn (Carbon $date) => $date->gt($start))->sort()->first();
+
+            return !$end || $at->lte($end);
+        })->sortBy(fn (WorkReport $report) => $this->reportMarker($report))->last();
     }
 
     /**
@@ -466,7 +550,7 @@ class RetrofillLegacyWorkReportD5 extends Command
 
     private function d5(int $noteId): void
     {
-        $fives = FiveNote::query()->where('note_id', $noteId)->where('is_archived', false)->where('isPassive', false)->orderBy('created_at')->orderBy('id')->get();
+        $fives = FiveNote::query()->where('note_id', $noteId)->where('is_archived', false)->orderBy('created_at')->orderBy('id')->get();
 
         foreach ($fives as $five) {
             $this->associateReport($five);
@@ -482,13 +566,16 @@ class RetrofillLegacyWorkReportD5 extends Command
         }
 
         $activeReports = DB::table('work_reports')->where('note_id', $five->note_id)->where('canceled', false)->pluck('id');
+        $everyReport   = WorkReport::query()->where('note_id', $five->note_id)->get();
+        $viaCanceled   = $this->canceledReportFor(Carbon::parse($five->created_at), $everyReport->where('canceled', true)->values(), $everyReport);
 
         $viaProduction = DB::table('work_report_flow_productions as w')
             ->join('productionables as pa', fn ($j) => $j->on('pa.production_id', '=', 'w.production_id')->where('pa.productionable_type', FiveNote::class)->where('pa.productionable_id', $five->id))
             ->whereNull('w.reversed_at')->distinct()->pluck('w.work_report_id');
 
         $reportId = match (true) {
-            $activeReports->count() === 1 => (int) $activeReports->first(), // um informe por nota: sem ambiguidade
+            (bool) $viaCanceled           => (int) $viaCanceled->id, // D5 nascida dentro de um informe depois cancelado
+            $activeReports->count() === 1 => (int) $activeReports->first(), // um informe final vigente por nota: sem ambiguidade
             $viaProduction->count() === 1 => (int) $viaProduction->first(),
             default                       => app(D5WorkReportAssociationResolver::class)->closestFor($five)?->id,
         };
@@ -519,12 +606,15 @@ class RetrofillLegacyWorkReportD5 extends Command
      *  C2  1ª Fiscalização com dispatch >= D5.completed_at: dfive. Concluída: is_supervisioned e supervisioned_at = completed_at
      *      (com pendências a D5 volta à empreiteira).
      *  M2  1º Pagamento com dispatch >= supervisioned_at: dfive. Concluído: D5 arquivada.
+     *
+     * D5 passiva (isPassive) não tem informe nem C1/M1: parte da empreiteira (Parceira → Fiscalização → Pagamento),
+     * usando o completed_at da D5 como referência do ciclo 2.
      */
     private function settleCycle(FiveNote $five): void
     {
         $note = (int) $five->note_id;
         // Nota com mais de uma D5: cada ciclo só enxerga as produções anteriores à criação da D5 seguinte.
-        $nextCreatedAt = DB::table('five_notes')->where('note_id', $note)->where('isPassive', false)
+        $nextCreatedAt = DB::table('five_notes')->where('note_id', $note)
             ->where(fn ($q) => $q->where('created_at', '>', $five->created_at)->orWhere(fn ($w) => $w->where('created_at', $five->created_at)->where('id', '>', $five->id)))
             ->min('created_at');
 
@@ -533,42 +623,18 @@ class RetrofillLegacyWorkReportD5 extends Command
         $payments    = $productions->where('service_id', $this->paymentId)->values();
         $service     = app(D5WorkflowService::class);
 
-        // C1: a Fiscalização que criou a D5 (a última concluída até a criação, com folga de 5 min).
-        $c1 = $fiscal->filter(fn ($p) => $p->completed && $p->completed_at && Carbon::parse($p->completed_at)->lte(Carbon::parse($five->created_at)->addMinutes(5)))
-            ->sortBy([['completed_at', 'asc'], ['id', 'asc']])->last();
+        // D5 passiva nasce na empreiteira (sem informe, sem C1/M1): o ciclo parte da conclusão dela.
+        $m1 = null;
 
-        if (!$c1) {
-            $this->log('d5', $note, 'five_note', $five->id, 'ignorar', 'sem_fiscalizacao_ciclo1', []);
+        if (!$five->isPassive) {
+            $first = $this->firstCycle($five, $fiscal, $payments, $service);
 
-            return;
-        }
-
-        $this->linkD5Production($five, $c1, false);
-
-        // M1: libera a empreiteira.
-        $m1 = $payments->first(fn ($p) => $this->dispatchAt($p)->gte(Carbon::parse($c1->completed_at)));
-
-        if (!$m1 || !$m1->completed || !$m1->completed_at) {
-            return; // aguardando o Pagamento do ciclo 1
-        }
-
-        $this->linkD5Production($five, $m1, true);
-
-        if (!$five->is_payed || !$five->visible_partner || !$five->dispatch_at) {
-            $this->bump('d5_liberada_empreiteira');
-            $this->log('d5', $note, 'five_note', $five->id, 'liberar_empreiteira', '', ['production_id' => $m1->id, 'dispatch_at' => $m1->completed_at]);
-
-            if ($this->apply) {
-                $from = $service->currentStage($five);
-                $this->snapshot('five_notes', $five->id, $five->getAttributes());
-                $five->forceFill([
-                    'dispatch_at'     => $five->dispatch_at ?? $m1->completed_at,
-                    'visible_partner' => true,
-                    'is_payed'        => true,
-                    'payed_at'        => $five->payed_at ?? $m1->completed_at,
-                ])->save();
-                $this->emit($five, fn () => $service->onReleasedToPartner($five, $from, null, $five->productions()->find($m1->id)));
+            if ($first === false) {
+                return;
             }
+
+            $m1   = $first['m1'];
+            $five = $first['five'];
         }
 
         // Empreiteira: sem a conclusão da D5 não há Fiscalização do ciclo 2.
@@ -583,7 +649,7 @@ class RetrofillLegacyWorkReportD5 extends Command
         }
 
         // C2: 1ª Fiscalização despachada depois da conclusão da empreiteira.
-        $c2 = $fiscal->first(fn ($p) => $p->id !== $c1->id && $this->dispatchAt($p)->gte($five->completed_at));
+        $c2 = $fiscal->first(fn ($p) => $this->dispatchAt($p)->gte($five->completed_at));
 
         if ($c2) {
             $this->linkD5Production($five, $c2, true);
@@ -639,7 +705,7 @@ class RetrofillLegacyWorkReportD5 extends Command
             return;
         }
 
-        $m2 = $payments->first(fn ($p) => $p->id !== $m1->id && $this->dispatchAt($p)->gte($reference));
+        $m2 = $payments->first(fn ($p) => $p->id !== $m1?->id && $this->dispatchAt($p)->gte($reference));
 
         if (!$m2) {
             return;
@@ -658,6 +724,56 @@ class RetrofillLegacyWorkReportD5 extends Command
                 $this->emit($five, fn () => $service->onArchived($five, $from, null, $five->productions()->find($m2->id)));
             }
         }
+    }
+
+    /**
+     * Ciclo 1 (D5 de informe): C1 cria a D5, M1 libera a empreiteira.
+     *
+     * @return array{m1: object, five: FiveNote}|false false = a cadeia para aqui
+     */
+    private function firstCycle(FiveNote $five, Collection $fiscal, Collection $payments, D5WorkflowService $service): array|false
+    {
+        $note = (int) $five->note_id;
+
+        // C1: a Fiscalização que criou a D5 (a última concluída até a criação, com folga de 5 min).
+        $c1 = $fiscal->filter(fn ($p) => $p->completed && $p->completed_at && Carbon::parse($p->completed_at)->lte(Carbon::parse($five->created_at)->addMinutes(5)))
+            ->sortBy([['completed_at', 'asc'], ['id', 'asc']])->last();
+
+        if (!$c1) {
+            $this->log('d5', $note, 'five_note', $five->id, 'ignorar', 'sem_fiscalizacao_ciclo1', []);
+
+            return false;
+        }
+
+        $this->linkD5Production($five, $c1, false);
+
+        // M1: libera a empreiteira.
+        $m1 = $payments->first(fn ($p) => $this->dispatchAt($p)->gte(Carbon::parse($c1->completed_at)));
+
+        if (!$m1 || !$m1->completed || !$m1->completed_at) {
+            return false; // aguardando o Pagamento do ciclo 1
+        }
+
+        $this->linkD5Production($five, $m1, true);
+
+        if (!$five->is_payed || !$five->visible_partner || !$five->dispatch_at) {
+            $this->bump('d5_liberada_empreiteira');
+            $this->log('d5', $note, 'five_note', $five->id, 'liberar_empreiteira', '', ['production_id' => $m1->id, 'dispatch_at' => $m1->completed_at]);
+
+            if ($this->apply) {
+                $from = $service->currentStage($five);
+                $this->snapshot('five_notes', $five->id, $five->getAttributes());
+                $five->forceFill([
+                    'dispatch_at'     => $five->dispatch_at ?? $m1->completed_at,
+                    'visible_partner' => true,
+                    'is_payed'        => true,
+                    'payed_at'        => $five->payed_at ?? $m1->completed_at,
+                ])->save();
+                $this->emit($five, fn () => $service->onReleasedToPartner($five, $from, null, $five->productions()->find($m1->id)));
+            }
+        }
+
+        return ['m1' => $m1, 'five' => $five];
     }
 
     /** Vincula a produção à D5 (pivot), marca dfive quando for produção D5 e garante o vínculo com o informe. */
