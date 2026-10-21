@@ -609,7 +609,9 @@ class RetrofillLegacyWorkReportD5 extends Command
             return;
         }
 
-        $viaFlow = DB::table('work_report_flow_productions as w')->join('productions as p', 'p.id', '=', 'w.production_id')
+        // D5 passiva ainda não concluída pela empreiteira: as produções da nota estão no ciclo 1 (são do informe, não da D5)
+        // e não servem de evidência para a D5.
+        $viaFlow = !$five->is_completed ? collect() : DB::table('work_report_flow_productions as w')->join('productions as p', 'p.id', '=', 'w.production_id')
             ->where('p.note_id', $five->note_id)->whereIn('p.service_id', [$this->fiscalId, $this->paymentId])
             ->where('p.dispatch_at', '>=', $reference)->whereNull('w.reversed_at')->distinct()->pluck('w.work_report_id');
 
@@ -656,8 +658,9 @@ class RetrofillLegacyWorkReportD5 extends Command
      *      (com pendências a D5 volta à empreiteira).
      *  M2  1º Pagamento com dispatch >= supervisioned_at: dfive. Concluído: D5 arquivada.
      *
-     * D5 passiva (isPassive) não tem informe nem C1/M1: parte da empreiteira (Parceira → Fiscalização → Pagamento),
-     * usando o completed_at da D5 como referência do ciclo 2.
+     * D5 passiva (isPassive) não tem C1/M1: parte da empreiteira (Parceira → Fiscalização → Pagamento), usando o
+     * completed_at da D5 como referência do ciclo 2. Enquanto não estiver concluída (is_completed), as produções da nota
+     * estão no ciclo 1 (pertencem ao informe): nada é ligado à D5 nem marcado dfive.
      */
     private function settleCycle(FiveNote $five): void
     {

@@ -360,6 +360,23 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
         $this->assertTrue($five->is_supervisioned);
     }
 
+    public function test_incomplete_passive_d5_leaves_the_productions_in_cycle_1(): void
+    {
+        $report = $this->report('2026-03-01 08:00:00');
+        $five   = $this->passiveFive(['is_completed' => false]);
+        $fiscal = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
+        $pay    = $this->production($this->payment, ['completed' => true, 'dispatch_at' => '2026-03-26 08:00:00', 'completed_at' => '2026-03-27 11:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertFalse((bool) $fiscal->fresh()->dfive);
+        $this->assertFalse((bool) $pay->fresh()->dfive);
+        $this->assertSame(0, $five->productions()->count());
+        $this->assertFalse($five->fresh()->is_supervisioned);
+        // as produções do ciclo 1 continuam sendo do informe
+        $this->assertDatabaseHas('work_report_flow_productions', ['production_id' => $fiscal->id, 'work_report_id' => $report->id]);
+    }
+
     public function test_running_twice_is_idempotent(): void
     {
         $report = $this->report('2026-03-10 08:00:00');
