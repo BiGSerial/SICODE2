@@ -48,7 +48,12 @@ class RetrofillLegacyWorkReportD5 extends Command
 
     private array $report = [];
 
-    private array $before = [];
+    /** Diário da nota em processamento (alimenta o rollback): linhas alteradas, ids criados e `is_current` anterior. */
+    private array $note = ['rows' => [], 'created' => [], 'current' => []];
+
+    private ?string $reportPath = null;
+
+    private ?string $journalPath = null;
 
     private array $stats = [];
 
@@ -82,6 +87,8 @@ class RetrofillLegacyWorkReportD5 extends Command
             $noteIds = $noteIds->take($limit);
         }
 
+        $this->preparePaths();
+
         $bar = $this->output->createProgressBar($noteIds->count());
         $bar->setFormat(" %current%/%max% [%bar%] %percent:3s%%  decorrido %elapsed:6s%  restante ~%remaining:-6s%  nota %message%");
         $bar->setMessage('-');
@@ -106,7 +113,18 @@ class RetrofillLegacyWorkReportD5 extends Command
                     }
                 };
 
-                $this->apply ? DB::transaction($work) : $work();
+                $this->note = ['rows' => [], 'created' => [], 'current' => []];
+
+                if ($this->apply) {
+                    DB::transaction(function () use ($work): void {
+                        $work();
+                        $this->finalizeNoteJournal();
+                    });
+                    $this->flushJournal((int) $noteId);
+                } else {
+                    $work();
+                }
+
                 $bar->advance();
             }
         }
@@ -212,7 +230,7 @@ class RetrofillLegacyWorkReportD5 extends Command
                 $this->log('parcial', $noteId, 'production', $productionId, 'vincular_parcial', '', ['partial_id' => $link['marker'], 'marco' => $column]);
 
                 if ($this->apply && !DB::table('productionables')->where('production_id', $productionId)->where('productionable_type', Partial::class)->where('productionable_id', $link['marker'])->exists()) {
-                    DB::table('productionables')->insert([
+                    $this->note['created']['productionables'][] = DB::table('productionables')->insertGetId([
                         'production_id'     => $productionId, 'productionable_type' => Partial::class,
                         'productionable_id' => $link['marker'], 'created_at' => now(), 'updated_at' => now(),
                     ]);
@@ -385,23 +403,26 @@ class RetrofillLegacyWorkReportD5 extends Command
     {
         $scope = WorkReportFlowProduction::SCOPE_GENERAL;
 
-        DB::table('work_report_flow_productions')->updateOrInsert(
-            ['work_report_id' => $workReportId, 'production_id' => $production->id, 'stage' => $stage, 'final_scope' => $scope],
-            [
-                'is_current' => false,
-                'linked_at'  => $this->dispatchAt($production),
-                'linked_by'  => null,
-                'source'     => self::SOURCE,
-                'metadata'   => json_encode([
-                    'rule'        => 'dispatch_at_not_before_marker_fifo',
-                    'marker_at'   => $marker->toDateTimeString(),
-                    'dispatch_at' => $this->dispatchAt($production)->toDateTimeString(),
-                    'reassigned'  => $reassigned,
-                ], JSON_UNESCAPED_UNICODE),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]
-        );
+        $key = ['work_report_id' => $workReportId, 'production_id' => $production->id, 'stage' => $stage, 'final_scope' => $scope];
+
+        if (DB::table('work_report_flow_productions')->where($key)->exists()) {
+            return;
+        }
+
+        $this->note['created']['work_report_flow_productions'][] = DB::table('work_report_flow_productions')->insertGetId($key + [
+            'is_current' => false,
+            'linked_at'  => $this->dispatchAt($production),
+            'linked_by'  => null,
+            'source'     => self::SOURCE,
+            'metadata'   => json_encode([
+                'rule'        => 'dispatch_at_not_before_marker_fifo',
+                'marker_at'   => $marker->toDateTimeString(),
+                'dispatch_at' => $this->dispatchAt($production)->toDateTimeString(),
+                'reassigned'  => $reassigned,
+            ], JSON_UNESCAPED_UNICODE),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $this->refreshCurrent($workReportId, $stage, $scope);
     }
@@ -411,13 +432,21 @@ class RetrofillLegacyWorkReportD5 extends Command
     {
         $links = DB::table('work_report_flow_productions as w')->join('productions as p', 'p.id', '=', 'w.production_id')
             ->where('w.work_report_id', $workReportId)->where('w.stage', $stage)->where('w.final_scope', $scope)->whereNull('w.reversed_at')
-            ->get(['w.id', 'w.source', 'p.dispatch_at', 'p.created_at as production_created_at', 'p.id as production_id']);
+            ->get(['w.id', 'w.source', 'w.is_current', 'p.dispatch_at', 'p.created_at as production_created_at', 'p.id as production_id']);
 
         if ($links->contains(fn ($l) => !in_array($l->source, ['retrofill_inference', self::SOURCE], true))) {
             return;
         }
 
         $current = $links->sortBy(fn ($l) => [$l->dispatch_at ?? $l->production_created_at, $l->production_id])->last();
+
+        $created = $this->note['created']['work_report_flow_productions'] ?? [];
+
+        foreach ($links as $link) {
+            if (!in_array($link->id, $created, true)) {
+                $this->note['current'][$link->id]['before'] ??= (bool) $link->is_current;
+            }
+        }
 
         DB::table('work_report_flow_productions')->whereIn('id', $links->pluck('id'))->update(['is_current' => false]);
         DB::table('work_report_flow_productions')->where('id', $current->id)->update(['is_current' => true, 'updated_at' => now()]);
@@ -525,7 +554,7 @@ class RetrofillLegacyWorkReportD5 extends Command
             if ($this->apply) {
                 $this->snapshot('five_notes', $five->id, $five->getAttributes());
                 $five->forceFill(['is_completed' => false, 'completed_at' => null, 'returned' => true])->save();
-                $this->emit(fn () => $service->onReturnedWithPending($five, $from, null, $production));
+                $this->emit($five, fn () => $service->onReturnedWithPending($five, $from, null, $production));
             }
 
             return;
@@ -550,7 +579,7 @@ class RetrofillLegacyWorkReportD5 extends Command
                 'supervisioned_at' => $completedAt,
             ])->save();
 
-            $this->emit(fn () => $service->onSupervisionApproved($five, $from, null, $production));
+            $this->emit($five, fn () => $service->onSupervisionApproved($five, $from, null, $production));
         }
     }
 
@@ -579,18 +608,81 @@ class RetrofillLegacyWorkReportD5 extends Command
         return Carbon::parse($production->dispatch_at ?? $production->att_at ?? $production->created_at);
     }
 
-    private function emit(callable $callback): void
+    private function emit(FiveNote $five, callable $callback): void
     {
+        $before = DB::table('timeline_events')->where('five_note_id', $five->id)->pluck('id')->all();
+
         try {
             $callback();
         } catch (\Throwable $e) {
             $this->bump('eventos_timeline_ignorados');
         }
+
+        $new = array_diff(DB::table('timeline_events')->where('five_note_id', $five->id)->pluck('id')->all(), $before);
+
+        foreach ($new as $id) {
+            $this->note['created']['timeline_events'][] = (int) $id;
+        }
     }
 
+    /** Guarda a linha original (primeira vez que a nota a altera). */
     private function snapshot(string $table, int|string $id, array|object $row): void
     {
-        $this->before[$table][$id] ??= (array) $row;
+        $this->note['rows'][$table][$id]['before'] ??= (array) $row;
+    }
+
+    /** Reduz o diário da nota ao que realmente mudou (coluna: [antes, depois]) para o rollback checar conflitos. */
+    private function finalizeNoteJournal(): void
+    {
+        foreach ($this->note['rows'] as $table => $rows) {
+            foreach ($rows as $id => $entry) {
+                $now     = (array) DB::table($table)->find($id);
+                $changes = [];
+
+                foreach ($entry['before'] as $column => $value) {
+                    if ($column === 'updated_at') {
+                        continue;
+                    }
+
+                    $after = $now[$column] ?? null;
+
+                    if (is_null($value) !== is_null($after) || (string) $value !== (string) $after) {
+                        $changes[$column] = [$value, $after];
+                    }
+                }
+
+                if ($changes) {
+                    $this->note['rows'][$table][$id] = ['changes' => $changes];
+                } else {
+                    unset($this->note['rows'][$table][$id]);
+                }
+            }
+
+            if (empty($this->note['rows'][$table])) {
+                unset($this->note['rows'][$table]);
+            }
+        }
+
+        foreach ($this->note['current'] as $id => $entry) {
+            $now = DB::table('work_report_flow_productions')->where('id', $id)->value('is_current');
+
+            if ($now === null || (bool) $now === $entry['before']) {
+                unset($this->note['current'][$id]);
+
+                continue;
+            }
+
+            $this->note['current'][$id]['after'] = (bool) $now;
+        }
+    }
+
+    private function flushJournal(int $noteId): void
+    {
+        if (!array_filter([$this->note['rows'], $this->note['created'], $this->note['current']])) {
+            return;
+        }
+
+        Storage::disk('local')->append($this->journalPath, json_encode(['note_id' => $noteId] + $this->note, JSON_UNESCAPED_UNICODE));
     }
 
     private function bump(string $key): void
@@ -603,22 +695,27 @@ class RetrofillLegacyWorkReportD5 extends Command
         $this->report[] = [$phase, $noteId, $entity, $entityId, $action, $reason, json_encode($details, JSON_UNESCAPED_UNICODE)];
     }
 
+    private function preparePaths(): void
+    {
+        $this->reportPath = $this->option('report') ?: 'retrofill/legacy-d5-' . now()->format('Ymd-His') . ($this->apply ? '' : '-dryrun') . '.csv';
+
+        if ($this->apply) {
+            $this->journalPath = preg_replace('/\.csv$/', '', $this->reportPath) . '-journal.jsonl';
+
+            Storage::disk('local')->put($this->journalPath, json_encode(['meta' => ['version' => 1, 'started_at' => now()->toDateTimeString(), 'source' => self::SOURCE]], JSON_UNESCAPED_UNICODE) . "\n");
+            $this->line('Diário (para rollback): ' . Storage::disk('local')->path($this->journalPath));
+        }
+    }
+
     private function writeFiles(): void
     {
-        $path = $this->option('report') ?: 'retrofill/legacy-d5-' . now()->format('Ymd-His') . ($this->apply ? '' : '-dryrun') . '.csv';
         $rows = [implode(';', ['fase', 'nota', 'entidade', 'id', 'acao', 'motivo', 'detalhes'])];
 
         foreach ($this->report as $row) {
             $rows[] = implode(';', array_map(fn ($v) => '"' . str_replace('"', '""', (string) $v) . '"', $row));
         }
 
-        Storage::disk('local')->put($path, implode("\n", $rows));
-        $this->line('Relatório: ' . Storage::disk('local')->path($path));
-
-        if ($this->apply && $this->before) {
-            $backup = preg_replace('/\.csv$/', '', $path) . '-antes.json';
-            Storage::disk('local')->put($backup, json_encode($this->before, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-            $this->line('Estado anterior: ' . Storage::disk('local')->path($backup));
-        }
+        Storage::disk('local')->put($this->reportPath, implode("\n", $rows));
+        $this->line('Relatório: ' . Storage::disk('local')->path($this->reportPath));
     }
 }

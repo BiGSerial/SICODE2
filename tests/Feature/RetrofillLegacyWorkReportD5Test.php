@@ -171,4 +171,82 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
 
         $this->assertSame(1, DB::table('work_report_flow_productions')->where('work_report_id', $report->id)->count());
     }
+
+    private function applyAndGetJournal(): string
+    {
+        $this->run_(['--apply' => true, '--report' => 'retrofill/t.csv']);
+
+        return 'retrofill/t-journal.jsonl';
+    }
+
+    private function seedEverything(): array
+    {
+        $report  = $this->report('2026-03-10 08:00:00');
+        $partial = $this->partial(['decision_at' => '2026-03-01 10:00:00', 'supervision' => true, 'supervision_at' => '2026-03-20 10:00:00']);
+        $this->production($this->fiscal, ['partial' => true, 'completed' => true, 'dispatch_at' => '2026-03-05 09:00:00', 'completed_at' => '2026-03-12 16:30:00']);
+        $final = $this->production($this->fiscal, ['dispatch_at' => '2026-03-15 08:00:00']);
+        $five  = FiveNote::create(['note_id' => $this->note->id, 'note_d5' => uniqid('D5'), 'work_report_id' => $report->id, 'is_completed' => true, 'completed_at' => '2026-03-20 10:00:00', 'visible_partner' => true]);
+        $prod  = $this->production($this->fiscal, ['dfive' => true, 'completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
+        $five->productions()->attach($prod->id);
+        Analise::create(['production_id' => $prod->id, 'conclusion' => 'FISCALIZADO SEM PENDENCIAS']);
+
+        return [$report, $partial, $final, $five];
+    }
+
+    public function test_rollback_restores_everything_the_retrofill_changed(): void
+    {
+        [$report, $partial, $final, $five] = $this->seedEverything();
+        $events                            = DB::table('timeline_events')->count();
+
+        $journal = $this->applyAndGetJournal();
+
+        $this->assertTrue($five->fresh()->is_supervisioned);
+        $this->assertSame(1, $partial->productions()->count());
+        $this->assertSame(1, DB::table('work_report_flow_productions')->where('production_id', $final->id)->count());
+
+        $this->artisan('sicode:rollback-legacy-work-report-d5', ['journal' => $journal, '--apply' => true])->assertSuccessful();
+
+        $five->refresh();
+        $this->assertFalse($five->is_supervisioned);
+        $this->assertNull($five->supervisioned_at);
+        $this->assertSame(0, $partial->productions()->count());
+        $this->assertSame('2026-03-20 10:00:00', $partial->fresh()->supervision_at->format('Y-m-d H:i:s'));
+        $this->assertSame(0, DB::table('work_report_flow_productions')->where('production_id', $final->id)->count());
+        $this->assertSame($events, DB::table('timeline_events')->count());
+    }
+
+    public function test_rollback_dry_run_changes_nothing(): void
+    {
+        [, , $final, $five] = $this->seedEverything();
+        $journal            = $this->applyAndGetJournal();
+
+        $this->artisan('sicode:rollback-legacy-work-report-d5', ['journal' => $journal])->assertSuccessful();
+
+        $this->assertTrue($five->fresh()->is_supervisioned);
+        $this->assertSame(1, DB::table('work_report_flow_productions')->where('production_id', $final->id)->count());
+    }
+
+    public function test_rollback_preserves_rows_changed_after_the_retrofill(): void
+    {
+        [, , , $five] = $this->seedEverything();
+        $journal      = $this->applyAndGetJournal();
+
+        $five->forceFill(['supervisioned_at' => '2026-05-01 12:00:00'])->save();
+
+        $this->artisan('sicode:rollback-legacy-work-report-d5', ['journal' => $journal, '--apply' => true])->assertSuccessful();
+
+        $five->refresh();
+        $this->assertTrue($five->is_supervisioned);
+        $this->assertSame('2026-05-01 12:00:00', $five->supervisioned_at->format('Y-m-d H:i:s'));
+        Storage::disk('local')->assertExists('retrofill/t-journal-rollback-conflitos.csv');
+    }
+
+    public function test_rollback_cannot_run_twice(): void
+    {
+        $this->seedEverything();
+        $journal = $this->applyAndGetJournal();
+
+        $this->artisan('sicode:rollback-legacy-work-report-d5', ['journal' => $journal, '--apply' => true])->assertSuccessful();
+        $this->artisan('sicode:rollback-legacy-work-report-d5', ['journal' => $journal, '--apply' => true])->assertFailed();
+    }
 }
