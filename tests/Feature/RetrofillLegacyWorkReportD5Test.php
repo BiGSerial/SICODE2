@@ -312,6 +312,71 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
         $this->assertFalse((bool) $early->fresh()->dfive);
     }
 
+    private function passiveFive(array $attrs = []): FiveNote
+    {
+        $five = FiveNote::create($attrs + ['note_id' => $this->note->id, 'note_d5' => uniqid('D5'), 'isPassive' => true]);
+        DB::table('five_notes')->where('id', $five->id)->update(['work_report_id' => null]);
+
+        return $five->fresh();
+    }
+
+    public function test_passive_d5_is_associated_to_the_informe_that_precedes_its_completion(): void
+    {
+        $report = $this->report('2026-03-01 08:00:00');
+        $five   = $this->passiveFive(['is_completed' => true, 'completed_at' => '2026-03-20 10:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertSame($report->id, $five->fresh()->work_report_id);
+    }
+
+    public function test_passive_d5_is_not_associated_to_an_informe_created_after_it(): void
+    {
+        $this->report('2026-04-01 08:00:00');
+        $five = $this->passiveFive(['is_completed' => true, 'completed_at' => '2026-03-20 10:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertNull($five->fresh()->work_report_id);
+    }
+
+    public function test_passive_d5_takes_the_informe_already_used_by_its_cycle_productions_and_links_them(): void
+    {
+        $report = $this->report('2026-03-01 08:00:00');
+        $five   = $this->passiveFive(['is_completed' => true, 'completed_at' => '2026-03-20 10:00:00']);
+        $c2     = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
+        Analise::create(['production_id' => $c2->id, 'conclusion' => 'FISCALIZADO SEM PENDENCIAS']);
+        DB::table('work_report_flow_productions')->insert([
+            'work_report_id' => $report->id, 'production_id' => $c2->id, 'stage' => 'fiscalization', 'final_scope' => 'general',
+            'is_current'     => true, 'source' => 'dispatch_workflow', 'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        $this->run_(['--apply' => true]);
+
+        $five->refresh();
+        $this->assertSame($report->id, $five->work_report_id);
+        $this->assertTrue((bool) $c2->fresh()->dfive);
+        $this->assertTrue($five->productions()->whereKey($c2->id)->exists());
+        $this->assertTrue($five->is_supervisioned);
+    }
+
+    public function test_incomplete_passive_d5_leaves_the_productions_in_cycle_1(): void
+    {
+        $report = $this->report('2026-03-01 08:00:00');
+        $five   = $this->passiveFive(['is_completed' => false]);
+        $fiscal = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
+        $pay    = $this->production($this->payment, ['completed' => true, 'dispatch_at' => '2026-03-26 08:00:00', 'completed_at' => '2026-03-27 11:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertFalse((bool) $fiscal->fresh()->dfive);
+        $this->assertFalse((bool) $pay->fresh()->dfive);
+        $this->assertSame(0, $five->productions()->count());
+        $this->assertFalse($five->fresh()->is_supervisioned);
+        // as produções do ciclo 1 continuam sendo do informe
+        $this->assertDatabaseHas('work_report_flow_productions', ['production_id' => $fiscal->id, 'work_report_id' => $report->id]);
+    }
+
     public function test_running_twice_is_idempotent(): void
     {
         $report = $this->report('2026-03-10 08:00:00');

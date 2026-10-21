@@ -561,7 +561,13 @@ class RetrofillLegacyWorkReportD5 extends Command
     /** D5 legada (sem informe): informe do vínculo das suas produções; senão o informe causal mais próximo. */
     private function associateReport(FiveNote $five): void
     {
-        if ($five->work_report_id || $five->isPassive) {
+        if ($five->work_report_id) {
+            return;
+        }
+
+        if ($five->isPassive) {
+            $this->associatePassiveReport($five);
+
             return;
         }
 
@@ -586,8 +592,53 @@ class RetrofillLegacyWorkReportD5 extends Command
             return;
         }
 
+        $this->applyReportAssociation($five, $reportId, '');
+    }
+
+    /**
+     * D5 passiva nasce na empreiteira, sem informe. Quando a nota tem informe, associa o que as produções do ciclo
+     * já usam; senão o informe cancelado que cobria a data; senão o vigente mais recente anterior à conclusão da D5
+     * (o informe nunca pode ser posterior à D5).
+     */
+    private function associatePassiveReport(FiveNote $five): void
+    {
+        $reference   = Carbon::parse($five->completed_at ?? $five->created_at);
+        $everyReport = WorkReport::query()->withCount('Returnwork')->where('note_id', $five->note_id)->get();
+
+        if ($everyReport->isEmpty()) {
+            return;
+        }
+
+        // D5 passiva ainda não concluída pela empreiteira: as produções da nota estão no ciclo 1 (são do informe, não da D5)
+        // e não servem de evidência para a D5.
+        $viaFlow = !$five->is_completed ? collect() : DB::table('work_report_flow_productions as w')->join('productions as p', 'p.id', '=', 'w.production_id')
+            ->where('p.note_id', $five->note_id)->whereIn('p.service_id', [$this->fiscalId, $this->paymentId])
+            ->where('p.dispatch_at', '>=', $reference)->whereNull('w.reversed_at')->distinct()->pluck('w.work_report_id');
+
+        $viaCanceled = $this->canceledReportFor($reference, $everyReport->where('canceled', true)->values(), $everyReport);
+        $prior       = $everyReport->where('canceled', false)->filter(fn (WorkReport $r) => $this->reportMarker($r)->lte($reference))
+            ->sortBy(fn (WorkReport $r) => $this->reportMarker($r))->values();
+
+        $reportId = match (true) {
+            $viaFlow->count() === 1 => (int) $viaFlow->first(),
+            (bool) $viaCanceled     => (int) $viaCanceled->id,
+            $prior->isNotEmpty()    => (int) $prior->last()->id,
+            default                 => null,
+        };
+
+        if (!$reportId) {
+            $this->log('d5', $five->note_id, 'five_note', $five->id, 'ignorar', 'passiva_sem_informe_anterior', ['referencia' => $reference->toDateTimeString()]);
+
+            return;
+        }
+
+        $this->applyReportAssociation($five, $reportId, 'd5_passiva');
+    }
+
+    private function applyReportAssociation(FiveNote $five, int $reportId, string $reason): void
+    {
         $this->bump('d5_informe_associado');
-        $this->log('d5', $five->note_id, 'five_note', $five->id, 'associar_informe', '', ['work_report_id' => $reportId]);
+        $this->log('d5', $five->note_id, 'five_note', $five->id, 'associar_informe', $reason, ['work_report_id' => $reportId]);
         $this->affectedReports[$reportId] = true;
 
         if ($this->apply) {
@@ -607,8 +658,9 @@ class RetrofillLegacyWorkReportD5 extends Command
      *      (com pendências a D5 volta à empreiteira).
      *  M2  1º Pagamento com dispatch >= supervisioned_at: dfive. Concluído: D5 arquivada.
      *
-     * D5 passiva (isPassive) não tem informe nem C1/M1: parte da empreiteira (Parceira → Fiscalização → Pagamento),
-     * usando o completed_at da D5 como referência do ciclo 2.
+     * D5 passiva (isPassive) não tem C1/M1: parte da empreiteira (Parceira → Fiscalização → Pagamento), usando o
+     * completed_at da D5 como referência do ciclo 2. Enquanto não estiver concluída (is_completed), as produções da nota
+     * estão no ciclo 1 (pertencem ao informe): nada é ligado à D5 nem marcado dfive.
      */
     private function settleCycle(FiveNote $five): void
     {
