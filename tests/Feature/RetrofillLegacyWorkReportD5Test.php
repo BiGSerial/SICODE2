@@ -175,6 +175,20 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
         $this->assertTrue($five->is_archived);
     }
 
+    public function test_cycle_1_payment_fills_a_missing_payed_at_without_touching_existing_dates(): void
+    {
+        $chain = $this->chain(['m1']);
+        DB::table('five_notes')->where('id', $chain['five']->id)->update([
+            'is_payed' => true, 'visible_partner' => true, 'dispatch_at' => '2026-03-08 09:00:00', 'payed_at' => null,
+        ]);
+
+        $this->run_(['--apply' => true]);
+
+        $five = $chain['five']->fresh();
+        $this->assertSame('2026-03-07 12:00:00', $five->payed_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-03-08 09:00:00', $five->dispatch_at->format('Y-m-d H:i:s'));
+    }
+
     public function test_cycle_stops_at_the_first_missing_step(): void
     {
         $chain = $this->chain(['m1', 'partner']);

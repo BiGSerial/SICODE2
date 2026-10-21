@@ -808,7 +808,7 @@ class RetrofillLegacyWorkReportD5 extends Command
 
         $this->linkD5Production($five, $m1, true);
 
-        if (!$five->is_payed || !$five->visible_partner || !$five->dispatch_at) {
+        if (!$five->is_payed || !$five->visible_partner || !$five->dispatch_at || !$five->payed_at) {
             $this->bump('d5_liberada_empreiteira');
             $this->log('d5', $note, 'five_note', $five->id, 'liberar_empreiteira', '', ['production_id' => $m1->id, 'dispatch_at' => $m1->completed_at]);
 
