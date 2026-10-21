@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\{DB, Storage};
  *
  * O `dispatch_at` é ação humana (varia sempre) e só funciona como PISO: nunca pode ser anterior ao marco.
  *   Parcial   : Fiscalização >= partials.decision_at · Pagamento >= partials.supervision_at
- *   Final     : Fiscalização/Publicação >= informe (informed_at) · Pagamento >= conclusão da Fiscalização do informe
+ *   Final     : Fiscalização/Publicação >= informe (informed_at; com rejeição, o menor entre created_at e informed_at) · Pagamento >= conclusão da Fiscalização do informe
  * Dentro do piso a escolha é FIFO (ver LegacyMarkerMatcher); o que for ambíguo vai ao relatório sem vínculo.
  */
 class RetrofillLegacyWorkReportD5 extends Command
@@ -273,7 +273,7 @@ class RetrofillLegacyWorkReportD5 extends Command
 
     private function finals(int $noteId): void
     {
-        $reports = WorkReport::query()->where('note_id', $noteId)->where('canceled', false)->get();
+        $reports = WorkReport::query()->withCount('Returnwork')->where('note_id', $noteId)->where('canceled', false)->get();
 
         if ($reports->isEmpty()) {
             return;
@@ -301,7 +301,7 @@ class RetrofillLegacyWorkReportD5 extends Command
 
             $markers = $stage === WorkReportFlowProduction::STAGE_PAYMENT
                 ? $this->paymentMarkers($reports, $productions, $plannedFiscal)
-                : $reports->mapWithKeys(fn (WorkReport $r) => [$r->id => Carbon::parse($r->informed_at ?? $r->created_at)])->all();
+                : $reports->mapWithKeys(fn (WorkReport $r) => [$r->id => $this->reportMarker($r)])->all();
 
             $fixed = $group->filter(fn ($p) => $links->has($p->id) && $links[$p->id]->where('final_scope', WorkReportFlowProduction::SCOPE_GENERAL)->isNotEmpty())
                 ->map(fn ($p) => ['id' => $p->id, 'at' => $this->dispatchAt($p), 'marker' => $links[$p->id]->where('final_scope', WorkReportFlowProduction::SCOPE_GENERAL)->first()->work_report_id])->values()->all();
@@ -357,10 +357,28 @@ class RetrofillLegacyWorkReportD5 extends Command
             $dates = collect($plannedFiscal[$report->id] ?? [])
                 ->merge(($existing[$report->id] ?? collect())->map(fn ($l) => Carbon::parse($fiscalIds[$l->production_id])));
 
-            $markers[$report->id] = $dates->isNotEmpty() ? $dates->max() : Carbon::parse($report->informed_at ?? $report->created_at);
+            $markers[$report->id] = $dates->isNotEmpty() ? $dates->max() : $this->reportMarker($report);
         }
 
         return $markers;
+    }
+
+    /**
+     * Data de referência do informe. Em informe com rejeição, `informed_at` é a re-informada (ou fica nulo), e o
+     * ciclo anterior já nasceu em `created_at`: vale a data mais antiga, para não descartar despachos legítimos.
+     */
+    private function reportMarker(WorkReport $report): Carbon
+    {
+        $created  = Carbon::parse($report->created_at);
+        $informed = $report->informed_at ? Carbon::parse($report->informed_at) : null;
+
+        $rejected = (bool) $report->rejected || (int) $report->retry > 0 || (int) ($report->returnwork_count ?? 0) > 0;
+
+        if ($rejected) {
+            return $informed ? $created->min($informed) : $created;
+        }
+
+        return $informed ?? $created;
     }
 
     private function insertFlowLink(object $production, int $workReportId, string $stage, Carbon $marker, bool $reassigned): void

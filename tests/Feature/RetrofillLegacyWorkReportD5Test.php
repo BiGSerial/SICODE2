@@ -96,6 +96,28 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
         ]);
     }
 
+    public function test_informe_with_rejection_also_considers_created_at_as_floor(): void
+    {
+        $report = $this->report('2026-03-20 08:00:00');
+        $report->forceFill(['retry' => 1, 'created_at' => '2026-03-10 08:00:00'])->save();
+        $production = $this->production($this->fiscal, ['dispatch_at' => '2026-03-12 08:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertDatabaseHas('work_report_flow_productions', ['work_report_id' => $report->id, 'production_id' => $production->id]);
+    }
+
+    public function test_informe_without_rejection_keeps_informed_at_as_floor(): void
+    {
+        $report = $this->report('2026-03-20 08:00:00');
+        $report->forceFill(['created_at' => '2026-03-10 08:00:00'])->save();
+        $production = $this->production($this->fiscal, ['dispatch_at' => '2026-03-12 08:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertDatabaseMissing('work_report_flow_productions', ['production_id' => $production->id]);
+    }
+
     public function test_d5_without_pending_issues_is_supervised_with_the_production_completion_date(): void
     {
         $report = $this->report('2026-03-10 08:00:00');
