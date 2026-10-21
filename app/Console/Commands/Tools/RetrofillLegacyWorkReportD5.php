@@ -82,9 +82,15 @@ class RetrofillLegacyWorkReportD5 extends Command
             $noteIds = $noteIds->take($limit);
         }
 
+        $bar = $this->output->createProgressBar($noteIds->count());
+        $bar->setFormat(" %current%/%max% [%bar%] %percent:3s%%  decorrido %elapsed:6s%  restante ~%remaining:-6s%  nota %message%");
+        $bar->setMessage('-');
+        $bar->start();
+
         foreach ($noteIds->chunk(max(1, (int) $this->option('chunk'))) as $chunk) {
             foreach ($chunk as $noteId) {
                 $this->stats['notes'] = ($this->stats['notes'] ?? 0) + 1;
+                $bar->setMessage((string) $noteId);
 
                 $work = function () use ($noteId, $phase): void {
                     if (in_array($phase, ['all', 'partials'], true)) {
@@ -101,8 +107,12 @@ class RetrofillLegacyWorkReportD5 extends Command
                 };
 
                 $this->apply ? DB::transaction($work) : $work();
+                $bar->advance();
             }
         }
+
+        $bar->finish();
+        $this->newLine(2);
 
         if ($this->apply && !$this->option('no-refresh') && $this->affectedReports) {
             $refresher = app(WorkReportCurrentStatusRefresher::class);
