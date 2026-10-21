@@ -135,9 +135,18 @@ class RetrofillLegacyWorkReportD5 extends Command
         if ($this->apply && !$this->option('no-refresh') && $this->affectedReports) {
             $refresher = app(WorkReportCurrentStatusRefresher::class);
 
+            $this->line('Atualizando o status de ' . count($this->affectedReports) . ' informe(s)...');
+            $refreshBar = $this->output->createProgressBar(count($this->affectedReports));
+            $refreshBar->setFormat(' %current%/%max% [%bar%] %percent:3s%%  decorrido %elapsed:6s%  restante ~%remaining:-6s%');
+            $refreshBar->start();
+
             foreach (array_keys($this->affectedReports) as $reportId) {
                 $refresher->refresh($reportId);
+                $refreshBar->advance();
             }
+
+            $refreshBar->finish();
+            $this->newLine(2);
         }
 
         $this->writeFiles();
@@ -337,7 +346,10 @@ class RetrofillLegacyWorkReportD5 extends Command
                     'work_report_id' => $link['marker'], 'marco' => $markers[$link['marker']]->toDateTimeString(), 'dispatch_at' => $this->dispatchAt($byId[$productionId])->toDateTimeString(),
                 ]);
 
-                $this->affectedReports[(int) $link['marker']] = true;
+                // Publicação não entra no cálculo do status do informe; só Fiscalização e Pagamento exigem refresh.
+                if ($stage !== WorkReportFlowProduction::STAGE_PUBLICATION) {
+                    $this->affectedReports[(int) $link['marker']] = true;
+                }
 
                 if ($stage === WorkReportFlowProduction::STAGE_FISCALIZATION && $byId[$productionId]->completed_at) {
                     $plannedFiscal[(int) $link['marker']][] = Carbon::parse($byId[$productionId]->completed_at);

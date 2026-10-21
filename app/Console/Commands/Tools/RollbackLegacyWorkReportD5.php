@@ -81,7 +81,9 @@ class RollbackLegacyWorkReportD5 extends Command
             if (!$this->option('no-refresh')) {
                 $refresher = app(WorkReportCurrentStatusRefresher::class);
 
-                foreach (array_keys($this->reports) as $reportId) {
+                $this->line('Atualizando o status de ' . count($this->reports) . ' informe(s)...');
+
+                foreach ($this->output->progressIterate(array_keys($this->reports)) as $reportId) {
                     if (DB::table('work_reports')->where('id', $reportId)->exists()) {
                         $refresher->refresh($reportId);
                     }
@@ -136,7 +138,10 @@ class RollbackLegacyWorkReportD5 extends Command
                 continue;
             }
 
-            $this->reports[(int) $row->work_report_id] = true;
+            if ($row->stage !== 'publication') {
+                $this->reports[(int) $row->work_report_id] = true;
+            }
+
             $this->bump('vinculos_informe_removidos');
             $apply && DB::table('work_report_flow_productions')->where('id', $id)->delete();
         }
