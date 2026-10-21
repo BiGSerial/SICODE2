@@ -9,7 +9,7 @@ class CloseExternalOrganReleases extends Command
 {
     protected $signature = 'sicode:external-organ-releases:close {--limit=1000}';
 
-    protected $description = 'Fecha pendências de Obras Liberadas OE quando a nota chega aos status 20 ou 11.';
+    protected $description = 'Fecha pendências de Obras Liberadas OE quando a nota chega aos status 20, 11, 51, 98 ou 99.';
 
     public function handle(): int
     {

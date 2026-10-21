@@ -16,10 +16,6 @@ class QualityNoteFilters
     public const COLUMNS = [
         'rubrica' => 'Rubrica',
         'nstats'  => 'Status da Nota',
-        'lexp'    => 'Localização',
-        'group1'  => 'Grupo 1',
-        'group2'  => 'Grupo 2',
-        'group5'  => 'Grupo 5',
     ];
 
     /** parâmetros derivados de `cities` (mapeiam para notes.nexp). */
@@ -72,18 +68,23 @@ class QualityNoteFilters
         return !empty($input['dt_from']) || !empty($input['dt_to']) || is_numeric($input['days_left_max'] ?? null);
     }
 
-    /** @return array<string, array<int, string>> opções dos filtros (cache curto). */
+    /** @return array<string, array<int, string|array<string, string>>> opções dos filtros (cache de 1h). */
     public function options(): array
     {
-        return Cache::remember('quality.note-filter-options', 600, function () {
+        return Cache::remember('quality.note-filter-options.v3', 3600, function () {
             $options = [];
 
             foreach (array_keys(self::COLUMNS) as $column) {
                 $options[$column] = Note::query()->where('type_note', 1)->whereNotNull($column)->where($column, '!=', '')->distinct()->orderBy($column)->limit(400)->pluck($column)->map(fn ($v) => (string) $v)->all();
             }
             $options['region']   = City::query()->whereNotNull('regiao')->distinct()->orderBy('regiao')->pluck('regiao')->all();
-            $options['regional'] = City::query()->whereNotNull('baseConstrucao')->distinct()->orderBy('baseConstrucao')->pluck('baseConstrucao')->all();
-            $options['city']     = City::query()->whereNotNull('rdMunicipio')->distinct()->orderBy('rdMunicipio')->limit(600)->pluck('rdMunicipio')->all();
+            $options['regional'] = City::query()->whereNotNull('baseConstrucao')->distinct()->orderBy('baseConstrucao')->get(['baseConstrucao', 'regiao'])
+                ->groupBy('baseConstrucao')->map(fn ($rows, $name) => ['name' => (string) $name, 'regions' => $rows->pluck('regiao')->filter()->unique()->values()->all()])->values()->all();
+            // Município: rótulo = nome, valor = rdMunicipio (é o que a Nota guarda em nexp); região/regional alimentam o filtro em cascata.
+            $options['city'] = City::query()->whereNotNull('rdMunicipio')->orderBy('municipio')
+                ->get(['rdMunicipio', 'municipio', 'cidade', 'regiao', 'baseConstrucao'])
+                ->map(fn ($c) => ['id' => (string) $c->rdMunicipio, 'name' => $c->municipio ?: ($c->cidade ?: $c->rdMunicipio), 'regiao' => (string) $c->regiao, 'regional' => (string) $c->baseConstrucao])
+                ->unique('id')->values()->all();
 
             return $options;
         });

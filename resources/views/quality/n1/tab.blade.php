@@ -99,7 +99,7 @@
                 @empty
                     <tr><td colspan="{{ ($bulkTab ? 1 : 0) + ($multiCompany ? 1 : 0) + 6 }}" class="ob-empty">
                         <i class="ri-inbox-2-line"></i>
-                        <div class="fw-bold">Nada nesta etapa{{ request()->hasAny(['q', 'company_id', 'designer_id', 'rubrica', 'lexp']) ? ' com esses filtros' : '' }}.</div>
+                        <div class="fw-bold">Nada nesta etapa{{ request()->hasAny(['q', 'company_id', 'designer_id', 'rubrica']) ? ' com esses filtros' : '' }}.</div>
                         <div class="small">@if ($tab === 'despachar')Quando a Gestão enviar obras à sua empresa, elas aparecem aqui.@elseif ($tab === 'analisar')Quando um usuário finalizar uma obra, ela cai aqui para a sua análise.@else Acompanhe as outras etapas acima.@endif</div>
                     </td></tr>
                 @endforelse

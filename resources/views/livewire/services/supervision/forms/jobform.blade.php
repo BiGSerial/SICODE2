@@ -1114,7 +1114,7 @@
                                             </div>
                                             <div class="mt-2 text-muted">
                                                 Último retorno:
-                                                {{ optional($lastReturnwork->created_at)->format('d/m/Y H:i') ?? '-' }}
+                                                {{ $lastReturnwork?->created_at?->format('d/m/Y H:i') ?? '-' }}
                                                 por {{ $lastReturnwork->User->name ?? 'Sistema' }}
                                             </div>
                                         </div>

@@ -2,18 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\{Builder, Model};
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 
 class ExternalOrganRelease extends Model
 {
     use HasFactory;
 
-    public const TRACKED_STATUSES = [47, 48, 49, 50];
-    public const HIRING_BLOCK_STATUSES = [47, 48, 49, 50, 51];
-    public const RELEASE_STATUSES = [20, 11];
-    public const EXCLUDED_CONCLUSIONS = [
+    public const TRACKED_STATUSES      = [47, 48, 49, 50];
+    public const HIRING_BLOCK_STATUSES = [47, 48, 49, 50];
+    public const RELEASE_STATUSES      = [20, 11, 51, 98, 99];
+    public const EXCLUDED_CONCLUSIONS  = [
         'ARQUIVADO',
         'LIBERACAO AUTOCAD ORGAO EXTERNO',
     ];
@@ -33,10 +32,10 @@ class ExternalOrganRelease extends Model
     ];
 
     protected $casts = [
-        'detected_dt_status' => 'datetime',
-        'exported_at' => 'datetime',
-        'released_at' => 'datetime',
-        'release_dt_status' => 'datetime',
+        'detected_dt_status'  => 'datetime',
+        'exported_at'         => 'datetime',
+        'released_at'         => 'datetime',
+        'release_dt_status'   => 'datetime',
         'release_detected_at' => 'datetime',
     ];
 
