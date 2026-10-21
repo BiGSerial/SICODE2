@@ -374,21 +374,38 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
         $this->assertTrue($five->is_supervisioned);
     }
 
-    public function test_incomplete_passive_d5_leaves_the_productions_in_cycle_1(): void
+    public function test_incomplete_passive_d5_runs_cycle_1_fiscalization_linked_without_dfive_and_payment_with_dfive(): void
     {
-        $report = $this->report('2026-03-01 08:00:00');
-        $five   = $this->passiveFive(['is_completed' => false]);
-        $fiscal = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
-        $pay    = $this->production($this->payment, ['completed' => true, 'dispatch_at' => '2026-03-26 08:00:00', 'completed_at' => '2026-03-27 11:00:00']);
+        $five   = $this->passiveFive(['is_completed' => false, 'visible_partner' => false, 'is_payed' => false]);
+        $fiscal = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-01 09:00:00', 'completed_at' => '2026-03-05 14:00:00']);
+        $pay    = $this->production($this->payment, ['completed' => true, 'dispatch_at' => '2026-03-06 08:00:00', 'completed_at' => '2026-03-07 11:00:00']);
+        DB::table('five_notes')->where('id', $five->id)->update(['dispatch_at' => '2026-03-05 03:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $five->refresh();
+        $this->assertFalse((bool) $fiscal->fresh()->dfive);
+        $this->assertTrue((bool) $pay->fresh()->dfive);
+        $this->assertTrue($five->productions()->whereKey($fiscal->id)->exists());
+        $this->assertTrue($five->productions()->whereKey($pay->id)->exists());
+        $this->assertTrue($five->visible_partner);
+        $this->assertTrue($five->is_payed);
+        $this->assertSame('2026-03-07 11:00:00', $five->payed_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-03-05 03:00:00', $five->dispatch_at->format('Y-m-d H:i:s'));
+        $this->assertFalse($five->is_supervisioned);
+    }
+
+    public function test_completed_passive_d5_skips_cycle_1(): void
+    {
+        $five   = $this->passiveFive(['is_completed' => true, 'completed_at' => '2026-03-20 10:00:00']);
+        $fiscal = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-01 09:00:00', 'completed_at' => '2026-03-05 14:00:00']);
+        $pay    = $this->production($this->payment, ['completed' => true, 'dispatch_at' => '2026-03-06 08:00:00', 'completed_at' => '2026-03-07 11:00:00']);
 
         $this->run_(['--apply' => true]);
 
         $this->assertFalse((bool) $fiscal->fresh()->dfive);
         $this->assertFalse((bool) $pay->fresh()->dfive);
         $this->assertSame(0, $five->productions()->count());
-        $this->assertFalse($five->fresh()->is_supervisioned);
-        // as produções do ciclo 1 continuam sendo do informe
-        $this->assertDatabaseHas('work_report_flow_productions', ['production_id' => $fiscal->id, 'work_report_id' => $report->id]);
     }
 
     public function test_running_twice_is_idempotent(): void

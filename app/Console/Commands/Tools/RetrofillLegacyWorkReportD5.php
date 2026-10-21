@@ -658,9 +658,9 @@ class RetrofillLegacyWorkReportD5 extends Command
      *      (com pendências a D5 volta à empreiteira).
      *  M2  1º Pagamento com dispatch >= supervisioned_at: dfive. Concluído: D5 arquivada.
      *
-     * D5 passiva (isPassive) não tem C1/M1: parte da empreiteira (Parceira → Fiscalização → Pagamento), usando o
-     * completed_at da D5 como referência do ciclo 2. Enquanto não estiver concluída (is_completed), as produções da nota
-     * estão no ciclo 1 (pertencem ao informe): nada é ligado à D5 nem marcado dfive.
+     * D5 passiva (isPassive): o ciclo 1 (C1/M1) só se aplica enquanto is_completed = false (Fiscalização associada sem
+     * dfive; Pagamento associado com dfive, completando as datas e liberando visible_partner/is_payed se concluído).
+     * Concluída, parte da empreiteira (Parceira → Fiscalização → Pagamento) com o completed_at como referência do ciclo 2.
      */
     private function settleCycle(FiveNote $five): void
     {
@@ -675,10 +675,11 @@ class RetrofillLegacyWorkReportD5 extends Command
         $payments    = $productions->where('service_id', $this->paymentId)->values();
         $service     = app(D5WorkflowService::class);
 
-        // D5 passiva nasce na empreiteira (sem informe, sem C1/M1): o ciclo parte da conclusão dela.
+        // Ciclo 1 vale para a D5 de informe e, na passiva, somente enquanto ela NÃO estiver concluída pela empreiteira;
+        // passiva concluída parte direto do ciclo 2 (Parceira → Fiscalização → Pagamento).
         $m1 = null;
 
-        if (!$five->isPassive) {
+        if (!$five->isPassive || !$five->is_completed) {
             $first = $this->firstCycle($five, $fiscal, $payments, $service);
 
             if ($first === false) {
@@ -787,8 +788,13 @@ class RetrofillLegacyWorkReportD5 extends Command
     {
         $note = (int) $five->note_id;
 
-        // C1: a Fiscalização que criou a D5 (a última concluída até a criação, com folga de 5 min).
-        $c1 = $fiscal->filter(fn ($p) => $p->completed && $p->completed_at && Carbon::parse($p->completed_at)->lte(Carbon::parse($five->created_at)->addMinutes(5)))
+        // C1: a Fiscalização que criou a D5 (a última concluída até a criação, com folga de 5 min). Na D5 passiva
+        // (importada) o ponto de partida é a data em que ela foi liberada (dispatch_at, só a data), não o created_at.
+        $anchor = $five->isPassive && $five->dispatch_at
+            ? Carbon::parse($five->dispatch_at)->endOfDay()
+            : Carbon::parse($five->created_at)->addMinutes(5);
+
+        $c1 = $fiscal->filter(fn ($p) => $p->completed && $p->completed_at && Carbon::parse($p->completed_at)->lte($anchor))
             ->sortBy([['completed_at', 'asc'], ['id', 'asc']])->last();
 
         if (!$c1) {
