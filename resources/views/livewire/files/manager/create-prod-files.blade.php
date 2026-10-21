@@ -27,12 +27,12 @@
                     <div class="card-body">
                         <div class="row g-3 align-items-start">
                             <div class="col-12 col-lg-5">
-                                <label for="upload_type" class="form-label fw-semibold mb-1">
+                                <label for="upload_type_{{ $this->id }}" class="form-label fw-semibold mb-1">
                                     Tipo de Envio <span class="text-danger">*</span>
                                 </label>
                                 <div class="d-flex align-items-center gap-2">
                                     <select class="form-select border-secondary @error('uploadType') is-invalid @enderror"
-                                        id="upload_type" wire:model="uploadType" required>
+                                        id="upload_type_{{ $this->id }}" wire:model="uploadType" required>
                                         <option value="" selected>Selecione o tipo de envio</option>
                                         @foreach ($this->getFilesTypeOptions() as $fileType)
                                             <option value="{{ $fileType->value }}">{{ $fileType->reason }}</option>
@@ -60,7 +60,7 @@
                         </div>
 
                         <div class="mt-3 p-3 rounded border border-2 border-primary border-opacity-25 bg-light">
-                            <label for="files" class="form-label fw-semibold mb-1 d-flex align-items-center gap-2">
+                            <label for="files_{{ $this->id }}" class="form-label fw-semibold mb-1 d-flex align-items-center gap-2">
                                 <i class="ri-add-circle-line text-primary"></i>
                                 Selecionar arquivos
                             </label>
@@ -68,7 +68,7 @@
                                 Formatos permitidos: imagem, PDF, Office e CAD. Tamanho máximo por arquivo: 40MB.
                             </div>
                             <input type="file" class="form-control border-secondary @error('files') is-invalid @enderror"
-                                id="files" wire:model="files" multiple @disabled(!$uploadType)
+                                id="files_{{ $this->id }}" wire:model="files" multiple @disabled(!$uploadType)
                                 accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.rvt,.rfa,.dgn"
                                 placeholder="escolha primeiro o tipo de arquivo">
                             @if (!$uploadType)
