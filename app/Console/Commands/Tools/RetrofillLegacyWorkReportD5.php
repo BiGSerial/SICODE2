@@ -192,9 +192,7 @@ class RetrofillLegacyWorkReportD5 extends Command
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('productionables as pa')->whereColumn('pa.production_id', 'p.id')->where('pa.productionable_type', Partial::class))
             ->distinct()->pluck('p.note_id');
 
-        $fives = DB::table('five_notes')->where('is_archived', false)
-            ->where(fn ($q) => $q->whereNull('work_report_id')->orWhere('is_supervisioned', false))
-            ->distinct()->pluck('note_id');
+        $fives = DB::table('five_notes')->where('is_archived', false)->where('isPassive', false)->distinct()->pluck('note_id');
 
         return $productions->merge($fives)->filter()->unique()->sort()->values();
     }
@@ -468,11 +466,11 @@ class RetrofillLegacyWorkReportD5 extends Command
 
     private function d5(int $noteId): void
     {
-        $fives = FiveNote::query()->where('note_id', $noteId)->where('is_archived', false)->get();
+        $fives = FiveNote::query()->where('note_id', $noteId)->where('is_archived', false)->where('isPassive', false)->orderBy('created_at')->orderBy('id')->get();
 
         foreach ($fives as $five) {
             $this->associateReport($five);
-            $this->settleSupervision($five->fresh());
+            $this->settleCycle($five->fresh());
         }
     }
 
@@ -483,11 +481,17 @@ class RetrofillLegacyWorkReportD5 extends Command
             return;
         }
 
+        $activeReports = DB::table('work_reports')->where('note_id', $five->note_id)->where('canceled', false)->pluck('id');
+
         $viaProduction = DB::table('work_report_flow_productions as w')
             ->join('productionables as pa', fn ($j) => $j->on('pa.production_id', '=', 'w.production_id')->where('pa.productionable_type', FiveNote::class)->where('pa.productionable_id', $five->id))
             ->whereNull('w.reversed_at')->distinct()->pluck('w.work_report_id');
 
-        $reportId = $viaProduction->count() === 1 ? (int) $viaProduction->first() : app(D5WorkReportAssociationResolver::class)->closestFor($five)?->id;
+        $reportId = match (true) {
+            $activeReports->count() === 1 => (int) $activeReports->first(), // um informe por nota: sem ambiguidade
+            $viaProduction->count() === 1 => (int) $viaProduction->first(),
+            default                       => app(D5WorkReportAssociationResolver::class)->closestFor($five)?->id,
+        };
 
         if (!$reportId) {
             $this->log('d5', $five->note_id, 'five_note', $five->id, 'ignorar', 'informe_nao_resolvido', ['candidatos_via_producao' => $viaProduction->count()]);
@@ -505,93 +509,191 @@ class RetrofillLegacyWorkReportD5 extends Command
         }
     }
 
-    /** Baixa da D5 a partir da última Fiscalização D5 concluída e da conclusão da sua análise. */
-    private function settleSupervision(FiveNote $five): void
+    /**
+     * Ciclos da D5 (sequência fixa: Fiscalização → Pagamento → Empreiteira → Fiscalização → Pagamento).
+     *
+     *  C1  Fiscalização que criou a D5: concluída até D5.created_at. Não é dfive e não supervisiona.
+     *  M1  1º Pagamento com dispatch >= C1.completed_at. Concluído: dfive; D5 dispatch_at/payed_at = completed_at,
+     *      visible_partner e is_payed = true (libera a empreiteira).
+     *  --  Empreiteira conclui a D5 (is_completed + completed_at).
+     *  C2  1ª Fiscalização com dispatch >= D5.completed_at: dfive. Concluída: is_supervisioned e supervisioned_at = completed_at
+     *      (com pendências a D5 volta à empreiteira).
+     *  M2  1º Pagamento com dispatch >= supervisioned_at: dfive. Concluído: D5 arquivada.
+     */
+    private function settleCycle(FiveNote $five): void
     {
-        if ($five->is_supervisioned || $five->is_archived) {
-            return;
-        }
+        $note = (int) $five->note_id;
+        // Nota com mais de uma D5: cada ciclo só enxerga as produções anteriores à criação da D5 seguinte.
+        $nextCreatedAt = DB::table('five_notes')->where('note_id', $note)->where('isPassive', false)
+            ->where(fn ($q) => $q->where('created_at', '>', $five->created_at)->orWhere(fn ($w) => $w->where('created_at', $five->created_at)->where('id', '>', $five->id)))
+            ->min('created_at');
 
-        $productions = DB::table('productions as p')
-            ->join('productionables as pa', fn ($j) => $j->on('pa.production_id', '=', 'p.id')->where('pa.productionable_type', FiveNote::class)->where('pa.productionable_id', $five->id))
-            ->where('p.service_id', $this->fiscalId)->where('p.dfive', true)
-            ->get(['p.id', 'p.completed', 'p.completed_at', 'p.dispatch_at', 'p.att_at', 'p.created_at']);
+        $productions = $this->productions($note)->filter(fn ($p) => !$p->partial && (!$nextCreatedAt || $this->dispatchAt($p)->lt(Carbon::parse($nextCreatedAt))));
+        $fiscal      = $productions->where('service_id', $this->fiscalId)->values();
+        $payments    = $productions->where('service_id', $this->paymentId)->values();
+        $service     = app(D5WorkflowService::class);
 
-        if ($productions->isEmpty()) {
-            return;
-        }
+        // C1: a Fiscalização que criou a D5 (a última concluída até a criação, com folga de 5 min).
+        $c1 = $fiscal->filter(fn ($p) => $p->completed && $p->completed_at && Carbon::parse($p->completed_at)->lte(Carbon::parse($five->created_at)->addMinutes(5)))
+            ->sortBy([['completed_at', 'asc'], ['id', 'asc']])->last();
 
-        if ($productions->contains(fn ($p) => !$p->completed)) {
-            $this->log('d5', $five->note_id, 'five_note', $five->id, 'ignorar', 'fiscalizacao_em_aberto', []);
-
-            return;
-        }
-
-        $latest   = $productions->sortBy([['completed_at', 'asc'], ['id', 'asc']])->last();
-        $dispatch = $this->dispatchAt($latest);
-
-        // Piso: a Fiscalização tem de ser posterior à conclusão da parceira; senão é o ciclo anterior e a D5 aguarda novo despacho.
-        if ($five->is_completed && $five->completed_at && $dispatch->lt($five->completed_at)) {
-            return;
-        }
-
-        $conclusion = DB::table('analises')->where('production_id', $latest->id)->orderByDesc('id')->value('conclusion');
-
-        if (!$conclusion) {
-            $this->log('d5', $five->note_id, 'five_note', $five->id, 'ignorar', 'sem_analise', ['production_id' => $latest->id]);
+        if (!$c1) {
+            $this->log('d5', $note, 'five_note', $five->id, 'ignorar', 'sem_fiscalizacao_ciclo1', []);
 
             return;
         }
 
-        $pending = in_array($conclusion, ['FISCALIZADO COM PENDENCIAS', 'NAO RESOLVIDO'], true);
+        $this->linkD5Production($five, $c1, false);
 
-        if ($conclusion === 'OBRA NAO EXECUTADA' || !($pending || $conclusion === 'FISCALIZADO SEM PENDENCIAS')) {
-            $this->log('d5', $five->note_id, 'five_note', $five->id, 'ignorar', 'conclusao_' . Str::slug($conclusion, '_'), ['production_id' => $latest->id]);
+        // M1: libera a empreiteira.
+        $m1 = $payments->first(fn ($p) => $this->dispatchAt($p)->gte(Carbon::parse($c1->completed_at)));
+
+        if (!$m1 || !$m1->completed || !$m1->completed_at) {
+            return; // aguardando o Pagamento do ciclo 1
+        }
+
+        $this->linkD5Production($five, $m1, true);
+
+        if (!$five->is_payed || !$five->visible_partner || !$five->dispatch_at) {
+            $this->bump('d5_liberada_empreiteira');
+            $this->log('d5', $note, 'five_note', $five->id, 'liberar_empreiteira', '', ['production_id' => $m1->id, 'dispatch_at' => $m1->completed_at]);
+
+            if ($this->apply) {
+                $from = $service->currentStage($five);
+                $this->snapshot('five_notes', $five->id, $five->getAttributes());
+                $five->forceFill([
+                    'dispatch_at'     => $five->dispatch_at ?? $m1->completed_at,
+                    'visible_partner' => true,
+                    'is_payed'        => true,
+                    'payed_at'        => $five->payed_at ?? $m1->completed_at,
+                ])->save();
+                $this->emit($five, fn () => $service->onReleasedToPartner($five, $from, null, $five->productions()->find($m1->id)));
+            }
+        }
+
+        // Empreiteira: sem a conclusão da D5 não há Fiscalização do ciclo 2.
+        if (!$five->is_completed) {
+            return;
+        }
+
+        if (!$five->completed_at) {
+            $this->log('d5', $note, 'five_note', $five->id, 'ignorar', 'd5_concluida_sem_completed_at', []);
 
             return;
         }
 
-        $production = $five->productions()->find($latest->id);
-        $service    = app(D5WorkflowService::class);
-        $from       = $service->currentStage($five);
+        // C2: 1ª Fiscalização despachada depois da conclusão da empreiteira.
+        $c2 = $fiscal->first(fn ($p) => $p->id !== $c1->id && $this->dispatchAt($p)->gte($five->completed_at));
 
-        if ($pending) {
-            if ($five->returned && !$five->is_completed) {
-                return; // já devolvida corretamente (fluxo normal)
+        if ($c2) {
+            $this->linkD5Production($five, $c2, true);
+        }
+
+        if (!$five->is_supervisioned) {
+            if (!$c2 || !$c2->completed || !$c2->completed_at) {
+                return; // aguardando a Fiscalização do ciclo 2
             }
 
-            $this->bump('d5_devolvida_com_pendencia');
-            $this->log('d5', $five->note_id, 'five_note', $five->id, 'devolver_com_pendencia', '', ['production_id' => $latest->id, 'conclusao' => $conclusion]);
+            $conclusion = DB::table('analises')->where('production_id', $c2->id)->orderByDesc('id')->value('conclusion');
+            $pending    = in_array($conclusion, ['FISCALIZADO COM PENDENCIAS', 'NAO RESOLVIDO'], true);
+
+            if (!$conclusion || (!$pending && $conclusion !== 'FISCALIZADO SEM PENDENCIAS')) {
+                $this->log('d5', $note, 'five_note', $five->id, 'ignorar', $conclusion ? 'conclusao_' . Str::slug($conclusion, '_') : 'sem_analise', ['production_id' => $c2->id]);
+
+                return;
+            }
+
+            $from = $service->currentStage($five);
+
+            if ($pending) {
+                $this->bump('d5_devolvida_com_pendencia');
+                $this->log('d5', $note, 'five_note', $five->id, 'devolver_com_pendencia', '', ['production_id' => $c2->id, 'conclusao' => $conclusion]);
+
+                if ($this->apply) {
+                    $this->snapshot('five_notes', $five->id, $five->getAttributes());
+                    $five->forceFill(['is_completed' => false, 'completed_at' => null, 'returned' => true])->save();
+                    $this->emit($five, fn () => $service->onReturnedWithPending($five, $from, null, $five->productions()->find($c2->id)));
+                }
+
+                return;
+            }
+
+            $this->bump('d5_fiscalizada');
+            $this->log('d5', $note, 'five_note', $five->id, 'baixar_d5', '', ['production_id' => $c2->id, 'supervisioned_at' => $c2->completed_at]);
+
+            if ($five->work_report_id) {
+                $this->affectedReports[(int) $five->work_report_id] = true;
+            }
 
             if ($this->apply) {
                 $this->snapshot('five_notes', $five->id, $five->getAttributes());
-                $five->forceFill(['is_completed' => false, 'completed_at' => null, 'returned' => true])->save();
-                $this->emit($five, fn () => $service->onReturnedWithPending($five, $from, null, $production));
+                $five->forceFill(['returned' => false, 'is_supervisioned' => true, 'supervisioned_at' => $c2->completed_at])->save();
+                $this->emit($five, fn () => $service->onSupervisionApproved($five, $from, null, $five->productions()->find($c2->id)));
             }
+        }
 
+        // M2: 1º Pagamento depois da supervisão; concluído, arquiva a D5.
+        $reference = $c2?->completed_at ? Carbon::parse($c2->completed_at) : ($five->supervisioned_at ? Carbon::parse($five->supervisioned_at) : null);
+
+        if (!$reference) {
             return;
         }
 
-        $completedAt = Carbon::parse($latest->completed_at);
+        $m2 = $payments->first(fn ($p) => $p->id !== $m1->id && $this->dispatchAt($p)->gte($reference));
 
-        $this->bump('d5_fiscalizada');
-        $this->log('d5', $five->note_id, 'five_note', $five->id, 'baixar_d5', $five->is_completed ? '' : 'conclusao_da_parceira_inferida', ['production_id' => $latest->id, 'supervisioned_at' => $completedAt->toDateTimeString()]);
-
-        if ($five->work_report_id) {
-            $this->affectedReports[(int) $five->work_report_id] = true;
+        if (!$m2) {
+            return;
         }
 
-        if ($this->apply) {
-            $this->snapshot('five_notes', $five->id, $five->getAttributes());
-            $five->forceFill([
-                'is_completed'     => true,
-                'completed_at'     => $five->completed_at ?? $dispatch,
-                'returned'         => false,
-                'is_supervisioned' => true,
-                'supervisioned_at' => $completedAt,
-            ])->save();
+        $this->linkD5Production($five, $m2, true);
 
-            $this->emit($five, fn () => $service->onSupervisionApproved($five, $from, null, $production));
+        if ($m2->completed && $m2->completed_at) {
+            $this->bump('d5_arquivada');
+            $this->log('d5', $note, 'five_note', $five->id, 'arquivar_d5', '', ['production_id' => $m2->id]);
+
+            if ($this->apply) {
+                $from = $service->currentStage($five);
+                $this->snapshot('five_notes', $five->id, $five->getAttributes());
+                $five->forceFill(['is_archived' => true])->save();
+                $this->emit($five, fn () => $service->onArchived($five, $from, null, $five->productions()->find($m2->id)));
+            }
+        }
+    }
+
+    /** Vincula a produção à D5 (pivot), marca dfive quando for produção D5 e garante o vínculo com o informe. */
+    private function linkD5Production(FiveNote $five, object $production, bool $markDfive): void
+    {
+        if (!DB::table('productionables')->where('production_id', $production->id)->where('productionable_type', FiveNote::class)->where('productionable_id', $five->id)->exists()) {
+            $this->bump('d5_producoes_vinculadas');
+            $this->log('d5', $five->note_id, 'production', $production->id, 'vincular_d5', '', ['five_note_id' => $five->id]);
+
+            if ($this->apply) {
+                $this->note['created']['productionables'][] = DB::table('productionables')->insertGetId([
+                    'production_id'     => $production->id, 'productionable_type' => FiveNote::class,
+                    'productionable_id' => $five->id, 'created_at' => now(), 'updated_at' => now(),
+                ]);
+            }
+        }
+
+        if ($markDfive && !$production->dfive) {
+            $this->bump('producoes_marcadas_dfive');
+            $this->log('d5', $five->note_id, 'production', $production->id, 'marcar_dfive', '', ['five_note_id' => $five->id]);
+            $production->dfive = true;
+
+            if ($this->apply) {
+                $this->snapshot('productions', $production->id, DB::table('productions')->find($production->id));
+                DB::table('productions')->where('id', $production->id)->update(['dfive' => true, 'updated_at' => now()]);
+            }
+        }
+
+        if ($five->work_report_id && !$this->hasFlowLink($production->id)) {
+            $stage = $this->stageByService[$production->service_id];
+            $this->bump('d5_producoes_ligadas_ao_informe');
+            $this->log('d5', $five->note_id, 'production', $production->id, "vincular_{$stage}", 'producao_d5', ['work_report_id' => $five->work_report_id]);
+
+            if ($this->apply) {
+                $this->insertFlowLink($production, (int) $five->work_report_id, $stage, $this->dispatchAt($production), false);
+            }
         }
     }
 

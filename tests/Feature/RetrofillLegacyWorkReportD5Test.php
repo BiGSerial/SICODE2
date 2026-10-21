@@ -118,47 +118,128 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
         $this->assertDatabaseMissing('work_report_flow_productions', ['production_id' => $production->id]);
     }
 
-    public function test_d5_without_pending_issues_is_supervised_with_the_production_completion_date(): void
+    /**
+     * Sequência: C1 (Fiscalização cria a D5) → M1 (Pagamento libera a empreiteira) → empreiteira conclui →
+     * C2 (Fiscalização) → M2 (Pagamento). Cada elo só entra se você pedir (para testar o ponto em que a cadeia para).
+     *
+     * @return array<string, mixed>
+     */
+    private function chain(array $with = ['m1', 'partner', 'c2', 'm2'], string $conclusion = 'FISCALIZADO SEM PENDENCIAS'): array
     {
-        $report = $this->report('2026-03-10 08:00:00');
-        $five   = FiveNote::create(['note_id' => $this->note->id, 'note_d5' => uniqid('D5'), 'work_report_id' => $report->id, 'is_completed' => true, 'completed_at' => '2026-03-20 10:00:00', 'visible_partner' => true]);
-        $prod   = $this->production($this->fiscal, ['dfive' => true, 'completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
-        $five->productions()->attach($prod->id);
-        Analise::create(['production_id' => $prod->id, 'conclusion' => 'FISCALIZADO SEM PENDENCIAS']);
+        $report = WorkReport::query()->where('note_id', $this->note->id)->first() ?? $this->report('2026-02-20 08:00:00');
+        $c1     = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-01 08:00:00', 'completed_at' => '2026-03-05 10:00:00']);
+        $five   = FiveNote::create([
+            'note_id'      => $this->note->id, 'note_d5' => uniqid('D5'), 'work_report_id' => $report->id,
+            'is_completed' => in_array('partner', $with, true), 'completed_at' => in_array('partner', $with, true) ? '2026-03-20 10:00:00' : null,
+        ]);
+        $five->forceFill(['created_at' => '2026-03-05 10:00:00'])->save();
+        $five->productions()->attach($c1->id);
 
-        $this->run_(['--apply' => true]);
+        $chain = ['report' => $report, 'five' => $five, 'c1' => $c1];
 
-        $five->refresh();
-        $this->assertTrue($five->is_supervisioned);
-        $this->assertSame('2026-03-25 14:00:00', $five->supervisioned_at->format('Y-m-d H:i:s'));
-        $this->assertTrue($five->isEligibleForPaymentReturn());
+        if (in_array('m1', $with, true)) {
+            $chain['m1'] = $this->production($this->payment, ['completed' => true, 'dispatch_at' => '2026-03-06 08:00:00', 'completed_at' => '2026-03-07 12:00:00']);
+        }
+
+        if (in_array('c2', $with, true)) {
+            $chain['c2'] = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
+            Analise::create(['production_id' => $chain['c2']->id, 'conclusion' => $conclusion]);
+        }
+
+        if (in_array('m2', $with, true)) {
+            $chain['m2'] = $this->production($this->payment, ['completed' => true, 'dispatch_at' => '2026-03-26 08:00:00', 'completed_at' => '2026-03-27 11:00:00']);
+        }
+
+        return $chain;
     }
 
-    public function test_d5_with_pending_conclusion_is_returned_not_supervised(): void
+    public function test_full_d5_cycle_marks_every_step_and_archives(): void
     {
-        $five = FiveNote::create(['note_id' => $this->note->id, 'note_d5' => uniqid('D5'), 'visible_partner' => true]);
-        $prod = $this->production($this->fiscal, ['dfive' => true, 'completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
-        $five->productions()->attach($prod->id);
-        Analise::create(['production_id' => $prod->id, 'conclusion' => 'FISCALIZADO COM PENDENCIAS']);
+        $chain = $this->chain();
 
         $this->run_(['--apply' => true]);
 
-        $five->refresh();
+        $five = $chain['five']->fresh();
+
+        $this->assertFalse((bool) $chain['c1']->fresh()->dfive, 'o ciclo 1 da Fiscalização nunca é dfive');
+        $this->assertTrue((bool) $chain['m1']->fresh()->dfive);
+        $this->assertTrue((bool) $chain['c2']->fresh()->dfive);
+        $this->assertTrue((bool) $chain['m2']->fresh()->dfive);
+
+        $this->assertTrue($five->visible_partner);
+        $this->assertTrue($five->is_payed);
+        $this->assertSame('2026-03-07 12:00:00', $five->dispatch_at->format('Y-m-d H:i:s'));
+        $this->assertSame('2026-03-07 12:00:00', $five->payed_at->format('Y-m-d H:i:s'));
+        $this->assertTrue($five->is_supervisioned);
+        $this->assertSame('2026-03-25 14:00:00', $five->supervisioned_at->format('Y-m-d H:i:s'));
+        $this->assertTrue($five->is_archived);
+    }
+
+    public function test_cycle_stops_at_the_first_missing_step(): void
+    {
+        $chain = $this->chain(['m1', 'partner']);
+
+        $this->run_(['--apply' => true]);
+
+        $five = $chain['five']->fresh();
+        $this->assertTrue($five->is_payed);
+        $this->assertFalse($five->is_supervisioned);
+        $this->assertFalse($five->is_archived);
+    }
+
+    public function test_without_cycle_1_payment_nothing_is_released(): void
+    {
+        $chain = $this->chain([]);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertFalse($chain['five']->fresh()->is_payed);
+    }
+
+    public function test_supervised_d5_without_cycle_2_payment_is_not_archived(): void
+    {
+        $chain = $this->chain(['m1', 'partner', 'c2']);
+
+        $this->run_(['--apply' => true]);
+
+        $five = $chain['five']->fresh();
+        $this->assertTrue($five->is_supervisioned);
+        $this->assertFalse($five->is_archived);
+    }
+
+    public function test_open_cycle_2_payment_is_marked_dfive_but_does_not_archive(): void
+    {
+        $chain = $this->chain(['m1', 'partner', 'c2']);
+        $open  = $this->production($this->payment, ['completed' => false, 'dispatch_at' => '2026-03-26 08:00:00']);
+
+        $this->run_(['--apply' => true]);
+
+        $this->assertTrue((bool) $open->fresh()->dfive);
+        $this->assertFalse($chain['five']->fresh()->is_archived);
+    }
+
+    public function test_cycle_2_fiscalization_with_pending_conclusion_returns_the_d5(): void
+    {
+        $chain = $this->chain(['m1', 'partner', 'c2'], 'FISCALIZADO COM PENDENCIAS');
+
+        $this->run_(['--apply' => true]);
+
+        $five = $chain['five']->fresh();
         $this->assertFalse($five->is_supervisioned);
         $this->assertTrue($five->returned);
         $this->assertFalse($five->is_completed);
     }
 
-    public function test_d5_whose_fiscalization_predates_the_partner_completion_is_left_alone(): void
+    public function test_fiscalization_dispatched_before_the_partner_completion_is_not_cycle_2(): void
     {
-        $five = FiveNote::create(['note_id' => $this->note->id, 'note_d5' => uniqid('D5'), 'is_completed' => true, 'completed_at' => '2026-04-01 10:00:00', 'visible_partner' => true]);
-        $prod = $this->production($this->fiscal, ['dfive' => true, 'completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
-        $five->productions()->attach($prod->id);
-        Analise::create(['production_id' => $prod->id, 'conclusion' => 'FISCALIZADO SEM PENDENCIAS']);
+        $chain = $this->chain(['m1', 'partner']);
+        $early = $this->production($this->fiscal, ['completed' => true, 'dispatch_at' => '2026-03-10 08:00:00', 'completed_at' => '2026-03-11 08:00:00']);
+        Analise::create(['production_id' => $early->id, 'conclusion' => 'FISCALIZADO SEM PENDENCIAS']);
 
         $this->run_(['--apply' => true]);
 
-        $this->assertFalse($five->fresh()->is_supervisioned);
+        $this->assertFalse($chain['five']->fresh()->is_supervisioned);
+        $this->assertFalse((bool) $early->fresh()->dfive);
     }
 
     public function test_running_twice_is_idempotent(): void
@@ -185,10 +266,7 @@ class RetrofillLegacyWorkReportD5Test extends TestCase
         $partial = $this->partial(['decision_at' => '2026-03-01 10:00:00', 'supervision' => true, 'supervision_at' => '2026-03-20 10:00:00']);
         $this->production($this->fiscal, ['partial' => true, 'completed' => true, 'dispatch_at' => '2026-03-05 09:00:00', 'completed_at' => '2026-03-12 16:30:00']);
         $final = $this->production($this->fiscal, ['dispatch_at' => '2026-03-15 08:00:00']);
-        $five  = FiveNote::create(['note_id' => $this->note->id, 'note_d5' => uniqid('D5'), 'work_report_id' => $report->id, 'is_completed' => true, 'completed_at' => '2026-03-20 10:00:00', 'visible_partner' => true]);
-        $prod  = $this->production($this->fiscal, ['dfive' => true, 'completed' => true, 'dispatch_at' => '2026-03-22 09:00:00', 'completed_at' => '2026-03-25 14:00:00']);
-        $five->productions()->attach($prod->id);
-        Analise::create(['production_id' => $prod->id, 'conclusion' => 'FISCALIZADO SEM PENDENCIAS']);
+        $five  = $this->chain(['m1', 'partner', 'c2'])['five'];
 
         return [$report, $partial, $final, $five];
     }
