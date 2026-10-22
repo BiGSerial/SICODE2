@@ -51,6 +51,7 @@ class WorkReport extends Model
         'canceled'                  => 'boolean',
         'canceled_at'               => 'datetime',
         'informed_at'               => 'datetime',
+        'ads_due_at'                => 'datetime',
         'acceptance_accepted'       => 'boolean',
         'acceptance_at'             => 'datetime',
         'acceptance_meta'           => 'array',
@@ -64,6 +65,7 @@ class WorkReport extends Model
     {
         static::created(function (WorkReport $workReport) {
             app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class)->refresh($workReport);
+            app(\App\Services\Ads\AdsDeadlinePolicy::class)->syncWorkReport($workReport);
         });
 
         static::updated(function (WorkReport $workReport) {
@@ -72,6 +74,7 @@ class WorkReport extends Model
             }
 
             app(\App\Services\WorkReports\WorkReportCurrentStatusRefresher::class)->refresh($workReport);
+            app(\App\Services\Ads\AdsDeadlinePolicy::class)->syncWorkReport($workReport);
         });
     }
 

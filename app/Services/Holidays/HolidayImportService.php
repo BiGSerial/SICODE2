@@ -3,6 +3,7 @@
 namespace App\Services\Holidays;
 
 use App\Infrastructure\Holidays\FeriadosApiClient;
+use App\Jobs\SyncAdsDueAtJob;
 use App\Models\Holiday;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -17,7 +18,7 @@ class HolidayImportService
 
     public function preview(string $state, int $year): array
     {
-        $state = $this->normalizeState($state);
+        $state    = $this->normalizeState($state);
         $response = $this->client->holidaysByState($state, $year);
         $holidays = $response['feriados'] ?? null;
 
@@ -26,6 +27,7 @@ class HolidayImportService
         }
 
         $totalPages = (int) data_get($response, 'meta.total_pages', 1);
+
         if ($totalPages > 1) {
             throw new RuntimeException('A Feriados API retornou mais de uma página. Ajuste a importação antes de confirmar.');
         }
@@ -41,7 +43,7 @@ class HolidayImportService
     {
         $state = $this->normalizeState($state);
 
-        return DB::transaction(function () use ($state, $year, $holidays): int {
+        $count = DB::transaction(function () use ($state, $year, $holidays): int {
             Holiday::query()
                 ->where('state', $state)
                 ->where('year', $year)
@@ -61,6 +63,11 @@ class HolidayImportService
 
             return count($rows);
         });
+
+        // Feriado novo/alterado muda o prazo dos informes ainda sem ADS tácita do UF.
+        SyncAdsDueAtJob::dispatch($state);
+
+        return $count;
     }
 
     private function normalizeState(string $state): string
@@ -77,14 +84,14 @@ class HolidayImportService
     private function normalizeForInsert(array $holiday, string $state, int $year): array
     {
         if (isset($holiday['date'], $holiday['name'], $holiday['state'], $holiday['year'])) {
-            $holiday['state'] = $state;
-            $holiday['year'] = $year;
+            $holiday['state']          = $state;
+            $holiday['year']           = $year;
             $holiday['source_payload'] = is_string($holiday['source_payload'] ?? null)
                 ? $holiday['source_payload']
                 : json_encode($holiday['source_payload'] ?? $holiday, JSON_UNESCAPED_UNICODE);
             $holiday['imported_at'] = now()->toDateTimeString();
-            $holiday['created_at'] = now()->toDateTimeString();
-            $holiday['updated_at'] = now()->toDateTimeString();
+            $holiday['created_at']  = now()->toDateTimeString();
+            $holiday['updated_at']  = now()->toDateTimeString();
 
             return $holiday;
         }

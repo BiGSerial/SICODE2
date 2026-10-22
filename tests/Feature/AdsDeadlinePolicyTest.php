@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{AdsNonWorkingDayAdjustment, Company, Holiday, Note, User, WorkReport};
+use App\Models\{AdsNonWorkingDayAdjustment, Adsform, Company, Holiday, Note, User, WorkReport};
 use App\Services\Ads\AdsDeadlinePolicy;
 use App\Services\Holidays\{HolidayImportService, NormalizeImportedHoliday};
 use Carbon\Carbon;
@@ -125,5 +125,84 @@ class AdsDeadlinePolicyTest extends TestCase
 
         $this->assertSame(1, $count);
         $this->assertSame(1, Holiday::query()->where('state', 'ES')->whereDate('date', '2026-11-20')->count());
+    }
+
+    private function makeWorkReport(string $informedAt): WorkReport
+    {
+        $user    = User::factory()->create();
+        $company = Company::create(['name' => 'Compel', 'email' => 'compel' . uniqid() . '@example.com']);
+        $note    = Note::create(['note' => (string) random_int(4000000100, 4999999999)]);
+
+        return WorkReport::create([
+            'note_id'     => $note->id,
+            'company_id'  => $company->id,
+            'user_id'     => $user->id,
+            'informed_at' => $informedAt,
+            'date'        => substr($informedAt, 0, 10),
+        ]);
+    }
+
+    public function test_ads_due_at_is_stored_on_create_and_recalculated_on_reinform(): void
+    {
+        $workReport = $this->makeWorkReport('2026-04-03 10:00:00');
+
+        $this->assertSame('2026-04-08 23:59:59', $workReport->fresh()->ads_due_at->format('Y-m-d H:i:s'));
+
+        $workReport->update(['rejected' => true, 'informed_at' => null]);
+        $this->assertNull($workReport->fresh()->ads_due_at);
+
+        $workReport->update(['rejected' => false, 'informed_at' => '2026-04-10 09:00:00']);
+        $this->assertSame('2026-04-15 23:59:59', $workReport->fresh()->ads_due_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_ads_due_at_uses_calendar_days_in_sp(): void
+    {
+        config(['sicode.ruleset' => 'sp']);
+
+        $workReport = $this->makeWorkReport('2026-04-03 10:00:00');
+
+        $this->assertSame('2026-04-06 23:59:59', $workReport->fresh()->ads_due_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_ads_due_at_is_frozen_once_a_tacit_adsform_exists_but_follows_non_tacit_ads(): void
+    {
+        $workReport = $this->makeWorkReport('2026-04-03 10:00:00');
+        $original   = $workReport->fresh()->ads_due_at->format('Y-m-d H:i:s');
+
+        $adsform = Adsform::create([
+            'work_report_id' => $workReport->id,
+            'note_id'        => $workReport->note_id,
+            'user_id'        => $workReport->user_id,
+            'amount'         => 0,
+            'tacit'          => false,
+        ]);
+
+        $workReport->update(['informed_at' => '2026-04-10 09:00:00']);
+        $this->assertSame('2026-04-15 23:59:59', $workReport->fresh()->ads_due_at->format('Y-m-d H:i:s'));
+
+        $adsform->update(['tacit' => true, 'tacit_due_at' => '2026-04-15 23:59:59']);
+        $workReport->update(['informed_at' => '2026-04-20 09:00:00']);
+
+        $this->assertSame('2026-04-15 23:59:59', $workReport->fresh()->ads_due_at->format('Y-m-d H:i:s'));
+        $this->assertNotSame($original, $workReport->fresh()->ads_due_at->format('Y-m-d H:i:s'));
+    }
+
+    public function test_sync_pending_recalculates_after_a_new_holiday(): void
+    {
+        $workReport = $this->makeWorkReport('2026-04-03 10:00:00');
+
+        Holiday::create([
+            'state'       => 'ES',
+            'year'        => 2026,
+            'date'        => '2026-04-06',
+            'name'        => 'Feriado estadual',
+            'type'        => 'ESTADUAL',
+            'source'      => 'feriados_api',
+            'imported_at' => now(),
+        ]);
+
+        app(AdsDeadlinePolicy::class)->syncPending('ES');
+
+        $this->assertSame('2026-04-09 23:59:59', $workReport->fresh()->ads_due_at->format('Y-m-d H:i:s'));
     }
 }

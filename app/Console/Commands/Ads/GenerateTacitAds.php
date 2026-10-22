@@ -5,14 +5,8 @@ namespace App\Console\Commands\Ads;
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Enum\AdsRequestStatus;
-use App\Models\AdsRequest;
-use App\Models\AdsRequestDefaultUser;
-use App\Models\Adsform;
+use App\Models\{AdsRequest, AdsRequestDefaultUser, Adsform, Production, SystemSetting, User, WorkReport};
 use App\Models\Edp_depc\BaseCosts;
-use App\Models\Production;
-use App\Models\SystemSetting;
-use App\Models\User;
-use App\Models\WorkReport;
 use App\Notifications\SystemNotification;
 use App\Services\Ads\AdsDeadlinePolicy;
 use Carbon\Carbon;
@@ -26,9 +20,9 @@ class GenerateTacitAds extends Command
 {
     use ShowsProgress;
 
-    private const ADS_LINK_REUSE_START_DATE = '2026-08-01 00:00:00';
-    private const ADS_LINK_REUSE_DAYS = 7;
-    private const AUTO_REUSE_DESCRIPTION = 'Solicitação automática concluída com reaproveitamento de ADS já disponível.';
+    private const ADS_LINK_REUSE_START_DATE        = '2026-08-01 00:00:00';
+    private const ADS_LINK_REUSE_DAYS              = 7;
+    private const AUTO_REUSE_DESCRIPTION           = 'Solicitação automática concluída com reaproveitamento de ADS já disponível.';
     private const AUTO_REUSE_AVAILABLE_DESCRIPTION = 'ADS já disponível. Solicitação finalizada automaticamente com link já existente.';
 
     protected $signature = 'ads:generate-tacit {--dry : Simula a execução sem criar/espelhar registros}';
@@ -43,6 +37,7 @@ class GenerateTacitAds extends Command
             $dryRun = (bool) $this->option('dry');
 
             $this->info('Starting GenerateTacitAds...');
+
             if ($dryRun) {
                 $this->warn('DRY RUN ATIVO: nada será gravado (nem ADS, nem AdsRequest, nem espelhamento).');
             }
@@ -51,9 +46,9 @@ class GenerateTacitAds extends Command
             $log = new RegistroJson('ads_generate_tacit', $this->options());
 
             $deadlinePolicy = app(AdsDeadlinePolicy::class);
-            $startAt = Carbon::parse('2026-02-01 00:00:00');
+            $startAt        = Carbon::parse('2026-02-01 00:00:00');
 
-            $testMode = SystemSetting::getBool('ads_auto_test_mode', false);
+            $testMode         = SystemSetting::getBool('ads_auto_test_mode', false);
             $defaultServiceId = SystemSetting::getValue('ads_auto_default_service_id');
 
             $defaultRecipients = AdsRequestDefaultUser::query()
@@ -79,17 +74,17 @@ class GenerateTacitAds extends Command
                 ->whereDoesntHave('adsform')
                 ->with(['note:id,note', 'Company.Address']);
 
-            $adsCreated = 0;
-            $requestsCreated = 0;
-            $sqlMirrored = 0;
-            $sqlMirrorFailures = 0;
-            $skippedNoUser = 0;
-            $skippedNoCompany = 0;
-            $candidates = 0;
-            $orderCostCache = [];
-            $dryPreviewRows = [];
+            $adsCreated                    = 0;
+            $requestsCreated               = 0;
+            $sqlMirrored                   = 0;
+            $sqlMirrorFailures             = 0;
+            $skippedNoUser                 = 0;
+            $skippedNoCompany              = 0;
+            $candidates                    = 0;
+            $orderCostCache                = [];
+            $dryPreviewRows                = [];
             $requestsCompletedFromExisting = 0;
-            $notifiedDone = 0;
+            $notifiedDone                  = 0;
 
             $total = (clone $query)->count();
             $this->info("WorkReports elegíveis: {$total}");
@@ -121,18 +116,21 @@ class GenerateTacitAds extends Command
                     $candidates++;
 
                     $userId = $workReport->user_id ?: User::query()->value('id');
+
                     if (!$userId) {
                         $skippedNoUser++;
+
                         continue;
                     }
 
                     if (!$workReport->company_id) {
                         $skippedNoCompany++;
+
                         continue;
                     }
 
                     $state = $deadlinePolicy->stateForWorkReport($workReport);
-                    $dueAt = $deadlinePolicy->dueAt(
+                    $dueAt = $workReport->ads_due_at ?? $deadlinePolicy->dueAt(
                         Carbon::parse($workReport->informed_at),
                         $state,
                         (int) $workReport->id
@@ -157,18 +155,19 @@ class GenerateTacitAds extends Command
                         $adsCreated++; // simulado
                         $requestsCreated += max(1, $recipientIds->count()); // simulado
                         $dryPreviewRows[] = [
-                            'nota' => (string) ($workReport->note?->note ?? $workReport->note_id),
-                            'informado_em' => optional($workReport->informed_at)->format('d/m/Y H:i:s'),
-                            'venceu_em' => $dueAt->format('d/m/Y H:i:s'),
+                            'nota'          => (string) ($workReport->note?->note ?? $workReport->note_id),
+                            'informado_em'  => optional($workReport->informed_at)->format('d/m/Y H:i:s'),
+                            'venceu_em'     => $dueAt->format('d/m/Y H:i:s'),
                             'destinatarios' => (string) $recipientIds->count(),
                         ];
+
                         continue;
                     }
 
-                    $batchId = (string) Str::uuid();
-                    $createdRequests = [];
-                    $requestsToMirror = [];
-                    $requestsToNotify = [];
+                    $batchId             = (string) Str::uuid();
+                    $createdRequests     = [];
+                    $requestsToMirror    = [];
+                    $requestsToNotify    = [];
                     $orderCostsByOrderId = $this->resolveOrderCostsForWorkReport($workReport->id, $orderCostCache);
 
                     DB::transaction(function () use (
@@ -195,7 +194,7 @@ class GenerateTacitAds extends Command
                                     ->where('id', $orderId)
                                     ->update([
                                         'service_cost' => round((float) $serviceCost, 2),
-                                        'updated_at' => now(),
+                                        'updated_at'   => now(),
                                     ]);
                             }
                         }
@@ -204,17 +203,17 @@ class GenerateTacitAds extends Command
 
                         Adsform::create([
                             'work_report_id' => $workReport->id,
-                            'note_id' => $workReport->note_id,
-                            'user_id' => $userId,
-                            'name' => null,
-                            'obs' => 'ADS tácita criada automaticamente pelo sistema.',
-                            'contract' => null,
-                            'center' => null,
-                            'deposit' => null,
-                            'amount' => 0.00,
-                            'partial' => false,
-                            'tacit' => true,
-                            'tacit_due_at' => $dueAt,
+                            'note_id'        => $workReport->note_id,
+                            'user_id'        => $userId,
+                            'name'           => null,
+                            'obs'            => 'ADS tácita criada automaticamente pelo sistema.',
+                            'contract'       => null,
+                            'center'         => null,
+                            'deposit'        => null,
+                            'amount'         => 0.00,
+                            'partial'        => false,
+                            'tacit'          => true,
+                            'tacit_due_at'   => $dueAt,
                             // Este campo deve ser preenchido apenas no envio manual da ADS
                             // pelo parceiro (fluxo ReceiveAdsfomrm).
                             'tacit_delivered_at' => null,
@@ -250,39 +249,40 @@ class GenerateTacitAds extends Command
 
                                 $request = AdsRequest::query()->create([
                                     'requested_by' => $recipientUserId,
-                                    'company_id' => $workReport->company_id,
-                                    'note_id' => $workReport->note_id,
-                                    'batch_id' => $batchId,
-                                    'partner' => false,
-                                    'completed' => true,
-                                    'status' => AdsRequestStatus::DONE,
-                                    'version' => $version,
-                                    'description' => 'Solicitação automática concluída com reaproveitamento de ADS já disponível.',
-                                    'url' => $latestRequestWithUrl->url,
+                                    'company_id'   => $workReport->company_id,
+                                    'note_id'      => $workReport->note_id,
+                                    'batch_id'     => $batchId,
+                                    'partner'      => false,
+                                    'completed'    => true,
+                                    'status'       => AdsRequestStatus::DONE,
+                                    'version'      => $version,
+                                    'description'  => 'Solicitação automática concluída com reaproveitamento de ADS já disponível.',
+                                    'url'          => $latestRequestWithUrl->url,
                                     'completed_at' => $doneAt,
                                     'delivered_at' => null,
                                 ]);
 
-                                $createdRequests[] = $request;
+                                $createdRequests[]  = $request;
                                 $requestsToNotify[] = $request;
                                 $requestsCompletedFromExisting++;
                                 $requestsCreated++;
+
                                 continue;
                             }
 
                             $request = AdsRequest::query()->create([
                                 'requested_by' => $recipientUserId,
-                                'company_id' => $workReport->company_id,
-                                'note_id' => $workReport->note_id,
-                                'batch_id' => $batchId,
-                                'partner' => false,
-                                'completed' => false,
-                                'status' => AdsRequestStatus::QUEUED,
-                                'version' => $version,
-                                'description' => 'Solicitação automática gerada por ADS tácita.',
+                                'company_id'   => $workReport->company_id,
+                                'note_id'      => $workReport->note_id,
+                                'batch_id'     => $batchId,
+                                'partner'      => false,
+                                'completed'    => false,
+                                'status'       => AdsRequestStatus::QUEUED,
+                                'version'      => $version,
+                                'description'  => 'Solicitação automática gerada por ADS tácita.',
                             ]);
 
-                            $createdRequests[] = $request;
+                            $createdRequests[]  = $request;
                             $requestsToMirror[] = $request;
                             $requestsCreated++;
                         }
@@ -322,6 +322,7 @@ class GenerateTacitAds extends Command
 
             if ($dryRun) {
                 $this->warn('DRY RUN: espelhamento no SQL Server não foi executado.');
+
                 if (!empty($dryPreviewRows)) {
                     $this->newLine();
                     $this->info('Lista simulada (nota, informado em, venceu em):');
@@ -388,7 +389,7 @@ class GenerateTacitAds extends Command
             return [];
         }
 
-        $orderNumbers = $orders->pluck('ordem')->filter()->unique()->values()->all();
+        $orderNumbers  = $orders->pluck('ordem')->filter()->unique()->values()->all();
         $missingOrders = array_values(array_diff($orderNumbers, array_keys($orderCostCache)));
 
         if (!empty($missingOrders)) {
@@ -404,6 +405,7 @@ class GenerateTacitAds extends Command
         }
 
         $costsByOrderId = [];
+
         foreach ($orders as $order) {
             $costsByOrderId[(int) $order->id] = (float) ($orderCostCache[$order->ordem] ?? 0);
         }
@@ -442,31 +444,32 @@ class GenerateTacitAds extends Command
     private function mirrorToSqlServer(AdsRequest $request, string $noteNumber): bool
     {
         try {
-            $user = $request->requestedBy()->first();
+            $user    = $request->requestedBy()->first();
             $company = $request->company()->first();
 
             DB::connection('sqlsrv2')
                 ->table('dbo.ads_requests')
                 ->insert([
-                    'sicode_id' => $request->id,
-                    'batch_id' => $request->batch_id,
-                    'note' => $noteNumber,
-                    'company' => $company?->name,
-                    'status' => $request->status->value,
-                    'attempts' => $request->attempts ?? 0,
-                    'partner' => $request->partner ? 1 : 0,
-                    'register' => $user?->Registration,
-                    'user' => $user?->name,
-                    'email' => $user?->email,
-                    'description' => $request->description,
+                    'sicode_id'    => $request->id,
+                    'batch_id'     => $request->batch_id,
+                    'note'         => $noteNumber,
+                    'company'      => $company?->name,
+                    'status'       => $request->status->value,
+                    'attempts'     => $request->attempts ?? 0,
+                    'partner'      => $request->partner ? 1 : 0,
+                    'register'     => $user?->Registration,
+                    'user'         => $user?->name,
+                    'email'        => $user?->email,
+                    'description'  => $request->description,
                     'completed_at' => $request->completed_at,
-                    'created_at' => $request->created_at,
-                    'updated_at' => $request->updated_at,
+                    'created_at'   => $request->created_at,
+                    'updated_at'   => $request->updated_at,
                 ]);
 
             return true;
         } catch (Throwable $exception) {
             report($exception);
+
             return false;
         }
     }
@@ -474,17 +477,19 @@ class GenerateTacitAds extends Command
     private function notifyDoneRequesterIfNeeded(AdsRequest $request): bool
     {
         $status = $request->status instanceof AdsRequestStatus ? $request->status->value : (string) $request->status;
+
         if ($status !== AdsRequestStatus::DONE->value || $request->delivered_at) {
             return false;
         }
 
         $user = $request->requestedBy()->first();
+
         if (!$user) {
             return false;
         }
 
         $noteNumber = $request->note()->value('note') ?? $request->note_id;
-        $message = "A ADS da nota <strong>{$noteNumber}</strong> está disponível.";
+        $message    = "A ADS da nota <strong>{$noteNumber}</strong> está disponível.";
 
         $user->notify(new SystemNotification(
             'ADS disponível',
@@ -493,14 +498,14 @@ class GenerateTacitAds extends Command
             4,
             [
                 'ads_request_id' => $request->id,
-                'note_id' => $request->note_id,
+                'note_id'        => $request->note_id,
             ]
         ));
 
         $request->timestamps = false;
         $request->forceFill([
             'delivered_at' => now(),
-            'updated_at' => now(),
+            'updated_at'   => now(),
         ])->save();
 
         return true;

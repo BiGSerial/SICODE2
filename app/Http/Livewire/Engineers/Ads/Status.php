@@ -4,10 +4,10 @@ namespace App\Http\Livewire\Engineers\Ads;
 
 use App\Jobs\Engineers\ExportAdsSituationJob;
 use App\Models\AdsNonWorkingDayAdjustment;
-use App\Models\Company;
+use App\Models\{Company, WorkReport};
+use App\Services\Ads\AdsDeadlinePolicy;
 use App\Services\Engineers\AdsSituationService;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class Status extends Component
 {
@@ -16,31 +16,42 @@ class Status extends Component
     protected $paginationTheme = 'bootstrap';
 
     public int $perPage = 25;
+
     public string $statusFilter = 'disabled';
+
     public string $detailStatusFilter = 'all';
+
     public ?string $date_in = null;
+
     public ?string $date_out = null;
+
     public ?string $search = null;
+
     public array $companyIds = [];
+
     public array $rowFineData = [];
+
     public array $selectedRows = [];
+
     public ?string $adjustmentDate = null;
+
     public ?string $adjustmentReason = null;
+
     public $companies;
 
     protected $queryString = [
-        'statusFilter' => ['except' => 'disabled', 'as' => 'status'],
+        'statusFilter'       => ['except' => 'disabled', 'as' => 'status'],
         'detailStatusFilter' => ['except' => 'all', 'as' => 'detail'],
-        'date_in' => ['except' => '', 'as' => 'din'],
-        'date_out' => ['except' => '', 'as' => 'dout'],
-        'search' => ['except' => '', 'as' => 'q'],
-        'companyIds' => ['except' => [], 'as' => 'company'],
-        'perPage' => ['except' => 25, 'as' => 'pp'],
+        'date_in'            => ['except' => '', 'as' => 'din'],
+        'date_out'           => ['except' => '', 'as' => 'dout'],
+        'search'             => ['except' => '', 'as' => 'q'],
+        'companyIds'         => ['except' => [], 'as' => 'company'],
+        'perPage'            => ['except' => 25, 'as' => 'pp'],
     ];
 
     public function mount(): void
     {
-        $this->date_in = $this->date_in ?: now()->startOfMonth()->format('Y-m-d');
+        $this->date_in  = $this->date_in ?: now()->startOfMonth()->format('Y-m-d');
         $this->date_out = $this->date_out ?: now()->format('Y-m-d');
 
         $this->companies = Company::query()
@@ -61,13 +72,13 @@ class Status extends Component
 
     public function clearFilters(): void
     {
-        $this->statusFilter = 'disabled';
+        $this->statusFilter       = 'disabled';
         $this->detailStatusFilter = 'all';
-        $this->search = null;
-        $this->companyIds = [];
-        $this->date_in = now()->startOfMonth()->format('Y-m-d');
-        $this->date_out = now()->format('Y-m-d');
-        $this->perPage = 25;
+        $this->search             = null;
+        $this->companyIds         = [];
+        $this->date_in            = now()->startOfMonth()->format('Y-m-d');
+        $this->date_out           = now()->format('Y-m-d');
+        $this->perPage            = 25;
         $this->resetPage();
     }
 
@@ -84,9 +95,9 @@ class Status extends Component
         if (!$result) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Registro não encontrado.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Registro não encontrado.',
+                'timer'    => 2500,
             ]);
 
             return;
@@ -106,45 +117,50 @@ class Status extends Component
         if ($ids->isEmpty()) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'warning',
-                'title' => 'Selecione pelo menos um informe.',
-                'timer' => 2500,
+                'icon'     => 'warning',
+                'title'    => 'Selecione pelo menos um informe.',
+                'timer'    => 2500,
             ]);
+
             return;
         }
 
         $this->validate([
-            'adjustmentDate' => ['required', 'date'],
+            'adjustmentDate'   => ['required', 'date'],
             'adjustmentReason' => ['required', 'string', 'min:10'],
         ], [
-            'adjustmentDate.required' => 'Informe a data abonada.',
+            'adjustmentDate.required'   => 'Informe a data abonada.',
             'adjustmentReason.required' => 'Informe a justificativa.',
-            'adjustmentReason.min' => 'A justificativa deve ter pelo menos 10 caracteres.',
+            'adjustmentReason.min'      => 'A justificativa deve ter pelo menos 10 caracteres.',
         ]);
 
         foreach ($ids as $workReportId) {
             AdsNonWorkingDayAdjustment::query()->updateOrCreate(
                 [
                     'work_report_id' => $workReportId,
-                    'date' => $this->adjustmentDate,
+                    'date'           => $this->adjustmentDate,
                 ],
                 [
-                    'reason' => trim((string) $this->adjustmentReason),
+                    'reason'     => trim((string) $this->adjustmentReason),
                     'created_by' => auth()->id(),
                 ]
             );
+
+            if ($workReport = WorkReport::query()->find($workReportId)) {
+                app(AdsDeadlinePolicy::class)->syncWorkReport($workReport);
+            }
         }
 
-        $this->rowFineData = [];
-        $this->selectedRows = [];
-        $this->adjustmentDate = null;
+        $this->rowFineData      = [];
+        $this->selectedRows     = [];
+        $this->adjustmentDate   = null;
         $this->adjustmentReason = null;
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Dia abonado como não útil para os registros selecionados.',
-            'timer' => 3000,
+            'icon'     => 'success',
+            'title'    => 'Dia abonado como não útil para os registros selecionados.',
+            'timer'    => 3000,
         ]);
     }
 
@@ -172,9 +188,9 @@ class Status extends Component
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
-            'icon' => 'success',
-            'title' => 'Exportação iniciada',
-            'html' => "<div class='card'><div class='card-body'>
+            'icon'     => 'success',
+            'title'    => 'Exportação iniciada',
+            'html'     => "<div class='card'><div class='card-body'>
                 <p>Seu arquivo está sendo gerado.</p>
                 <p class='mb-0'><strong>Você será notificado quando o download estiver disponível.</strong></p>
             </div></div>",
@@ -185,19 +201,19 @@ class Status extends Component
     private function filters(): array
     {
         return [
-            'statusFilter' => $this->statusFilter,
+            'statusFilter'       => $this->statusFilter,
             'detailStatusFilter' => $this->detailStatusFilter,
-            'date_in' => $this->date_in,
-            'date_out' => $this->date_out,
-            'search' => $this->search,
-            'companyIds' => $this->companyIds,
+            'date_in'            => $this->date_in,
+            'date_out'           => $this->date_out,
+            'search'             => $this->search,
+            'companyIds'         => $this->companyIds,
         ];
     }
 
     public function render()
     {
         return view('livewire.engineers.ads.status', [
-            'rows' => $this->rows,
+            'rows'    => $this->rows,
             'summary' => app(AdsSituationService::class)->summarize($this->filters()),
         ]);
     }
