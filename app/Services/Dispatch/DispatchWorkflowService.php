@@ -395,8 +395,12 @@ class DispatchWorkflowService
                 // anterior foi concluída. Para a Fiscalização, o próprio parceiro
                 // pode abrir a nova atividade para si quando não há mais item na
                 // sua pilha, mantendo a regra de uma produção aberta por contexto.
+                // A PartnerMain também lista a nota quando a atividade anterior da
+                // empreiteira já foi concluída; nesse caso ela pode abrir a nova
+                // atividade para qualquer usuário da própria empresa, não só para si.
                 $canCreateOwnSupervisionActivity = $context['service_key'] === 'supervision'
-                    && (string) $targetUser->id === (string) $actor->id;
+                    && ((string) $targetUser->id === (string) $actor->id
+                        || $this->companyHasPriorProduction($note, $service, $company));
 
                 if (!$stackProduction
                     && !$canCreateOwnSupervisionActivity
@@ -701,6 +705,14 @@ class DispatchWorkflowService
             ->when($partialId, fn ($query) => $query->whereHas("partialInforms", fn ($partial) => $partial->whereKey($partialId)))
             ->lockForUpdate()
             ->first();
+    }
+
+    private function companyHasPriorProduction(Note $note, Service $service, Company $company): bool
+    {
+        return Production::where('note_id', $note->id)
+            ->where('service_id', $service->uuid)
+            ->where('company_id', $company->id)
+            ->exists();
     }
 
     private function dispatchFromExistingCompanyStack(
