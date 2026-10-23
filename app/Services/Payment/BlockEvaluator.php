@@ -16,13 +16,20 @@ class BlockEvaluator
     {
         $workReport = $note->WorkForm;
         $fiveNote   = $workReport?->FiveNote ?? $note->FiveNote;
-        $production = $this->latestProductionForService($note, $service->uuid, $fiveNote);
-        $partial    = $note->Partials
+        $partials   = $note->Partials
             ?->where('allow', true)
             ->where('supervision', true)
             ->where('deny', false)
-            ->sortByDesc('created_at')
-            ->first();
+            ->sortByDesc('created_at');
+        $partialId = (int) ($note->dispatch_partial_id ?? 0);
+        $partial   = ($partialId > 0 ? $partials?->firstWhere('id', $partialId) : null) ?? $partials?->first();
+
+        // Linha de Informe Parcial: a Production precisa ser a daquele parcial.
+        // Uma Medição concluída de outro parcial da mesma Nota não bloqueia este.
+        $scopedPartial = !$workReport && $partialId > 0 ? $partial : null;
+        $production    = $scopedPartial
+            ? $this->productionForPartial($note, $service->uuid, $scopedPartial)
+            : $this->latestProductionForService($note, $service->uuid, $fiveNote);
 
         if (!$production) {
             if ($workReport?->rejected) {
@@ -74,6 +81,34 @@ class BlockEvaluator
         }
 
         return (bool) $partial;
+    }
+
+    /**
+     * Production do Informe Parcial: vínculo explícito (productionables) ou, para
+     * históricos sem vínculo, uma Production parcial sem nenhum parcial associado
+     * criada depois da Fiscalização do parcial.
+     */
+    private function productionForPartial(Note $note, string $serviceUuid, $partial): ?Production
+    {
+        $productions = ($note->relationLoaded('Productions')
+            ? $note->Productions
+            : $note->Productions()->get())
+            ->where('service_id', $serviceUuid)
+            ->sortByDesc('created_at');
+
+        $linked = $productions->first(
+            fn (Production $production) => $production->partialInforms()->whereKey($partial->id)->exists()
+        );
+
+        if ($linked) {
+            return $linked;
+        }
+
+        return $productions->first(
+            fn (Production $production) => (bool) $production->partial
+                && !$production->partialInforms()->exists()
+                && (!$partial->supervision_at || $production->created_at >= $partial->supervision_at)
+        );
     }
 
     private function latestProductionForService(Note $note, string $serviceUuid, $fiveNote = null): ?Production
