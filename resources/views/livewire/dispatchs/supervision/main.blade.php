@@ -608,12 +608,12 @@
 
                                 $daysFromInformed = null;
                                 if ($informedDate) {
-                                    $daysFromInformed = Carbon::parse($informedDate)->diffInDays(Carbon::now(), false);
+                                    $daysFromInformed = Carbon::parse($informedDate)->startOfDay()->diffInDays(Carbon::now()->startOfDay(), false);
                                 }
 
                                 $adsFromInformedDays = null;
                                 if ($informedDate && $adsDate) {
-                                    $adsFromInformedDays = Carbon::parse($informedDate)->diffInDays(Carbon::parse($adsDate), false);
+                                    $adsFromInformedDays = Carbon::parse($informedDate)->startOfDay()->diffInDays(Carbon::parse($adsDate)->startOfDay(), false);
                                 }
                             @endphp
 

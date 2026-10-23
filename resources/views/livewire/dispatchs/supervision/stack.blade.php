@@ -382,11 +382,11 @@
                                 @endif
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
-                                {{ $item->att_at?->diffInDays(Carbon::now()) }} dias
+                                {{ $item->att_at?->copy()->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }} dias
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
                                 @if ($adsForm?->created_at)
-                                    <div>{{ $adsForm->created_at?->diffInDays(Carbon::now()) }} dias</div>
+                                    <div>{{ $adsForm->created_at->copy()->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }} dias</div>
                                 @endif
                                 @if ($isTacitAds)
                                     <div class="mt-1">
