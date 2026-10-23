@@ -25,6 +25,7 @@ class WorkReportPaymentCandidateQuery
 
         return $query
             ->whereHas('Operations', fn (Builder $operation) => $this->whereOperationStatus($operation, '0040', [
+                'CONF%',
                 'CNPA%',
                 'JBFI LIB%',
                 'LIB%',
@@ -61,7 +62,8 @@ class WorkReportPaymentCandidateQuery
         }
 
         return $statuses('0040')->contains(
-            fn (string $status) => str_starts_with($status, 'CNPA')
+            fn (string $status) => str_starts_with($status, 'CONF')
+            || str_starts_with($status, 'CNPA')
             || str_starts_with($status, 'JBFI LIB')
             || str_starts_with($status, 'LIB')
         ) && $statuses('0050')->contains(
