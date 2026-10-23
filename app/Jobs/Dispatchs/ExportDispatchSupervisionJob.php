@@ -72,6 +72,7 @@ class ExportDispatchSupervisionJob implements ShouldQueue
                     END AS pzo
                 "))
                 ->addSelect(DB::raw('af.created_at AS dt_ads'))
+                ->addSelect(DB::raw('af.amount AS ads_amount'))
                 ->with([
                     'wpas:id,production_id,dd,execstats,ststusexec,completed_at',
                     'service:id,uuid,service',
