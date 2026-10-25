@@ -183,11 +183,30 @@ class BaseEP extends Command
         }
 
         if ($canUseUpsert) {
-            Note::upsert(
-                array_map(fn (array $row) => $this->withoutInternalColumns($row), $rows),
-                ['note'],
-                $updateColumns
-            );
+            // INSERT ... ON DUPLICATE KEY UPDATE consome um auto_increment por linha enviada,
+            // mesmo quando ela só atualiza. Linhas existentes vão com o id explícito (não consomem);
+            // só as realmente novas vão sem id.
+            $existingRows = [];
+            $newRows = [];
+
+            foreach ($rows as $row) {
+                $existingId = $row['_existing_id'] ?? null;
+                $row = $this->withoutInternalColumns($row);
+
+                if ($existingId) {
+                    $existingRows[] = ['id' => $existingId] + $row;
+                } else {
+                    $newRows[] = $row;
+                }
+            }
+
+            if ($existingRows) {
+                Note::upsert($existingRows, ['note'], $updateColumns);
+            }
+
+            if ($newRows) {
+                Note::upsert($newRows, ['note'], $updateColumns);
+            }
 
             return;
         }
