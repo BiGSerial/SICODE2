@@ -97,17 +97,15 @@ it('creates the production, granular states, events, periods, and one aggregate 
     $this->assertDatabaseCount('notetimelines', 1);
 });
 
-it('repeats an identical dispatch without duplicating production, state, event, period, or timeline', function () {
+it('refuses to repeat an identical dispatch and creates nothing new (an Order with an owner is never dispatched again)', function () {
     ['company' => $company, 'actor' => $actor, 'note' => $note, 'cycle' => $cycle] = closureDispatchFixture();
     $order                                                                         = closureDispatchOrder($note, $cycle);
     $service                                                                       = app(ClosureDispatchService::class);
 
-    $first  = $service->dispatch($note, [$order->id], $company, null, $actor);
-    $second = $service->dispatch($note, [$order->id], $company, null, $actor);
+    $first = $service->dispatch($note, [$order->id], $company, null, $actor);
 
     expect($first->productionWasCreated)->toBeTrue()
-        ->and($second->isIdempotent())->toBeTrue()
-        ->and($second->production->id)->toBe($first->production->id)
+        ->and(fn () => $service->dispatch($note, [$order->id], $company, null, $actor))->toThrow(\App\Services\Closure\ClosureDispatchException::class, 'já foi despachada')
         ->and(Production::query()->count())->toBe(1)
         ->and(ClosureOrderState::query()->count())->toBe(1)
         ->and(ClosureOrderStatePeriod::query()->count())->toBe(1)
@@ -216,10 +214,13 @@ it('dispatches orders from several notes, reporting partial success without reve
         ->and(Production::query()->count())->toBe(2)
         ->and(ClosureOrderState::query()->count())->toBe(3);
 
-    // Repetir é idempotente: tudo já despachado.
+    // Despachar de novo NÃO é possível: Ordem que já tem posse é recusada (mudar o responsável é pela Transferência).
     $again = app(ClosureDispatchService::class)->dispatchOrders([$a1->id, $b1->id], $company, null, $actor);
 
-    expect($again->alreadyDispatchedOrderIds()->all())->toEqualCanonicalizing([(int) $a1->id, (int) $b1->id])
+    expect($again->dispatchedOrderIds()->all())->toBe([])
+        ->and($again->alreadyDispatchedOrderIds()->all())->toBe([])
+        ->and($again->refusedOrderIds()->all())->toEqualCanonicalizing([(int) $a1->id, (int) $b1->id])
+        ->and($again->refusals()[(int) $a1->id])->toContain('já foi despachada')->toContain('Transferência')
         ->and(Production::query()->count())->toBe(2)
         ->and(ClosureOrderState::query()->count())->toBe(3);
 });

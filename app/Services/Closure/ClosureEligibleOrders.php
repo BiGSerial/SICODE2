@@ -19,6 +19,9 @@ class ClosureEligibleOrders
 {
     public const VERSION = 'v3';
 
+    /** Versão do formato das facetas (município/status usuário); mude ao alterar o formato guardado. */
+    public const FACETS_VERSION = 'v4';
+
     public const TTL = 300;
 
     private ?array $memo = null;
@@ -36,18 +39,18 @@ class ClosureEligibleOrders
     public static function forget(): void
     {
         Cache::forget(self::cacheKey());
-        Cache::forget(self::citiesCacheKey());
         Cache::forget(self::informCompaniesCacheKey());
+        Cache::forget(self::facetsCacheKey());
+    }
+
+    public static function facetsCacheKey(?CarbonInterface $at = null): string
+    {
+        return 'closure:eligible-facets:' . self::FACETS_VERSION . ':' . ($at ?? now())->format('Y-m');
     }
 
     public static function informCompaniesCacheKey(?CarbonInterface $at = null): string
     {
         return 'closure:inform-companies:' . self::VERSION . ':' . ($at ?? now())->format('Y-m');
-    }
-
-    public static function citiesCacheKey(?CarbonInterface $at = null): string
-    {
-        return 'closure:eligible-cities:' . self::VERSION . ':' . ($at ?? now())->format('Y-m');
     }
 
     /**
@@ -128,6 +131,64 @@ class ClosureEligibleOrders
 
         // Ordens sem empresa são guardadas como '' no cache para não serem recalculadas a cada chamada.
         return $missing === [] ? $cached : $cached + $this->computeInformCompanies($missing);
+    }
+
+    /**
+     * Facetas dos filtros do Despacho, cacheadas com o mesmo TTL do conjunto (filtragem em memória, sem SQL):
+     *  - `orders`: order_id => ['n' => notes.nexp (rdMunicipio), 's' => 2 primeiros tokens de orders.statusUser];
+     *  - `cities`: rdMunicipio => ['m' => municipio, 'g' => regiao, 'r' => regional] (tabela `cities`).
+     * Ordens do conjunto fora do cache são calculadas ao vivo.
+     *
+     * @return array{orders: array<int, array{n: ?string, s: string}>, cities: array<string, array{m: string, g: string, r: string}>}
+     */
+    public function facets(): array
+    {
+        $ids    = array_keys($this->all());
+        $cached = Cache::remember(self::facetsCacheKey(), self::TTL, fn () => [
+            'orders' => $this->computeOrderFacets($ids),
+            'cities' => $this->computeCityFacets(),
+        ]);
+        $missing = array_values(array_filter($ids, fn ($id) => !array_key_exists($id, $cached['orders'])));
+
+        if ($missing !== []) {
+            $cached['orders'] += $this->computeOrderFacets($missing);
+        }
+
+        return $cached;
+    }
+
+    /** Dois primeiros tokens do status usuário ('JAND INVE BLOQ' => 'JAND INVE'). */
+    public static function statusUserPrefix(?string $statusUser): string
+    {
+        $tokens = preg_split('/\s+/', trim((string) $statusUser), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return implode(' ', array_slice($tokens, 0, 2));
+    }
+
+    /** @param array<int, int> $ids */
+    private function computeOrderFacets(array $ids): array
+    {
+        $map = [];
+
+        foreach (array_chunk($ids, 1000) as $chunk) {
+            foreach (DB::table('orders as o')->join('notes as n', 'n.id', '=', 'o.note_id')->whereIn('o.id', $chunk)
+                ->get(['o.id', 'n.nexp', 'o.statusUser']) as $row) {
+                $map[(int) $row->id] = ['n' => $row->nexp !== null ? (string) $row->nexp : null, 's' => self::statusUserPrefix($row->statusUser)];
+            }
+        }
+
+        return $map;
+    }
+
+    private function computeCityFacets(): array
+    {
+        $map = [];
+
+        foreach (DB::table('cities')->whereNotNull('rdMunicipio')->orderBy('id')->get(['rdMunicipio', 'municipio', 'regiao', 'regional']) as $row) {
+            $map[(string) $row->rdMunicipio] = ['m' => (string) $row->municipio, 'g' => (string) $row->regiao, 'r' => (string) $row->regional];
+        }
+
+        return $map;
     }
 
     /**

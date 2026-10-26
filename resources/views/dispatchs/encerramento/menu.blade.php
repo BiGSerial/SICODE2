@@ -35,7 +35,14 @@
                                     class="nav-item text-white fw-normal">
                                     <i class="bi bi-arrow-left-right fs-5 edp-text-verde-dark fw-normal"></i><span>TRANSFERÊNCIA
                                         DE
-                                        {{ mb_strtoupper($service->service) }}@livewire('components.count.closure-priority-requests', [], key('countClosurePriority' . $service->uuid))</span>
+                                        {{ mb_strtoupper($service->service) }}@livewire('components.count.closure-priority-requests', [], key('countClosurePriority' . $service->uuid))@livewire('components.count.closure-transfers', [], key('countClosureTransfersD' . $service->uuid))</span>
+                                </a>
+                            </li>
+
+                            <li>
+                                <a href="{{ route('closure.status_map') }}"
+                                    class="nav-item text-white fw-normal">
+                                    <i class="bi bi-diagram-3 fs-5 edp-text-verde-dark fw-normal"></i><span>CAIXAS DAS ATIVIDADES</span>
                                 </a>
                             </li>
 
@@ -51,7 +58,7 @@
             @endcan
         @endif
 
-        @can('closure.manager')
+        @if (auth()->user()?->can('closure.manager') || ($service && auth()->user()?->can('closure.dispatch')))
             <li class="nav-item">
                 <a class="nav-link collapsed" data-bs-target="#gestao-nav" data-bs-toggle="collapse" href="#">
                     <i class="bi bi-menu-button-wide"></i><span>GESTÃO DO CICLO</span><i
@@ -59,6 +66,7 @@
                 </a>
                 <ul id="gestao-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
                     <div class="border-start border-3 mb-1 py-0">
+                        @can('closure.manager')
                         <li>
                             <a href="{{ route('closure.overview') }}" class="nav-item text-white fw-normal">
                                 <i class="bi bi-speedometer2 fs-5 edp-text-verde-dark fw-normal"></i><span>VISÃO GERAL</span>
@@ -74,9 +82,19 @@
                                 <i class="bi bi-hourglass-split fs-5 edp-text-verde-dark fw-normal"></i><span>PASSIVO</span>
                             </a>
                         </li>
+                        @endcan
+                        @if ($service)
+                            @can('closure.dispatch')
+                                <li>
+                                    <a href="{{ route('dispatch.deposits', ['service' => $service->uuid]) }}" class="nav-item text-white fw-normal">
+                                        <i class="bi bi-calendar-check fs-5 edp-text-verde-dark fw-normal"></i><span>CALENDÁRIO DE DEPÓSITOS</span>
+                                    </a>
+                                </li>
+                            @endcan
+                        @endif
                     </div>
                 </ul>
             </li>
-        @endcan
+        @endif
     </ul>
 </aside>

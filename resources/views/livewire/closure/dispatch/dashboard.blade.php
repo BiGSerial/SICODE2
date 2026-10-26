@@ -41,6 +41,7 @@
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <span class="small opacity-75">Atualizado em {{ now()->format('d/m/Y H:i') }}</span>
+                <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel" title="Excel com uma aba por bloco do painel e as atividades detalhadas por status, nos filtros atuais"><i class="ri-file-excel-2-line"></i> Exportar Excel</button>
                 <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('dispatch.stack') }}" class="btn btn-light btn-sm btn-dash">Lista de controle</a>
             </div>
         </div>
@@ -289,7 +290,7 @@
                             <td title="{{ $order->responsible_name }}">{{ $order->responsible_name ?? '—' }}</td>
                             <td title="{{ $order->company_name }}">{{ $order->company_name ?? '—' }}</td>
                             <td>{{ $order->entered_at ? \Carbon\Carbon::parse($order->entered_at)->format('d/m/Y H:i') : '—' }}</td>
-                            <td class="pe-3"><a class="row-action" href="{{ route('closure.work.show', $order->note_id) }}">Abrir obra</a></td>
+                            <td class="pe-3"><a class="row-action" href="{{ route('closure.work.show', ['note' => $order->note_id, 'ctx' => 'dispatch']) }}">Abrir obra</a></td>
                         </tr>
                     @empty
                         <tr><td colspan="8" class="text-muted py-4 text-center">Nenhuma Ordem na seleção.</td></tr>
@@ -385,7 +386,7 @@
                             <td>{{ $work['oldest_days'] !== null ? $work['oldest_days'] . ' d' : '—' }}</td>
                             <td>{{ $work['stuck_issues'] ? $work['stuck_issues'] . ' (' . $work['stuck_days'] . ' d)' : '—' }}</td>
                             <td class="pe-3">
-                                <a class="row-action" href="{{ route('closure.work.show', $work['note_id']) }}">Abrir obra</a>
+                                <a class="row-action" href="{{ route('closure.work.show', ['note' => $work['note_id'], 'ctx' => 'dispatch']) }}">Abrir obra</a>
                                 <button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="prioritizeNote({{ $work['note_id'] }})">Priorizar obra</button>
                                 <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="prioritizeNote({{ $work['note_id'] }}, false)">Tirar prioridade</button>
                                 <button type="button" class="btn btn-outline-dark btn-sm btn-dash" wire:click="openTransfer({{ $work['note_id'] }})">Transferir</button>

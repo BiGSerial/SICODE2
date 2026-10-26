@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Closure\Work\Concerns;
 
 use App\Models\Closure\ClosureOrderState;
-use App\Services\Closure\ClosureMetaClassifier;
+use App\Services\Closure\{ClosureEligibleOrders, ClosureMetaClassifier};
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -12,11 +12,16 @@ use Illuminate\Database\Eloquent\Builder;
  */
 trait ClosureWorkListing
 {
+    use \App\Http\Livewire\Closure\Concerns\WithBulkSearch;
+
     public string $type = 'all';
 
     public string $status = 'all';
 
     public string $search = '';
+
+    /** @var array<int, string> Status usuário (2 primeiros tokens de orders.statusUser), como na lista do Despacho */
+    public array $statusUsers = [];
 
     /** Consulta base por Ordem, já com as colunas `meta_type` (dinâmica; congelada se encerrada) e `competence` (YYYY-MM). */
     protected function baseListingQuery(): Builder
@@ -34,6 +39,17 @@ trait ClosureWorkListing
             $classifier->whereMetaType($query, $this->type);
         }
 
+        $prefixes = collect($this->statusUsers)->map(fn ($v) => ClosureEligibleOrders::statusUserPrefix((string) $v))->filter()->unique()->values();
+
+        if ($prefixes->isNotEmpty()) {
+            $query->where(function (Builder $builder) use ($prefixes) {
+                foreach ($prefixes as $prefix) {
+                    $builder->orWhere('orders.statusUser', $prefix)
+                        ->orWhere('orders.statusUser', 'like', addcslashes($prefix, '%_\\') . ' %');
+                }
+            });
+        }
+
         $term = trim($this->search);
 
         if ($term !== '') {
@@ -44,14 +60,75 @@ trait ClosureWorkListing
             });
         }
 
+        if ($this->bulkTerms !== []) {
+            $terms = $this->bulkTerms;
+            $query->where(function (Builder $builder) use ($terms) {
+                $builder->whereIn('orders.ordem', $terms)
+                    ->orWhereHas('Order.Note', fn (Builder $note) => $note->whereIn('note', $terms));
+            });
+        }
+
         return $query;
     }
 
     public function clearFilters(): void
     {
-        $this->type   = 'all';
-        $this->status = 'all';
-        $this->search = '';
+        $this->type        = 'all';
+        $this->status      = 'all';
+        $this->search      = '';
+        $this->statusUsers = [];
+        $this->bulkTerms   = [];
+        $this->bulkText    = '';
+    }
+
+    /**
+     * Valor da obra (ADS do informe) das Ordens da página: order_id => R$ ou null.
+     *
+     * @param iterable<int, ClosureOrderState>|\Illuminate\Pagination\AbstractPaginator $states
+     *
+     * @return array<int, float|null>
+     */
+    public function informValues(iterable $states): array
+    {
+        $items = $states instanceof \Illuminate\Pagination\AbstractPaginator ? $states->getCollection() : collect($states);
+
+        return app(\App\Services\Closure\ClosureInformValue::class)->forOrders($items->pluck('order_id'));
+    }
+
+    /** Ordens e Notas que a lista devolve com os filtros atuais (base do resumo da busca em massa). */
+    protected function bulkSearchedValues(): array
+    {
+        return $this->exportQuery()->get()->flatMap(fn ($state) => [$state->Order?->ordem, $state->Order?->Note?->note])->filter()->all();
+    }
+
+    /** Lista completa (sem paginar) com os filtros atuais; base do export. */
+    abstract public function exportQuery(): Builder;
+
+    /**
+     * Opções do filtro "Status usuário": prefixo de 2 tokens e quantas Ordens da lista (sem esse filtro) o têm.
+     *
+     * @return array<int, array{v: string, n: int}>
+     */
+    public function statusUserOptions(): array
+    {
+        $selected          = $this->statusUsers;
+        $this->statusUsers = [];
+        $base              = $this->exportQuery()->reorder()->toBase();
+        $this->statusUsers = $selected;
+
+        $base->columns            = null;
+        $base->orders             = null;
+        $base->bindings['select'] = [];
+
+        return $base->selectRaw("trim(substring_index(trim(orders.statusUser), ' ', 2)) as pfx, count(*) as n")
+            ->whereNotNull('orders.statusUser')
+            ->groupBy('pfx')
+            ->orderBy('pfx')
+            ->get()
+            ->filter(fn ($row) => $row->pfx !== '')
+            ->map(fn ($row) => ['v' => (string) $row->pfx, 'n' => (int) $row->n])
+            ->values()
+            ->all();
     }
 
     /** Toast único por ação concluída (nunca chamar de render/poll). */

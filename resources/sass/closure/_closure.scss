@@ -1,0 +1,23 @@
+// Módulo Encerramento — ponto único de entrada do CSS.
+// Padrão, tokens e catálogo de componentes: docs/encerramento/PADRAO_UI_ENCERRAMENTO.md
+//
+// ATENÇÃO À ORDEM: preserva a ordem de cascata do CSS que antes vivia em livewire/closure/_styles.blade.php.
+// Estilo novo entra no arquivo temático correspondente (ou em _inbox.scss para as caixas) — nunca inline em Blade.
+
+@import 'tokens';
+@import 'tones';
+@import 'typography';
+@import 'layout';
+@import 'tables';
+@import 'badges';
+@import 'signals';
+@import 'buttons';
+@import 'filters';
+@import 'modals';
+@import 'order-detail';
+@import 'kpi';
+@import 'inbox';
+@import 'work';
+@import 'partner';
+@import 'menu';
+@import 'utilities';

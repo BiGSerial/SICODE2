@@ -88,6 +88,7 @@ class PartnerPermissionCatalog
                     'closure.issues.respond'    => 'Responder pendências',
                     'closure.issues.history'    => 'Histórico de pendências',
                     'closure.issues.view_files' => 'Visualizar arquivos',
+                    'closure.signals.manage'    => 'Liberar depósito bloqueado',
                 ],
             ],
             self::GROUP_ADMIN => [

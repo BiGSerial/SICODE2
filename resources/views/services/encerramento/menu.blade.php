@@ -36,6 +36,12 @@
                                 </a>
                             </li>
                             <li>
+                                <a href="{{ route('services.transfers', ['service' => $service->uuid]) }}"
+                                    class="nav-item text-white fw-normal">
+                                    <i class="bi bi-arrow-left-right fs-5 edp-text-verde-dark fw-normal"></i> <span>TRANSFERÊNCIAS</span>@livewire('components.count.closure-transfers', [], key('countClosureTransfers' . $service->uuid))
+                                </a>
+                            </li>
+                            <li>
                                 <a href="{{ route('services.historic', ['service' => $service->uuid]) }}"
                                     class="nav-item text-white fw-normal">
                                     <i class="bi bi-clock-history fs-5 edp-text-verde-dark fw-normal"></i> <span>MEU

@@ -25,6 +25,23 @@ class History extends Component
         abort_unless(auth()->user()?->can('closure.work'), 403);
     }
 
+    public function exportQuery(): Builder
+    {
+        return $this->historyQuery();
+    }
+
+    public function updatedStatusUsers(): void
+    {
+        $this->resetPage();
+    }
+
+    public function exportList(): void
+    {
+        \App\Jobs\Closure\ExportClosureListJob::dispatch(static::class, ['type' => $this->type, 'status' => $this->status, 'search' => $this->search, 'statusUsers' => $this->statusUsers, 'bulkTerms' => $this->bulkTerms], (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'success', 'title' => 'Exportação iniciada', 'html' => '<p class="mb-0"><strong>Você será notificado quando o download estiver disponível.</strong></p>', 'timer' => 5000]);
+    }
+
     public function updatedType(): void
     {
         $this->resetPage();

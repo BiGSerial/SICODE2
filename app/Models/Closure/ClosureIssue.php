@@ -14,17 +14,28 @@ class ClosureIssue extends Model
     public const STATUS_RETURNED   = 'RETURNED';
     public const STATUS_RESOLVED   = 'RESOLVED';
 
+    // Pendência entre áreas (origem/destino em App\Services\Closure\ClosureArea). ISSUE exige retorno; RETURN é devolutiva direta.
+    public const KIND_ISSUE  = 'ISSUE';
+    public const KIND_RETURN = 'RETURN';
+
+    public const SOURCE_MANUAL = 'MANUAL';
+
     protected $fillable = [
         'order_id',
         'closure_order_state_id',
         'closure_issue_category_id',
         'closure_issue_subcategory_id',
         'destination_company_id',
+        'origin_area',
+        'destination_area',
+        'kind',
+        'source',
         'opened_by',
         'status',
         'cycle',
         'blocking',
         'description',
+        'requirements',
         'block_state_snapshot',
         'opened_at',
         'requested_at',
@@ -35,6 +46,7 @@ class ClosureIssue extends Model
     protected $casts = [
         'cycle'                => 'integer',
         'blocking'             => 'boolean',
+        'requirements'         => 'array',
         'block_state_snapshot' => 'array',
         'opened_at'            => 'datetime',
         'requested_at'         => 'datetime',

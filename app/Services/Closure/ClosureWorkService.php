@@ -18,10 +18,61 @@ class ClosureWorkService
     public const LEVEL_INTERNAL   = 'INTERNAL';
     public const LEVEL_PARTNER    = 'PARTNER';
 
+    /**
+     * Público da tela: cada rota tem UM público, independente de quem está logado (isolamento de visão).
+     *  - partner: sempre a visão da parceira, escopada às empresas dela (superadm observa como as empresas da Nota);
+     *  - internal: nunca a visão da parceira;
+     *  - auto: nível real do usuário (uso interno de serviços, notificações).
+     */
+    public const AUDIENCE_AUTO     = 'auto';
+    public const AUDIENCE_PARTNER  = 'partner';
+    public const AUDIENCE_INTERNAL = 'internal';
+
     public const MAX_BODY = 5000;
+
+    private string $audience = self::AUDIENCE_AUTO;
+
+    /** Empresa que o superadm observa na visão da parceira (uma por vez; nunca a união das empresas da obra). */
+    private ?string $observeCompanyId = null;
 
     public function __construct(private readonly ClosureNotifier $notifier)
     {
+    }
+
+    /** Cópia do service presa a um público (não altera a instância compartilhada do contêiner). */
+    public function forAudience(string $audience): static
+    {
+        $clone           = clone $this;
+        $clone->audience = in_array($audience, [self::AUDIENCE_PARTNER, self::AUDIENCE_INTERNAL], true) ? $audience : self::AUDIENCE_AUTO;
+
+        return $clone;
+    }
+
+    /** Empresa observada pelo superadm no público `partner` (precisa ser uma das empresas da obra; senão vale a primeira). */
+    public function observingAs(?string $companyId): static
+    {
+        $clone                   = clone $this;
+        $clone->observeCompanyId = $companyId !== null && $companyId !== '' ? $companyId : null;
+
+        return $clone;
+    }
+
+    /**
+     * Empresas ligadas à obra que o superadm pode observar (id => nome); a primeira é a padrão.
+     *
+     * @return array<string, string>
+     */
+    public function observableCompanies(Note $note): array
+    {
+        $ids = $this->partnerCompanyIdsForNote($note->id);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $names = \App\Models\Company::query()->withTrashed()->whereIn('id', $ids)->pluck('name', 'id');
+
+        return collect($ids)->mapWithKeys(fn (string $id) => [$id => (string) ($names[$id] ?? $id)])->all();
     }
 
     /**
@@ -30,6 +81,41 @@ class ClosureWorkService
      * ou é destinatária de pendência da Nota) ou null (sem acesso).
      */
     public function accessLevel(Note $note, User $user): ?string
+    {
+        if ($this->audience === self::AUDIENCE_PARTNER) {
+            return $this->partnerAudienceLevel($note, $user);
+        }
+
+        $level = $this->resolveLevel($note, $user);
+
+        // Público interno nunca recebe a visão da parceira (quem é só parceira usa a rota da parceira).
+        return $this->audience === self::AUDIENCE_INTERNAL && $level === self::LEVEL_PARTNER ? null : $level;
+    }
+
+    /** Visão da parceira por rota: exige permissão de parceira e ao menos uma empresa dela na obra. */
+    private function partnerAudienceLevel(Note $note, User $user): ?string
+    {
+        if (!PartnerAccessGate::allows($user, 'closure.issues.list')) {
+            return null;
+        }
+
+        return array_intersect($this->visibleCompanyIds($user, $note), $this->partnerCompanyIdsForNote($note->id)) !== []
+            ? self::LEVEL_PARTNER
+            : null;
+    }
+
+    /**
+     * Empresas cuja visão a parceira tem NESTA obra (para escopar Ordens, pendências e mensagens). Para o superadm observando
+     * a visão da parceira, é a UMA empresa observada.
+     *
+     * @return array<int, string>
+     */
+    public function partnerCompanyScope(Note $note, User $user): array
+    {
+        return $this->visibleCompanyIds($user, $note);
+    }
+
+    private function resolveLevel(Note $note, User $user): ?string
     {
         if (Gate::forUser($user)->allows('closure.dispatch')) {
             return self::LEVEL_DISPATCHER;
@@ -90,7 +176,7 @@ class ClosureWorkService
         }
 
         $partnerOnly = $level === self::LEVEL_PARTNER;
-        $companyIds  = $partnerOnly ? $this->visibleCompanyIds($viewer) : [];
+        $companyIds  = $partnerOnly ? $this->visibleCompanyIds($viewer, $note) : [];
 
         $states = ClosureOrderState::query()
             ->with(['Order', 'Assignee', 'CurrentHolderCompany', 'Production.Company'])
@@ -263,7 +349,7 @@ class ClosureWorkService
                 throw new ClosureWorkException('A pendência informada não pertence a esta obra.');
             }
 
-            if ($level === self::LEVEL_PARTNER && !in_array((string) $issue->destination_company_id, $this->visibleCompanyIds($actor), true)) {
+            if ($level === self::LEVEL_PARTNER && !in_array((string) $issue->destination_company_id, $this->visibleCompanyIds($actor, $note), true)) {
                 throw new ClosureWorkException('Esta pendência não pertence à sua empresa.');
             }
 
@@ -303,7 +389,7 @@ class ClosureWorkService
             ->when($issue, fn ($q) => $q->where('closure_issue_id', $issue->id));
 
         if ($level === self::LEVEL_PARTNER) {
-            $companies = $this->visibleCompanyIds($viewer);
+            $companies = $this->visibleCompanyIds($viewer, $note);
             $query->visibleToPartner()->where(function ($q) use ($companies) {
                 $q->whereNull('closure_issue_id')
                     ->orWhereHas('Issue', fn ($i) => $i->whereIn('destination_company_id', $companies));
@@ -406,8 +492,20 @@ class ClosureWorkService
     }
 
     /** @return array<int, string> */
-    private function visibleCompanyIds(User $user): array
+    private function visibleCompanyIds(User $user, ?Note $note = null): array
     {
-        return $user->superadm ? [] : PartnerAccessGate::visibleCompanyIdsFor($user);
+        if ($user->superadm) {
+            // Observando como parceira: UMA empresa da obra (a escolhida, ou a primeira) — o isolamento é por empresa, nunca pela união.
+            // Fora do público `partner` o superadm nunca cai no nível PARTNER.
+            if ($this->audience !== self::AUDIENCE_PARTNER || !$note) {
+                return [];
+            }
+
+            $ids = $this->partnerCompanyIdsForNote($note->id);
+
+            return $this->observeCompanyId !== null && in_array($this->observeCompanyId, $ids, true) ? [$this->observeCompanyId] : array_slice($ids, 0, 1);
+        }
+
+        return PartnerAccessGate::visibleCompanyIdsFor($user);
     }
 }

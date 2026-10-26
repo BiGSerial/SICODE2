@@ -88,6 +88,7 @@
                 </div>
             </ul>
         </li>
+        @include('closure.partials.inbox-menu-item', ['inboxRoute' => 'dispatch.closure_inbox'])
     </ul>
 
     <div class="col-12">

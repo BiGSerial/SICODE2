@@ -97,6 +97,7 @@
                 </div>
             </ul>
         </li>
+        @include('closure.partials.inbox-menu-item', ['inboxRoute' => 'services.closure_inbox'])
     </ul>
 
 

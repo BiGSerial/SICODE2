@@ -2,8 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Production;
-use App\Models\Service;
+use App\Models\{Production, Service};
 use Illuminate\Http\Request;
 
 class ServicesController extends Controller
@@ -26,9 +25,32 @@ class ServicesController extends Controller
         ]);
     }
 
-    public function production(Request $request)
+    /** Caixa do Encerramento dentro da atividade (Medição = pagamento, Fiscalização = fiscalizacao). */
+    public function closureInbox(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->firstOrFail();
+        $area    = \App\Services\Closure\ClosureArea::forFolder((string) $service->folder);
+
+        abort_if($area === null, 404);
+        abort_unless(auth()->user()?->can('closure.inbox.' . strtolower($area)), 403);
+
+        return view('closure.inbox', ['service' => $service, 'area' => $area, 'menu' => 'services.' . $service->folder . '.menu']);
+    }
+
+    /** Transferências entre usuários do Encerramento (recebidas, enviadas, histórico). */
+    public function closureTransfers(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->firstOrFail();
+
+        abort_unless($service->folder === \App\Services\Closure\ClosureServiceLocator::FOLDER, 404);
+        abort_unless(auth()->user()?->can('closure.work'), 403);
+
+        return view('closure.transfers', ['service' => $service]);
+    }
+
+    public function production(Request $request)
+    {
+        $service    = Service::where('uuid', $request->route('service'))->firstOrFail();
         $production = Production::query()
             ->where('id', $request->route('prod'))
             ->where('service_id', $service->uuid)
@@ -38,10 +60,10 @@ class ServicesController extends Controller
         // Para Desenho, redireciona para a fila principal com abertura direta do chat/view.
         if ($service->folder === 'desenho') {
             return redirect()->route('services.main', [
-                'service' => $service->uuid,
+                'service'             => $service->uuid,
                 'open_project_review' => 1,
-                'production' => $production->id,
-                'note' => $production->note_id,
+                'production'          => $production->id,
+                'note'                => $production->note_id,
             ]);
         }
 
@@ -99,7 +121,7 @@ class ServicesController extends Controller
 
         return view('services.' . $service->folder . '.noteprotocol', [
             'service' => $service,
-            'note' => $request->route('note'),
+            'note'    => $request->route('note'),
         ]);
     }
 
@@ -244,7 +266,6 @@ class ServicesController extends Controller
         ]);
     }
 
-
     // Reclamações
     public function protests_list(Request $request)
     {
@@ -272,8 +293,6 @@ class ServicesController extends Controller
             'service' => $service,
         ]);
     }
-
-
 
     // Orgao Externo
     public function oexterno_released_works(Request $request)

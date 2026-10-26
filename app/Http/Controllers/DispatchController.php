@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Service;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class DispatchController extends Controller
 {
@@ -44,7 +43,7 @@ class DispatchController extends Controller
     {
         abort_unless(Auth()->user()?->contract, 403);
         $service = Service::where('uuid', $request->route('service'))->firstOrFail();
-        $view = 'dispatchs.' . $service->folder . '.partner_main';
+        $view    = 'dispatchs.' . $service->folder . '.partner_main';
 
         return view(view()->exists($view) ? $view : 'dispatchs.default.partner_main', [
             'service' => $service,
@@ -55,7 +54,7 @@ class DispatchController extends Controller
     {
         abort_unless(Auth()->user()?->contract, 403);
         $service = Service::where('uuid', $request->route('service'))->firstOrFail();
-        $view = 'dispatchs.' . $service->folder . '.partner_stack';
+        $view    = 'dispatchs.' . $service->folder . '.partner_stack';
 
         return view(view()->exists($view) ? $view : 'dispatchs.default.partner_stack', [
             'service' => $service,
@@ -68,7 +67,6 @@ class DispatchController extends Controller
             return redirect()->route('dispatch.partner.stack', ['service' => $request->route('service')]);
         }
         $service = Service::where('uuid', $request->route('service'))->first();
-
 
         if (view()->exists('dispatchs.' . $service->folder . '.stack')) {
             return view('dispatchs.' . $service->folder . '.stack', [
@@ -135,6 +133,18 @@ class DispatchController extends Controller
         ]);
     }
 
+    /** Caixa do Encerramento dentro do despacho (Medição = pagamento, Fiscalização = fiscalizacao). */
+    public function closureInbox(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->firstOrFail();
+        $area    = \App\Services\Closure\ClosureArea::forFolder((string) $service->folder);
+
+        abort_if($area === null, 404);
+        abort_unless(auth()->user()?->can('closure.inbox.' . strtolower($area)), 403);
+
+        return view('closure.inbox', ['service' => $service, 'area' => $area, 'menu' => 'dispatchs.' . $service->folder . '.menu']);
+    }
+
     public function dashboard(Request $request)
     {
         $service = Service::where('uuid', $request->route('service'))->first();
@@ -148,6 +158,19 @@ class DispatchController extends Controller
             abort(403, 'Recurso não implementado.');
         }
 
+    }
+
+    public function depositCalendar(Request $request)
+    {
+        $service = Service::where('uuid', $request->route('service'))->first();
+
+        if (view()->exists('dispatchs.' . $service->folder . '.deposits')) {
+            return view('dispatchs.' . $service->folder . '.deposits', [
+                'service' => $service,
+            ]);
+        }
+
+        abort(403, 'Recurso não implementado.');
     }
 
     public function historic(Request $request)

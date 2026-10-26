@@ -157,3 +157,16 @@ it('notifies the new assignee when the workflow assigns or transfers an order', 
     $payloads = closureSentPayloads($other);
     expect($payloads)->toHaveCount(1)->and($payloads[0]['status'])->toBe(7);
 });
+
+it('builds notification links on the side each recipient works from', function () {
+    $f       = closureScreenFixture();
+    $service = new ReflectionMethod(\App\Services\Closure\ClosureNotifier::class, 'workLinkForNote');
+    $service->setAccessible(true);
+    $notifier = app(\App\Services\Closure\ClosureNotifier::class);
+
+    $dispatch = $service->invoke($notifier, $f['note']->id, null, $f['dispatcher'], 'dispatch');
+    $worker   = $service->invoke($notifier, $f['note']->id, null, $f['internal'], 'service');
+    $fallback = $service->invoke($notifier, $f['note']->id, null, $f['internal'], 'dispatch'); // sem permissão de despacho → serviço
+
+    expect($dispatch)->toContain('ctx=dispatch')->and($worker)->toContain('ctx=service')->and($fallback)->toContain('ctx=service');
+});

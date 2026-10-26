@@ -17,6 +17,11 @@ class ClosureController extends Controller
         return view('closure.meta');
     }
 
+    public function statusMap()
+    {
+        return view('closure.status-map');
+    }
+
     public function passive()
     {
         return view('closure.passive');
@@ -58,11 +63,19 @@ class ClosureController extends Controller
 
     public function workShow(int $note)
     {
-        return view('closure.work-show', ['noteId' => $note]);
+        // Isolamento de visão: quem só tem a visão da parceira não usa a tela interna; vai para a rota da parceira.
+        $model = \App\Models\Note::query()->findOrFail($note);
+        $user  = auth()->user();
+
+        if ($user && app(\App\Services\Closure\ClosureWorkService::class)->accessLevel($model, $user) === \App\Services\Closure\ClosureWorkService::LEVEL_PARTNER) {
+            return redirect()->route('partner.closure.work.show', ['note' => $model->id]);
+        }
+
+        return view('closure.work-show', ['noteId' => $note, 'ctx' => \App\Services\Closure\ClosureNavContext::resolve(request('ctx'))]);
     }
 
     public function orderDetail(int $order)
     {
-        return view('closure.order-detail', ['orderId' => $order]);
+        return view('closure.order-detail', ['orderId' => $order, 'ctx' => \App\Services\Closure\ClosureNavContext::resolve(request('ctx'))]);
     }
 }

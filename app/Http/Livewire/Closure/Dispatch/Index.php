@@ -3,12 +3,14 @@
 namespace App\Http\Livewire\Closure\Dispatch;
 
 use App\Enum\ClosureOperationalStatus;
+use App\Http\Livewire\Closure\Concerns\WithBulkSearch;
 use App\Services\Closure\{ClosureMetaClassifier, ClosureSettings};
 use App\Services\Closure\Queries\ClosureDispatchListQuery;
 use Livewire\{Component, WithPagination};
 
 class Index extends Component
 {
+    use WithBulkSearch;
     use WithPagination;
 
     public const PER_PAGE = 25;
@@ -28,7 +30,17 @@ class Index extends Component
 
     public ?string $filterCompanyId = null;
 
-    public ?string $cityId = null;
+    /** @var array<int, string> Regiões (cities.regiao) */
+    public array $regions = [];
+
+    /** @var array<int, string> Regionais (cities.regional) */
+    public array $regionals = [];
+
+    /** @var array<int, string> Municípios (cities.rdMunicipio = notes.nexp) */
+    public array $cityCodes = [];
+
+    /** @var array<int, string> Status usuário (2 primeiros tokens de orders.statusUser) */
+    public array $statusUsers = [];
 
     /** Sem tipo: ids de usuário são UUID e o select envia string. */
     public $filterAssigneeId = null;
@@ -59,9 +71,16 @@ class Index extends Component
     protected $listeners = ['closureOrdersDispatched' => 'afterDispatch'];
 
     protected $queryString = [
-        'search' => ['except' => ''],
-        'types'  => ['except' => []],
-        'status' => ['except' => null],
+        'search'           => ['except' => ''],
+        'types'            => ['except' => []],
+        'status'           => ['except' => null],
+        'regions'          => ['except' => []],
+        'regionals'        => ['except' => []],
+        'cityCodes'        => ['except' => [], 'as' => 'cities'],
+        'statusUsers'      => ['except' => [], 'as' => 'su'],
+        'filterCompanyId'  => ['except' => null, 'as' => 'company'],
+        'competence'       => ['except' => null],
+        'onlyUndispatched' => ['except' => false, 'as' => 'undispatched'],
     ];
 
     public function mount(): void
@@ -78,7 +97,7 @@ class Index extends Component
 
     public function updated(string $name): void
     {
-        if (in_array($name, ['types', 'status', 'filterCompanyId', 'cityId', 'filterAssigneeId', 'onlyUndispatched', 'competence'], true)
+        if (in_array($name, ['types', 'status', 'filterCompanyId', 'filterAssigneeId', 'onlyUndispatched', 'competence', 'regions', 'regionals', 'cityCodes', 'statusUsers'], true)
             || str_starts_with($name, 'types.')) {
             $this->resetPage();
         }
@@ -130,8 +149,63 @@ class Index extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'types', 'status', 'filterCompanyId', 'cityId', 'filterAssigneeId', 'onlyUndispatched', 'competence']);
+        $this->reset(['search', 'types', 'status', 'filterCompanyId', 'regions', 'regionals', 'cityCodes', 'statusUsers', 'filterAssigneeId', 'onlyUndispatched', 'competence', 'bulkTerms', 'bulkText']);
         $this->resetPage();
+    }
+
+    /**
+     * Aplica de uma vez os 4 multi-dropdowns (o cliente mantém a seleção pendente e só envia ao fechar o menu).
+     * Município e Regional que não pertencem às Regiões/Regionais escolhidas são descartados (cascata).
+     */
+    public function applyMultiFilters(array $regions, array $regionals, array $cityCodes, array $statusUsers): void
+    {
+        $clean = fn (array $values) => array_values(array_unique(array_filter(array_map('strval', array_filter($values, 'is_scalar')), fn ($v) => $v !== '')));
+
+        $this->regions     = $clean($regions);
+        $this->regionals   = $clean($regionals);
+        $this->cityCodes   = $clean($cityCodes);
+        $this->statusUsers = $clean($statusUsers);
+        $this->pruneCascade();
+        $this->resetPage();
+    }
+
+    /** Remove um filtro individual (chip da barra "Filtros ativos"). */
+    public function removeFilter(string $kind, string $value = ''): void
+    {
+        $lists = ['region' => 'regions', 'regional' => 'regionals', 'city' => 'cityCodes', 'su' => 'statusUsers', 'type' => 'types'];
+
+        if (isset($lists[$kind])) {
+            $this->{$lists[$kind]} = array_values(array_diff($this->{$lists[$kind]}, [$value]));
+        } else {
+            match ($kind) {
+                'search'       => $this->search = '',
+                'bulk'         => $this->clearBulkSearch(),
+                'status'       => $this->status           = null,
+                'company'      => $this->filterCompanyId  = null,
+                'competence'   => $this->competence       = null,
+                'assignee'     => $this->filterAssigneeId = null,
+                'undispatched' => $this->onlyUndispatched = false,
+                default        => null,
+            };
+        }
+
+        $this->pruneCascade();
+        $this->resetPage();
+    }
+
+    private function pruneCascade(): void
+    {
+        if (!$this->regions && !$this->regionals) {
+            return;
+        }
+
+        $options = $this->listQuery()->filterOptions();
+        $inScope = fn (array $o) => (!$this->regions || in_array($o['g'], $this->regions, true));
+
+        $this->regionals = array_values(array_filter($this->regionals, fn ($r) => collect($options['regionals'])->contains(fn ($o) => $o['v'] === $r && $inScope($o))));
+        $this->cityCodes = array_values(array_filter($this->cityCodes, fn ($c) => collect($options['cities'])->contains(
+            fn ($o) => $o['v'] === $c && $inScope($o) && (!$this->regionals || in_array($o['r'], $this->regionals, true))
+        )));
     }
 
     public function toggleOrder(int $orderId): void
@@ -166,7 +240,7 @@ class Index extends Component
 
     public function selectAllFiltered(): void
     {
-        $this->selectedOrderIds = $this->listQuery()->filteredIds($this->filters(), self::SELECT_ALL_LIMIT);
+        $this->selectedOrderIds = $this->listQuery()->filteredIds($this->filters(), self::SELECT_ALL_LIMIT, true);
     }
 
     /**
@@ -183,7 +257,23 @@ class Index extends Component
 
         $query = $this->listQuery();
 
-        return $query->briefs($query->filteredIds($this->filters(), self::SELECT_ALL_LIMIT));
+        return $query->briefs($query->filteredIds($this->filters(), self::SELECT_ALL_LIMIT, true));
+    }
+
+    /** Exporta a lista (com os filtros atuais) em segundo plano; avisa por notificação quando estiver pronta. */
+    public function exportList(): void
+    {
+        $this->authorizeDispatch();
+
+        \App\Jobs\Closure\ExportClosureListJob::dispatch(static::class, $this->filters(), (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Exportação iniciada',
+            'html'     => '<p class="mb-0"><strong>Você será notificado quando o download estiver disponível.</strong></p>',
+            'timer'    => 5000,
+        ]);
     }
 
     public function openSettings(): void
@@ -229,13 +319,84 @@ class Index extends Component
         $overview = $query->overview($this->filters(), $this->perPage, $this->page);
 
         return view('livewire.closure.dispatch.index', [
-            'counts'       => $overview['counts'],
-            'competences'  => $overview['competences'],
-            'orders'       => $overview['orders'],
-            'cities'       => $query->cities(),
-            'responsibles' => $query->assignees(),
-            'statuses'     => ClosureOperationalStatus::cases(),
+            'counts'         => $overview['counts'],
+            'competences'    => $overview['competences'],
+            'orders'         => $overview['orders'],
+            'depositSignals' => app(\App\Services\Closure\ClosurePartnerSignalService::class)->activeByState(collect($overview['orders']->items())->pluck('state_id')),
+            'filterOptions'  => $query->filterOptions(),
+            'chips'          => $this->activeChips($query),
+            'responsibles'   => $query->assignees(),
+            'statuses'       => ClosureOperationalStatus::cases(),
         ]);
+    }
+
+    /** @return array<int, array{kind: string, value: string, label: string}> chips removíveis da barra "Filtros ativos" */
+    private function activeChips(ClosureDispatchListQuery $query): array
+    {
+        $options = $query->filterOptions();
+        $cityMap = collect($options['cities'])->pluck('l', 'v');
+        $chips   = [];
+        $add     = function (string $kind, string $value, string $label) use (&$chips) {
+            $chips[] = ['kind' => $kind, 'value' => $value, 'label' => $label];
+        };
+
+        if (trim($this->search) !== '') {
+            $add('search', '', 'Busca: ' . trim($this->search));
+        }
+
+        if ($this->bulkTerms !== []) {
+            $add('bulk', '', 'Busca em massa: ' . count($this->bulkTerms) . ' termo(s)');
+        }
+
+        foreach ($this->types as $type) {
+            $add('type', $type, 'Tipo: ' . ClosureMetaClassifier::label($type));
+        }
+
+        foreach ($this->regions as $v) {
+            $add('region', $v, 'Região: ' . $v);
+        }
+
+        foreach ($this->regionals as $v) {
+            $add('regional', $v, 'Regional: ' . $v);
+        }
+
+        foreach ($this->cityCodes as $v) {
+            $add('city', $v, 'Município: ' . ($cityMap[$v] ?? $v));
+        }
+
+        foreach ($this->statusUsers as $v) {
+            $add('su', $v, 'Status usuário: ' . $v);
+        }
+
+        if ($this->status) {
+            $add('status', '', 'Status: ' . ($this->status === ClosureDispatchListQuery::NO_STATE ? 'Não despachada' : ClosureOperationalStatus::labelFor($this->status)));
+        }
+
+        if ($this->filterCompanyId) {
+            $add('company', '', 'Empresa: ' . ($this->companies->firstWhere('id', $this->filterCompanyId)?->name ?? '—'));
+        }
+
+        if ($this->competence) {
+            $add('competence', '', 'Competência: ' . ClosureMetaClassifier::competenceLabel($this->competence));
+        }
+
+        if ($this->filterAssigneeId) {
+            $add('assignee', '', 'Responsável: ' . ($query->assignees()->firstWhere('id', $this->filterAssigneeId)?->name ?? '—'));
+        }
+
+        if ($this->onlyUndispatched) {
+            $add('undispatched', '', 'Só não despachadas');
+        }
+
+        return $chips;
+    }
+
+    /** Ordens e Notas que a lista devolve com os filtros atuais (base do resumo da busca em massa). */
+    protected function bulkSearchedValues(): array
+    {
+        $query = $this->listQuery();
+
+        return collect($query->briefs($query->filteredIds($this->filters())))->flatMap(fn (array $brief) => [$brief['ordem'] ?? null, $brief['note'] ?? null])->filter()->all();
     }
 
     private function listQuery(): ClosureDispatchListQuery
@@ -247,10 +408,14 @@ class Index extends Component
     {
         return [
             'search'           => $this->search,
+            'bulk'             => $this->bulkTerms,
             'types'            => $this->types,
             'status'           => $this->status,
             'companyId'        => $this->filterCompanyId,
-            'cityId'           => $this->cityId,
+            'regions'          => $this->regions,
+            'regionals'        => $this->regionals,
+            'cityCodes'        => $this->cityCodes,
+            'statusUsers'      => $this->statusUsers,
             'assigneeId'       => $this->filterAssigneeId ?: null,
             'onlyUndispatched' => $this->onlyUndispatched,
             'competence'       => $this->competence ?: null,

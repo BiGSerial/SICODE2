@@ -2,13 +2,12 @@
 
 namespace App\Services\Closure\Queries;
 
-use App\Models\{City, Company, Order, User};
 use App\Models\Closure\ClosureOrderState;
+use App\Models\{Company, Order, User};
 use App\Services\Closure\{ClosureEligibleOrders, ClosureMetaClassifier};
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\{LengthAwarePaginator, Paginator};
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * Listagem do Despacho de Encerramento: uma linha por ORDEM (docs/encerramento/REFORMULACAO_ENCERRAMENTO.md §5.1).
@@ -41,12 +40,18 @@ class ClosureDispatchListQuery
             return [];
         }
 
+        $scoped = $this->scopedIds($filters, $set);
+
+        if ($scoped === []) {
+            return [];
+        }
+
         $query = Order::query()
             ->select('orders.id')
             ->selectRaw('s.id as state_id')
             ->join('notes', 'notes.id', '=', 'orders.note_id')
             ->leftJoin('closure_order_states as s', 's.order_id', '=', 'orders.id')
-            ->whereIn('orders.id', array_keys($set));
+            ->whereIn('orders.id', $scoped);
 
         $search = trim((string) ($filters['search'] ?? ''));
 
@@ -55,16 +60,19 @@ class ClosureDispatchListQuery
             $query->where(fn (Builder $q) => $q->where('orders.ordem', 'like', $term)->orWhere('notes.note', 'like', $term));
         }
 
+        // Busca em massa: lista de Notas/Ordens coladas pelo usuário, correspondência exata.
+        $bulk = array_values(array_filter(array_map('strval', (array) ($filters['bulk'] ?? []))));
+
+        if ($bulk !== []) {
+            $query->where(fn (Builder $q) => $q->whereIn('orders.ordem', $bulk)->orWhereIn('notes.note', $bulk));
+        }
+
         $status = $filters['status'] ?? null;
 
         if ($status === self::NO_STATE) {
             $query->whereNull('s.id');
         } elseif ($status) {
             $query->where('s.operational_status', $status);
-        }
-
-        if (!empty($filters['cityId'])) {
-            $query->where('notes.nexp', $filters['cityId']);
         }
 
         if (!empty($filters['assigneeId'])) {
@@ -85,10 +93,150 @@ class ClosureDispatchListQuery
     }
 
     /**
+     * Ids do conjunto que passam nos filtros em memória (Região/Regional/Município e Status usuário), sobre as
+     * facetas cacheadas. Sem esses filtros devolve o conjunto inteiro.
+     *
+     * @return array<int, int>
+     */
+    private function scopedIds(array $filters, array $set): array
+    {
+        $codes = $this->allowedCityCodes($filters);
+        $su    = array_values(array_filter(array_map(fn ($v) => ClosureEligibleOrders::statusUserPrefix((string) $v), (array) ($filters['statusUsers'] ?? []))));
+
+        if ($codes === null && $su === []) {
+            return array_keys($set);
+        }
+
+        $codes  = $codes === null ? null : array_flip($codes);
+        $orders = $this->eligible->facets()['orders'];
+        $ids    = [];
+
+        foreach (array_keys($set) as $id) {
+            $facet = $orders[$id] ?? null;
+
+            if ($codes !== null && ($facet === null || $facet['n'] === null || !isset($codes[$facet['n']]))) {
+                continue;
+            }
+
+            if ($su !== [] && !$this->matchesStatusUser($facet['s'] ?? '', $su)) {
+                continue;
+            }
+
+            $ids[] = $id;
+        }
+
+        return $ids;
+    }
+
+    /** Token a token: 'JAND INVE' casa 'JAND INVE' e 'JAND INVE BLOQ', não 'JAND INVEX'. */
+    private function matchesStatusUser(string $statusUser, array $wanted): bool
+    {
+        foreach ($wanted as $prefix) {
+            if ($statusUser === $prefix || str_starts_with($statusUser, $prefix . ' ')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Códigos de município (rdMunicipio) permitidos: os escolhidos; senão todos os de Região/Regional; null = sem restrição.
+     *
+     * @return ?array<int, string>
+     */
+    private function allowedCityCodes(array $filters): ?array
+    {
+        $cityCodes = $this->strings($filters['cityCodes'] ?? []);
+
+        if ($cityCodes !== []) {
+            return $cityCodes;
+        }
+
+        $regions   = $this->strings($filters['regions'] ?? []);
+        $regionals = $this->strings($filters['regionals'] ?? []);
+
+        if ($regions === [] && $regionals === []) {
+            return null;
+        }
+
+        $codes = [];
+
+        foreach ($this->eligible->facets()['cities'] as $code => $city) {
+            if (($regions === [] || in_array($city['g'], $regions, true)) && ($regionals === [] || in_array($city['r'], $regionals, true))) {
+                $codes[] = (string) $code;
+            }
+        }
+
+        return $codes;
+    }
+
+    /** @return array<int, string> */
+    private function strings($values): array
+    {
+        return array_values(array_unique(array_filter(array_map('strval', array_filter((array) $values, 'is_scalar')), fn ($v) => $v !== '')));
+    }
+
+    /**
+     * Opções (com nº de Ordens do conjunto elegível) de Região, Regional, Município e Status usuário, para os
+     * multi-dropdowns. Vêm das facetas cacheadas: nada de SQL com cache quente. Regional/Município carregam
+     * região/regional para a cascata no cliente.
+     *
+     * @return array{regions: array, regionals: array, cities: array, statusUsers: array}
+     */
+    public function filterOptions(): array
+    {
+        $facets = $this->eligible->facets();
+        $cities = [];
+        $su     = [];
+
+        foreach ($this->eligible->all() as $id => $_) {
+            $facet = $facets['orders'][$id] ?? null;
+
+            if ($facet === null) {
+                continue;
+            }
+
+            if ($facet['n'] !== null && isset($facets['cities'][$facet['n']])) {
+                $cities[$facet['n']] = ($cities[$facet['n']] ?? 0) + 1;
+            }
+
+            if ($facet['s'] !== '') {
+                $su[$facet['s']] = ($su[$facet['s']] ?? 0) + 1;
+            }
+        }
+
+        $regions   = [];
+        $regionals = [];
+        $cityOpts  = [];
+
+        foreach ($cities as $code => $n) {
+            $city                = $facets['cities'][$code];
+            $regions[$city['g']] = ($regions[$city['g']] ?? 0) + $n;
+            $key                 = $city['g'] . '|' . $city['r'];
+            $regionals[$key]     = ['v' => $city['r'], 'g' => $city['g'], 'n' => ($regionals[$key]['n'] ?? 0) + $n];
+            $cityOpts[]          = ['v' => (string) $code, 'l' => $city['m'], 'g' => $city['g'], 'r' => $city['r'], 'n' => $n];
+        }
+
+        ksort($regions);
+        ksort($su);
+        usort($cityOpts, fn ($a, $b) => strcmp($a['l'], $b['l']));
+        $regionals = array_values($regionals);
+        usort($regionals, fn ($a, $b) => strcmp($a['v'], $b['v']));
+
+        return [
+            'regions'     => array_map(fn ($v, $n) => ['v' => (string) $v, 'l' => (string) $v, 'n' => $n], array_keys($regions), $regions),
+            'regionals'   => array_map(fn ($r) => $r + ['l' => $r['v']], $regionals),
+            'cities'      => array_map(fn ($c) => $c + [], $cityOpts),
+            'statusUsers' => array_map(fn ($v, $n) => ['v' => (string) $v, 'l' => (string) $v, 'n' => $n], array_keys($su), $su),
+        ];
+    }
+
+    /**
      * Contagens (cards) e página numa só passada: 1 query leve sobre `orders.id IN (conjunto)` + 1 da página.
      *
-     * @param array{search?: string, types?: array<int, string>, status?: ?string, companyId?: ?string, cityId?: ?string, assigneeId?: ?string, onlyUndispatched?: bool, competence?: ?string, sort?: ?string, dir?: ?string} $filters
-     * @return array{counts: array{total: int, P: int, M: int, F: int, undispatched: int}, competences: array<string, int>, orders: LengthAwarePaginator}
+     * @param array{search?: string, types?: array<int, string>, status?: ?string, companyId?: ?string, regions?: array, regionals?: array, cityCodes?: array, statusUsers?: array, assigneeId?: ?string, onlyUndispatched?: bool, competence?: ?string, sort?: ?string, dir?: ?string} $filters
+     * @return array{counts: array{total: int, P: int, M: int, F: int, undispatched: int, selectable: int}, competences: array<string, int>, orders: LengthAwarePaginator}
      */
     public function overview(array $filters, int $perPage, ?int $page = null): array
     {
@@ -116,17 +264,25 @@ class ClosureDispatchListQuery
 
         $rows = $this->applyTypeFilters($base, $set, $filters);
 
+        // Só Ordens ainda sem posse podem ser despachadas: a seleção em massa e o rótulo do botão contam apenas essas.
+        $counts['selectable'] = count(array_filter($rows, fn ($row) => $row['state_id'] === null));
+
         ksort($competences);
 
         return ['counts' => $counts, 'competences' => $competences, 'orders' => $this->pageOf($rows, $set, $perPage, $page)];
     }
 
     /** Ids (ordenados) das Ordens que passam em todos os filtros; usado por "selecionar todas/página". */
-    public function filteredIds(array $filters, ?int $limit = null): array
+    public function filteredIds(array $filters, ?int $limit = null, bool $undispatchedOnly = false): array
     {
         $set  = $this->eligible->all();
         $rows = $this->applyTypeFilters($this->baseRows($filters, $set), $set, $filters);
-        $ids  = array_column($rows, 'id');
+
+        if ($undispatchedOnly) {
+            $rows = array_filter($rows, fn ($row) => $row['state_id'] === null);
+        }
+
+        $ids = array_column($rows, 'id');
 
         return $limit !== null ? array_slice($ids, 0, $limit) : $ids;
     }
@@ -156,6 +312,40 @@ class ClosureDispatchListQuery
             'comp'    => ClosureMetaClassifier::competenceLabel($set[$id]['competence'] ?? null),
             'company' => ($inform[$id] ?? '') ?: null,
         ])->values()->all();
+    }
+
+    /**
+     * Todas as linhas que passam nos filtros, já hidratadas como na lista (para exportação). Em blocos de 500 ids.
+     *
+     * @return Collection<int, Order>
+     */
+    public function exportRecords(array $filters): Collection
+    {
+        $set     = $this->eligible->all();
+        $ids     = $this->filteredIds($filters);
+        $records = new Collection();
+
+        foreach (array_chunk($ids, 500) as $chunk) {
+            $chunkRecords = $this->pageQuery($chunk)->get();
+            $inform       = $this->eligible->informCompanies();
+            $values       = app(\App\Services\Closure\ClosureInformValue::class)->forOrders($chunkRecords->pluck('id'));
+            $names        = Company::withTrashed()->whereIn('id', array_values(array_unique(array_filter(array_map(fn ($r) => $inform[$r->id] ?? '', $chunkRecords->all())))))->pluck('name', 'id');
+
+            foreach ($chunkRecords as $record) {
+                $companyId = ($inform[$record->id] ?? '') ?: null;
+                $record->setAttribute('inform_company_name', $companyId ? $names->get($companyId) : null);
+                $record->setAttribute('inform_value', $values[$record->id] ?? null);
+                $record->setAttribute('meta_type', $set[$record->id]['type'] ?? null);
+                $record->setAttribute('competence', $set[$record->id]['competence'] ?? null);
+            }
+
+            $records = $records->concat($chunkRecords);
+        }
+
+        // Mesma ordem da lista (ids já vêm ordenados pelos filtros/ordenação).
+        $position = array_flip($ids);
+
+        return $records->sortBy(fn ($r) => $position[$r->id] ?? PHP_INT_MAX)->values();
     }
 
     /** Ids da página informada (mesma ordenação/filtros da lista). */
@@ -229,10 +419,12 @@ class ClosureDispatchListQuery
         $records = $ids === [] ? collect() : $this->pageQuery($ids)->get();
 
         $inform = $records->isEmpty() ? [] : $this->eligible->informCompanies();
+        $values = $records->isEmpty() ? [] : app(\App\Services\Closure\ClosureInformValue::class)->forOrders($records->pluck('id'));
         $names  = Company::withTrashed()->whereIn('id', array_values(array_unique(array_filter(array_map(fn ($r) => $inform[$r->id] ?? '', $records->all())))))->pluck('name', 'id');
 
         foreach ($records as $record) {
             $companyId = ($inform[$record->id] ?? '') ?: null;
+            $record->setAttribute('inform_value', $values[$record->id] ?? null);
             $record->setAttribute('inform_company_id', $companyId);
             $record->setAttribute('inform_company_name', $companyId ? $names->get($companyId) : null);
             $record->setAttribute('meta_type', $set[$record->id]['type'] ?? null);
@@ -253,7 +445,7 @@ class ClosureDispatchListQuery
             ->join('notes', 'notes.id', '=', 'orders.note_id')
             ->leftJoin('closure_order_states as s', 's.order_id', '=', 'orders.id')
             ->selectRaw('notes.note as note_number, notes.nexp as city_code')
-            ->selectRaw('s.id as state_id, s.operational_status, s.priority as is_priority, s.assigned_user_id, s.current_holder_company_id')
+            ->selectRaw('s.id as state_id, s.operational_status, s.priority as is_priority, s.assigned_user_id, s.current_holder_company_id, s.current_holder_user_id, s.entered_current_status_at')
             ->selectRaw('(select c.municipio from cities c where c.rdMunicipio = notes.nexp limit 1) as city_name')
             ->selectRaw('(select co.name from companies co where co.id = s.current_holder_company_id limit 1) as holder_company_name')
             ->selectRaw('(select u.name from users u where u.id = s.assigned_user_id limit 1) as assignee_name')
@@ -293,12 +485,8 @@ class ClosureDispatchListQuery
                 $reason = 'Ordem já encerrada no SAP.';
             } elseif (!$order->ClosureTarget && !$type) {
                 $reason = 'Ordem fora da meta de Encerramento.';
-            } elseif ($state && $company) {
-                $production = $state->Production;
-                $same       = $production
-                    && (string) $production->company_id === (string) $company->id
-                    && (string) $production->user_id === (string) $assignee?->id;
-                $reason = $same ? null : 'Ordem já vinculada a outro despacho.';
+            } elseif ($state) {
+                $reason = \App\Services\Closure\ClosureDispatchService::alreadyDispatchedReason($order->ordem, $state);
             }
 
             $rows[] = [
@@ -321,29 +509,6 @@ class ClosureDispatchListQuery
         $ids = array_values(array_unique(array_filter($this->eligible->informCompanies())));
 
         return $ids === [] ? new Collection() : Company::withTrashed()->whereIn('id', $ids)->orderBy('name')->get(['id', 'name']);
-    }
-
-    /**
-     * Municípios das Ordens do conjunto (cacheado com o mesmo TTL do conjunto).
-     *
-     * @return Collection<int, object{rdMunicipio: string, municipio: string}>
-     */
-    public function cities(): Collection
-    {
-        $rows = Cache::remember(ClosureEligibleOrders::citiesCacheKey(), ClosureEligibleOrders::TTL, function () {
-            $codes = [];
-
-            foreach (array_chunk(array_keys($this->eligible->all()), 1000) as $chunk) {
-                $codes = array_merge($codes, Order::query()->join('notes', 'notes.id', '=', 'orders.note_id')
-                    ->whereIn('orders.id', $chunk)->whereNotNull('notes.nexp')->distinct()->pluck('notes.nexp')->all());
-            }
-
-            return City::query()->whereNotNull('municipio')->whereIn('rdMunicipio', array_values(array_unique($codes)))
-                ->orderBy('municipio')->get(['rdMunicipio', 'municipio'])
-                ->map(fn ($city) => ['rdMunicipio' => $city->rdMunicipio, 'municipio' => $city->municipio])->all();
-        });
-
-        return collect($rows)->map(fn (array $city) => (object) $city);
     }
 
     /** @return Collection<int, User> responsáveis que já têm Ordens de Encerramento */

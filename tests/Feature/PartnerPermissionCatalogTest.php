@@ -13,6 +13,7 @@ it('exposes the closure partner permissions as one catalog group', function () {
             'closure.issues.respond'    => 'Responder pendências',
             'closure.issues.history'    => 'Histórico de pendências',
             'closure.issues.view_files' => 'Visualizar arquivos',
+            'closure.signals.manage'    => 'Liberar depósito bloqueado',
         ]);
 });
 
@@ -27,6 +28,7 @@ it('resolves closure permissions through the catalog and maps the partner mailbo
             'closure.issues.respond',
             'closure.issues.history',
             'closure.issues.view_files',
+            'closure.signals.manage',
         ])
         ->and($keys)->toBeInstanceOf(Collection::class)
         ->and($keys->all())->toContain(PartnerPermissionCatalog::GROUP_CLOSURE)

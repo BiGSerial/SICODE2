@@ -1,0 +1,15 @@
+// Links de texto: tinta escura, nunca verde-claro sobre fundo claro.
+
+/* Links de texto no Encerramento: tinta escura, nunca verde-claro sobre fundo claro. */
+.closure-dash a:not([class*="btn"]):not(.dropdown-item):not(.nav-link):not(.kpi):not(.page-link):not(.text-decoration-none) {
+    color: #0d3b3f;
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: rgba(13, 59, 63, .35);
+    text-underline-offset: 2px;
+}
+
+.closure-dash a:not([class*="btn"]):not(.dropdown-item):not(.nav-link):not(.kpi):not(.page-link):hover {
+    color: #155f67;
+    text-decoration-color: currentColor;
+}

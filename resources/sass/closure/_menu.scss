@@ -1,0 +1,12 @@
+// Sinalizadores do menu da parceira (fora do escopo .closure-dash: o menu fica no layout).
+// Bolinha vermelha no item pai (divisor) quando há algo a verificar; o selo com a quantidade vai no link.
+
+.closure-menu-dot {
+    background: #e32c2c;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    display: inline-block;
+    height: 10px;
+    margin-left: 6px;
+    width: 10px;
+}

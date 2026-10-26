@@ -250,13 +250,21 @@
             @if ($canClosure)
                 <li class="nav-item">
                     <a class="nav-link collapsed" data-bs-target="#closure-nav" data-bs-toggle="collapse" href="#">
-                        <i class="ri-checkbox-circle-line"></i><span>Encerramento</span><i class="bi bi-chevron-down ms-auto"></i>
+                        <i class="ri-checkbox-circle-line"></i><span>Encerramento</span>
+                        @livewire('partner.count.closure-issues-count', ['mode' => 'dot'], key('menu-closure-dot'))
+                        <i class="bi bi-chevron-down ms-auto"></i>
                     </a>
                     <ul id="closure-nav" class="nav-content collapse" data-bs-parent="#sidebar-nav">
                         @if ($partnerCan('closure.issues.list'))
                             <li class="border-start border-3 mb-1 py-0">
-                                <a href="{{ route('partner.closure.issues') }}" class="nav-item text-white fw-normal">
+                                <a href="{{ route('partner.closure.issues') }}" class="nav-item text-white fw-normal d-flex align-items-center">
                                     <i class="ri-error-warning-line fw-light fs-5"></i><span>Pendências</span>
+                                    @livewire('partner.count.closure-issues-count', ['mode' => 'badge'], key('menu-closure-count'))
+                                </a>
+                            </li>
+                            <li class="border-start border-3 mb-1 py-0">
+                                <a href="{{ route('partner.closure.history') }}" class="nav-item text-white fw-normal">
+                                    <i class="bi bi-clock-history fw-light fs-5"></i><span>Meu histórico</span>
                                 </a>
                             </li>
                         @endif

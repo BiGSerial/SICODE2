@@ -338,7 +338,7 @@ it('filters and sorts by competence and offers the present competences with coun
         ->and($query->filteredIds(['sort' => 'competence', 'dir' => 'desc'])[0])->toBe($d->id);
 
     Livewire::actingAs(screenManager())->test(Index::class)
-        ->assertSee('Competência: todas')
+        ->assertSee('Competência')
         ->assertSee('08/2026 (1)')
         ->assertSee('10/2026 (2)')
         ->set('competence', '2026-08')
@@ -381,7 +381,8 @@ it('renders the list without an inner scroll window and with the per-page select
         ->and(strpos($html, 'closure-dispatch-per-page-top'))->toBeLessThan(strpos($html, '<table'))
         ->and(strpos($html, '</table>'))->toBeLessThan(strpos($html, 'id="closure-dispatch-per-page"'));
 
-    $styles = view('livewire.closure._styles')->render();
+    // O CSS do módulo vive em resources/sass/closure/ (o _styles.blade.php é só um stub depreciado).
+    $styles = file_get_contents(resource_path('sass/closure/_layout.scss'));
 
     expect($styles)->not->toContain('max-height: 68vh')
         ->and($styles)->toContain('.closure-dash .dash-scroll')
@@ -483,4 +484,96 @@ it('gives the Control list the same per-page selector and footer without an inne
 
     expect($component->lastRenderedDom)->toContain('dash-scroll')
         ->and(view('livewire.closure._styles')->render())->not->toContain('max-height: 68vh');
+});
+
+it('shows the Control list with a single actions dropdown, compact SAP status and on-demand operations', function () {
+    $manager = screenManager();
+    $company = informCompany('Parceira Controle');
+    $user    = User::factory()->create(['company_id' => $company->id, 'closure_operator' => true]);
+    $order   = screenOrder('2026-09-10', null, ['statusSist' => 'LIB CNPA CAPC DMNV']);
+    Operation::query()->create(['order_id' => $order->id, 'operacao' => '0010', 'status' => 'ABER']);
+
+    app(ClosureDispatchService::class)->dispatchOrders([$order->id], $company, $user, $manager);
+    $state = ClosureOrderState::query()->where('order_id', $order->id)->firstOrFail();
+
+    $component = Livewire::actingAs($manager)->test(\App\Http\Livewire\Closure\Dispatch\Control::class)
+        ->assertSeeHtml('>LIB CNPA</span>')
+        ->assertDontSeeHtml('>LIB CNPA CAPC DMNV<')
+        ->assertSee('1/2')
+        ->assertSee('Trocar responsável')
+        ->assertSee('Desatribuir')
+        ->assertDontSee('Alterar status')
+        ->assertDontSee('Finalizar')
+        ->assertDontSeeHtml('title="Abrir a gestão da obra"');
+
+    // Operações só carregam ao abrir o modal.
+    $component->assertDontSee('Operações da Ordem')
+        ->call('showOperations', $state->id)
+        ->assertSee('Operações da Ordem ' . $order->ordem)
+        ->assertSee('0010')
+        ->call('closeOperations')
+        ->assertDontSee('Operações da Ordem');
+});
+
+it('lets the dispatcher unassign, reassign and remove an Order from the Control list', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+
+    $manager = screenManager();
+    $company = informCompany('Parceira Gestão');
+    $first   = User::factory()->create(['company_id' => $company->id, 'closure_operator' => true]);
+    $second  = User::factory()->create(['company_id' => $company->id, 'closure_operator' => true]);
+    $order   = screenOrder('2026-09-10');
+
+    app(ClosureDispatchService::class)->dispatchOrders([$order->id], $company, $first, $manager);
+    $state = ClosureOrderState::query()->where('order_id', $order->id)->firstOrFail();
+
+    Livewire::actingAs($manager)->test(\App\Http\Livewire\Closure\Dispatch\Control::class)
+        ->call('openManage', $state->id, 'reassign')
+        ->set('managerAssigneeId', $second->id)
+        ->call('confirmManage')
+        ->assertSet('manageStateId', $state->id) // motivo obrigatório
+        ->set('manageReason', 'Rebalanceamento')
+        ->call('confirmManage')
+        ->assertSet('manageStateId', null);
+
+    expect($state->fresh()->assigned_user_id)->toBe($second->id);
+
+    Livewire::actingAs($manager)->test(\App\Http\Livewire\Closure\Dispatch\Control::class)
+        ->call('openManage', $state->id, 'unassign')
+        ->set('manageReason', 'Sem disponibilidade')
+        ->call('confirmManage');
+
+    $fresh = $state->fresh();
+    expect($fresh->assigned_user_id)->toBeNull()->and($fresh->operational_status)->toBe('AVAILABLE');
+});
+
+it('sends an Order to the partner from the status menu instead of asking for a plain reason', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+
+    $manager = screenManager();
+    $company = informCompany('Empreiteira Pendência');
+    $order   = screenOrder('2026-09-10');
+
+    $worker = User::factory()->create(['company_id' => $company->id, 'closure_operator' => true]);
+    app(ClosureDispatchService::class)->dispatchOrders([$order->id], $company, $worker, $manager);
+    $state = ClosureOrderState::query()->where('order_id', $order->id)->firstOrFail();
+    $state->update(['operational_status' => 'IN_PROGRESS']);
+
+    $category = \App\Models\Closure\ClosureIssueCategory::query()->create(['name' => 'Documento pendente', 'active' => true]);
+    $sub      = \App\Models\Closure\ClosureIssueSubcategory::query()->create(['closure_issue_category_id' => $category->id, 'name' => 'ART ausente', 'active' => true, 'requires_description' => false]);
+
+    Livewire::actingAs($manager)->test(\App\Http\Livewire\Closure\Work\Index::class)
+        ->call('changeStatus', $state->id, 'WAITING_PARTNER')
+        ->assertSet('partnerStateId', $state->id)
+        ->assertSet('pendingAction', null)
+        ->assertSee('Enviar à parceira')
+        ->call('sendToPartner')
+        ->assertHasErrors(['issueCategoryId', 'issueSubcategoryId'])
+        ->set('issueCategoryId', (string) $category->id)
+        ->set('issueSubcategoryId', (string) $sub->id)
+        ->set('issueCompanyId', (string) $company->id)
+        ->call('sendToPartner')
+        ->assertSet('partnerStateId', null);
+
+    expect($state->fresh()->operational_status)->toBe('WAITING_PARTNER');
 });

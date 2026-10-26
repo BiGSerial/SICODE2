@@ -1,0 +1,55 @@
+// Cartões KPI clicáveis (viram filtro).
+
+.closure-dash .kpi {
+    display: block;
+    font: inherit;
+    text-align: left;
+    background: #fff;
+    border: 1px solid var(--dash-line);
+    border-bottom: 3px solid var(--k);
+    border-radius: 10px;
+    height: 100%;
+    padding: 10px 14px;
+}
+
+.closure-dash .kpi-top {
+    align-items: center;
+    color: var(--dash-muted);
+    display: flex;
+    font-size: .68rem;
+    font-weight: 800;
+    justify-content: space-between;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.closure-dash .kpi-top i {
+    color: var(--k);
+    font-size: 1rem;
+}
+
+.closure-dash .kpi-value {
+    color: var(--dash-ink);
+    font-size: 1.7rem;
+    font-weight: 850;
+    line-height: 1.15;
+}
+
+.closure-dash .kpi-note {
+    color: var(--dash-muted);
+    font-size: .72rem;
+}
+
+.closure-dash button.kpi {
+    appearance: none;
+}
+
+.closure-dash .kpi.is-active {
+    background: #eef5f6;
+    box-shadow: 0 0 0 2px var(--k);
+}
+
+.closure-dash a.kpi {
+    color: inherit;
+    text-decoration: none;
+}

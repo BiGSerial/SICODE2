@@ -16,6 +16,9 @@ const CLOSURE_UPGRADE_MIGRATIONS = [
     '2026_10_16_100000_create_closure_work_messages_table',
     '2026_10_16_100100_rename_closure_waiting_return_to_waiting_partner',
     '2026_10_16_100200_seed_closure_issue_taxonomy',
+    '2026_10_22_100000_add_requirements_to_closure_issues_table',
+    '2026_10_23_100000_add_area_routing_to_closure_issues_table',
+    '2026_10_23_100100_add_status_user_tracking_to_closure_order_states_table',
 ];
 
 function closureRunUpgradeMigrations(): void

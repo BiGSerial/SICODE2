@@ -17,11 +17,21 @@
 @endsection
 
 @section('content')
-    @php $aba = request('aba') === 'disponiveis' ? 'disponiveis' : 'minhas'; @endphp
+    @php
+        // "Todas as Ordens" só existe (aba e acesso) quando o despacho liberou a auto-atribuição.
+        $selfAssign = app(\App\Services\Closure\ClosureSettings::class)->selfAssignEnabled();
+        $aba        = in_array(request('aba'), ['minhas', 'disponiveis'], true) ? request('aba') : ($selfAssign ? 'todas' : 'minhas');
+        $aba        = $aba === 'disponiveis' && !$selfAssign ? 'minhas' : $aba;
+    @endphp
     @can('closure.work')
         <ul class="nav nav-tabs mb-3" id="closure-service-tabs">
+            @if ($selfAssign)
+                <li class="nav-item">
+                    <a class="nav-link {{ $aba === 'todas' ? 'active' : '' }}" href="{{ route('services.main', ['service' => $service->uuid]) }}">Todas as Ordens</a>
+                </li>
+            @endif
             <li class="nav-item">
-                <a class="nav-link {{ $aba === 'minhas' ? 'active' : '' }}" href="{{ route('services.main', ['service' => $service->uuid]) }}">Minhas atividades</a>
+                <a class="nav-link {{ $aba === 'minhas' ? 'active' : '' }}" href="{{ route('services.main', ['service' => $service->uuid, 'aba' => 'minhas']) }}">Minhas atividades</a>
             </li>
             @if (app(\App\Services\Closure\ClosureSettings::class)->selfAssignEnabled())
                 <li class="nav-item">
@@ -31,7 +41,9 @@
         </ul>
     @endcan
 
-    @if ($aba === 'disponiveis')
+    @if ($aba === 'todas')
+        @livewire('closure.work.all', key('closure-work-all'))
+    @elseif ($aba === 'disponiveis')
         @livewire('closure.work.available', key('closure-work-available'))
     @else
         @livewire('closure.work.index', key('closure-work'))

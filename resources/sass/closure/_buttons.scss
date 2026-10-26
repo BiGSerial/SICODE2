@@ -1,0 +1,64 @@
+// Botões e ações de linha.
+
+.closure-dash .btn-dash {
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: .82rem;
+}
+
+.closure-dash .row-action {
+    align-items: center;
+    background: rgba(21, 95, 103, .1);
+    border-radius: 6px;
+    color: var(--dash-teal);
+    display: inline-flex;
+    gap: 5px;
+    font-size: .76rem;
+    font-weight: 700;
+    padding: 5px 10px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.closure-dash .row-action:hover {
+    background: var(--dash-teal);
+    color: #fff;
+}
+
+.closure-dash .icon-btn {
+    align-items: center;
+    background: transparent;
+    border: 1px solid var(--dash-line);
+    border-radius: 6px;
+    color: var(--dash-teal);
+    display: inline-flex;
+    height: 30px;
+    justify-content: center;
+    text-decoration: none;
+    width: 30px;
+}
+
+.closure-dash .icon-btn:hover {
+    background: var(--dash-teal);
+    border-color: var(--dash-teal);
+    color: #fff;
+}
+
+.closure-dash .ops-btn {
+    background: #fff;
+    border: 1px solid #94a3b8;
+    border-radius: 6px;
+    color: var(--dash-ink);
+    font-size: .8rem;
+    font-weight: 700;
+    padding: 1px 10px;
+}
+
+.closure-dash .ops-btn.is-done {
+    border-color: #0f8a77;
+    color: #0f8a77;
+}
+
+.closure-dash .ops-btn:hover {
+    background: #eef5f6;
+}

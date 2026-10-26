@@ -64,6 +64,16 @@ class Dashboard extends Component
         $this->clearCell();
     }
 
+    /** Exporta o painel em Excel (uma aba por bloco + atividades por status), com os filtros atuais; avisa quando estiver pronto. */
+    public function exportToExcel(): void
+    {
+        abort_unless(auth()->user()?->can('closure.dispatch'), 403);
+
+        \App\Jobs\Closure\ExportClosureDashboardJob::dispatch($this->filters(), max(1, $this->staleDays), (string) auth()->id());
+
+        $this->dispatchBrowserEvent('closure:toast', ['message' => 'Exportação iniciada. Você será avisado quando o Excel do painel estiver pronto.', 'type' => 'info']);
+    }
+
     public function render()
     {
         $analytics = $this->analytics();

@@ -182,13 +182,17 @@ class ClosureSpecializedNavigationTest extends TestCase
         $this->actingAs($user);
         // O layout legado lê o último registro de atualização do banco no rodapé.
         \App\Models\Bancoupdate::query()->forceCreate(['inserts' => 0, 'updates' => 0]);
+        // As abas "Todas as Ordens" e "Atividades disponíveis" só existem com a auto-atribuição liberada pelo despacho.
+        app(\App\Services\Closure\ClosureSettings::class)->setSelfAssignEnabled(true, $user);
 
         foreach ([
             route('dispatch.main', ['service' => $uuid])                         => 'Despacho de Encerramento',
             route('dispatch.stack', ['service' => $uuid])                        => 'Controle de Encerramento',
             route('dispatch.transprod', ['service' => $uuid])                    => 'Transferência de Encerramento',
             route('dispatch.dashboard', ['service' => $uuid])                    => 'Painel analítico',
-            route('services.main', ['service' => $uuid])                         => 'Minha Atividade',
+            route('services.main', ['service' => $uuid])                         => 'Lista Encerramento',
+            route('services.main', ['service' => $uuid, 'aba' => 'minhas'])      => 'Minha Atividade',
+            route('services.transfers', ['service' => $uuid])                    => 'Transferências de atividade',
             route('services.main', ['service' => $uuid, 'aba' => 'disponiveis']) => 'Atividade Encerramento',
             route('services.accompany', ['service' => $uuid])                    => 'Minha Atividade',
             route('services.historic', ['service' => $uuid])                     => 'Meu histórico',

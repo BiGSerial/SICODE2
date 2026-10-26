@@ -2,7 +2,7 @@
 
 namespace App\Services\Closure;
 
-use App\Models\Closure\{ClosureIssue, ClosureOrderState, ClosurePriorityRequest, ClosureWorkMessage};
+use App\Models\Closure\{ClosureInternalReturn, ClosureIssue, ClosureOrderState, ClosurePartnerSignal, ClosurePriorityRequest, ClosureTransferRequest, ClosureWorkMessage};
 use App\Models\{Company, Order, User};
 use App\Notifications\SystemNotification;
 use App\Services\PartnerAccess\PartnerAccessGate;
@@ -25,6 +25,11 @@ class ClosureNotifier
 
     public const PARTNER_PERMISSION = 'closure.issues.list';
 
+    public const RI_SENT      = 'sent';
+    public const RI_RETURNED  = 'returned';
+    public const RI_CANCELLED = 'cancelled';
+    public const RI_REOPENED  = 'reopened';
+
     public function partnerResponded(ClosureIssue $issue, User $actor): void
     {
         $issue->loadMissing(['Order.Note', 'State']);
@@ -41,7 +46,7 @@ class ClosureNotifier
             title: 'Parceira respondeu à pendência',
             message: $this->context($issue->Order) . ': a parceira respondeu à pendência #' . $issue->id . '.',
             status: 'message',
-            link: fn () => $this->workLink($issue->Order),
+            link: fn (User $recipient) => $this->workLink($issue->Order, $recipient, ClosureNavContext::DISPATCH),
             extras: $this->extras($issue),
         );
     }
@@ -72,8 +77,60 @@ class ClosureNotifier
             title: 'Ordem atribuída a você',
             message: $this->context($state->Order) . ' foi atribuída a você no Encerramento.',
             status: 'assignment',
-            link: fn () => $this->workLink($state->Order),
+            link: fn (User $recipient) => $this->workLink($state->Order, $recipient, ClosureNavContext::SERVICE),
             extras: ['order_id' => $state->order_id, 'note_id' => $state->Order?->note_id],
+        );
+    }
+
+    /** Bloqueio/liberação de depósito sinalizado pela parceira: avisa gestores e os responsáveis pelas Ordens afetadas. */
+    public function partnerSignalChanged(ClosurePartnerSignal $signal, User $actor, bool $blocked): void
+    {
+        $signal->loadMissing('Company');
+        $company = 'Depósito ' . $signal->deposit_code . ($signal->deposit_label ? " ({$signal->deposit_label})" : '') . ($signal->origin === ClosurePartnerSignal::ORIGIN_CALENDAR ? ' — inventário' : '');
+
+        $this->deliver(
+            event: $blocked ? 'closure.partner_deposit_blocked' : 'closure.partner_deposit_released',
+            entity: "signal:{$signal->id}:" . ($blocked ? 'blocked' : 'released'),
+            authorId: $actor->id,
+            recipients: function () use ($signal) {
+                $stateIds  = $signal->Items()->pluck('closure_order_state_id');
+                $assignees = ClosureOrderState::query()->whereIn('id', $stateIds)->get(['assigned_user_id', 'current_holder_user_id']);
+
+                return $this->dispatchers()->merge($this->internalUsers(array_merge($assignees->pluck('assigned_user_id')->all(), $assignees->pluck('current_holder_user_id')->all())));
+            },
+            title: $blocked ? 'Depósito bloqueado' : 'Depósito liberado',
+            message: $blocked
+                ? "{$company} bloqueado: {$signal->affected_count} Ordem(ns) passaram para Depósito Bloqueado. " . $this->excerpt($signal->reason)
+                : "{$company} liberado: {$signal->released_count} Ordem(ns) voltaram ao status anterior.",
+            status: $blocked ? 'warning' : 'info',
+            link: fn (User $recipient) => ClosureServiceLocator::url($recipient->can('closure.dispatch') ? 'dispatch.stack' : 'services.accompany'),
+            extras: ['signal_id' => $signal->id, 'company_id' => $signal->company_id],
+        );
+    }
+
+    /** RI (Retorno Interno) com o Desenho: avisa gestores, responsáveis pelas Ordens da obra e quem enviou. */
+    public function internalReturnChanged(ClosureInternalReturn $internalReturn, ?User $actor, string $kind): void
+    {
+        $internalReturn->loadMissing('Note');
+        $note = $internalReturn->Note?->note ?? '#' . $internalReturn->note_id;
+
+        [$title, $message, $status] = match ($kind) {
+            self::RI_SENT      => ['RI enviado ao Desenho', "Obra {$note}: as Ordens ficam travadas até o Desenho retornar. " . $this->excerpt($internalReturn->message), 'warning'],
+            self::RI_RETURNED  => ['RI retornado pelo Desenho', "Obra {$note}: o Desenho concluiu o RI e as Ordens foram destravadas.", 'success'],
+            self::RI_CANCELLED => ['RI cancelado', "Obra {$note}: a gestão cancelou a espera pelo RI e as Ordens foram destravadas. " . $this->excerpt($internalReturn->cancel_reason), 'info'],
+            default            => ['RI reaberto pelo Desenho', "Obra {$note}: o Desenho reabriu o retorno interno. As Ordens NÃO foram travadas de novo; se precisar aguardar, envie um novo RI.", 'warning'],
+        };
+
+        $this->deliver(
+            event: 'closure.internal_return_' . $kind,
+            entity: "ri:{$internalReturn->id}:{$kind}",
+            authorId: $actor?->id,
+            recipients: fn () => $this->dispatchers()->merge($this->noteParticipants((int) $internalReturn->note_id))->merge($this->internalUsers([$internalReturn->sent_by])),
+            title: $title,
+            message: $message,
+            status: $status,
+            link: fn (User $recipient) => $this->workLinkForNote((int) $internalReturn->note_id, null, $recipient, ClosureNavContext::SERVICE),
+            extras: ['note_id' => $internalReturn->note_id, 'internal_return_id' => $internalReturn->id],
         );
     }
 
@@ -89,7 +146,7 @@ class ClosureNotifier
             title: 'Pedido de prioridade',
             message: 'Foi solicitada prioridade para a obra ' . ($request->Note?->note ?? '#' . $request->note_id) . ': ' . $this->excerpt($request->reason),
             status: 'warning',
-            link: fn () => $this->workLinkForNote($request->note_id),
+            link: fn (User $recipient) => $this->workLinkForNote($request->note_id, null, $recipient, ClosureNavContext::DISPATCH),
             extras: ['note_id' => $request->note_id, 'priority_request_id' => $request->id],
         );
     }
@@ -109,8 +166,37 @@ class ClosureNotifier
                 . ($accepted ? ' foi atendido.' : ' foi recusado.')
                 . ($request->decision_note ? ' ' . $this->excerpt($request->decision_note) : ''),
             status: 'info',
-            link: fn () => $this->workLinkForNote($request->note_id),
+            link: fn (User $recipient) => $this->workLinkForNote($request->note_id, null, $recipient, ClosureNavContext::SERVICE),
             extras: ['note_id' => $request->note_id, 'priority_request_id' => $request->id],
+        );
+    }
+
+    /** Transferência entre usuários: avisa o destinatário (enviada/cancelada) ou quem enviou (aceita/rejeitada). */
+    public function transferChanged(ClosureTransferRequest $request, string $kind): void
+    {
+        $request->loadMissing(['From', 'To']);
+        $count   = $request->Items()->count();
+        $toSide  = in_array($kind, ['sent', 'cancelled'], true);
+        $author  = $toSide ? $request->from_user_id : $request->to_user_id;
+        $subject = $count . ' Ordem(ns)';
+
+        [$title, $message, $status] = match ($kind) {
+            'sent'     => ['Transferência para você', ($request->From?->name ?? 'Um usuário') . " quer transferir {$subject} para você. Aceite ou rejeite em Transferência. " . $this->excerpt($request->reason), 'assignment'],
+            'accepted' => ['Transferência aceita', ($request->To?->name ?? 'O destinatário') . " aceitou a transferência de {$subject}.", 'success'],
+            'rejected' => ['Transferência rejeitada', ($request->To?->name ?? 'O destinatário') . " rejeitou a transferência de {$subject}." . ($request->decision_note ? ' ' . $this->excerpt($request->decision_note) : ''), 'warning'],
+            default    => ['Transferência cancelada', ($request->From?->name ?? 'Quem enviou') . " cancelou a transferência de {$subject} para você.", 'info'],
+        };
+
+        $this->deliver(
+            event: 'closure.transfer_' . $kind,
+            entity: "transfer:{$request->id}:{$kind}",
+            authorId: $author,
+            recipients: fn () => $this->internalUsers([$toSide ? $request->to_user_id : $request->from_user_id]),
+            title: $title,
+            message: $message,
+            status: $status,
+            link: fn (User $recipient) => ClosureServiceLocator::url('services.transfers') ?? ClosureServiceLocator::url('services.main'),
+            extras: ['transfer_request_id' => $request->id],
         );
     }
 
@@ -142,7 +228,7 @@ class ClosureNotifier
             link: function (User $recipient) use ($message) {
                 return $this->isPartnerRecipient($recipient, $message)
                     ? $this->partnerLink()
-                    : $this->workLinkForNote($message->note_id, $message->order_id);
+                    : $this->workLinkForNote($message->note_id, $message->order_id, $recipient, ClosureNavContext::DISPATCH);
             },
             extras: ['note_id' => $message->note_id, 'issue_id' => $message->closure_issue_id, 'message_id' => $message->id],
         );
@@ -259,22 +345,37 @@ class ClosureNotifier
         return app(ClosureWorkService::class)->accessLevel($message->Note, $recipient) === ClosureWorkService::LEVEL_PARTNER;
     }
 
-    private function workLink(?Order $order): ?string
+    private function workLink(?Order $order, ?User $recipient = null, string $preferred = ClosureNavContext::DISPATCH): ?string
     {
-        return $order ? $this->workLinkForNote($order->note_id, $order->id) : null;
+        return $order ? $this->workLinkForNote($order->note_id, $order->id, $recipient, $preferred) : null;
     }
 
-    private function workLinkForNote(int $noteId, ?int $orderId = null): ?string
+    /** O link carrega a origem (`ctx`) que o destinatário usa: o lado preferido pelo evento, ou o outro se ele só tiver essa permissão. */
+    private function workLinkForNote(int $noteId, ?int $orderId = null, ?User $recipient = null, string $preferred = ClosureNavContext::DISPATCH): ?string
     {
+        $ctx = $this->contextFor($recipient, $preferred);
+
         if (Route::has('closure.work.show')) {
-            return route('closure.work.show', ['note' => $noteId]);
+            return route('closure.work.show', ['note' => $noteId] + ($ctx ? ['ctx' => $ctx] : []));
         }
 
         if (!$orderId) {
             $orderId = Order::query()->where('note_id', $noteId)->orderBy('id')->value('id');
         }
 
-        return $orderId && Route::has('closure.order.detail') ? route('closure.order.detail', ['order' => $orderId]) : null;
+        return $orderId && Route::has('closure.order.detail') ? route('closure.order.detail', ['order' => $orderId] + ($ctx ? ['ctx' => $ctx] : [])) : null;
+    }
+
+    private function contextFor(?User $recipient, string $preferred): ?string
+    {
+        if (!$recipient) {
+            return null;
+        }
+
+        $can   = [ClosureNavContext::DISPATCH => $recipient->can('closure.dispatch'), ClosureNavContext::SERVICE => $recipient->can('closure.work')];
+        $other = $preferred === ClosureNavContext::DISPATCH ? ClosureNavContext::SERVICE : ClosureNavContext::DISPATCH;
+
+        return $can[$preferred] ? $preferred : ($can[$other] ? $other : null);
     }
 
     private function partnerLink(): ?string

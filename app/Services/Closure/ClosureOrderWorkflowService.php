@@ -2,7 +2,7 @@
 
 namespace App\Services\Closure;
 
-use App\Models\Closure\{ClosureIssue, ClosureOrderEvent, ClosureOrderState, ClosureOrderStatePeriod};
+use App\Models\Closure\{ClosureInternalReturn, ClosureIssue, ClosureOrderEvent, ClosureOrderState, ClosureOrderStatePeriod};
 use App\Models\{Company, Order, Production, User};
 use Illuminate\Support\Facades\DB;
 
@@ -100,6 +100,13 @@ class ClosureOrderWorkflowService
 
     public const EVENT_PRIORITY_CHANGED = 'PRIORITY_CHANGED';
 
+    public const EVENT_PARTNER_DEPOSIT_BLOCKED = 'PARTNER_DEPOSIT_BLOCKED';
+
+    public const EVENT_PARTNER_DEPOSIT_RELEASED = 'PARTNER_DEPOSIT_RELEASED';
+
+    /** Status que um bloqueio de depósito da parceira alcança (Ordens em tratativa ativa, sem pendência nem conclusão). */
+    public const DEPOSIT_BLOCKABLE_STATUSES = [self::STATUS_ASSIGNED, self::STATUS_IN_PROGRESS, self::STATUS_PAUSED, self::STATUS_DEPOSIT_RELEASED];
+
     public const EVENT_ISSUE_BLOCKED = 'ISSUE_BLOCKED';
 
     public const EVENT_ISSUE_RELEASED = 'ISSUE_RELEASED';
@@ -115,6 +122,19 @@ class ClosureOrderWorkflowService
     public const EVENT_SAP_CLOSED = 'SAP_CLOSED';
 
     public const EVENT_SAP_CANCELLED = 'SAP_CANCELLED';
+
+    /** RI (Retorno Interno) com o Desenho: trava SOBREPOSTA às Ordens da Nota (não é um status operacional). Contrato: docs/encerramento/CONTRATO_RI_ENCERRAMENTO.md. */
+    public const EVENT_INTERNAL_RETURN_SENT = 'RI_SENT';
+
+    public const EVENT_INTERNAL_RETURN_RETURNED = 'RI_RETURNED';
+
+    public const EVENT_INTERNAL_RETURN_CANCELLED = 'RI_CANCELLED';
+
+    /**
+     * Eventos que PASSAM pela trava do RI, para ela nunca prender a Ordem: liberar uma pendência ou um depósito já em curso.
+     * O sync do SAP (encerrada/cancelada) e o registro dos próprios eventos do RI não usam o guard (guard = false).
+     */
+    public const INTERNAL_RETURN_LOCK_EXEMPT_EVENTS = [self::EVENT_ISSUE_RELEASED, self::EVENT_PARTNER_DEPOSIT_RELEASED];
 
     public function __construct(
         private ?ClosureMetaClassifier $classifier = null,
@@ -241,6 +261,35 @@ class ClosureOrderWorkflowService
                 'current_holder_user_id'    => null,
                 'current_holder_company_id' => null,
                 'reason'                    => "Pendência #{$issueId}: " . trim($reason),
+            ];
+        });
+    }
+
+    /** Bloqueio de depósito (ação central por depósito: sinalizada pela parceira ou confirmada do calendário); a posse da Ordem não muda. */
+    public function blockDepositByPartner(ClosureOrderState $state, User $actor, int $signalId, string $reason): ClosureOrderState
+    {
+        $this->requireReason($reason);
+
+        return $this->transition($state, $actor, self::EVENT_PARTNER_DEPOSIT_BLOCKED, null, function (ClosureOrderState $state) use ($signalId, $reason): array {
+            $this->requireStatus($state, self::DEPOSIT_BLOCKABLE_STATUSES);
+
+            return [
+                'operational_status' => self::STATUS_DEPOSIT_BLOCKED,
+                'reason'             => "Depósito bloqueado (sinalização #{$signalId}): " . trim($reason),
+            ];
+        });
+    }
+
+    public function releaseDepositByPartner(ClosureOrderState $state, User $actor, int $signalId, string $previousStatus): ClosureOrderState
+    {
+        $target = in_array($previousStatus, self::DEPOSIT_BLOCKABLE_STATUSES, true) ? $previousStatus : self::STATUS_IN_PROGRESS;
+
+        return $this->transition($state, $actor, self::EVENT_PARTNER_DEPOSIT_RELEASED, null, function (ClosureOrderState $state) use ($signalId, $target): array {
+            $this->requireStatus($state, [self::STATUS_DEPOSIT_BLOCKED]);
+
+            return [
+                'operational_status' => $target,
+                'reason'             => "Depósito liberado (sinalização #{$signalId}); atividade devolvida ao ponto anterior.",
             ];
         });
     }
@@ -530,6 +579,7 @@ class ClosureOrderWorkflowService
 
             if ($guard) {
                 $this->assertOrderCanChange($order, $state);
+                $this->assertNotLockedByInternalReturn($order, $eventType);
             }
 
             $before    = $this->snapshot($state);
@@ -605,6 +655,33 @@ class ClosureOrderWorkflowService
         if ($state->operational_status === self::STATUS_CLOSED || $this->isSapClosed((string) $order->statusSist)) {
             throw new ClosureOrderWorkflowException('A Ordem já está encerrada no SAP e não pode ser alterada.');
         }
+    }
+
+    /** Trava do RI: enquanto houver RI ativo para a Nota da Ordem, nenhuma ação (fora da lista branca) é aceita. */
+    private function assertNotLockedByInternalReturn(Order $order, string $eventType): void
+    {
+        if (in_array($eventType, self::INTERNAL_RETURN_LOCK_EXEMPT_EVENTS, true)) {
+            return;
+        }
+
+        if (ClosureInternalReturn::query()->active()->where('note_id', $order->note_id)->exists()) {
+            throw new ClosureOrderWorkflowException('A Ordem está travada: há um RI (Retorno Interno) com o Desenho para esta obra. Aguarde o retorno ou peça à gestão para cancelar o RI.');
+        }
+    }
+
+    /**
+     * Registra na linha do tempo da Ordem um evento do RI (RI_SENT / RI_RETURNED / RI_CANCELLED). Não muda status, posse nem período,
+     * e não passa pelo guard (é o próprio RI que trava/destrava). Ordens encerradas ou canceladas não recebem o evento.
+     *
+     * @param array<string, mixed> $meta
+     */
+    public function recordInternalReturnEvent(ClosureOrderState $state, ?User $actor, string $eventType, string $reason, string $batchId, array $meta = [], string $origin = self::ORIGIN_UI): ?ClosureOrderState
+    {
+        if (in_array($state->operational_status, [self::STATUS_CLOSED, self::STATUS_CANCELLED], true)) {
+            return null;
+        }
+
+        return $this->transition($state, $actor, $eventType, $batchId, fn () => ['reason' => $reason, 'meta' => $meta], false, $origin, false);
     }
 
     /** @param array<int, string> $allowed */

@@ -4,7 +4,7 @@ namespace App\Providers;
 
 use App\Models\{CancellationCategory, CancellationRequest, QualityProcess, User};
 use App\Policies\{CancellationCategoryPolicy, CancellationRequestPolicy, QualityProcessPolicy};
-use App\Services\Closure\{ClosureServiceAccess};
+use App\Services\Closure\{ClosureArea, ClosureServiceAccess};
 use App\Services\Quality\QualityRoles;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
@@ -111,5 +111,13 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('closure.work', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u) || $linkedService($u));
         Gate::define('closure.manager', $isClosureManager);
         Gate::define('closure.view', fn (User $u) => $isClosureOperator($u) || $isClosureManager($u) || $linkedDispatch($u) || $linkedService($u));
+
+        // Caixas de pendência entre áreas (Medição e Fiscalização) — ver ClosureServiceAccess::hasInbox().
+        foreach (ClosureArea::inboxAreas() as $inboxArea) {
+            $key = 'closure.inbox.' . strtolower($inboxArea);
+
+            Gate::define($key, fn (User $u) => $isClosureManager($u) || ClosureServiceAccess::hasInbox($u, $inboxArea));
+            Gate::define($key . '.respond', fn (User $u) => $isClosureManager($u) || ClosureServiceAccess::hasInbox($u, $inboxArea));
+        }
     }
 }

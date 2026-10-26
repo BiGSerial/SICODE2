@@ -2,7 +2,7 @@
 
 namespace App\Services\Closure;
 
-use App\Models\Closure\{ClosureOrderEvent, ClosureOrderState, ClosureOrderStatePeriod};
+use App\Models\Closure\{ClosureInternalReturn, ClosureOrderEvent, ClosureOrderState, ClosureOrderStatePeriod};
 use App\Models\{Company, Note, Notetimeline, Order, Production, Service, User};
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -163,6 +163,10 @@ class ClosureDispatchService
                 throw new ClosureDispatchException('A Nota/OV selecionada está cancelada.');
             }
 
+            if (ClosureInternalReturn::query()->active()->where('note_id', $note->id)->exists()) {
+                throw new ClosureDispatchException('A obra está travada: há um RI (Retorno Interno) com o Desenho. Aguarde o retorno antes de despachar.');
+            }
+
             if ($assignee && (string) $assignee->company_id !== (string) $company->id) {
                 throw new ClosureDispatchException('O usuário escolhido não pertence à empresa de destino.');
             }
@@ -188,6 +192,7 @@ class ClosureDispatchService
             }
 
             $this->assertEligibleOrders($note, $orders);
+            $this->assertNotAlreadyDispatched($orders);
 
             $openProductions = Production::query()
                 ->where('note_id', $note->id)
@@ -244,6 +249,44 @@ class ClosureDispatchService
                 productionWasCreated: $productionWasCreated,
             );
         }, 3);
+    }
+
+    /**
+     * Ordem que já tem posse (despachada, em qualquer status não terminal) NUNCA é despachada de novo: para mudar o responsável
+     * existe a Transferência/Controle. Vale para a mesma empresa e responsável também (não há mais despacho "idempotente").
+     *
+     * @param Collection<int, Order> $orders
+     */
+    private function assertNotAlreadyDispatched(Collection $orders): void
+    {
+        $states = ClosureOrderState::query()
+            ->with(['Assignee', 'CurrentHolderCompany'])
+            ->whereIn('order_id', $orders->keys())
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($states as $state) {
+            $reason = self::alreadyDispatchedReason((string) $orders->get($state->order_id)?->ordem, $state);
+
+            if ($reason !== null) {
+                throw new ClosureDispatchException($reason);
+            }
+        }
+    }
+
+    /** Motivo de recusa por já ter posse (null para estado terminal: encerrada/cancelada não é "em posse"). */
+    public static function alreadyDispatchedReason(?string $ordem, ClosureOrderState $state): ?string
+    {
+        if (in_array($state->operational_status, [ClosureOrderWorkflowService::STATUS_CLOSED, ClosureOrderWorkflowService::STATUS_CANCELLED], true)) {
+            return null;
+        }
+
+        $state->loadMissing(['Assignee', 'CurrentHolderCompany']);
+
+        $heldBy = $state->Assignee?->name
+            ?? ($state->CurrentHolderCompany ? 'a pilha de ' . $state->CurrentHolderCompany->name : 'outro responsável');
+
+        return "A Ordem {$ordem} já foi despachada e está com {$heldBy}. Para mudar o responsável use a Transferência.";
     }
 
     /**

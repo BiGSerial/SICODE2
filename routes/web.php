@@ -137,6 +137,8 @@ Route::prefix('/services/{service}')->controller(ServicesController::class)->nam
     Route::get('/', 'main')->name('main');
     Route::get('/production/{prod}', 'production')->name('production');
     Route::get('/to_accompany', 'accompany')->name('accompany');
+    Route::get('/closure_inbox', 'closureInbox')->name('closure_inbox');
+    Route::get('/closure_transfers', 'closureTransfers')->name('transfers');
     Route::get('/my_historic', 'historic')->name('historic');
     Route::get('/waiting_d5_create', 'waiting_d5_create')->name('waiting_d5_create');
     Route::get('/waiting_list', 'waiting_list')->name('waiting');
@@ -201,7 +203,9 @@ Route::prefix('/dispatch/{service}')->controller(DispatchController::class)->nam
     Route::get('/transfer', 'survey_transfer')->name('transprod');
     Route::get('/intern_returns', 'returnD5')->name('d5');
     Route::get('/map_info', 'survey_map')->name('mapinfo');
+    Route::get('/closure_inbox', 'closureInbox')->name('closure_inbox');
     Route::get('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/deposit_calendar', 'depositCalendar')->name('deposits');
     Route::get('/historic', 'historic')->name('historic');
     Route::get('/waitingFiveNote', 'waitingFiveNote')->name('waitingFiveNote');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
@@ -466,6 +470,8 @@ Route::prefix('/partner')->controller(PartnerController::class)->name('partner.'
     Route::get('/ads_requests', 'adsRequests')->middleware('partner.permission:conclusion_reports.ads_requests')->name('ads.requests');
     Route::get('/encerramento/pendencias', 'closureIssues')->middleware('partner.permission:closure.issues.list')->name('closure.issues');
     Route::get('/encerramento/obra/{note}', 'closureWorkShow')->whereNumber('note')->middleware('partner.permission:closure.issues.respond')->name('closure.work.show');
+    Route::get('/encerramento/pendencia/{issue}', 'closureIssueShow')->whereNumber('issue')->middleware('partner.permission:closure.issues.list')->name('closure.issue.show');
+    Route::get('/encerramento/historico', 'closureHistory')->middleware('partner.permission:closure.issues.list')->name('closure.history');
     Route::get('/search_notes', 'searchNotes')->middleware('partner.permission:portal.search_notes')->name('search.notes.legacy');
 
     Route::prefix('/note_d5')->name('note_d5.')->group(function () {
@@ -583,6 +589,11 @@ Route::prefix('encerramento')->name('closure.')->middleware(['auth', 'can:closur
         Route::get('/', 'overview')->name('overview');
         Route::get('/meta', 'meta')->name('meta');
         Route::get('/passivo', 'passive')->name('passive');
+    });
+
+Route::prefix('encerramento')->name('closure.')->middleware(['auth', 'can:closure.manage'])
+    ->controller(\App\Http\Controllers\ClosureController::class)->group(function () {
+        Route::get('/configuracoes/status-usuario', 'statusMap')->name('status_map');
     });
 
 Route::prefix('encerramento')->name('closure.')->middleware(['auth'])

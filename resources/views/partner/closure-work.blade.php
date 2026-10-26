@@ -15,5 +15,5 @@
 @endsection
 
 @section('content')
-    @livewire('closure.works.show', ['noteId' => $noteId], key('partner-closure-work-' . $noteId))
+    @livewire('closure.works.show', ['noteId' => $noteId, 'audience' => 'partner'], key('partner-closure-work-' . $noteId))
 @endsection

@@ -17,147 +17,16 @@
                 @if ($selfAssignEnabled && !($controlMode ?? false))
                     <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('services.main', ['aba' => 'disponiveis']) }}" class="btn btn-light btn-sm">Pegar atividades</a>
                 @endif
+                @unless ($controlMode ?? false)
+                    <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('services.transfers') }}" class="btn btn-light btn-sm"><i class="ri-exchange-line"></i> Transferências</a>
+                    <button type="button" class="btn btn-light btn-sm" wire:click="transferSelected" @disabled(count($selectedStateIds) === 0)><i class="ri-user-shared-line"></i> Transferir selecionadas</button>
+                @endunless
                 <span class="badge bg-light text-dark px-3 py-2">{{ count($selectedStateIds) }} selecionada(s)</span>
             </div>
         </div>
     </div>
 
-    <div class="table-card p-3 mb-3">
-        <div class="row g-3 align-items-end">
-            @include('livewire.closure.work._filters')
-            @if ($controlMode ?? false)
-                <div class="col-12 col-md-3">
-                    <label for="closure-control-company" class="form-label fw-semibold">Empresa (posse atual)</label>
-                    <select id="closure-control-company" class="form-select" wire:model="filterCompany">
-                        <option value="">Todas</option>
-                        @foreach ($this->destinationCompanies as $company)
-                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-12 col-md-3">
-                    <label for="closure-control-user" class="form-label fw-semibold">Responsável</label>
-                    <select id="closure-control-user" class="form-select" wire:model="filterUser">
-                        <option value="">Todos</option>
-                        @foreach ($this->controlUsers as $controlUser)
-                            <option value="{{ $controlUser->id }}">{{ $controlUser->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-12 col-md-3 d-flex align-items-end">
-                    <div class="form-check mb-2">
-                        <input id="closure-control-priority" type="checkbox" class="form-check-input" wire:model="onlyPriority">
-                        <label for="closure-control-priority" class="form-check-label">Só prioritárias</label>
-                    </div>
-                </div>
-            @endif
-            <div class="col-12 col-md-3">
-                <label for="closure-work-status" class="form-label fw-semibold">Status da atividade</label>
-                <select id="closure-work-status" class="form-select" wire:model="status">
-                    <option value="all">Em tratativa (todos)</option>
-                    @foreach ($statusOptions as $option)
-                        <option value="{{ $option->value }}">{{ $option->label() }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-12 col-md-3">
-                <label for="closure-work-batch" class="form-label fw-semibold">Ações em massa</label>
-                <div class="input-group">
-                    <select id="closure-work-batch" class="form-select" wire:model="batchAction">
-                        <option value="">Escolha uma ação</option>
-                        <option value="start">Iniciar</option>
-                        <option value="change_status">Alterar status</option>
-                        <option value="finish">Finalizar</option>
-                        <option value="return_to_pool">Devolver à pilha</option>
-                        @can('closure.manage')
-                            <option value="assign">Atribuir</option>
-                            <option value="transfer">Transferir</option>
-                            <option value="set_priority">Ajustar prioridade</option>
-                        @endcan
-                    </select>
-                    <button type="button" class="btn btn-outline-secondary" wire:click="prepareBatchPreview">Ver prévia</button>
-                </div>
-            </div>
-            @if ($batchAction === 'change_status')
-                <div class="col-12 col-md-4">
-                    <label for="closure-work-batch-status" class="form-label fw-semibold">Novo status</label>
-                    <select id="closure-work-batch-status" class="form-select" wire:model="batchStatus">
-                        <option value="">Selecione</option>
-                        <option value="PAUSED">Pausa</option>
-                        <option value="WAITING_PARTNER">Aguardando Parceira</option>
-                        <option value="DEPOSIT_BLOCKED">Depósito Bloqueado</option>
-                        <option value="DEPOSIT_RELEASED">Depósito Liberado</option>
-                        <option value="IN_PROGRESS">Em andamento</option>
-                    </select>
-                </div>
-            @endif
-            @if ($batchAction === 'return_to_pool' || ($batchAction === 'change_status' && in_array($batchStatus, ['PAUSED', 'WAITING_PARTNER', 'DEPOSIT_BLOCKED'], true)))
-                <div class="col-12">
-                    <label for="closure-work-batch-reason" class="form-label fw-semibold">Motivo da ação em massa</label>
-                    <textarea id="closure-work-batch-reason" class="form-control" rows="2" wire:model.defer="batchReason" placeholder="Explique o motivo."></textarea>
-                </div>
-            @endif
-            @can('closure.manage')
-                @if (in_array($batchAction, ['assign', 'transfer', 'set_priority'], true))
-                    <div class="col-12 mt-3 border-top pt-3">
-                        <div class="small fw-semibold text-uppercase text-muted mb-2">Controles de gestão</div>
-                        <div class="row g-3">
-                            @if (in_array($batchAction, ['assign', 'transfer'], true))
-                                <div class="col-12 col-md-6">
-                                    <label for="closure-work-destination-company" class="form-label fw-semibold">Empresa de destino</label>
-                                    <select id="closure-work-destination-company" class="form-select" wire:model="managerCompanyId">
-                                        <option value="">Selecione</option>
-                                        @foreach ($this->destinationCompanies as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                                <div class="col-12 col-md-6">
-                                    <label for="closure-work-destination-user" class="form-label fw-semibold">Usuário de destino {{ $batchAction === 'assign' ? '' : '(opcional)' }}</label>
-                                    <select id="closure-work-destination-user" class="form-select" wire:model="managerAssigneeId" @disabled(!$managerCompanyId)>
-                                        <option value="">{{ $batchAction === 'assign' ? 'Selecione' : 'Enviar para a pilha' }}</option>
-                                        @foreach ($this->destinationUsers as $destinationUser)
-                                            <option value="{{ $destinationUser->id }}">{{ $destinationUser->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @endif
-                            @if ($batchAction === 'set_priority')
-                                <div class="col-12 col-md-6">
-                                    <label for="closure-work-priority" class="form-label fw-semibold">Prioridade</label>
-                                    <select id="closure-work-priority" class="form-select" wire:model="managerPriority">
-                                        <option value="0">Normal</option>
-                                        <option value="1">Alta</option>
-                                    </select>
-                                </div>
-                            @endif
-                            @if ($batchAction === 'transfer')
-                                <div class="col-12">
-                                    <label for="closure-work-transfer-reason" class="form-label fw-semibold">Motivo da transferência</label>
-                                    <textarea id="closure-work-transfer-reason" class="form-control" rows="2" wire:model.defer="batchReason" placeholder="Explique o motivo da transferência."></textarea>
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-                @endif
-            @endcan
-        </div>
-    </div>
-
-    @if ($pendingAction)
-        <div class="table-card p-3 mb-3" id="closure-work-reason">
-            <h3 class="chart-title mb-2">
-                {{ $pendingAction === 'return' ? 'Motivo da devolução' : 'Motivo — ' . \App\Enum\ClosureOperationalStatus::labelFor($pendingStatus) }}
-            </h3>
-            <p class="text-muted small">Este registro ficará visível na linha do tempo da Ordem.</p>
-            <label for="closure-work-action-reason" class="form-label fw-semibold">Motivo</label>
-            <textarea id="closure-work-action-reason" class="form-control" rows="3" wire:model.defer="actionReason" placeholder="Descreva o motivo de forma objetiva."></textarea>
-            <div class="d-flex justify-content-end gap-2 mt-3">
-                <button type="button" class="btn btn-outline-secondary" wire:click="cancelActionWithReason">Cancelar</button>
-                <button type="button" class="btn btn-dash text-white" style="background: var(--dash-teal);" wire:click="confirmActionWithReason">Confirmar ação</button>
-            </div>
-        </div>
-    @endif
+    @include('livewire.closure.dispatch._control-top')
 
     <div class="table-card">
         <div class="chart-head">
@@ -166,6 +35,7 @@
                 <div class="chart-subtitle">O status SAP é informativo; as ações abaixo não o alteram.</div>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-outline-success btn-sm" wire:click="exportList" wire:loading.attr="disabled" wire:target="exportList"><i class="ri-file-excel-2-line"></i> Exportar Excel</button>
                 <div class="d-flex align-items-center gap-1 small text-muted">
                     <label for="closure-work-per-page-top" class="mb-0">Itens por página</label>
                     <select id="closure-work-per-page-top" class="form-select form-select-sm w-auto" wire:model="perPage" aria-label="Itens por página">
@@ -174,83 +44,10 @@
                         @endforeach
                     </select>
                 </div>
-                <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="clearFilters">Limpar filtros</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="toggleVisibleStates">Selecionar/limpar visíveis</button>
             </div>
         </div>
         <div class="table-responsive dash-scroll">
-            <table class="table table-sm align-middle mb-0 dash-table">
-                <colgroup>
-                    <col style="width: 44px;"><col style="width: 56px;"><col style="width: 110px;"><col style="width: 120px;"><col style="width: 90px;">
-                    <col style="width: 16%;"><col style="width: 100px;"><col style="width: 15%;"><col style="width: 150px;">
-                    <col style="width: 100px;"><col style="width: 110px;"><col style="width: 360px;">
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th class="ps-3" style="width:48px"><span class="visually-hidden">Selecionar</span></th>
-                        @include('livewire.closure.work._order-head')
-                        <th>Status da atividade</th>
-                        <th>Prioridade</th>
-                        <th>Tempo no status</th>
-                        <th class="pe-3 text-end">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($states as $state)
-                        @php
-                            $selected = in_array($state->id, $selectedStateIds);
-                            $blocked  = $this->finishBlockedReason($state);
-                        @endphp
-                        <tr wire:key="closure-work-state-{{ $state->id }}" @class(['is-selected' => $selected])>
-                            <td class="ps-3"><input type="checkbox" class="form-check-input" @checked($selected) wire:click="toggleState({{ $state->id }})"></td>
-                            @include('livewire.closure.work._order-cells')
-                            <td>
-                                <span class="badge {{ \App\Enum\ClosureOperationalStatus::badgeClassFor($state->operational_status) }}">{{ \App\Enum\ClosureOperationalStatus::labelFor($state->operational_status) }}</span>
-                                @if ($state->operational_status === 'WAITING')
-                                    <div class="small text-muted">Aguarda o mês da meta</div>
-                                @endif
-                            </td>
-                            <td>@if ($state->priority)<span class="badge bg-danger">Prioritária</span>@else<span class="text-muted small">Normal</span>@endif</td>
-                            <td class="small text-muted" title="{{ $this->holderLabel($state) }}">{{ $this->elapsedLabel($state) }}</td>
-                            <td class="pe-3 text-end cell-visible">
-                                <div class="btn-group btn-group-sm flex-wrap justify-content-end" role="group" aria-label="Ações da Ordem {{ $state->Order?->ordem }}">
-                                    @if ($this->canRun($state, 'start'))
-                                        <button type="button" class="btn btn-outline-success" wire:click="runAction({{ $state->id }}, 'start')">Iniciar</button>
-                                    @endif
-                                    @if ($this->canChangeStatus($state))
-                                        <div class="btn-group btn-group-sm" role="group">
-                                            <button type="button" class="btn btn-outline-warning dropdown-toggle" data-bs-toggle="dropdown" data-bs-boundary="window" aria-expanded="false">Alterar status</button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                @foreach ($this->statusTargets($state) as $target)
-                                                    <li><button type="button" class="dropdown-item" wire:click="changeStatus({{ $state->id }}, '{{ $target }}')">{{ $this->statusActionLabel($target) }}</button></li>
-                                                @endforeach
-                                            </ul>
-                                        </div>
-                                    @endif
-                                    @if ($this->canRun($state, 'finish'))
-                                        @if ($blocked)
-                                            <span class="d-inline-block" title="{{ $blocked }}" data-bs-toggle="tooltip" tabindex="0">
-                                                <button type="button" class="btn btn-outline-secondary" disabled style="pointer-events:none">Finalizar</button>
-                                            </span>
-                                        @else
-                                            <button type="button" class="btn btn-outline-success" wire:click="runAction({{ $state->id }}, 'finish')">Finalizar</button>
-                                        @endif
-                                    @endif
-                                    @if ($this->canRun($state, 'return'))
-                                        <button type="button" class="btn btn-outline-secondary" wire:click="runAction({{ $state->id }}, 'return')">Devolver</button>
-                                    @endif
-                                    @if ($state->Order?->note_id)
-                                        <a href="{{ route('closure.work.show', $state->Order->note_id) }}" class="btn btn-outline-primary">Obra</a>
-                                    @endif
-                                    <a href="{{ route('closure.order.detail', $state->order_id) }}" class="btn btn-outline-dark">Ordem</a>
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="14" class="text-center text-muted py-4">Não há Ordens nesta lista.@if ($selfAssignEnabled && !($controlMode ?? false)) Use "Pegar atividades" para assumir novas.@endif</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+            @include('livewire.closure.dispatch._control-table')
         </div>
         <div class="p-3 border-top d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div class="d-flex flex-wrap align-items-center gap-3 small text-muted">
@@ -267,6 +64,8 @@
             <div>{{ $states->links() }}</div>
         </div>
     </div>
+
+    @include('livewire.closure.dispatch._control-modals')
 
     @if ($batchPreview)
         <div class="table-card mt-3" id="closure-work-batch-preview">
@@ -338,4 +137,8 @@
             </div>
         </div>
     @endif
+    @livewire('closure.internal-returns.modal', [], key('closure-ri-modal'))
+    @unless ($controlMode ?? false)
+        @livewire('closure.transfers.send-modal', [], key('closure-transfer-modal'))
+    @endunless
 </div>

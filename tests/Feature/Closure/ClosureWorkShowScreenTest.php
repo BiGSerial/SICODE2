@@ -3,7 +3,6 @@
 use App\Http\Livewire\Closure\Works\Show;
 use App\Models\Closure\{ClosureIssue, ClosureOrderState, ClosureWorkMessage};
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\{Notification, Storage};
 use Livewire\Livewire;
 
@@ -60,19 +59,12 @@ it('posts and lists chat messages with visibility chosen by the internal author'
     expect(ClosureWorkMessage::query()->orderBy('id')->pluck('visibility')->all())->toBe(['INTERNAL_ONLY', 'WITH_PARTNER']);
 });
 
-it('stores chat attachments through the evidence uploader', function () {
-    Notification::fake();
-    Storage::fake('public');
-    Storage::fake('local');
+it('keeps the work chat text-only, with no file upload', function () {
     $f = closureScreenFixture();
 
-    Livewire::actingAs($f['internal'])->test(Show::class, ['noteId' => $f['note']->id])
-        ->set('chatBody', 'Segue anexo')
-        ->set('chatAttachments', [UploadedFile::fake()->create('doc.pdf', 20, 'application/pdf')])
-        ->call('postMessage')
-        ->assertHasNoErrors();
+    $html = Livewire::actingAs($f['internal'])->test(Show::class, ['noteId' => $f['note']->id])->lastRenderedDom;
 
-    expect(ClosureWorkMessage::query()->firstOrFail()->EvidenceFiles()->count())->toBe(1);
+    expect($html)->not->toContain('wire:model="chatAttachments"')->and($html)->toContain('wire:model.defer="chatBody"');
 });
 
 it('requires category, subcategory and orders when sending to the partner', function () {
@@ -216,21 +208,6 @@ it('requests priority and lets only the dispatcher decide', function () {
     expect($request->fresh()->status)->toBe('ACCEPTED')->and($f['state']->fresh()->priority)->toBeTrue();
 });
 
-it('rejects chat attachments outside the extension whitelist', function () {
-    Notification::fake();
-    Storage::fake('public');
-    Storage::fake('local');
-    $f = closureScreenFixture();
-
-    Livewire::actingAs($f['internal'])->test(Show::class, ['noteId' => $f['note']->id])
-        ->set('chatBody', 'Segue anexo')
-        ->set('chatAttachments', [UploadedFile::fake()->create('x.html', 2, 'text/html'), UploadedFile::fake()->create('y.svg', 2, 'image/svg+xml')])
-        ->call('postMessage')
-        ->assertHasErrors(['chatAttachments.0', 'chatAttachments.1']);
-
-    expect(ClosureWorkMessage::query()->count())->toBe(0);
-});
-
 it('re-checks access before deciding priority, even if the component level is stale', function () {
     Notification::fake();
     $f = closureScreenFixture();
@@ -260,4 +237,105 @@ it('lists undispatched orders on the work screen and offers dispatch only to the
 
     Livewire::actingAs($f['partnerUser'])->test(Show::class, ['noteId' => $f['note']->id])
         ->assertDontSee($undisp->ordem);
+});
+
+it('opens the send-to-partner modal preselecting the Order and its production company, and closes it after sending', function () {
+    Notification::fake();
+    $f   = closureScreenFixture();
+    $tax = closureScreenTaxonomy();
+
+    Livewire::actingAs($f['dispatcher'])->test(Show::class, ['noteId' => $f['note']->id])
+        ->assertDontSee('Enviar à parceira para resolver')
+        ->call('openPartnerModal', $f['state']->id)
+        ->assertSet('partnerModal', true)
+        ->assertSet('issueOrderIds', [(string) $f['state']->id])
+        ->assertSet('issueCompanyId', (string) $f['company']->id)
+        ->assertSee('Enviar à parceira para resolver')
+        ->set('issueCategoryId', (string) $tax['category']->id)
+        ->set('issueSubcategoryId', (string) $tax['subcategory']->id)
+        ->call('sendToPartner')
+        ->assertSet('partnerModal', false);
+
+    expect(ClosureIssue::query()->count())->toBe(1);
+});
+
+it('keeps the sidebar and breadcrumb on the side the user came from', function () {
+    $f = closureScreenFixture();
+    $this->actingAs($f['dispatcher']);
+
+    $nav = \App\Services\Closure\ClosureNavContext::class;
+    expect($nav::resolve(null))->toBe('dispatch')
+        ->and($nav::resolve('service'))->toBe('service')
+        ->and($nav::resolve('invalido'))->toBe('dispatch');
+
+    expect(view('closure.closure-menu', ['ctx' => 'service'])->render())->not->toContain('CONTROLE DE')
+        ->and(view('closure.closure-menu', ['ctx' => 'dispatch'])->render())->toContain('CONTROLE DE');
+});
+
+it('offers actions only on Orders that can actually be closed: not-apt and SAP-closed Orders show none', function () {
+    \Carbon\Carbon::setTestNow('2026-10-16 10:00:00');
+    \App\Services\Closure\ClosureEligibleOrders::forget();
+    $f = closureScreenFixture();
+
+    $mk = function (string $statusSist, bool $withOp20) use ($f) {
+        $order = \App\Models\Order::query()->create(['note_id' => $f['note']->id, 'ordem' => fake()->unique()->numerify('600#########'), 'statusSist' => $statusSist]);
+
+        if ($withOp20) {
+            \App\Models\Operation::query()->create(['order_id' => $order->id, 'operacao' => '0020', 'status' => 'CONF', 'fimReal' => '2026-09-10']);
+        }
+
+        return $order;
+    };
+
+    $apt    = $mk('LIB CNPA', true);
+    $notApt = $mk('LIB CNPA', false);
+    $closed = $mk('ENCE LIB', true);
+    \App\Services\Closure\ClosureEligibleOrders::forget();
+
+    $html = Livewire::actingAs($f['dispatcher'])->test(Show::class, ['noteId' => $f['note']->id])->lastRenderedDom;
+    $row  = fn (string $ordem) => (string) \Illuminate\Support\Str::of($html)->after('wire:key="work-order-' . \App\Models\Order::query()->where('ordem', $ordem)->value('id') . '"')->before('</tr>');
+
+    expect($row($apt->ordem))->toContain('Despachar')->toContain('Aguardando despacho')
+        ->and($row($notApt->ordem))->not->toContain('dropdown-toggle')->toContain('Não apta p/ encerramento')
+        ->and($row($closed->ordem))->not->toContain('dropdown-toggle')->toContain('Encerrada no SAP');
+
+    \Carbon\Carbon::setTestNow();
+});
+
+it('sends a requirement list to the partner and lets the operator unblock the Order without the partner answering', function () {
+    Notification::fake();
+    $f   = closureScreenFixture();
+    $tax = closureScreenTaxonomy();
+
+    Livewire::actingAs($f['dispatcher'])->test(Show::class, ['noteId' => $f['note']->id])
+        ->call('openPartnerModal', $f['state']->id)
+        ->assertSee('Lista de exigências')
+        ->call('addRequirement')
+        ->set('issueRequirements', ['Enviar a ART assinada', '', 'Regularizar o depósito'])
+        ->set('issueCategoryId', (string) $tax['category']->id)
+        ->set('issueSubcategoryId', (string) $tax['subcategory']->id)
+        ->call('sendToPartner')
+        ->assertSet('partnerModal', false)
+        ->assertSee('Enviar a ART assinada')
+        ->assertSee('Regularizar o depósito');
+
+    $issue = ClosureIssue::query()->firstOrFail();
+    expect($issue->requirements)->toBe(['Enviar a ART assinada', 'Regularizar o depósito'])
+        ->and($issue->blocking)->toBeTrue()
+        ->and($f['state']->fresh()->operational_status)->toBe('WAITING_PARTNER')
+        ->and(ClosureWorkMessage::query()->where('closure_issue_id', $issue->id)->value('body'))->toContain('1. Enviar a ART assinada');
+
+    // A parceira não respondeu: o operador desbloqueia por conta própria (motivo obrigatório).
+    Livewire::actingAs($f['dispatcher'])->test(Show::class, ['noteId' => $f['note']->id])
+        ->assertSee('Desbloquear sem retorno')
+        ->call('startIssueAction', $issue->id, 'release')
+        ->call('confirmIssueAction')
+        ->assertHasErrors('actingMessage')
+        ->set('actingMessage', 'Documentação conferida internamente')
+        ->call('confirmIssueAction')
+        ->assertSet('actingIssueId', null);
+
+    expect($issue->fresh()->status)->toBe('RESOLVED')
+        ->and($f['state']->fresh()->operational_status)->toBe('IN_PROGRESS')
+        ->and(\App\Models\Closure\ClosureIssueEvent::query()->where('closure_issue_id', $issue->id)->pluck('type')->all())->toContain('RELEASED_BY_OPERATOR');
 });

@@ -13,7 +13,7 @@
                 <tbody>
                     @forelse ($priorities as $request)
                         <tr wire:key="priority-{{ $request->id }}">
-                            <td class="ps-3 fw-semibold"><a href="{{ route('closure.work.show', $request->note_id) }}">{{ $request->Note?->note ?? $request->note_id }}</a></td>
+                            <td class="ps-3 fw-semibold"><a href="{{ route('closure.work.show', ['note' => $request->note_id, 'ctx' => 'dispatch']) }}">{{ $request->Note?->note ?? $request->note_id }}</a></td>
                             <td>{{ $request->RequestedBy?->name ?? '—' }}</td>
                             <td title="{{ $request->reason }}">{{ $request->reason }}</td>
                             <td>{{ $request->created_at->format('d/m/Y H:i') }}</td>

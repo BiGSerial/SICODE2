@@ -300,6 +300,7 @@ class ClosureDispatcherAnalytics
             ->selectRaw(
                 'closure_order_states.id as state_id, closure_order_states.priority, closure_order_states.operational_status as status,'
                 . ' closure_order_states.entered_current_status_at as entered_at, closure_order_states.assigned_user_id,'
+                . ' closure_order_states.current_holder_company_id, closure_order_states.current_holder_user_id, orders.statusSist,'
                 . ' orders.ordem, orders.note_id, notes.note as note_number,'
                 . " responsible.name as responsible_name, holder.name as company_name, ({$sql}) as meta_type",
                 $bindings

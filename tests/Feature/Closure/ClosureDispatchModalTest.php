@@ -106,7 +106,7 @@ it('previews eligibility with competence and does not re-render the component', 
     expect($component->payload['effects']['html'] ?? null)->toBeNull();
 });
 
-it('previews the stack conflict only once a valid company is chosen', function () {
+it('previews an already dispatched Order as ineligible whatever the chosen company, naming who holds it', function () {
     [$company, $user] = modalCompany($this->service);
     [$other]          = modalCompany($this->service);
     $a                = modalOrder('2026-09-10');
@@ -115,9 +115,12 @@ it('previews the stack conflict only once a valid company is chosen', function (
 
     $component = Livewire::actingAs(modalManager())->test(DispatchModal::class);
 
-    expect(modalCall($component, 'preview', [[$a->id], null, null])['rows'][0]['eligible'])->toBeTrue()
-        ->and(modalCall($component, 'preview', [[$a->id], (string) $other->id, null])['rows'][0])->toMatchArray(['eligible' => false, 'reason' => 'Ordem já vinculada a outro despacho.'])
-        ->and(modalCall($component, 'preview', [[$a->id], (string) $company->id, null])['rows'][0]['eligible'])->toBeTrue();
+    foreach ([null, (string) $other->id, (string) $company->id] as $chosen) {
+        $row = modalCall($component, 'preview', [[$a->id], $chosen, null])['rows'][0];
+
+        expect($row['eligible'])->toBeFalse()
+            ->and($row['reason'])->toContain('já foi despachada')->toContain($company->name)->toContain('Transferência');
+    }
 });
 
 it('confirms and dispatches only the eligible orders, with receipt, one toast and one notification per assigned order', function () {

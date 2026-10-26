@@ -1,21 +1,2 @@
-<script>
-    if (!window.__closureConfirmBound) {
-        window.__closureConfirmBound = true;
-        window.addEventListener('closure:confirm', function (event) {
-            const d = event.detail || {};
-            Swal.fire({
-                title: d.title || 'Confirmar',
-                html: d.html || '',
-                icon: d.icon || 'question',
-                showCancelButton: true,
-                confirmButtonText: d.confirmText || 'Confirmar',
-                cancelButtonText: d.cancelText || 'Cancelar',
-                reverseButtons: true,
-            }).then(function (result) {
-                if (result.isConfirmed && d.action) {
-                    Livewire.emit(d.action);
-                }
-            });
-        });
-    }
-</script>
+{{-- DEPRECIADO: o handler `closure:confirm` agora vive em resources/js/closure/confirm.js (carregado pelo app.js).
+     Stub só para os @include antigos não quebrarem; remova os @include quando possível. --}}

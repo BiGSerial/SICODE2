@@ -1,0 +1,23 @@
+// Utilitários do módulo (substituem style="" inline em Blade). Larguras de coluna em % para tabelas com <colgroup>.
+
+.closure-dash {
+    .pre-line {
+        white-space: pre-line;
+    }
+
+    .cell-wrap {
+        white-space: normal !important;
+    }
+
+    .table-min-lg {
+        min-width: 980px;
+    }
+
+    @for $i from 5 through 40 {
+        .col-pct-#{$i} {
+            width: #{$i + '%'};
+        }
+    }
+}
+
+[x-cloak] { display: none !important; }

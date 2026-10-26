@@ -1,0 +1,13 @@
+// Tons semânticos — a cor TEM significado fixo (PADRAO_UI_ENCERRAMENTO.md §3). Componentes recebem `tone="green|blue|amber|red|teal|muted"`
+// e nunca uma cor solta. `--k` alimenta .kpi; `--tone`/`--tone-soft` alimentam os componentes das caixas.
+
+.closure-dash {
+    --dash-soft: #f4f7f9;
+
+    .tone-teal  { --k: var(--dash-teal);  --tone: var(--dash-teal);  --tone-soft: rgba(21, 95, 103, .12); }
+    .tone-green { --k: var(--dash-green); --tone: var(--dash-green); --tone-soft: rgba(15, 138, 119, .14); }
+    .tone-blue  { --k: var(--dash-blue);  --tone: var(--dash-blue);  --tone-soft: rgba(38, 60, 200, .1); }
+    .tone-amber { --k: #b58a00;           --tone: #8a6d00;           --tone-soft: rgba(247, 210, 0, .22); }
+    .tone-red   { --k: var(--dash-red);   --tone: #a11d1d;           --tone-soft: rgba(227, 44, 44, .12); }
+    .tone-muted { --k: var(--dash-muted); --tone: var(--dash-muted); --tone-soft: rgba(100, 116, 139, .12); }
+}

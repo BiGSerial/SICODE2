@@ -1,0 +1,90 @@
+// Tabelas (padrão único com colgroup + zebra) e células de Ordem.
+
+.closure-dash .table-card {
+    overflow: hidden;
+}
+
+.closure-dash .table-card .table {
+    margin-bottom: 0;
+    table-layout: fixed;
+}
+
+.closure-dash .table-card thead th {
+    background: #102033;
+    color: #fff;
+    font-size: .78rem;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.closure-dash .table-card td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.closure-dash .group-row td {
+    background: var(--dash-soft, #f4f7f9);
+    border-top: 2px solid var(--dash-line);
+    padding-top: 10px;
+    padding-bottom: 10px;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.closure-dash .dash-table thead th {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-top: .65rem;
+    padding-bottom: .65rem;
+}
+
+.closure-dash .dash-table tbody tr:nth-child(even) > td {
+    background-color: #f8fafb;
+}
+
+.closure-dash .dash-table tbody tr:hover > td {
+    background-color: #eef5f6;
+}
+
+.closure-dash .dash-table tbody tr.is-selected > td {
+    background-color: rgba(21, 95, 103, .1);
+    box-shadow: inset 3px 0 0 var(--dash-teal);
+}
+
+.closure-dash .dash-table tbody tr.is-selected > td:not(:first-child) {
+    box-shadow: none;
+}
+
+.closure-dash .dash-table td.cell-visible {
+    overflow: visible;
+}
+
+.closure-dash .ord-main {
+    color: var(--dash-ink);
+    font-size: .95rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.closure-dash .ord-sub {
+    color: var(--dash-muted);
+    font-size: .76rem;
+}
+
+.closure-dash .avatar-sm {
+    align-items: center;
+    background: #e2ecef;
+    border-radius: 50%;
+    color: #155f67;
+    display: inline-flex;
+    flex: none;
+    font-size: .7rem;
+    font-weight: 800;
+    height: 30px;
+    justify-content: center;
+    width: 30px;
+}

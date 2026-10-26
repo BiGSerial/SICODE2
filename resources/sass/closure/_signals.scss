@@ -1,0 +1,98 @@
+// Sinalização por cor das Ordens nas listas (regra única em App\Services\Closure\ClosureSignal):
+// azul = atribuída · verde = concluída · vermelho = +24h sem baixa no SAP · amarelo = na pilha, sem atribuição.
+
+.closure-dash {
+    // --sig = cor do selo/legenda; --sig-row / --sig-row-hover = tom da LINHA inteira, o mesmo das outras atividades
+    // (table-primary, table-success, table-danger e table-warning do Bootstrap).
+    .signal-assigned { --sig: var(--dash-blue);  --sig-ink: #1f2f9e; --sig-row: #cfe2ff; --sig-row-hover: #c1d6f5; }
+    .signal-done     { --sig: var(--dash-green); --sig-ink: #0a5c4e; --sig-row: #d1e7dd; --sig-row-hover: #c3dbd0; }
+    .signal-overdue  { --sig: var(--dash-red);   --sig-ink: #a11d1d; --sig-row: #f8d7da; --sig-row-hover: #ecc7cb; }
+    .signal-pile     { --sig: var(--dash-amber); --sig-ink: #7a5f00; --sig-row: #fff3cd; --sig-row-hover: #f7e8b6; }
+
+    .signal {
+        align-items: center;
+        background: color-mix(in srgb, var(--sig) 14%, #fff);
+        border: 1px solid color-mix(in srgb, var(--sig) 45%, #fff);
+        border-radius: 99px;
+        color: var(--sig-ink);
+        display: inline-flex;
+        font-size: .72rem;
+        font-weight: 800;
+        gap: 5px;
+        padding: 2px 9px;
+        white-space: nowrap;
+    }
+
+    .signal::before {
+        background: var(--sig);
+        border-radius: 50%;
+        content: '';
+        flex: none;
+        height: 8px;
+        width: 8px;
+    }
+
+    // A linha inteira ganha o tom do sinal (dá para varrer a lista só pela cor). Vence a zebra e o hover da tabela padrão.
+    // Para as linhas não se fundirem quando várias seguidas têm a mesma cor, cada uma tem:
+    //  - uma borda lateral na cor do sinal (marca o começo da linha);
+    //  - uma divisória inferior em tom mais escuro do mesmo sinal;
+    //  - uma alternância sutil de tom (zebra) dentro da mesma cor.
+    tbody tr.signal-row > td,
+    .dash-table tbody tr.signal-row > td {
+        background-color: var(--sig-row);
+        border-bottom: 1px solid color-mix(in srgb, var(--sig) 45%, #fff);
+    }
+
+    tbody tr.signal-row:nth-child(even) > td,
+    .dash-table tbody tr.signal-row:nth-child(even) > td {
+        background-color: color-mix(in srgb, var(--sig-row) 55%, #fff);
+    }
+
+    tbody tr.signal-row > td:first-child,
+    .dash-table tbody tr.signal-row > td:first-child {
+        border-left: 5px solid var(--sig);
+    }
+
+    tbody tr.signal-row:hover > td,
+    .dash-table tbody tr.signal-row:hover > td {
+        background-color: var(--sig-row-hover);
+    }
+
+    // Linha selecionada: o tom do sinal escurece em direção ao verde-água da seleção, e a marca lateral da seleção continua.
+    tbody tr.signal-row.is-selected > td,
+    .dash-table tbody tr.signal-row.is-selected > td {
+        background-color: color-mix(in srgb, var(--sig-row) 72%, var(--dash-teal));
+    }
+
+    .signal-legend {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 14px;
+    }
+
+    .signal-legend-item {
+        align-items: center;
+        color: var(--dash-muted);
+        display: inline-flex;
+        font-size: .76rem;
+        font-weight: 600;
+        gap: 6px;
+    }
+
+    .signal-legend-item::before {
+        background: var(--sig-row);
+        border: 1px solid var(--sig);
+        border-radius: 3px;
+        content: '';
+        height: 14px;
+        width: 22px;
+    }
+
+    // Linha que já não pode ser despachada (já tem posse): fica esmaecida e o botão desabilitado explica o motivo.
+    tr.is-dispatched .form-check-input,
+    tr.is-dispatched .icon-btn[disabled] {
+        cursor: not-allowed;
+        opacity: .45;
+    }
+}

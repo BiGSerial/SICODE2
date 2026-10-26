@@ -1,0 +1,281 @@
+// Gestão da Obra (Closure\Works\Show): cabeçalho com progresso e abas conectadas, conversa em balões, pendências em cartões.
+// Tokens e cores seguem docs/encerramento/PADRAO_UI_ENCERRAMENTO.md.
+
+.closure-dash.work-page {
+    // ---- Cabeçalho: identidade, ações, progresso e abas formam uma peça só ----
+    .work-hero {
+        background: radial-gradient(900px 300px at 100% 0, rgba(38, 255, 140, .16), transparent 60%),
+            linear-gradient(120deg, #0d1b2a 0%, #155f67 62%, #0f8a77 100%);
+        border-radius: 14px;
+        box-shadow: 0 18px 40px rgba(16, 32, 51, .18);
+        color: #fff;
+        overflow: hidden;
+    }
+
+    .work-hero-main {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: space-between;
+        padding: 22px 26px 8px;
+    }
+
+    .work-id {
+        align-items: center;
+        display: flex;
+        gap: 16px;
+        min-width: 0;
+    }
+
+    .work-id-icon {
+        align-items: center;
+        background: rgba(255, 255, 255, .14);
+        border: 1px solid rgba(255, 255, 255, .22);
+        border-radius: 14px;
+        display: inline-flex;
+        flex: none;
+        font-size: 1.9rem;
+        height: 56px;
+        justify-content: center;
+        width: 56px;
+    }
+
+    .work-eyebrow {
+        font-size: .68rem;
+        font-weight: 800;
+        letter-spacing: .12em;
+        opacity: .7;
+        text-transform: uppercase;
+    }
+
+    .work-title {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 1.7rem;
+        font-weight: 800;
+        gap: 10px;
+        margin: 2px 0 4px;
+    }
+
+    .work-type {
+        background: rgba(255, 255, 255, .18);
+        border-radius: 6px;
+        font-size: .72rem;
+        padding: 3px 9px;
+    }
+
+    .work-flag {
+        background: var(--dash-red);
+        border-radius: 99px;
+        font-size: .72rem;
+        padding: 3px 10px;
+    }
+
+    .work-meta {
+        display: flex;
+        flex-wrap: wrap;
+        font-size: .88rem;
+        gap: 6px 18px;
+        opacity: .92;
+    }
+
+    .work-meta i {
+        opacity: .75;
+    }
+
+    .work-actions {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .work-lock {
+        background: rgba(227, 44, 44, .9);
+        border-radius: 8px;
+        font-size: .8rem;
+        font-weight: 800;
+        padding: 6px 12px;
+    }
+
+    .work-icon-btn {
+        background: rgba(255, 255, 255, .12);
+        border: 1px solid rgba(255, 255, 255, .3);
+        border-radius: 8px;
+        color: #fff;
+        height: 31px;
+        width: 34px;
+    }
+
+    .work-icon-btn:hover {
+        background: rgba(255, 255, 255, .24);
+    }
+
+    .work-progress {
+        padding: 12px 26px 4px;
+    }
+
+    .work-progress-head {
+        display: flex;
+        font-size: .82rem;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+
+    .work-progress-pct {
+        font-weight: 800;
+    }
+
+    .work-progress-bar {
+        background: rgba(255, 255, 255, .18);
+        border-radius: 99px;
+        height: 8px;
+        overflow: hidden;
+    }
+
+    .work-progress-bar > span {
+        background: linear-gradient(90deg, #7cf0c4, #26ff8c);
+        border-radius: 99px;
+        display: block;
+        height: 100%;
+        transition: width .5s ease;
+    }
+
+    .work-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+    }
+
+    .work-chip {
+        background: rgba(255, 255, 255, .13);
+        border-radius: 99px;
+        font-size: .74rem;
+        padding: 3px 11px;
+    }
+
+    .work-chip b {
+        margin-right: 3px;
+    }
+
+    .work-chip.is-status {
+        background: rgba(0, 0, 0, .22);
+    }
+
+    .work-banner {
+        align-items: center;
+        background: rgba(227, 44, 44, .92);
+        display: flex;
+        font-size: .86rem;
+        gap: 12px;
+        margin: 12px 0 0;
+        padding: 10px 26px;
+    }
+
+    .work-banner > i {
+        font-size: 1.3rem;
+    }
+
+    // Abas coladas na base do cabeçalho: a aba ativa "abre" para o conteúdo logo abaixo.
+    .work-tabs {
+        display: flex;
+        gap: 4px;
+        margin-top: 14px;
+        overflow-x: auto;
+        padding: 0 20px;
+    }
+
+    .work-tab {
+        align-items: center;
+        background: transparent;
+        border: 0;
+        border-radius: 10px 10px 0 0;
+        color: rgba(255, 255, 255, .78);
+        display: inline-flex;
+        font-size: .88rem;
+        font-weight: 700;
+        gap: 8px;
+        padding: 11px 18px;
+        white-space: nowrap;
+    }
+
+    .work-tab:hover {
+        background: rgba(255, 255, 255, .12);
+        color: #fff;
+    }
+
+    .work-tab em {
+        background: rgba(255, 255, 255, .2);
+        border-radius: 99px;
+        font-size: .7rem;
+        font-style: normal;
+        padding: 1px 8px;
+    }
+
+    .work-tab.is-active {
+        background: #fff;
+        color: var(--dash-teal);
+    }
+
+    .work-tab.is-active em {
+        background: var(--tone-soft, rgba(21, 95, 103, .14));
+        color: var(--dash-teal);
+    }
+
+    // ---- Cartões ----
+    .chart-card,
+    .table-card {
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(16, 32, 51, .06);
+    }
+
+    .od-section-head h3 {
+        font-size: 1.02rem;
+    }
+
+    .dash-table tbody tr:hover {
+        background: rgba(21, 95, 103, .05);
+    }
+
+    .ops-meter {
+        background: var(--dash-line);
+        border-radius: 99px;
+        height: 4px;
+        margin: 5px auto 0;
+        overflow: hidden;
+        width: 56px;
+    }
+
+    .ops-meter > span {
+        background: var(--dash-green);
+        display: block;
+        height: 100%;
+    }
+
+    // ---- Conversa em balões ----
+    .chat-msg {
+        background: var(--dash-soft);
+        border-radius: 12px 12px 12px 3px;
+        margin: 10px 0;
+        max-width: 92%;
+        padding: 9px 13px;
+    }
+
+    .chat-msg.is-mine {
+        background: rgba(21, 95, 103, .1);
+        border-radius: 12px 12px 3px 12px;
+        margin-left: auto;
+    }
+
+    // ---- Pendências em cartões ----
+    .issue-card {
+        border-left: 4px solid var(--dash-amber);
+        margin: 10px 14px;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 2px 10px rgba(16, 32, 51, .06);
+    }
+}

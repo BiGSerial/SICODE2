@@ -39,6 +39,23 @@ class Available extends Component
         ]);
     }
 
+    public function exportQuery(): Builder
+    {
+        return $this->availableQuery();
+    }
+
+    public function updatedStatusUsers(): void
+    {
+        $this->selectedStateIds = [];
+    }
+
+    public function exportList(): void
+    {
+        \App\Jobs\Closure\ExportClosureListJob::dispatch(static::class, ['type' => $this->type, 'status' => $this->status, 'search' => $this->search, 'statusUsers' => $this->statusUsers, 'bulkTerms' => $this->bulkTerms], (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'success', 'title' => 'Exportação iniciada', 'html' => '<p class="mb-0"><strong>Você será notificado quando o download estiver disponível.</strong></p>', 'timer' => 5000]);
+    }
+
     public function updatedType(): void
     {
         $this->selectedStateIds = [];

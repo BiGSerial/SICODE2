@@ -87,6 +87,14 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'closure:sync-closed', 'closure-sync-closed')
             ->cron('50 5,8,10,12,14,16,20 * * *');
 
+        // Encerramento: data de entrada no status usuário (orders.statusUser), logo após o sync de Ordens. Só informativo.
+        $this->scheduleCommand($schedule, 'closure:sync-status-user', 'closure-sync-status-user')
+            ->cron('55 5,8,10,12,14,16,20 * * *');
+
+        // Encerramento: varredura de segurança dos RI (o Reclaim também é concluído por UPDATE em massa/comandos, sem observer).
+        $this->scheduleCommand($schedule, 'closure:sync-internal-returns', 'closure-sync-internal-returns')
+            ->everyFifteenMinutes();
+
         $this->scheduleCommand($schedule, 'closure:promote-waiting', 'closure-promote-waiting')
             ->dailyAt('06:00');
 
@@ -359,6 +367,8 @@ class Kernel extends ConsoleKernel
             'upd-baseov-full-prazos'                   => 'Base OV Full Prazos (12:05)',
             'closure-sync-closed'                      => 'Encerramento: detectar encerradas SAP',
             'closure-promote-waiting'                  => 'Encerramento: promover aguardando',
+            'closure-sync-status-user'                 => 'Encerramento: data do status usuário',
+            'closure-sync-internal-returns'            => 'Encerramento: sincronizar RI com o Desenho',
             'sync-peps'                                => 'Sincronizar PEPs',
             'upd-base-ep'                              => 'Base EP',
             'sync-protests'                            => 'Sincronizar reclamações',

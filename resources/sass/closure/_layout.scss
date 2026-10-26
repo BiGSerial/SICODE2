@@ -1,0 +1,137 @@
+// Layout: hero, cartões de métrica/gráfico, rolagem, estado vazio e carregando.
+
+.closure-dash .dash-hero {
+    background: linear-gradient(120deg, #102033 0%, #155f67 58%, #0f8a77 100%);
+    border-radius: 8px;
+    color: #fff;
+    padding: 22px 24px;
+    box-shadow: 0 18px 40px rgba(16, 32, 51, .16);
+}
+
+.closure-dash .dash-title {
+    font-size: 1.65rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.closure-dash .dash-subtitle {
+    color: rgba(255, 255, 255, .78);
+    font-size: .92rem;
+    margin-top: 4px;
+}
+
+.closure-dash .metric-card,
+.closure-dash .chart-card,
+.closure-dash .table-card {
+    background: #fff;
+    border: 1px solid var(--dash-line);
+    border-radius: 8px;
+    box-shadow: 0 12px 30px rgba(16, 32, 51, .08);
+}
+
+.closure-dash .metric-card {
+    padding: 16px 18px;
+    min-height: 112px;
+    border-top: 4px solid var(--accent, var(--dash-teal));
+}
+
+.closure-dash .metric-label {
+    color: var(--dash-muted);
+    font-size: .78rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
+.closure-dash .metric-value {
+    color: var(--dash-ink);
+    font-size: 2rem;
+    font-weight: 850;
+    line-height: 1.1;
+    margin-top: 8px;
+}
+
+.closure-dash .metric-note {
+    color: var(--dash-muted);
+    font-size: .82rem;
+    margin-top: 6px;
+}
+
+.closure-dash .chart-card {
+    padding: 0;
+    overflow: hidden;
+}
+
+.closure-dash .chart-head {
+    align-items: center;
+    border-bottom: 1px solid var(--dash-line);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 58px;
+    padding: 14px 18px;
+}
+
+.closure-dash .chart-title {
+    color: var(--dash-ink);
+    font-size: 1rem;
+    font-weight: 800;
+    margin: 0;
+}
+
+.closure-dash .chart-subtitle {
+    color: var(--dash-muted);
+    font-size: .8rem;
+}
+
+.closure-dash .chart-body {
+    height: 320px;
+    padding: 18px;
+}
+
+.closure-dash .group-row .chart-title {
+    font-size: .92rem;
+}
+
+.closure-dash .progress {
+    background: rgba(16, 32, 51, .08);
+    height: 6px;
+    border-radius: 999px;
+}
+
+.closure-dash select.form-select-sm {
+    border-color: #b8c8d0;
+    border-radius: 6px;
+}
+
+/* ---- Tabela moderna compartilhada (Despacho / Controle): colgroup + zebra ----
+       Sem janela de rolagem vertical: a página rola normalmente (o rodapé com paginação fica visível).
+       Rolagem horizontal só em telas estreitas. O thead não é sticky (não há scroller interno). */
+.closure-dash .dash-scroll {
+    max-height: none;
+    overflow: visible;
+}
+
+@media (max-width: 1199.98px) {
+    .closure-dash .dash-scroll {
+        overflow-x: auto;
+    }
+}
+
+.closure-dash .is-loading-soft {
+    opacity: .55;
+    pointer-events: none;
+    transition: opacity .15s ease;
+}
+
+.closure-dash .dash-empty {
+    color: var(--dash-muted);
+    padding: 48px 16px;
+    text-align: center;
+}
+
+.closure-dash .dash-empty i {
+    color: #b8c8d0;
+    font-size: 3rem;
+    line-height: 1;
+}

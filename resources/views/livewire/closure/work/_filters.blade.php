@@ -10,4 +10,5 @@
 <div class="col-12 col-md-3">
     <label class="form-label fw-semibold">Busca</label>
     <input type="search" class="form-control" wire:model.debounce.400ms="search" placeholder="Ordem ou Nota" aria-label="Buscar por Ordem ou Nota">
+    <div class="mt-1"><x-closure.bulk-search :terms="$bulkTerms" :open="$bulkOpen" /></div>
 </div>

@@ -56,13 +56,27 @@ class EvidenceFileUploader
         $saved   = [];
         $noteRef = $this->normalizeNoteRef($noteRef);
 
-        foreach ($attachments as $file) {
-            if (!$file instanceof UploadedFile) {
-                continue;
+        $stored = [];
+
+        try {
+            foreach ($attachments as $file) {
+                if (!$file instanceof UploadedFile) {
+                    continue;
+                }
+
+                $data     = $this->storeSingleCancellationFile($file, 'evidences/CLOSURE_WORK_MESSAGE/' . $message->id, $noteRef);
+                $stored[] = $data;
+                $saved[]  = $this->attachEvidence($message, $user, $data, $origin);
+            }
+        } catch (\Throwable $exception) {
+            // Falhou no meio do lote: não deixa arquivo físico órfão (o rollback do banco não alcança o storage).
+            $storage = app(FileStorageService::class);
+
+            foreach ($stored as $data) {
+                $storage->delete(new \App\Models\File(['path' => $data['path'], 'disk' => $data['disk']]));
             }
 
-            $data    = $this->storeSingleCancellationFile($file, 'evidences/CLOSURE_WORK_MESSAGE/' . $message->id, $noteRef);
-            $saved[] = $this->attachEvidence($message, $user, $data, $origin);
+            throw $exception;
         }
 
         return $saved;

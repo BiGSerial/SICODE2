@@ -2,9 +2,9 @@
 
 namespace App\Providers;
 
-use App\Models\{CancellationRequest, Form, Production, ProtestJob};
+use App\Models\{CancellationRequest, Form, Production, ProtestJob, Reclaim};
 use App\Notifications\Channels\IdempotentDatabaseChannel;
-use App\Observers\{AuditObserver, FormObserver, ProtestJobObserver};
+use App\Observers\{AuditObserver, ClosureReclaimObserver, FormObserver, ProtestJobObserver};
 use App\Repositories\SurveyRepository;
 use Illuminate\Notifications\Channels\DatabaseChannel;
 use Illuminate\Support\ServiceProvider;
@@ -32,5 +32,6 @@ class AppServiceProvider extends ServiceProvider
         CancellationRequest::observe(AuditObserver::class);
         Form::observe(FormObserver::class);
         ProtestJob::observe(ProtestJobObserver::class);
+        Reclaim::observe(ClosureReclaimObserver::class);
     }
 }

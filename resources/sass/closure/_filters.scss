@@ -1,0 +1,115 @@
+// Filtros: grade, multi-select, chips ativos e controles de lote.
+
+.closure-dash .filter-grid {
+    display: none;
+    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+
+.closure-dash .filter-grid.is-open {
+    display: grid;
+}
+
+@media (min-width: 992px) {
+    .closure-dash .filter-grid {
+        display: grid;
+    }
+}
+
+.closure-dash .filter-field > label {
+    color: var(--dash-muted);
+    display: block;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+}
+
+.closure-dash .closure-multi .dropdown-toggle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.closure-dash .closure-multi .dropdown-menu {
+    min-width: 260px;
+}
+
+.closure-dash .closure-multi-list {
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.closure-dash .closure-multi-list .dropdown-item {
+    font-size: .85rem;
+    padding: 4px 8px;
+}
+
+.closure-dash .active-filters {
+    align-items: center;
+    border-top: 1px dashed var(--dash-line);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 10px;
+}
+
+.closure-dash .filter-chip {
+    align-items: center;
+    background: #eef5f6;
+    border: 1px solid var(--dash-line);
+    border-radius: 999px;
+    color: var(--dash-ink);
+    display: inline-flex;
+    font-size: .75rem;
+    font-weight: 600;
+    gap: 4px;
+    padding: 2px 6px 2px 10px;
+}
+
+.closure-dash .filter-chip:hover {
+    background: #e2eef0;
+}
+
+.closure-dash .ctl-label {
+    color: #475569;
+    display: block;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .04em;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.closure-dash .ctl-chip {
+    align-items: center;
+    background: #eef5f6;
+    border: 1px solid #cfe0e3;
+    border-radius: 99px;
+    color: var(--dash-ink);
+    display: inline-flex;
+    font-size: .78rem;
+    gap: 6px;
+    padding: 3px 6px 3px 12px;
+}
+
+.closure-dash .ctl-chip button {
+    background: none;
+    border: 0;
+    color: #64748b;
+    line-height: 1;
+    padding: 0 2px;
+}
+
+.closure-dash .ctl-bulk {
+    background: #eaf7f2;
+    border: 1px solid #a7dcc9;
+    border-radius: 12px;
+}
+
+// O menu dos filtros (multi-select, status usuário…) precisa vazar do card: o .table-card padrão corta o que passa da borda
+// (overflow: hidden). Todo card que tem filtros leva a classe .filter-bar.
+.closure-dash .filter-bar {
+    overflow: visible;
+}

@@ -2,11 +2,10 @@
     @include('livewire.closure._styles')
 
     @php
-        $selectAllLimit = min($orders->total(), \App\Http\Livewire\Closure\Dispatch\Index::SELECT_ALL_LIMIT);
+        $selectAllLimit = min((int) ($counts['selectable'] ?? 0), \App\Http\Livewire\Closure\Dispatch\Index::SELECT_ALL_LIMIT);
         $typeColors    = ['P' => 'var(--dash-red)', 'M' => 'var(--dash-green)', 'F' => 'var(--dash-blue)'];
-        $statusColors  = ['AVAILABLE' => '#64748b', 'ASSIGNED' => '#155f67', 'IN_PROGRESS' => '#263cc8', 'FINISHED' => '#0f8a77', 'CLOSED' => '#0f8a77'];
         $activeCard    = $onlyUndispatched ? 'undispatched' : (count($types) === 1 ? $types[0] : 'all');
-        $hasFilters    = $search !== '' || $types || $status || $filterCompanyId || $cityId || $filterAssigneeId || $onlyUndispatched || $competence;
+        $hasFilters    = $search !== '' || $types || $status || $filterCompanyId || count($regions) || count($regionals) || count($cityCodes) || count($statusUsers) || count($bulkTerms) || $filterAssigneeId || $onlyUndispatched || $competence;
         $sortIcon      = $sortField === 'competence' ? ($sortDir === 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line') : 'ri-expand-up-down-line';
     @endphp
 
@@ -40,6 +39,7 @@
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center">
                 <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('dispatch.dashboard') }}" class="btn btn-light btn-sm btn-dash"><i class="ri-bar-chart-2-line"></i> Painel analítico</a>
+                <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportList" wire:loading.attr="disabled" wire:target="exportList"><i class="ri-file-excel-2-line"></i> Exportar Excel</button>
                 <button type="button" class="btn btn-outline-light btn-sm btn-dash" wire:click="openSettings"><i class="ri-settings-3-line"></i> Configurações</button>
             </div>
         </div>
@@ -62,12 +62,14 @@
         @endforeach
     </div>
 
-    <div class="table-card p-3 mb-3 filter-bar">
+    <div class="table-card p-3 mb-3 filter-bar" id="closure-dispatch-filters" x-data="closureFilterPanel()"
+        data-options="{{ json_encode(['options' => $filterOptions, 'sel' => ['regions' => $regions, 'regionals' => $regionals, 'cityCodes' => $cityCodes, 'statusUsers' => $statusUsers]], JSON_UNESCAPED_UNICODE) }}">
         <div class="d-flex flex-wrap align-items-center gap-2">
             <div class="input-group" style="max-width: 260px;">
                 <span class="input-group-text bg-white"><i class="ri-search-line"></i></span>
                 <input id="closure-dispatch-search" type="search" class="form-control" wire:model.debounce.400ms="search" placeholder="Nota ou Ordem" aria-label="Buscar Nota ou Ordem">
             </div>
+            <x-closure.bulk-search :terms="$bulkTerms" :open="$bulkOpen" />
             <div class="d-flex gap-1" role="group" aria-label="Filtrar por tipo">
                 @foreach (\App\Services\Closure\ClosureMetaClassifier::TYPES as $type)
                     <button type="button" wire:key="pill-{{ $type }}" class="type-pill @if (in_array($type, $types, true)) is-active @endif" style="--c: {{ $typeColors[$type] }};" wire:click="toggleType('{{ $type }}')" aria-pressed="{{ in_array($type, $types, true) ? 'true' : 'false' }}" title="{{ \App\Services\Closure\ClosureMetaClassifier::label($type) }}">
@@ -75,44 +77,69 @@
                     </button>
                 @endforeach
             </div>
-            <select id="closure-dispatch-status" class="form-select form-select-sm w-auto" wire:model="status" aria-label="Status operacional">
-                <option value="">Status: todos</option>
-                <option value="NONE">Não despachada</option>
-                @foreach ($statuses as $case)
-                    <option value="{{ $case->value }}">{{ $case->label() }}</option>
-                @endforeach
-            </select>
-            <select id="closure-dispatch-filter-company" class="form-select form-select-sm w-auto" style="max-width: 200px;" wire:model="filterCompanyId" aria-label="Empresa (informe)" title="Empresa da relação com o informe">
-                <option value="">Empresa (informe): todas</option>
-                @foreach ($this->companies as $company)
-                    <option value="{{ $company->id }}">{{ $company->name }}</option>
-                @endforeach
-            </select>
-            <select id="closure-dispatch-city" class="form-select form-select-sm w-auto" style="max-width: 180px;" wire:model="cityId" aria-label="Município">
-                <option value="">Município: todos</option>
-                @foreach ($cities as $city)
-                    <option value="{{ $city->rdMunicipio }}">{{ $city->municipio }}</option>
-                @endforeach
-            </select>
-            <select id="closure-dispatch-competence" class="form-select form-select-sm w-auto" style="max-width: 190px;" wire:model="competence" aria-label="Competência">
-                <option value="">Competência: todas</option>
-                @foreach ($competences as $period => $total)
-                    <option value="{{ $period }}">{{ \App\Services\Closure\ClosureMetaClassifier::competenceLabel($period) }} ({{ number_format($total, 0, ',', '.') }})</option>
-                @endforeach
-            </select>
-            <select id="closure-dispatch-responsible" class="form-select form-select-sm w-auto" style="max-width: 180px;" wire:model="filterAssigneeId" aria-label="Responsável">
-                <option value="">Responsável: todos</option>
-                @foreach ($responsibles as $user)
-                    <option value="{{ $user->id }}">{{ $user->name }}</option>
-                @endforeach
-            </select>
             <div class="form-check form-switch mb-0 ms-1">
                 <input class="form-check-input" type="checkbox" role="switch" id="closure-dispatch-undispatched" wire:model="onlyUndispatched">
                 <label class="form-check-label small" for="closure-dispatch-undispatched">Só não despachadas</label>
             </div>
-            @if ($hasFilters)
-                <button type="button" class="btn btn-link btn-sm text-decoration-none ms-auto" wire:click="clearFilters"><i class="ri-close-circle-line"></i> Limpar</button>
-            @endif
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm btn-dash d-lg-none" @click="more = !more" :aria-expanded="more ? 'true' : 'false'" aria-controls="closure-dispatch-filter-grid"><i class="ri-filter-3-line"></i> <span x-text="more ? 'Menos filtros' : 'Mais filtros'">Mais filtros</span></button>
+                <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="clearFilters" @disabled(!$hasFilters)><i class="ri-close-circle-line"></i> Limpar filtros</button>
+            </div>
+        </div>
+
+        <div id="closure-dispatch-filter-grid" class="filter-grid mt-3" :class="{ 'is-open': more }">
+            <div class="filter-field"><label>Região</label><x-closure.multi-select label="Região" field="regions" options="opts.regions" /></div>
+            <div class="filter-field"><label>Regional</label><x-closure.multi-select label="Regional" field="regionals" options="regionalOptions()" /></div>
+            <div class="filter-field"><label>Município</label><x-closure.multi-select label="Município" field="cityCodes" options="cityOptions()" /></div>
+            <div class="filter-field"><label>Status usuário</label><x-closure.multi-select label="Status usuário" field="statusUsers" options="opts.statusUsers" /></div>
+            <div class="filter-field">
+                <label for="closure-dispatch-filter-company">Empresa (informe)</label>
+                <select id="closure-dispatch-filter-company" class="form-select form-select-sm" wire:model="filterCompanyId" aria-label="Empresa (informe)" title="Empresa da relação com o informe">
+                    <option value="">Todas</option>
+                    @foreach ($this->companies as $company)
+                        <option value="{{ $company->id }}">{{ $company->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="closure-dispatch-competence">Competência</label>
+                <select id="closure-dispatch-competence" class="form-select form-select-sm" wire:model="competence" aria-label="Competência">
+                    <option value="">Todas</option>
+                    @foreach ($competences as $period => $total)
+                        <option value="{{ $period }}">{{ \App\Services\Closure\ClosureMetaClassifier::competenceLabel($period) }} ({{ number_format($total, 0, ',', '.') }})</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="closure-dispatch-status">Status operacional</label>
+                <select id="closure-dispatch-status" class="form-select form-select-sm" wire:model="status" aria-label="Status operacional">
+                    <option value="">Todos</option>
+                    <option value="NONE">Não despachada</option>
+                    @foreach ($statuses as $case)
+                        <option value="{{ $case->value }}">{{ $case->label() }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="filter-field">
+                <label for="closure-dispatch-responsible">Responsável</label>
+                <select id="closure-dispatch-responsible" class="form-select form-select-sm" wire:model="filterAssigneeId" aria-label="Responsável">
+                    <option value="">Todos</option>
+                    @foreach ($responsibles as $user)
+                        <option value="{{ $user->id }}">{{ $user->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+        </div>
+
+        <x-closure.bulk-search-result :report="$this->bulkReport()" class="mt-3" />
+        <div class="active-filters mt-3" id="closure-dispatch-active-filters">
+            <span class="small fw-semibold text-muted">Filtros ativos</span>
+            @forelse ($chips as $chip)
+                <button type="button" class="filter-chip" wire:key="chip-{{ $chip['kind'] }}-{{ md5($chip['value']) }}" wire:click="removeFilter('{{ $chip['kind'] }}', @js($chip['value']))" title="Remover filtro"><span>{{ $chip['label'] }}</span><i class="ri-close-line" aria-hidden="true"></i></button>
+            @empty
+                <span class="small text-muted">nenhum</span>
+            @endforelse
+            <span class="ms-auto small text-muted"><strong>{{ number_format($orders->total(), 0, ',', '.') }}</strong> Ordem(ns)</span>
         </div>
     </div>
 
@@ -124,7 +151,7 @@
                 <h3 class="chart-title">Ordens</h3>
                 <div class="chart-subtitle">
                     {{ number_format($orders->total(), 0, ',', '.') }} Ordem(ns). A seleção vale entre páginas e Notas.
-                    <span wire:loading wire:target="search,types,status,filterCompanyId,cityId,filterAssigneeId,onlyUndispatched,competence,sortBy,setCard,toggleType,perPage,gotoPage,nextPage,previousPage,clearFilters"><span class="spinner-border spinner-border-sm ms-1" aria-hidden="true"></span> Atualizando...</span>
+                    <span wire:loading wire:target="search,types,status,filterCompanyId,filterAssigneeId,onlyUndispatched,competence,sortBy,setCard,toggleType,perPage,gotoPage,nextPage,previousPage,clearFilters,applyMultiFilters,removeFilter"><span class="spinner-border spinner-border-sm ms-1" aria-hidden="true"></span> Atualizando...</span>
                 </div>
             </div>
             <div class="d-flex flex-wrap align-items-center gap-2">
@@ -142,17 +169,18 @@
                 <button type="button" class="btn btn-link btn-sm text-decoration-none text-muted p-0" x-cloak x-show="selected.length > 0" @click="clear()">Limpar seleção</button>
             </div>
         </div>
-        @if ($orders->total() > $orders->count())
+        @if ((int) ($counts['selectable'] ?? 0) > $orders->count())
             <div class="select-banner" x-cloak x-show="allVisible() && selected.length < {{ $selectAllLimit }}">
                 <span x-text="pageCount() + ' Ordens desta página selecionadas.'"></span>
                 <a href="#" class="fw-semibold" @click.prevent="selectAllFiltered()">Selecionar as {{ number_format($selectAllLimit, 0, ',', '.') }} filtradas</a>
             </div>
         @endif
-        <div class="table-responsive dash-scroll" wire:loading.class="is-loading-soft" wire:target="search,types,status,filterCompanyId,cityId,filterAssigneeId,onlyUndispatched,competence,sortBy,setCard,toggleType,perPage,gotoPage,nextPage,previousPage,clearFilters">
+        <x-closure.signal-legend class="px-3 pb-2" />
+        <div class="table-responsive dash-scroll" wire:loading.class="is-loading-soft" wire:target="search,types,status,filterCompanyId,filterAssigneeId,onlyUndispatched,competence,sortBy,setCard,toggleType,perPage,gotoPage,nextPage,previousPage,clearFilters,applyMultiFilters,removeFilter">
             <table class="table table-sm align-middle mb-0 dash-table">
                 <colgroup>
                     <col style="width: 44px;"><col style="width: 56px;"><col style="width: 120px;"><col style="width: 120px;"><col style="width: 104px;">
-                    <col style="width: 20%;"><col style="width: 14%;"><col style="width: 100px;" class="hide-xl"><col style="width: 84px;" class="hide-xl">
+                    <col style="width: 20%;"><col style="width: 14%;"><col style="width: 122px;"><col style="width: 100px;" class="hide-xl"><col style="width: 84px;" class="hide-xl">
                     <col style="width: 150px;"><col style="width: 13%;"><col style="width: 52px;"><col style="width: 140px;"><col style="width: 92px;">
                 </colgroup>
                 <thead>
@@ -164,6 +192,7 @@
                         <th aria-sort="{{ $sortField === 'competence' ? ($sortDir === 'asc' ? 'ascending' : 'descending') : 'none' }}"><button type="button" class="sort-btn" wire:click="sortBy('competence')" title="Ordenar por competência">Competência <i class="{{ $sortIcon }}"></i></button></th>
                         <th>Obra / Município</th>
                         <th title="Empresa da relação com o informe">Empresa</th>
+                        <th class="text-end" title="Valor da ADS do informe a que a Ordem pertence">Valor da obra (ADS)</th>
                         <th class="hide-xl">Status SAP</th>
                         <th class="hide-xl" title="Operações confirmadas / total">Ops.</th>
                         <th>Status operac.</th>
@@ -177,9 +206,21 @@
                     @forelse ($orders as $order)
                         @php
                             $fim        = $order->fim_real_op20 ? \Carbon\Carbon::parse($order->fim_real_op20) : null;
+                            $sig        = \App\Services\Closure\ClosureSignal::forRow($order);
+                            $rowClass   = $sig ? 'signal-row signal-' . $sig['key'] : '';
+                            // Ordem que já tem posse (despachada) nunca é despachada de novo: mudar de responsável é pela Transferência/Controle.
+                            $dispatched = $order->state_id !== null;
+                            $heldBy     = $order->assignee_name ?: ($order->holder_company_name ? 'a pilha de ' . $order->holder_company_name : 'outro responsável');
+                            $lockReason = 'Já despachada: está com ' . $heldBy . '. Para mudar o responsável use a Transferência.';
                         @endphp
-                        <tr wire:key="closure-dispatch-order-{{ $order->id }}" data-order-row="{{ $order->id }}" data-ordem="{{ $order->ordem }}" data-note="{{ $order->note_number }}" data-company="{{ $order->inform_company_id }}" data-type="{{ \App\Services\Closure\ClosureMetaClassifier::letter($order->meta_type) }}" data-comp="{{ \App\Services\Closure\ClosureMetaClassifier::competenceLabel($order->competence) }}" :class="{ 'is-selected': isSelected({{ $order->id }}) }">
-                            <td class="ps-3"><input type="checkbox" class="form-check-input" data-order-check="{{ $order->id }}" aria-label="Selecionar Ordem {{ $order->ordem }}" :checked="isSelected({{ $order->id }})" @change="toggle({{ $order->id }}, $event.target.checked)"></td>
+                        <tr wire:key="closure-dispatch-order-{{ $order->id }}" @class([$rowClass => $rowClass !== '', 'is-dispatched' => $dispatched]) @if ($sig) data-signal="{{ $sig['key'] }}" title="{{ $sig['label'] }}: {{ $sig['hint'] }}" @endif data-order-row="{{ $order->id }}" data-ordem="{{ $order->ordem }}" data-note="{{ $order->note_number }}" data-company="{{ $order->inform_company_id }}" data-type="{{ \App\Services\Closure\ClosureMetaClassifier::letter($order->meta_type) }}" data-comp="{{ \App\Services\Closure\ClosureMetaClassifier::competenceLabel($order->competence) }}" :class="{ 'is-selected': isSelected({{ $order->id }}) }">
+                            <td class="ps-3">
+                                @if ($dispatched)
+                                    <input type="checkbox" class="form-check-input" disabled title="{{ $lockReason }}" aria-label="Ordem {{ $order->ordem }} já despachada: {{ $lockReason }}">
+                                @else
+                                    <input type="checkbox" class="form-check-input" data-order-check="{{ $order->id }}" aria-label="Selecionar Ordem {{ $order->ordem }}" :checked="isSelected({{ $order->id }})" @change="toggle({{ $order->id }}, $event.target.checked)">
+                                @endif
+                            </td>
                             <td class="text-center">
                                 <span class="type-dot badge {{ \App\Services\Closure\ClosureMetaClassifier::badgeClass($order->meta_type) }}" data-bs-toggle="tooltip" title="{{ \App\Services\Closure\ClosureMetaClassifier::label($order->meta_type) }}{{ $fim ? ' · ref. ' . $fim->locale('pt_BR')->translatedFormat('M/Y') : '' }}">{{ \App\Services\Closure\ClosureMetaClassifier::letter($order->meta_type) ?? '—' }}</span>
                             </td>
@@ -196,14 +237,18 @@
                                 <div class="small text-muted text-truncate" title="{{ $order->city_name }}">{{ $order->city_name ?: '—' }}</div>
                             </td>
                             <td class="small"><div class="text-truncate" title="{{ $order->inform_company_name ? 'Empresa do informe: ' . $order->inform_company_name : 'Sem informe/parcial vinculado' }}{{ $order->holder_company_name ? ' · Com a Ordem agora: ' . $order->holder_company_name : '' }}">{{ $order->inform_company_name ?: '—' }}</div></td>
+                            <td class="small text-end text-nowrap" title="Valor da ADS do informe a que a Ordem pertence">{{ \App\Services\Closure\ClosureInformValue::format($order->inform_value) }}</td>
                             <td class="text-muted small hide-xl"><div class="text-truncate" title="{{ $order->statusSist }}">{{ $order->statusSist ?: '—' }}</div></td>
                             <td class="small hide-xl" title="Operações confirmadas / total">{{ (int) $order->ops_conf }}/{{ (int) $order->ops_total }}</td>
                             <td>
                                 @if ($order->state_id)
                                     <span class="d-inline-flex align-items-center gap-1 text-nowrap">
-                                        <span class="status-dot" style="background: {{ $statusColors[$order->operational_status] ?? '#f59e0b' }};"></span>
                                         <span class="badge {{ \App\Enum\ClosureOperationalStatus::badgeClassFor($order->operational_status) }}">{{ \App\Enum\ClosureOperationalStatus::labelFor($order->operational_status) }}</span>
                                     </span>
+
+                                    @if ($sig = ($depositSignals[$order->state_id] ?? null))
+                                        <div class="mt-1"><span class="st-chip" style="background:#fee2e2;color:#b91c1c;" title="Depósito {{ $sig->deposit_code }}{{ $sig->deposit_label ? ' · ' . $sig->deposit_label : '' }} bloqueado desde {{ $sig->created_at?->format('d/m/Y') }}{{ $sig->origin === 'CALENDAR' ? ' (inventário)' : '' }}. Volta ao status anterior quando o depósito for liberado."><i class="ri-lock-line"></i> Depósito {{ $sig->deposit_code }}</span></div>
+                                    @endif
                                 @else
                                     <span class="d-inline-flex align-items-center gap-1 text-muted small"><span class="status-dot" style="background: #cbd5e1;"></span>Não despachada</span>
                                 @endif
@@ -219,13 +264,17 @@
                                 @endif
                             </td>
                             <td class="pe-3 text-end text-nowrap">
-                                <button type="button" class="icon-btn" @click="openModal([{{ $order->id }}])" data-bs-toggle="tooltip" title="Despachar esta Ordem" aria-label="Despachar Ordem {{ $order->ordem }}"><i class="ri-send-plane-line"></i></button>
-                                <a href="{{ route('closure.work.show', $order->note_id) }}" class="icon-btn" data-bs-toggle="tooltip" title="Abrir obra" aria-label="Abrir obra da Ordem {{ $order->ordem }}"><i class="ri-external-link-line"></i></a>
+                                @if ($dispatched)
+                                    <span class="d-inline-block" tabindex="0" title="{{ $lockReason }}"><button type="button" class="icon-btn" disabled aria-label="Ordem {{ $order->ordem }} já despachada: {{ $lockReason }}"><i class="ri-send-plane-line"></i></button></span>
+                                @else
+                                    <button type="button" class="icon-btn" @click="openModal([{{ $order->id }}])" data-bs-toggle="tooltip" title="Despachar esta Ordem" aria-label="Despachar Ordem {{ $order->ordem }}"><i class="ri-send-plane-line"></i></button>
+                                @endif
+                                <a href="{{ route('closure.work.show', ['note' => $order->note_id, 'ctx' => 'dispatch']) }}" class="icon-btn" data-bs-toggle="tooltip" title="Abrir obra" aria-label="Abrir obra da Ordem {{ $order->ordem }}"><i class="ri-external-link-line"></i></a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="14">
+                            <td colspan="15">
                                 <div class="dash-empty">
                                     <i class="ri-inbox-2-line"></i>
                                     <div class="fw-semibold mt-2">Nenhuma Ordem encontrada</div>
@@ -283,6 +332,11 @@
                         <label class="form-check-label" for="closure-setting-type-{{ $type }}">{!! \App\Services\Closure\ClosureMetaClassifier::badge($type) !!} {{ \App\Services\Closure\ClosureMetaClassifier::label($type) }}</label>
                     </div>
                 @endforeach
+            </div>
+            <div class="mb-4">
+                <div class="fw-semibold mb-1">Caixas das atividades</div>
+                <div class="small text-muted mb-2">Escolha quais status do usuário (SAP) aparecem na caixa de Medição e na de Fiscalização.</div>
+                <a href="{{ route('closure.status_map') }}" class="btn btn-outline-secondary btn-sm"><i class="ri-route-line"></i> Mapa de status por serviço</a>
             </div>
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-dash text-white" style="background: var(--dash-green);" wire:click="saveSettings">Salvar</button>

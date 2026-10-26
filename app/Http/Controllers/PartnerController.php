@@ -139,6 +139,16 @@ class PartnerController extends Controller
         return view('partner.closure-work', ['noteId' => $note]);
     }
 
+    public function closureHistory(): View
+    {
+        return view('partner.closure-history');
+    }
+
+    public function closureIssueShow(int $issue): View
+    {
+        return view('partner.closure-issue', ['issueId' => $issue]);
+    }
+
     // D5
     public function partner_d5_list()
     {

@@ -123,5 +123,8 @@ Arquitetura em camadas dentro de `app/Services/Wall/`:
 - Não chamar update com `labels=[]` e `datasets=[]` apenas para "limpar visual"; preserve o último estado por baixo do overlay.
 - Aplicar esse padrão em qualquer gráfico novo ou manutenção (incluindo dashboards fixos ADS/Project Review/Reclamações).
 
+### Encerramento — caixas de pendência, RI e padrão de UI
+Antes de mexer em pendências entre áreas, RI (Retorno Interno) ou em qualquer tela do Encerramento, leia `docs/encerramento/CAIXAS_PENDENCIAS_E_RI_CHECKLIST.md` (regras de migration, contrato do RI, fases e log de andamento — atualize-o a cada sessão) e `docs/encerramento/PADRAO_UI_ENCERRAMENTO.md` (tokens, componentes `<x-closure.*>`, JS e formulários centralizados; não criar CSS/JS inline novo).
+
 ### Pint (formatação)
 Preset PSR-12 com regras adicionais: `=` e `=>` alinhados por coluna, imports agrupados, trailing comma obrigatória em multiline. Executar `./vendor/bin/pint --dirty` antes de commitar.

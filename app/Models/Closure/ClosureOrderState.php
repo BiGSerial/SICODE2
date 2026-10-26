@@ -23,6 +23,9 @@ class ClosureOrderState extends Model
         'last_event_id',
         'last_status_sist_seen',
         'last_status_sist_checked_at',
+        'status_user_seen',
+        'status_user_changed_at',
+        'status_user_estimated',
         'closed_at',
         'closed_meta_type',
         'closed_meta_period',
@@ -34,6 +37,8 @@ class ClosureOrderState extends Model
         'priority'                    => 'boolean',
         'entered_current_status_at'   => 'datetime',
         'last_status_sist_checked_at' => 'datetime',
+        'status_user_changed_at'      => 'datetime',
+        'status_user_estimated'       => 'boolean',
         'closed_at'                   => 'datetime',
         'cancelled_at'                => 'datetime',
     ];

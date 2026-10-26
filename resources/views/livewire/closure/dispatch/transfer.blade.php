@@ -15,12 +15,17 @@
         <div class="alert alert-{{ $feedbackType }} mb-3" role="alert" id="closure-dash-feedback">{{ $feedbackMessage }}</div>
     @endif
 
+    @can('closure.work')
+        <div class="mb-3">@livewire('closure.transfers.center', [], key('closure-transfers-center'))</div>
+    @endcan
+
     @include('livewire.closure.dispatch._transfer-receipt')
 
     @include('livewire.closure.dispatch._priority-requests')
 
     <div class="table-card p-3 mb-3" id="closure-transfer-search">
-        <h3 class="chart-title mb-2">Transferir uma obra</h3>
+        <h3 class="chart-title mb-2">Reatribuir uma obra (gestão)</h3>
+        <div class="small text-muted mb-2">Atalho da gestão: move direto, sem aceite. Entre usuários, use Transferir em Minha atividade.</div>
         <label for="closure-transfer-note" class="form-label small mb-1">Buscar Nota</label>
         <input id="closure-transfer-note" type="search" class="form-control form-control-sm" style="max-width: 320px" wire:model.debounce.400ms="noteSearch" placeholder="Número da Nota">
         @if (trim($noteSearch) !== '')
@@ -57,7 +62,7 @@
                             <td>{{ $work['stale_passive'] }}</td>
                             <td>{{ $work['oldest_days'] !== null ? $work['oldest_days'] . ' d' : '—' }}</td>
                             <td class="pe-3">
-                                <a class="row-action" href="{{ route('closure.work.show', $work['note_id']) }}">Abrir obra</a>
+                                <a class="row-action" href="{{ route('closure.work.show', ['note' => $work['note_id'], 'ctx' => 'dispatch']) }}">Abrir obra</a>
                                 <button type="button" class="btn btn-outline-dark btn-sm btn-dash" wire:click="openTransfer({{ $work['note_id'] }})">Transferir</button>
                             </td>
                         </tr>

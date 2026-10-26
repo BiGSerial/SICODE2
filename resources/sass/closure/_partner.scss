@@ -1,0 +1,202 @@
+// Detalhe da pendência na visão da parceira (Partner\ClosureIssues\Detail): cabeçalho com andamento em passos,
+// faixa "o que fazer agora" e contador de itens respondidos. Tokens: docs/encerramento/PADRAO_UI_ENCERRAMENTO.md.
+
+.closure-dash.partner-issue {
+    .pi-hero {
+        background: radial-gradient(800px 260px at 100% 0, rgba(38, 255, 140, .15), transparent 60%),
+            linear-gradient(120deg, #0d1b2a 0%, #155f67 62%, #0f8a77 100%);
+        border-radius: 14px;
+        box-shadow: 0 18px 40px rgba(16, 32, 51, .18);
+        color: #fff;
+        padding: 22px 26px 20px;
+    }
+
+    .pi-hero-main {
+        align-items: flex-start;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        justify-content: space-between;
+    }
+
+    .pi-eyebrow {
+        font-size: .76rem;
+        font-weight: 800;
+        letter-spacing: .08em;
+        opacity: .75;
+        text-transform: uppercase;
+    }
+
+    .pi-title {
+        font-size: 1.6rem;
+        font-weight: 800;
+        margin: 4px 0;
+    }
+
+    .pi-sub {
+        font-size: .88rem;
+        opacity: .9;
+    }
+
+    .pi-block {
+        background: rgba(227, 44, 44, .85);
+        border-radius: 99px;
+        font-size: .72rem;
+        font-weight: 700;
+        padding: 2px 9px;
+    }
+
+    .pi-actions {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .pi-status {
+        background: #fff;
+        border-radius: 99px;
+        color: var(--tone, var(--dash-ink));
+        font-size: .78rem;
+        font-weight: 800;
+        padding: 5px 13px;
+    }
+
+    // ---- Passos ----
+    .pi-steps {
+        counter-reset: step;
+        display: flex;
+        gap: 0;
+        list-style: none;
+        margin: 22px 0 0;
+        padding: 0;
+    }
+
+    .pi-steps > li {
+        align-items: center;
+        display: flex;
+        flex: 1 1 0;
+        flex-direction: column;
+        gap: 6px;
+        opacity: .6;
+        position: relative;
+        text-align: center;
+    }
+
+    .pi-steps > li::before {
+        background: rgba(255, 255, 255, .25);
+        content: '';
+        height: 3px;
+        left: -50%;
+        position: absolute;
+        top: 17px;
+        width: 100%;
+    }
+
+    .pi-steps > li:first-child::before {
+        display: none;
+    }
+
+    .pi-steps > li.is-done,
+    .pi-steps > li.is-current {
+        opacity: 1;
+    }
+
+    .pi-steps > li.is-done::before,
+    .pi-steps > li.is-current::before {
+        background: #7cf0c4;
+    }
+
+    .pi-step-dot {
+        align-items: center;
+        background: rgba(255, 255, 255, .2);
+        border-radius: 50%;
+        display: inline-flex;
+        font-size: 1.05rem;
+        height: 36px;
+        justify-content: center;
+        position: relative;
+        width: 36px;
+        z-index: 1;
+    }
+
+    .pi-steps > li.is-done .pi-step-dot {
+        background: #26c486;
+    }
+
+    .pi-steps > li.is-current .pi-step-dot {
+        animation: pi-pulse 1.8s ease-out infinite;
+        background: #fff;
+        color: var(--dash-teal);
+    }
+
+    .pi-step-label {
+        font-size: .76rem;
+        font-weight: 700;
+    }
+
+    // ---- O que fazer agora ----
+    .pi-next {
+        align-items: center;
+        border-radius: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-bottom: 16px;
+        padding: 14px 18px;
+    }
+
+    .pi-next > i {
+        font-size: 1.8rem;
+    }
+
+    .pi-next.is-action {
+        background: linear-gradient(90deg, #b45309, #d97706);
+        color: #fff;
+    }
+
+    .pi-next.is-wait {
+        background: rgba(38, 60, 200, .1);
+        border: 1px solid rgba(38, 60, 200, .3);
+        color: #1d2f9e;
+    }
+
+    .pi-next.is-done {
+        background: rgba(15, 138, 119, .12);
+        border: 1px solid rgba(15, 138, 119, .35);
+        color: #0b6b5c;
+    }
+
+    .pi-count {
+        background: rgba(247, 210, 0, .25);
+        border-radius: 99px;
+        color: #7a5d00;
+        font-size: .78rem;
+        font-weight: 800;
+        padding: 3px 12px;
+    }
+
+    .pi-count.is-full {
+        background: rgba(15, 138, 119, .15);
+        color: #0b6b5c;
+    }
+
+    .table-card {
+        border-radius: 12px;
+        box-shadow: 0 6px 20px rgba(16, 32, 51, .06);
+    }
+
+    .answer-row {
+        transition: border-color .15s, box-shadow .15s;
+    }
+
+    .answer-row:hover {
+        box-shadow: 0 4px 14px rgba(16, 32, 51, .08);
+    }
+}
+
+@keyframes pi-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, .6); }
+    70% { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}

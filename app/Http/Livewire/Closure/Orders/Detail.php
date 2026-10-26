@@ -10,8 +10,11 @@ class Detail extends Component
 {
     public int $orderId;
 
-    public function mount(int $orderId): void
+    public string $ctx = 'dispatch';
+
+    public function mount(int $orderId, string $ctx = 'dispatch'): void
     {
+        $this->ctx = \App\Services\Closure\ClosureNavContext::resolve($ctx);
         abort_unless(auth()->user()->can('closure.view'), 403);
 
         $this->orderId = $orderId;
@@ -20,7 +23,8 @@ class Detail extends Component
     public function render()
     {
         $order = Order::with([
-            'Note',
+            'Note.City',
+            'Operations',
             'ClosureTarget.Cycle',
             'ClosureTarget.AuthorizedBy',
             'ClosureTarget.RequestedBy',
@@ -64,6 +68,7 @@ class Detail extends Component
             'metaType'           => $meta['type'] ?? null,
             'competence'         => $meta['competence'] ?? null,
             'canDispatch'        => $canDispatch,
+            'depositSignal'      => $state && $canViewOperational ? app(\App\Services\Closure\ClosurePartnerSignalService::class)->activeByState([$state->id])->first() : null,
         ]);
     }
 

@@ -185,3 +185,22 @@ if (!function_exists('closureIssueFixture')) {
         return compact('company', 'actor', 'state', 'category', 'subcategory', 'destination');
     }
 }
+
+if (!function_exists('closureWorkflowFixtureOrderInProduction')) {
+    /** Outra Ordem na mesma produção/empresa de um fixture de tela, num status operacional dado. */
+    function closureWorkflowFixtureOrderInProduction(array $f, string $status): array
+    {
+        $order = Order::query()->create(['note_id' => $f['note']->id, 'ordem' => fake()->unique()->numerify('500#########'), 'statusSist' => 'LIB CNPA']);
+        $state = ClosureOrderState::query()->create([
+            'order_id'                  => $order->id,
+            'production_id'             => $f['state']->production_id,
+            'operational_status'        => $status,
+            'current_holder_type'       => 'INTERNAL_USER',
+            'current_holder_user_id'    => $f['internal']->id,
+            'assigned_user_id'          => $f['internal']->id,
+            'entered_current_status_at' => now()->subMinute(),
+        ]);
+
+        return compact('order', 'state');
+    }
+}
