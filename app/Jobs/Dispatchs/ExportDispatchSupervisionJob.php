@@ -3,20 +3,14 @@
 namespace App\Jobs\Dispatchs;
 
 use App\Exports\Dispatchs\DispatchSupervisionStack;
-use App\Models\Service;
-use App\Models\User;
-use App\Models\Production;
+use App\Models\{Production, Service, User, WorkReportFlowProduction};
 use App\Notifications\SystemNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{DB, Log, Storage};
 use Throwable;
-use Carbon\Carbon;
 
 class ExportDispatchSupervisionJob implements ShouldQueue
 {
@@ -26,9 +20,11 @@ class ExportDispatchSupervisionJob implements ShouldQueue
     use SerializesModels;
 
     public array $params;
+
     public string $userId;
 
     public $tries = 2;
+
     public $backoff = [60, 180];
 
     public function __construct(array $params, string $userId)
@@ -40,7 +36,7 @@ class ExportDispatchSupervisionJob implements ShouldQueue
 
     public function handle(): void
     {
-        $user = User::find($this->userId);
+        $user    = User::find($this->userId);
         $service = Service::where('uuid', $this->params['service_id'])->first();
 
         if (!$service) {
@@ -57,7 +53,22 @@ class ExportDispatchSupervisionJob implements ShouldQueue
                 ->where('service_id', $service->uuid)
                 ->where('completed', false)
                 ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
-                ->leftJoin('work_reports as wr', 'n.id', '=', 'wr.note_id')
+                ->leftJoin('work_report_flow_productions as wrfp', function ($join) {
+                    $join->on('wrfp.production_id', '=', 'productions.id')
+                        ->where('wrfp.stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+                        ->where('wrfp.is_current', true)
+                        ->whereRaw("wrfp.id = (
+                            SELECT MAX(wrfp_latest.id)
+                            FROM work_report_flow_productions wrfp_latest
+                            WHERE wrfp_latest.production_id = productions.id
+                              AND wrfp_latest.stage = 'fiscalization'
+                              AND wrfp_latest.is_current = 1
+                        )");
+                })
+                ->leftJoin('work_reports as wr', function ($join) {
+                    $join->on('wr.id', '=', 'wrfp.work_report_id')
+                        ->where('wr.canceled', false);
+                })
                 ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
                 ->addSelect('productions.*')
                 ->addSelect(DB::raw("
@@ -80,7 +91,7 @@ class ExportDispatchSupervisionJob implements ShouldQueue
                     'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left',
                     'note.workform:id,company_id,note_id,informed_at,rejected',
                     'note.workform.adsform:id,work_report_id,amount,created_at',
-                    'note.orders:id,note_id,moaberto'
+                    'note.orders:id,note_id,moaberto',
                 ]);
 
             // filtros simples (igual à tela)

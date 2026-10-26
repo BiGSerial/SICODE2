@@ -36,7 +36,10 @@ class Jobform extends Component
 
     public array $closeFinalScopeSelections = [];
 
-    public $d5 = 2;
+    public $d5 = '';
+
+    /** Etapa do formulário de encerramento: question (precisa de D5?) → d5 (dados da D5) → close (conclusão e demais campos). */
+    public string $closeStage = 'question';
 
     public $supervisionByPartnerPhotos = '';
 
@@ -107,6 +110,10 @@ class Jobform extends Component
 
     public function getCanCloseFinishProperty(): bool
     {
+        if (!$this->closeFormUnlocked()) {
+            return false;
+        }
+
         return collect($this->closeSteps)
             ->where('required', true)
             ->every(fn (array $step) => $step['state'] === 'done');
@@ -272,6 +279,93 @@ class Jobform extends Component
         }
     }
 
+    /** Parcial e retorno de D5 não passam pela pergunta de necessidade de D5. */
+    private function closeFormUnlocked(): bool
+    {
+        return (bool) $this->production?->partial
+            || $this->isD5Production()
+            || $this->closeStage === 'close';
+    }
+
+    private function resetD5Fields(): void
+    {
+        $this->return = [
+            'reason'      => '',
+            'description' => '',
+            'loc_install' => '',
+            'codify'      => '',
+            'sintoms'     => '',
+        ];
+    }
+
+    /** Campos obrigatórios da D5 ainda vazios (rótulo por chave). */
+    private function missingD5Fields(): array
+    {
+        $required = [
+            'reason'      => 'MOTIVO',
+            'codify'      => 'CÓDIGO',
+            'loc_install' => 'LOCAL DE INSTALAÇÃO',
+            'description' => 'OBSERVAÇÃO',
+        ];
+
+        return array_filter($required, fn ($label, $key) => !$this->filledValue($this->return[$key] ?? null), ARRAY_FILTER_USE_BOTH);
+    }
+
+    public function answerD5(string $answer): void
+    {
+        if (!$this->production || $this->closeFormUnlockedWithoutQuestion() || !in_array($answer, ['0', '1'], true)) {
+            return;
+        }
+
+        if ((string) $this->d5 !== $answer) {
+            $this->d5 = $answer;
+            $this->updatedD5($answer);
+        }
+
+        if ($answer === '0' && $this->analise
+            && (!$this->filledValue($this->analise->conclusion) || $this->analise->conclusion === 'FISCALIZADO COM PENDENCIAS')) {
+            $this->analise->conclusion = 'FISCALIZADO SEM PENDENCIAS';
+        }
+
+        $this->closeStage = $answer === '1' ? 'd5' : 'close';
+    }
+
+    public function nextFromD5(): void
+    {
+        if ($this->closeStage !== 'd5' || (string) $this->d5 !== '1') {
+            return;
+        }
+
+        $missing = $this->missingD5Fields();
+
+        if ($missing) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Dados da D5 incompletos',
+                'html'     => '<div class="card"><div class="card-body text-start">Preencha para continuar: <strong>' . implode(', ', $missing) . '</strong>.</div></div>',
+            ]);
+
+            return;
+        }
+
+        $this->closeStage = 'close';
+    }
+
+    public function backToD5Question(): void
+    {
+        if (!$this->production || $this->closeFormUnlockedWithoutQuestion()) {
+            return;
+        }
+
+        $this->closeStage = 'question';
+    }
+
+    private function closeFormUnlockedWithoutQuestion(): bool
+    {
+        return (bool) $this->production?->partial || $this->isD5Production();
+    }
+
     public function updatedD5($value)
     {
 
@@ -344,11 +438,18 @@ class Jobform extends Component
 
             $this->lastReturnwork = $workForm?->LatestReturnwork;
 
+            $this->resetD5Fields();
             $this->return['loc_install'] = $workForm?->Orders?->sortBy('ordem')->first()?->loc_install ?? '';
 
+            // O componente é reaproveitado entre produções: não herdar a resposta de D5 da anterior.
+            // Parcial nunca tem D5; retorno de D5 já nasce com D5.
+            $this->d5         = $this->production->partial ? '0' : '';
+            $this->closeStage = $this->production->partial ? 'close' : 'question';
+
             if ($this->isD5Production()) {
-                $this->d5   = 1;
-                $this->five = $this->fiveNoteForCurrentProduction();
+                $this->d5         = 1;
+                $this->five       = $this->fiveNoteForCurrentProduction();
+                $this->closeStage = 'close';
             }
 
             if (isset($this->production->Analise)) {
@@ -591,6 +692,23 @@ class Jobform extends Component
             return;
         }
 
+        if (!$this->closeFormUnlocked()) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Erros de Validação',
+                'html'     => '<div class="card"><div class="card-body text-start">Responda se este informe precisa de D5 e conclua as etapas antes de encerrar.</div></div>',
+            ]);
+
+            return;
+        }
+
+        if ($this->production->partial) {
+            // Informe parcial nunca gera D5.
+            $this->d5 = '0';
+            $this->resetD5Fields();
+        }
+
         if ($this->isD5Production()) {
             $this->validate([
                 'analise.info' => 'required|min:10|string',
@@ -616,24 +734,15 @@ class Jobform extends Component
         }
 
         if ($this->shouldCreateD5OnClose()) {
-            $requiredD5Fields = [
-                'reason'      => 'MOTIVO',
-                'codify'      => 'CÓDIGO',
-                'loc_install' => 'LOCAL DE INSTALAÇÃO',
-                'description' => 'OBSERVAÇÃO',
-            ];
+            foreach ($this->missingD5Fields() as $label) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Erros de Validação',
+                    'html'     => '<div class="card"><div class="card-body text-start">O Campo em D5: ' . $label . ' é Obrigatório.</div></div>',
+                ]);
 
-            foreach ($requiredD5Fields as $key => $label) {
-                if (!$this->filledValue($this->return[$key] ?? null)) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Erros de Validação',
-                        'html'     => '<div class="card"><div class="card-body text-start">O Campo em D5: ' . $label . ' é Obrigatório.</div></div>',
-                    ]);
-
-                    return;
-                }
+                return;
             }
         }
 
@@ -643,6 +752,17 @@ class Jobform extends Component
                 'icon'     => 'warning',
                 'title'    => 'Erros de Validação',
                 'html'     => '<div class="card"><div class="card-body text-start">O Campo Conclusão é Obrigatório.</div></div>',
+            ]);
+
+            return;
+        }
+
+        if ($this->production->partial && !in_array($this->analise->conclusion, ['FISCALIZADO SEM PENDENCIAS', 'reject'], true)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Conclusão inválida para informe parcial',
+                'html'     => '<div class="card"><div class="card-body text-start">No informe parcial a conclusão deve ser <strong>Fiscalizado de Acordo</strong> ou <strong>Rejeitar Informe</strong>.</div></div>',
             ]);
 
             return;
@@ -785,7 +905,8 @@ class Jobform extends Component
 
                 if ($this->analise->conclusion == 'reject') {
 
-                    $text = $partial->engineer_info ?? '';
+                    $partial = $this->production->Note->Partials()->orderByDesc('id')->first();
+                    $text    = $partial?->engineer_info ?? '';
                     $text .= "\n ------------------------ \n" . "Nota/OV encerrada com rejeição em Fiscalização. \n" . "Motivo: " . $this->analise->info . "\n" . "Fiscal: " . auth()->user()->name;
 
                     $this->production->partialReject($text, false);
@@ -1147,6 +1268,8 @@ class Jobform extends Component
         $this->productionFilesCount       = 0;
         $this->hasExistingProductionFiles = false;
         $this->closeFinalScopeSelections  = [];
+        $this->d5                         = '';
+        $this->closeStage                 = 'question';
         $this->return                     = [
             'reason'      => '',
             'description' => '',

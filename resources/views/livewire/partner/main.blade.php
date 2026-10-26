@@ -425,7 +425,7 @@
             <div class="pd-hero-sub">Visão operacional de viabilidade, ADS, D5, rejeições e pendências</div>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-light btn-sm" wire:click="exportSummaryCsv">
+            <button class="btn btn-light btn-sm" wire:click="exportSummaryXlsx">
                 <i class="ri-file-download-line me-1"></i> Exportar resumo
             </button>
             <button class="btn btn-outline-light btn-sm" wire:click="exportPendenciesCsv">

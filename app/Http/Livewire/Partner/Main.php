@@ -2,12 +2,14 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Exports\Partner\DashboardSummaryExport;
 use App\Models\{Adsform, FiveNote, Partial, Reclaim, ReturnWork, Viability, WorkReport};
 use App\Services\Ads\AdsDeadlinePolicy;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\{Collection, Str};
 use Livewire\Component;
+use Maatwebsite\Excel\Facades\Excel;
 
 class Main extends Component
 {
@@ -835,30 +837,142 @@ class Main extends Component
         ];
     }
 
-    public function exportSummaryCsv()
+    public function exportSummaryXlsx()
     {
-        $kpis     = $this->kpis ?: $this->getDashboardKpis();
-        $fileName = now()->format('YmdHis') . '-partner-dashboard-resumo.csv';
+        $kpis      = $this->kpis ?: $this->getDashboardKpis();
+        $period    = $this->workReportKpis ?: $this->getWorkReportPeriodKpis();
+        $executive = $this->executive ?: $this->buildExecutiveData();
+        $pct       = fn ($part, $total) => $total > 0 ? round($part / $total * 100, 1) . '%' : '—';
 
-        return response()->streamDownload(function () use ($kpis) {
-            $out = fopen('php://output', 'w');
+        $company = (string) ($this->partnerCompanyFilter ?? '') !== ''
+            ? (\App\Models\Company::withTrashed()->find($this->partnerCompanyFilter)?->name ?? 'Empresa selecionada')
+            : (count($this->companyBreakdown) ? 'Total consolidado' : 'Todas as empresas visíveis');
 
-            fputcsv($out, ['Periodo inicial', $this->dt_ini]);
-            fputcsv($out, ['Periodo final', $this->dt_fim]);
-            fputcsv($out, []);
-            fputcsv($out, ['Indicador', 'Quantidade']);
-            fputcsv($out, ['Viabilidade pendente', $kpis['pending_viability'] ?? 0]);
-            fputcsv($out, ['Viabilidades a vencer', $kpis['viability_due_soon'] ?? 0]);
-            fputcsv($out, ['Entregas de ADS a vencer', $kpis['work_without_ads_due_soon'] ?? 0]);
-            fputcsv($out, ['Entregas de ADS em atraso', $kpis['work_without_ads_overdue'] ?? 0]);
-            fputcsv($out, ['D5 pendentes', $kpis['d5_pending'] ?? 0]);
-            fputcsv($out, ['D5 devolvidos', $kpis['d5_returned'] ?? 0]);
-            fputcsv($out, ['Viabilidades rejeitadas aguardando resposta', $kpis['viability_rejected_waiting'] ?? 0]);
-            fputcsv($out, ['Reclamacoes pendentes', $kpis['reclaims_pending'] ?? 0]);
-            fputcsv($out, ['Informes rejeitados', $kpis['informs_rejected'] ?? 0]);
+        // Zero é "Em dia"; acima de zero é atenção (ou crítico, quando já gera multa).
+        $status = fn (int $value, string $level = 'Atenção') => $value === 0 ? 'Em dia' : $level;
 
-            fclose($out);
-        }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        $indicators = [
+            ['Viabilidades pendentes de resposta', (int) ($kpis['pending_viability'] ?? 0), ''],
+            ['Viabilidades a vencer em ' . $this->daysAhead . ' dias', (int) ($kpis['viability_due_soon'] ?? 0), $status((int) ($kpis['viability_due_soon'] ?? 0))],
+            ['Entregas de ADS a vencer em ' . $this->daysAhead . ' dias', (int) ($kpis['work_without_ads_due_soon'] ?? 0), $status((int) ($kpis['work_without_ads_due_soon'] ?? 0))],
+            ['Entregas de ADS em atraso', (int) ($kpis['work_without_ads_overdue'] ?? 0), $status((int) ($kpis['work_without_ads_overdue'] ?? 0), 'Crítico')],
+            ['D5 pendentes', (int) ($kpis['d5_pending'] ?? 0), ''],
+            ['D5 devolvidos', (int) ($kpis['d5_returned'] ?? 0), $status((int) ($kpis['d5_returned'] ?? 0))],
+            ['Viabilidades rejeitadas aguardando resposta', (int) ($kpis['viability_rejected_waiting'] ?? 0), $status((int) ($kpis['viability_rejected_waiting'] ?? 0))],
+            ['Reclamações pendentes', (int) ($kpis['reclaims_pending'] ?? 0), $status((int) ($kpis['reclaims_pending'] ?? 0))],
+            ['Informes rejeitados', (int) ($kpis['informs_rejected'] ?? 0), $status((int) ($kpis['informs_rejected'] ?? 0))],
+        ];
+
+        $performance = [
+            ['Informes concluídos no período', (int) ($period['informed_total'] ?? 0), '', ''],
+            ['Informes válidos', (int) ($period['valid_informed_total'] ?? 0), '', ''],
+            ['ADS entregues', (int) ($period['ads_delivered_total'] ?? 0), (int) ($period['valid_informed_total'] ?? 0), $pct($period['ads_delivered_total'] ?? 0, $period['valid_informed_total'] ?? 0)],
+            ['Informes cancelados/rejeitados', (int) ($period['canceled_rejected_total'] ?? 0), (int) ($period['informed_total'] ?? 0), $pct($period['canceled_rejected_total'] ?? 0, $period['informed_total'] ?? 0)],
+            ['Parciais finalizadas', (int) ($period['partials_completed_total'] ?? 0), (int) ($period['partials_total'] ?? 0), $pct($period['partials_completed_total'] ?? 0, $period['partials_total'] ?? 0)],
+            ['Valor de ADS final solicitado', 'R$ ' . number_format((float) ($period['ads_amount_total'] ?? 0), 2, ',', '.'), '', ''],
+            ['Valor de parciais pagas', 'R$ ' . number_format((float) ($period['partials_amount_total'] ?? 0), 2, ',', '.'), '', ''],
+        ];
+
+        $aging   = collect($executive['aging'] ?? [])->map(fn ($bucket) => [$bucket['label'], (int) $bucket['total']])->all();
+        $aging[] = ['Total em atraso', (int) ($executive['overdue_total'] ?? 0)];
+
+        $dueByDay = collect($executive['due_by_day'] ?? [])->map(fn ($day) => [
+            $day['label'],
+            (int) $day['ads'],
+            (int) $day['viability'],
+            (int) $day['ads'] + (int) $day['viability'],
+        ])->all();
+
+        $summary = [
+            'headline' => 'Dashboard da Parceira — Resumo executivo',
+            'context'  => [
+                'Empresa'    => $company,
+                'Período'    => Carbon::parse($this->dt_ini)->format('d/m/Y') . ' a ' . Carbon::parse($this->dt_fim)->format('d/m/Y'),
+                'Gerado em'  => now()->format('d/m/Y H:i'),
+                'Gerado por' => auth()->user()?->name ?? '',
+            ],
+            'sections' => [
+                ['title' => 'Indicadores operacionais (situação atual)', 'headings' => ['Indicador', 'Quantidade', 'Situação'], 'rows' => $indicators, 'status' => 2],
+                ['title' => 'Desempenho no período', 'headings' => ['Indicador', 'Resultado', 'Base', '%'], 'rows' => $performance, 'money' => [1]],
+                ['title' => 'Atraso de ADS por tempo', 'headings' => ['Faixa de atraso', 'Quantidade'], 'rows' => $aging],
+                ['title' => 'Vencimentos dos próximos dias', 'headings' => ['Prazo', 'ADS', 'Viabilidades', 'Total'], 'rows' => $dueByDay],
+            ],
+            'footnote' => 'Valores meramente informativos, calculados a partir das informações fornecidas pela parceira nas ADS dos informes e nos parciais válidos do período filtrado. Não constituem validação financeira, medição aprovada ou autorização para pagamento. Atraso de ADS conta a partir do vencimento do prazo tácito (' . \App\Support\SicodeRules::adsDeliveryDeadlineLabel() . ').',
+        ];
+
+        $overdueRows = $this->getWorkReportsWithoutAdsOverdue()->map(fn (WorkReport $report) => [
+            $report->Note?->note ?? '',
+            $report->Company?->name ?? '',
+            optional($report->informed_at)->format('d/m/Y H:i'),
+            optional($report->Adsform?->tacit_due_at)->format('d/m/Y H:i'),
+            (int) $report->ads_late_days,
+            $report->ads_late_days > 30 ? 'Acima de 30 dias' : ($report->ads_late_days > 15 ? '16–30 dias' : ($report->ads_late_days > 7 ? '8–15 dias' : ($report->ads_late_days > 3 ? '4–7 dias' : '1–3 dias'))),
+        ])->sortByDesc(fn ($row) => $row[4])->values()->all();
+
+        $dueRows = [];
+
+        foreach ($this->getWorkReportsWithoutAdsDueSoon() as $report) {
+            $dueRows[] = [
+                'Entrega de ADS',
+                $report->Note?->note ?? '',
+                $report->Company?->name ?? '',
+                optional($report->informed_at)->format('d/m/Y H:i'),
+                optional($report->ads_due_at)->format('d/m/Y H:i'),
+                (int) $report->ads_days_left,
+            ];
+        }
+
+        foreach ($this->getViabilityDueDate() as $viability) {
+            $dueDate   = Carbon::parse($viability->sended_at)->addDays(7 + $viability->getDays());
+            $dueRows[] = [
+                'Viabilidade',
+                $viability->Note?->note ?? '',
+                $viability->Company?->name ?? '',
+                optional($viability->sended_at)->format('d/m/Y H:i'),
+                $dueDate->format('d/m/Y H:i'),
+                (int) Carbon::today()->diffInDays($dueDate->copy()->startOfDay(), false),
+            ];
+        }
+
+        usort($dueRows, fn ($a, $b) => $a[5] <=> $b[5]);
+
+        $months = collect($executive['labels'] ?? [])->map(fn ($label, $i) => [
+            mb_convert_case($label, MB_CASE_TITLE),
+            (float) ($executive['final_amount'][$i] ?? 0),
+            (float) ($executive['partial_amount'][$i] ?? 0),
+            (int) ($executive['informs_valid'][$i] ?? 0),
+            (int) ($executive['informs_invalid'][$i] ?? 0),
+        ])->all();
+
+        $tables = [
+            ['title' => 'Atraso de ADS', 'headings' => ['Nota', 'Empresa', 'Informado em', 'Prazo da ADS', 'Dias de atraso', 'Faixa'], 'rows' => $overdueRows],
+            ['title' => 'A vencer', 'headings' => ['Tipo', 'Nota', 'Empresa', 'Recebido em', 'Vence em', 'Dias restantes'], 'rows' => $dueRows],
+            ['title' => 'Evolução mensal', 'headings' => ['Mês', 'Valor ADS final (R$)', 'Valor ADS parcial (R$)', 'Informes válidos', 'Cancelados/rejeitados'], 'rows' => $months],
+        ];
+
+        if (!empty($this->companyBreakdown)) {
+            $tables[] = [
+                'title'    => 'Por empresa',
+                'headings' => ['Empresa', 'Tipo', 'ADS em atraso', 'ADS a vencer', 'Viabilidades a vencer', 'D5 devolvidos', 'Informes rejeitados', 'Entrega de ADS (%)'],
+                'rows'     => collect($this->companyBreakdown)->map(fn ($row) => [
+                    $row['name'],
+                    $row['is_branch'] ? 'Filial' : 'Matriz',
+                    (int) ($row['kpis']['work_without_ads_overdue'] ?? 0),
+                    (int) ($row['kpis']['work_without_ads_due_soon'] ?? 0),
+                    (int) ($row['kpis']['viability_due_soon'] ?? 0),
+                    (int) ($row['kpis']['d5_returned'] ?? 0),
+                    (int) ($row['kpis']['informs_rejected'] ?? 0),
+                    ($row['period']['valid_informed_total'] ?? 0) > 0
+                        ? round(($row['period']['ads_delivered_total'] ?? 0) / $row['period']['valid_informed_total'] * 100, 1)
+                        : '',
+                ])->all(),
+            ];
+        }
+
+        return Excel::download(
+            new DashboardSummaryExport($summary, $tables),
+            now()->format('YmdHis') . '-dashboard-parceira-resumo.xlsx'
+        );
     }
 
     public function exportPendenciesCsv()
@@ -890,7 +1004,7 @@ class Main extends Component
             }
 
             foreach ($workWithoutAdsDueSoon as $item) {
-                $dueDate  = $this->getAdsTacitDueAt($item->informed_at);
+                $dueDate  = $item->ads_due_at;
                 $daysLeft = $dueDate
                     ? now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false)
                     : null;
@@ -1049,11 +1163,6 @@ class Main extends Component
                 ],
             ],
         ]);
-    }
-
-    private function getAdsTacitDueAt(?Carbon $informedAt): ?Carbon
-    {
-        return $informedAt ? app(AdsDeadlinePolicy::class)->dueAt($informedAt) : null;
     }
 
     private function getAdsTacitOverdueThreshold(): Carbon

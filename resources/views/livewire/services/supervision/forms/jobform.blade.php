@@ -521,6 +521,7 @@
                     && !$production->dfive
                     && (string) ($d5 ?? '') === '1';
                 $hasConclusion = !empty($analise['conclusion'] ?? null);
+                $showCloseForm = $production->partial || $production->dfive || $five || $closeStage === 'close';
                 $isInRevision = (bool) ($production->Note->WorkForm?->rejected);
                 $scopeBadge = collect($closeNote['scopeBadges'] ?? [])->first() ?? ['label' => 'Geral', 'class' => 'text-bg-success'];
                 $scopeLabel = $scopeBadge['label'] ?? 'Geral';
@@ -613,33 +614,65 @@
                                 <i class="ri-information-line fs-5"></i>
                                 <div>
                                     <div class="fw-bold mb-1">Encerramento parcial</div>
-                                    <p class="m-0">D5 não se aplica neste fluxo. A conclusão permite <strong>REJEITAR OBRA</strong> quando a fiscalização indicar necessidade de retorno.</p>
+                                    <p class="m-0">Informe parcial não tem D5. A conclusão é <strong>Fiscalizado de Acordo</strong> (segue para medição) ou <strong>Rejeitar Informe</strong>.</p>
                                 </div>
                             </div>
                         @endif
 
                         {{-- BLOCO: Decisão D5 --}}
                         @if (!$five && !$production->partial)
-                            <div class="close-form-card">
-                                <div class="close-form-card__head">
-                                    <h5 class="close-form-card__title">
-                                        <i class="ri-alert-line text-warning"></i>
-                                        Necessidade de D5
-                                    </h5>
-                                </div>
-                                <div class="close-form-card__body">
-                                    <div class="row g-3">
-                                        <div class="col-md-3 close-field">
-                                            <label class="form-label">Necessidade de D5?</label>
-                                            <select class="form-select border border-secondary" wire:model="d5"
-                                                @disable($production->dfive)>
-                                                <option value="" selected>Selecione</option>
-                                                <option value="1">SIM</option>
-                                                <option value="0">NÃO</option>
-                                            </select>
+                            {{-- ETAPA 1: Este informe precisa de D5? --}}
+                            @if ($closeStage === 'question')
+                                <div class="close-form-card">
+                                    <div class="close-form-card__head">
+                                        <h5 class="close-form-card__title">
+                                            <i class="ri-alert-line text-warning"></i>
+                                            Este informe precisa de Nota D5?
+                                        </h5>
+                                    </div>
+                                    <div class="close-form-card__body">
+                                        <p class="text-muted mb-3">Responda para continuar. Os demais campos da fiscalização aparecem depois desta resposta.</p>
+                                        <div class="d-flex gap-2 flex-wrap">
+                                            <button type="button" class="btn btn-warning px-4" wire:click="answerD5('1')"
+                                                wire:loading.attr="disabled" wire:target="answerD5">
+                                                <i class="ri-error-warning-line me-1"></i> SIM, precisa de D5
+                                            </button>
+                                            <button type="button" class="btn btn-success px-4" wire:click="answerD5('0')"
+                                                wire:loading.attr="disabled" wire:target="answerD5">
+                                                <i class="ri-checkbox-circle-line me-1"></i> NÃO, sem D5
+                                            </button>
                                         </div>
-
+                                    </div>
+                                </div>
+                            @else
+                                <div class="close-alert-inline mb-3 d-flex align-items-center justify-content-between gap-3">
+                                    <div>
+                                        <span class="fw-bold">Necessidade de D5:</span>
                                         @if ((string) $d5 === '1')
+                                            <span class="badge text-bg-warning">SIM</span>
+                                        @else
+                                            <span class="badge text-bg-success">NÃO</span>
+                                        @endif
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="backToD5Question"
+                                        wire:loading.attr="disabled" wire:target="backToD5Question">
+                                        <i class="ri-arrow-go-back-line me-1"></i> Alterar decisão
+                                    </button>
+                                </div>
+                            @endif
+
+                            {{-- ETAPA 2: dados da D5 (mantido montado, só oculto, para não perder os anexos já selecionados) --}}
+                            @if ((string) $d5 === '1')
+                                <div @class(['d-none' => $closeStage !== 'd5'])>
+                                    <div class="close-form-card">
+                                        <div class="close-form-card__head">
+                                            <h5 class="close-form-card__title">
+                                                <i class="ri-alert-line text-warning"></i>
+                                                Dados da D5
+                                            </h5>
+                                        </div>
+                                        <div class="close-form-card__body">
+                                            <div class="row g-3">
                                             <div class="col-md-4 close-field">
                                                 <label class="form-label">Motivo @if ($requiresD5Fields)<span class="close-required">*</span>@endif</label>
                                                 <select class="form-select border border-secondary"
@@ -708,10 +741,22 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                        @endif
+                                            </div>
+                                            @if ($closeStage === 'd5')
+                                                <div class="d-flex justify-content-between mt-3">
+                                                    <button type="button" class="btn btn-outline-secondary" wire:click="backToD5Question">
+                                                        <i class="ri-arrow-left-line me-1"></i> Voltar
+                                                    </button>
+                                                    <button type="button" class="btn btn-primary" wire:click="nextFromD5"
+                                                        wire:loading.attr="disabled" wire:target="nextFromD5">
+                                                        Próximo <i class="ri-arrow-right-line ms-1"></i>
+                                                    </button>
+                                                </div>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            @endif
                         @elseif ($five)
                             <div class="card shadow-sm border-0 rounded-3 five-info">
                                 <div
@@ -1123,6 +1168,7 @@
                             </div>
                         @endif
 
+                        @if ($showCloseForm)
                         {{-- BLOCO: Encerramento / Métricas --}}
                         <div class="close-form-card">
                             <div class="close-form-card__head">
@@ -1143,25 +1189,26 @@
                                     <div class="col-md-4 close-field">
                                         <label class="form-label">Conclusão <span class="close-required">*</span></label>
                                         <select class="form-select border border-secondary"
-                                            wire:model="analise.conclusion">
+                                            wire:model="analise.conclusion" @disabled($isRequestingD5OnFirstClose)>
                                             <option value="" selected>Selecione</option>
-                                            @foreach (($production->dfive && !$production->partial ? SelectOptions::getD5ReturnSupervisionEnd() : SelectOptions::getSupervisionEnd()) as $supEnd)
-                                                @continue($production->partial && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
-                                                @continue($isRequestingD5OnFirstClose && $supEnd->value !== 'FISCALIZADO COM PENDENCIAS')
-                                                @continue(!$production->partial && !$production->dfive && !$isRequestingD5OnFirstClose && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
-                                                <option value="{{ $supEnd->value }}">{{ $supEnd->reason }}</option>
-                                            @endforeach
                                             @if ($production->partial)
-                                                <option value="reject">REJEITAR OBRA</option>
+                                                <option value="FISCALIZADO SEM PENDENCIAS">Fiscalizado de Acordo</option>
+                                                <option value="reject">Rejeitar Informe</option>
+                                            @else
+                                                @foreach (($production->dfive ? SelectOptions::getD5ReturnSupervisionEnd() : SelectOptions::getSupervisionEnd()) as $supEnd)
+                                                    @continue($isRequestingD5OnFirstClose && $supEnd->value !== 'FISCALIZADO COM PENDENCIAS')
+                                                    @continue(!$production->dfive && !$isRequestingD5OnFirstClose && $supEnd->value === 'FISCALIZADO COM PENDENCIAS')
+                                                    <option value="{{ $supEnd->value }}">{{ $supEnd->reason }}</option>
+                                                @endforeach
                                             @endif
                                         </select>
                                         @if ($production->partial)
                                             <div class="close-help text-warning fw-bold">
-                                                Fluxo parcial: a conclusão pode rejeitar a obra e não solicita D5.
+                                                Informe parcial: Fiscalizado de Acordo segue para medição; Rejeitar Informe devolve o informe. Não há D5.
                                             </div>
                                         @elseif ($isRequestingD5OnFirstClose)
                                             <div class="close-help text-warning fw-bold">
-                                                D5 marcada: a conclusão permitida é Fiscalizado Com Pendências.
+                                                D5 solicitada: a conclusão fica travada em Fiscalizado Com Pendências. Para mudar, use Alterar decisão no topo.
                                             </div>
                                         @elseif ($production->dfive)
                                             <div class="close-help text-warning fw-bold">
@@ -1314,6 +1361,8 @@
                                 </div>
                             </div>
                         </div>
+
+                        @endif
 
                         <div class="close-action-bar d-flex justify-content-between align-items-center flex-wrap gap-3">
                                 @php
