@@ -40,7 +40,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @php $informValues = $this->informValues($states); @endphp
 @forelse ($states as $state)
                         @php $signal = \App\Services\Closure\ClosureSignal::forState($state); @endphp
                         <tr wire:key="closure-history-{{ $state->id }}" @class(['signal-row signal-' . ($signal['key'] ?? '') => $signal !== null]) @if ($signal) data-signal="{{ $signal['key'] }}" title="{{ $signal['label'] }}: {{ $signal['hint'] }}" @endif>

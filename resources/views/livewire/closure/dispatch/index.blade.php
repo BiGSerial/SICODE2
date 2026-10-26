@@ -192,7 +192,7 @@
                         <th aria-sort="{{ $sortField === 'competence' ? ($sortDir === 'asc' ? 'ascending' : 'descending') : 'none' }}"><button type="button" class="sort-btn" wire:click="sortBy('competence')" title="Ordenar por competência">Competência <i class="{{ $sortIcon }}"></i></button></th>
                         <th>Obra / Município</th>
                         <th title="Empresa da relação com o informe">Empresa</th>
-                        <th class="text-end" title="Valor da ADS do informe a que a Ordem pertence">Valor da obra (ADS)</th>
+                        <th class="text-end" title="Custo planejado (acima) e custo realizado (abaixo) da Ordem">Valor da obra</th>
                         <th class="hide-xl">Status SAP</th>
                         <th class="hide-xl" title="Operações confirmadas / total">Ops.</th>
                         <th>Status operac.</th>
@@ -237,7 +237,7 @@
                                 <div class="small text-muted text-truncate" title="{{ $order->city_name }}">{{ $order->city_name ?: '—' }}</div>
                             </td>
                             <td class="small"><div class="text-truncate" title="{{ $order->inform_company_name ? 'Empresa do informe: ' . $order->inform_company_name : 'Sem informe/parcial vinculado' }}{{ $order->holder_company_name ? ' · Com a Ordem agora: ' . $order->holder_company_name : '' }}">{{ $order->inform_company_name ?: '—' }}</div></td>
-                            <td class="small text-end text-nowrap" title="Valor da ADS do informe a que a Ordem pertence">{{ \App\Services\Closure\ClosureInformValue::format($order->inform_value) }}</td>
+                            <x-closure.order-cost :planned="$order->custPlanejado" :actual="$order->custRealizado" />
                             <td class="text-muted small hide-xl"><div class="text-truncate" title="{{ $order->statusSist }}">{{ $order->statusSist ?: '—' }}</div></td>
                             <td class="small hide-xl" title="Operações confirmadas / total">{{ (int) $order->ops_conf }}/{{ (int) $order->ops_total }}</td>
                             <td>

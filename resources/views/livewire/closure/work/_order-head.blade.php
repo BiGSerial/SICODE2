@@ -3,6 +3,6 @@
 <th>Ordem</th>
 <th title="Mês de competência da meta">Compet.</th>
 <th>Obra / Município</th>
-<th class="text-end" title="Valor da ADS do informe a que a Ordem pertence">Valor da obra (ADS)</th>
+<th class="text-end" title="Custo planejado (acima) e custo realizado (abaixo) da Ordem">Valor da obra</th>
 <th>Status SAP</th>
 <th>Operações</th>

@@ -52,7 +52,7 @@
                         <th>Ordem</th>
                         <th>Compet.</th>
                         <th>Obra / Município</th>
-                        <th class="text-end" title="Valor da ADS do informe a que a Ordem pertence">Valor da obra (ADS)</th>
+                        <th class="text-end" title="Custo planejado (acima) e custo realizado (abaixo) da Ordem">Valor da obra</th>
                         <th>Status SAP</th>
                         <th>Status da atividade</th>
                         <th>Responsável</th>
@@ -82,7 +82,7 @@
                                 <div class="text-truncate" title="{{ $order->descricao }}">{{ $order->descricao ?: '—' }}</div>
                                 <div class="text-muted text-truncate">{{ $order->city_name ?: '—' }}</div>
                             </td>
-                            <td class="small text-end text-nowrap" title="Valor da ADS do informe a que a Ordem pertence">{{ \App\Services\Closure\ClosureInformValue::format($order->inform_value) }}</td>
+                            <x-closure.order-cost :planned="$order->custPlanejado" :actual="$order->custRealizado" />
                             <td class="text-muted small"><div class="text-truncate" title="{{ $order->statusSist }}">{{ $order->statusSist ?: '—' }}</div></td>
                             <td>
                                 @if ($order->state_id)
