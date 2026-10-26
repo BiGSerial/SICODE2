@@ -80,6 +80,7 @@ return [
                 ],
                 // required: campo visível e obrigatório | optional: visível, não obrigatório | hidden: some do formulário
                 'dd_mode'                     => 'required',
+                'blocks_without_budget'       => true,  // por enquanto só no ES
                 'requires_files'              => true,
                 'blocks_by_note_status'       => true,
                 'split_btzero_ep_final_flows' => false,
@@ -145,6 +146,7 @@ return [
                     'team'       => false,
                 ],
                 'dd_mode'                     => 'required',
+                'blocks_without_budget'       => false,  // por enquanto só no ES
                 'requires_files'              => false,
                 'blocks_by_note_status'       => false,
                 'split_btzero_ep_final_flows' => true,

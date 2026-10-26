@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Partner\Forms;
 use App\Custom\Partial\{Ads};
 use App\Models\{File, Note, Partial};
 use App\Services\Files\FileUploadService;
-use App\Services\Partner\PartialScopeAvailabilityService;
+use App\Services\Partner\{PartialScopeAvailabilityService, WorkReportBudgetGuard};
 use Illuminate\Support\Facades\{DB};
 use Livewire\{Component, WithFileUploads};
 
@@ -129,6 +129,14 @@ class Partialreport extends Component
             return;
         }
 
+        $budget = app(WorkReportBudgetGuard::class);
+
+        if ($peps = $budget->blockedPeps($scopeData['open_orders'])) {
+            $this->dispatchBrowserEvent('swal', $budget->swal($note->note, $peps));
+
+            return;
+        }
+
         $this->note     = $note;
         $this->scope    = $scope;
         $this->orders   = collect($scopeData['open_orders'])->pluck('id')->all();
@@ -236,6 +244,10 @@ class Partialreport extends Component
             return;
         }
 
+        if ($this->amountExceedsBudget()) {
+            return;
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'ENVIAR OBRA PARCIAL',
             'msg'   => "
@@ -270,6 +282,19 @@ class Partialreport extends Component
                 'html'     => 'O escopo selecionado foi concluído ou recebeu outra parcial enquanto este formulário estava aberto.',
             ]);
 
+            return;
+        }
+
+        // O saldo pode ter zerado desde a seleção da obra: confere de novo antes de gravar.
+        $budget = app(WorkReportBudgetGuard::class);
+
+        if ($peps = $budget->blockedPeps($scopeData['open_orders'])) {
+            $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note, $peps));
+
+            return;
+        }
+
+        if ($this->amountExceedsBudget($scopeData['open_orders'])) {
             return;
         }
 
@@ -353,6 +378,21 @@ class Partialreport extends Component
 
             return;
         }
+    }
+
+    /** Valor da ADS maior que o saldo dos PEPs da parcial: mostra o mesmo aviso de bloqueio, sem revelar o saldo. */
+    private function amountExceedsBudget(?iterable $orders = null): bool
+    {
+        $orders ??= app(PartialScopeAvailabilityService::class)->findAvailableScope($this->note, $this->scope)['open_orders'] ?? [];
+        $budget = app(WorkReportBudgetGuard::class);
+
+        if (!($peps = $budget->exceededPeps($orders, (float) $this->amount))) {
+            return false;
+        }
+
+        $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note, $peps));
+
+        return true;
     }
 
     public function cleanAll()

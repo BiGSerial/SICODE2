@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\{Company, Note, Order, User, WorkReport};
-use App\Services\Partner\BlockEvaluator;
+use App\Services\Partner\{BlockEvaluator, WorkReportBudgetGuard};
 use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Services\WorkReports\{FinalWorkReportCreationGuard, WorkReportAcceptanceSignature, WorkReportFinalScopeResolver};
 use App\Support\SicodeRules;
@@ -399,6 +399,15 @@ class Workreports extends Component
             return;
         }
 
+        // O saldo pode ter zerado desde a seleção da obra: confere de novo antes de gravar.
+        $budget = app(WorkReportBudgetGuard::class);
+
+        if ($peps = $budget->blockedPeps($this->selectableOrdersForNote($this->note))) {
+            $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note, $peps));
+
+            return;
+        }
+
         $this->form['note_id'] = $this->note->id;
 
         if ($this->canSelectCompany) {
@@ -547,9 +556,9 @@ class Workreports extends Component
             if ($missingScope) {
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
-                    'icon' => 'warning',
-                    'title' => 'Ordens por escopo incompletas',
-                    'html' => 'Não foi possível separar as ordens para cada escopo selecionado.',
+                    'icon'     => 'warning',
+                    'title'    => 'Ordens por escopo incompletas',
+                    'html'     => 'Não foi possível separar as ordens para cada escopo selecionado.',
                 ]);
 
                 return;
@@ -562,9 +571,9 @@ class Workreports extends Component
             $createdReports = [];
 
             foreach ($creationScopes as $scope) {
-                $payload = $this->form;
+                $payload                          = $this->form;
                 $payload['selected_final_scopes'] = [$scope];
-                $form = WorkReport::create($payload);
+                $form                             = WorkReport::create($payload);
 
                 $form->informed_at = date('Y-m-d H:i:s');
                 $form->save();
@@ -602,15 +611,15 @@ class Workreports extends Component
 
             DB::commit();
 
-            $createdIds = collect($createdReports)->pluck('id')->values()->all();
+            $createdIds  = collect($createdReports)->pluck('id')->values()->all();
             $scopeLabels = collect($creationScopes)
                 ->map(fn (string $scope) => $this->finalScopeLabel($scope))
                 ->implode(' e ');
 
             if ($this->hasFiles) {
-                $this->pendingCreatedReportsCount = count($createdIds);
+                $this->pendingCreatedReportsCount  = count($createdIds);
                 $this->pendingCreatedReportsScopes = $scopeLabels;
-                $this->workReport = $createdReports[0];
+                $this->workReport                  = $createdReports[0];
                 $this->emitTo('files.manager.create-gen-files', 'setWorkReportIds', $createdIds);
                 $this->emitTo('files.manager.create-gen-files', 'saveFiles');
 
@@ -619,9 +628,9 @@ class Workreports extends Component
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => count($createdIds) > 1 ? 'Informes criados por escopo' : 'Informe entregue com sucesso',
-                'html' => count($createdIds) > 1
+                'icon'     => 'success',
+                'title'    => count($createdIds) > 1 ? 'Informes criados por escopo' : 'Informe entregue com sucesso',
+                'html'     => count($createdIds) > 1
                     ? "Foram criados " . count($createdIds) . " informes independentes: {$scopeLabels}."
                     : null,
             ]);
@@ -845,6 +854,14 @@ class Workreports extends Component
             return;
         }
 
+        $budget = app(WorkReportBudgetGuard::class);
+
+        if ($peps = $budget->blockedPeps($this->selectableOrdersForNote($this->preNote))) {
+            $this->dispatchBrowserEvent('swal', $budget->swal($this->preNote->note, $peps));
+
+            return;
+        }
+
         $this->dispatchBrowserEvent('alertar', [
             'title' => 'INFORMAR OBRA ' . $note->note,
             'msg'   => '
@@ -896,18 +913,18 @@ class Workreports extends Component
     public function initForm()
     {
 
-        $this->s_order                    = '';
-        $this->equipment                  = '';
-        $this->hasFiles                   = false;
-        $this->pendingCreatedReportsCount = 0;
+        $this->s_order                     = '';
+        $this->equipment                   = '';
+        $this->hasFiles                    = false;
+        $this->pendingCreatedReportsCount  = 0;
         $this->pendingCreatedReportsScopes = '';
-        $this->hasAsbuilt                 = false;
-        $this->hasPendingAsbuilt          = false;
-        $this->hasEvidenceFile            = false;
-        $this->showAsbuiltMissingFeedback = false;
-        $this->temp_orders                = [];
-        $this->selectedFinalScopeMode     = '';
-        $this->temp_equipment             = [];
+        $this->hasAsbuilt                  = false;
+        $this->hasPendingAsbuilt           = false;
+        $this->hasEvidenceFile             = false;
+        $this->showAsbuiltMissingFeedback  = false;
+        $this->temp_orders                 = [];
+        $this->selectedFinalScopeMode      = '';
+        $this->temp_equipment              = [];
 
         if (!SicodeRules::workReportFieldEnabled('meeters')) {
             $this->meeters = false;
@@ -1212,7 +1229,7 @@ class Workreports extends Component
     {
         $orders = collect($this->temp_orders)
             ->map(fn (array $order) => (object) [
-                'order_id' => $order['id'] ?? null,
+                'order_id'     => $order['id'] ?? null,
                 'order_number' => $order['ordem'] ?? null,
             ]);
 
@@ -1322,7 +1339,7 @@ class Workreports extends Component
 
     protected function selectableOrdersForNote(Note $note)
     {
-        $orders = $note->relationLoaded('Orders') ? $note->Orders : $note->Orders()->get();
+        $orders                   = $note->relationLoaded('Orders') ? $note->Orders : $note->Orders()->get();
         $activeWorkReportOrderIds = $this->activeWorkReportOrderIdsForNote($note);
 
         return $orders

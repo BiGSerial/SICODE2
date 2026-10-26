@@ -66,6 +66,12 @@ class SicodeRules
         return self::boolRule('work_report.blocks_by_note_status', false);
     }
 
+    /** Bloqueia o informe (parcial e final) quando algum PEP das ordens abertas está sem saldo (disponível <= 0). Hoje só no ES; cada ruleset liga explicitamente. */
+    public static function workReportBlocksWithoutBudget(): bool
+    {
+        return self::boolRule('work_report.blocks_without_budget', false);
+    }
+
     public static function workReportSplitsBtzeroEpFinalFlows(): bool
     {
         return self::boolRule('work_report.split_btzero_ep_final_flows', false);
