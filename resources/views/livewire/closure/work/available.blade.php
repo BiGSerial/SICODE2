@@ -64,7 +64,6 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @php $informValues = $this->informValues($states); @endphp
 @forelse ($states as $state)
                             <tr wire:key="closure-available-{{ $state->id }}">
                                 <td class="ps-3"><input type="checkbox" class="form-check-input" @checked(in_array($state->id, $selectedStateIds)) wire:click="toggleState({{ $state->id }})"></td>

@@ -15,7 +15,6 @@
     $allSelected = $states->count() > 0 && $states->every(fn ($st) => in_array($st->id, $selectedStateIds));
 @endphp
 @php
-    $informValues = $this->informValues($states);
     $riByNote     = app(\App\Services\Closure\ClosureInternalReturnService::class)->activeForNotes(collect($states instanceof \Illuminate\Pagination\AbstractPaginator ? $states->getCollection() : $states)->map(fn ($st) => $st->Order?->note_id)->filter());
 @endphp
 <x-closure.signal-legend class="px-3 py-2 border-bottom" :executor="!($controlMode ?? false)" />
@@ -31,7 +30,7 @@
             <th>Ordem / Nota</th>
             <th title="Mês de competência da meta">Compet.</th>
             <th>Obra / Município</th>
-            <th class="text-end" title="Valor da ADS do informe a que a Ordem pertence">Valor da obra (ADS)</th>
+            <th class="text-end" title="Custo planejado (acima) e custo realizado (abaixo) da Ordem">Valor da obra</th>
             <th>Status SAP</th>
             <th title="Operações confirmadas / total">Ops.</th>
             @if ($showHolder)<th>Responsável</th>@endif
@@ -68,7 +67,7 @@
                     <div class="fw-bold text-uppercase text-truncate" style="font-size:.82rem;" title="{{ $order?->Note?->lexp }}">{{ $order?->Note?->lexp ?: '—' }}</div>
                     <div class="ord-sub text-truncate" title="{{ $order?->Note?->pep }}">{{ $order?->Note?->pep ?: '—' }}</div>
                 </td>
-                <td class="small text-end text-nowrap" title="Valor da ADS do informe a que a Ordem pertence">{{ \App\Services\Closure\ClosureInformValue::format($informValues[$state->order_id] ?? null) }}</td>
+                <x-closure.order-cost :planned="$order?->custPlanejado" :actual="$order?->custRealizado" />
                 <td><span class="sap-chip" title="{{ $order?->statusSist }}">{{ $this->sapHeadline($order?->statusSist) }}</span></td>
                 <td><button type="button" class="ops-btn @if ($ops->count() && $conf === $ops->count()) is-done @endif" wire:click="showOperations({{ $state->id }})" title="Ver operações da Ordem" aria-label="Ver operações da Ordem {{ $order?->ordem }}">{{ $conf }}/{{ $ops->count() }}</button></td>
                 @if ($showHolder)

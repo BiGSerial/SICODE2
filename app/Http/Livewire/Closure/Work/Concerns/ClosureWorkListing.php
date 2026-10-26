@@ -81,20 +81,6 @@ trait ClosureWorkListing
         $this->bulkText    = '';
     }
 
-    /**
-     * Valor da obra (ADS do informe) das Ordens da página: order_id => R$ ou null.
-     *
-     * @param iterable<int, ClosureOrderState>|\Illuminate\Pagination\AbstractPaginator $states
-     *
-     * @return array<int, float|null>
-     */
-    public function informValues(iterable $states): array
-    {
-        $items = $states instanceof \Illuminate\Pagination\AbstractPaginator ? $states->getCollection() : collect($states);
-
-        return app(\App\Services\Closure\ClosureInformValue::class)->forOrders($items->pluck('order_id'));
-    }
-
     /** Ordens e Notas que a lista devolve com os filtros atuais (base do resumo da busca em massa). */
     protected function bulkSearchedValues(): array
     {

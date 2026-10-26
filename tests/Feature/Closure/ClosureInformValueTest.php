@@ -141,9 +141,7 @@ function valManager(): User
 
 it('shows the work value column on the dispatch list, only the status in the status column, and the signal as row color', function () {
     $order = valOrder();
-    $w     = valInform($order->Note);
-    valLink($order, $w);
-    valAds($w, $order->note_id, 45678.9);
+    $order->update(['custPlanejado' => 45678.9, 'custRealizado' => 40000.5]);
 
     $assignee = User::factory()->create();
     $f        = closureWorkflowFixture('IN_PROGRESS');
@@ -153,8 +151,9 @@ it('shows the work value column on the dispatch list, only the status in the sta
     ClosureEligibleOrders::forget();
 
     $html = Livewire::actingAs(valManager())->test(Index::class)
-        ->assertSee('Valor da obra (ADS)')
+        ->assertSee('Valor da obra')
         ->assertSee('R$ 45.678,90')
+        ->assertSee('R$ 40.000,50')
         ->lastRenderedDom;
 
     $row = preg_match('/<tr[^>]*data-order-row="' . $f['order']->id . '".*?<\/tr>/s', $html, $m) ? $m[0] : '';
@@ -175,16 +174,14 @@ it('shows the work value on the service lists (Minha atividade/Controle, Dispon�
     $f = closureCollabFixture();
     $f['state']->update(['operational_status' => 'IN_PROGRESS']);
 
-    $w = valInform($f['note']);
-    valLink($f['order'], $w);
-    valAds($w, $f['note']->id, 31415.92);
+    $f['order']->update(['custPlanejado' => 31415.92, 'custRealizado' => 2718.28]);
 
     app(\App\Services\Closure\ClosureSettings::class)->setSelfAssignEnabled(true, $f['dispatcher']);
 
-    Livewire::actingAs($f['dispatcher'])->test(Control::class)->assertSee('Valor da obra (ADS)')->assertSee('R$ 31.415,92');
+    Livewire::actingAs($f['dispatcher'])->test(Control::class)->assertSee('Valor da obra')->assertSee('R$ 31.415,92')->assertSee('R$ 2.718,28');
 
     foreach ([Available::class, History::class] as $class) {
-        Livewire::actingAs($f['dispatcher'])->test($class)->assertSee('Valor da obra (ADS)');
+        Livewire::actingAs($f['dispatcher'])->test($class)->assertSee('Valor da obra');
     }
 
     expect(Livewire::actingAs($f['dispatcher'])->test(Control::class)->lastRenderedDom)->not->toContain('class="signal signal-');
@@ -204,29 +201,42 @@ it('keeps only the activity status in the Control status column', function () {
 
 // ---------------------------------------------------------------- exportação
 
-it('puts the work value in the Excel export of the lists', function () {
-    expect(ClosureListExporter::HEADINGS)->toContain('Valor da obra (ADS) R$');
+it('puts planned and realized cost in the Excel export of the lists', function () {
+    expect(ClosureListExporter::HEADINGS)->toContain('Valor planejado R$')->and(ClosureListExporter::HEADINGS)->toContain('Valor realizado R$');
 
     $order = valOrder();
-    $w     = valInform($order->Note);
-    valLink($order, $w);
-    valAds($w, $order->note_id, 2500.0);
+    $order->update(['custPlanejado' => 2500.0, 'custRealizado' => 1800.0]);
 
     $records = app(ClosureDispatchListQuery::class)->exportRecords([]);
     $built   = app(ClosureListExporter::class)->dispatchRows($records, collect());
-    $index   = array_search('Valor da obra (ADS) R$', ClosureListExporter::HEADINGS, true);
+    $plan    = array_search('Valor planejado R$', ClosureListExporter::HEADINGS, true);
+    $real    = array_search('Valor realizado R$', ClosureListExporter::HEADINGS, true);
 
     expect($built['rows'][0])->toHaveCount(count(ClosureListExporter::HEADINGS))
-        ->and($built['rows'][0][$index])->toBe(2500.0);
+        ->and((float) $built['rows'][0][$plan])->toBe(2500.0)
+        ->and((float) $built['rows'][0][$real])->toBe(1800.0);
 
     $f = closureCollabFixture();
     $f['state']->update(['operational_status' => 'IN_PROGRESS']);
-    $w2 = valInform($f['note']);
-    valLink($f['order'], $w2);
-    valAds($w2, $f['note']->id, 777.5);
+    $f['order']->update(['custPlanejado' => 777.5, 'custRealizado' => 100.25]);
 
     $states = \App\Models\Closure\ClosureOrderState::query()->with(['Order.Note', 'Order.Operations', 'CurrentHolderUser', 'CurrentHolderCompany'])->whereKey($f['state']->id)->get();
     $rows   = app(ClosureListExporter::class)->stateRows($states, collect());
 
-    expect($rows['rows'][0])->toHaveCount(count(ClosureListExporter::HEADINGS))->and($rows['rows'][0][$index])->toBe(777.5);
+    expect($rows['rows'][0])->toHaveCount(count(ClosureListExporter::HEADINGS))
+        ->and((float) $rows['rows'][0][$plan])->toBe(777.5)
+        ->and((float) $rows['rows'][0][$real])->toBe(100.25);
+});
+
+it('leaves orders already closed in SAP (ENT/ENC) out of the dispatch list', function () {
+    $open   = valOrder();
+    $closed = valOrder();
+    $closed->update(['statusSist' => 'ENTE CONF CNPA']);
+    $other  = valOrder();
+    $other->update(['statusSist' => 'ENCE CONF']);
+    ClosureEligibleOrders::forget();
+
+    $ids = app(ClosureDispatchListQuery::class)->exportRecords([])->pluck('id')->all();
+
+    expect($ids)->toContain($open->id)->not->toContain($closed->id)->not->toContain($other->id);
 });

@@ -13,7 +13,6 @@ final class MyPanelCharts
 {
     private const BLUE  = '#2563eb';
     private const GREEN = '#22c55e';
-    private const AMBER = '#f59e0b';
     private const SLATE = '#94a3b8';
 
     private const GROUP_GRADIENTS = [

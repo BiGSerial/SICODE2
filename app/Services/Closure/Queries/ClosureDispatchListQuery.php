@@ -51,7 +51,9 @@ class ClosureDispatchListQuery
             ->selectRaw('s.id as state_id')
             ->join('notes', 'notes.id', '=', 'orders.note_id')
             ->leftJoin('closure_order_states as s', 's.order_id', '=', 'orders.id')
-            ->whereIn('orders.id', $scoped);
+            ->whereIn('orders.id', $scoped)
+            // Ordem já encerrada no SAP (ENT%/ENC%) não é mais trabalho: fica fora das listas.
+            ->where(fn (Builder $q) => $q->whereNull('orders.statusSist')->orWhere(fn (Builder $w) => $w->where('orders.statusSist', 'not like', 'ENT%')->where('orders.statusSist', 'not like', 'ENC%')));
 
         $search = trim((string) ($filters['search'] ?? ''));
 
@@ -328,13 +330,11 @@ class ClosureDispatchListQuery
         foreach (array_chunk($ids, 500) as $chunk) {
             $chunkRecords = $this->pageQuery($chunk)->get();
             $inform       = $this->eligible->informCompanies();
-            $values       = app(\App\Services\Closure\ClosureInformValue::class)->forOrders($chunkRecords->pluck('id'));
             $names        = Company::withTrashed()->whereIn('id', array_values(array_unique(array_filter(array_map(fn ($r) => $inform[$r->id] ?? '', $chunkRecords->all())))))->pluck('name', 'id');
 
             foreach ($chunkRecords as $record) {
                 $companyId = ($inform[$record->id] ?? '') ?: null;
                 $record->setAttribute('inform_company_name', $companyId ? $names->get($companyId) : null);
-                $record->setAttribute('inform_value', $values[$record->id] ?? null);
                 $record->setAttribute('meta_type', $set[$record->id]['type'] ?? null);
                 $record->setAttribute('competence', $set[$record->id]['competence'] ?? null);
             }
@@ -419,12 +419,10 @@ class ClosureDispatchListQuery
         $records = $ids === [] ? collect() : $this->pageQuery($ids)->get();
 
         $inform = $records->isEmpty() ? [] : $this->eligible->informCompanies();
-        $values = $records->isEmpty() ? [] : app(\App\Services\Closure\ClosureInformValue::class)->forOrders($records->pluck('id'));
         $names  = Company::withTrashed()->whereIn('id', array_values(array_unique(array_filter(array_map(fn ($r) => $inform[$r->id] ?? '', $records->all())))))->pluck('name', 'id');
 
         foreach ($records as $record) {
             $companyId = ($inform[$record->id] ?? '') ?: null;
-            $record->setAttribute('inform_value', $values[$record->id] ?? null);
             $record->setAttribute('inform_company_id', $companyId);
             $record->setAttribute('inform_company_name', $companyId ? $names->get($companyId) : null);
             $record->setAttribute('meta_type', $set[$record->id]['type'] ?? null);

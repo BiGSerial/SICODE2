@@ -17,7 +17,7 @@ Tela inicial (`/home`) do usuário interno. Substitui o antigo Dashboard (cartõ
 
 ## Visual
 
-Mesma linguagem do Dashboard da Parceira (`livewire/partner/main.blade.php`): fundo com brilho suave, hero escuro em degradê, **cartões-destaque** coloridos com ícone e mini-gráfico (`<x-home.hero-card>` + `<x-home.spark>`), títulos de seção em caixa alta, painéis com cabeçalho em degradê e barras com degradê. Gráficos Chart.js com preenchimento em degradê (`gradient` no dataset), rosca com total no centro (`plugins.mpCenter`) e barras com degradê. Cor só por variável no SCSS; nada de CSS/JS inline.
+Mesma linguagem do Dashboard da Parceira (`livewire/partner/main.blade.php`): fundo com brilho suave, hero escuro em degradê, **cartões-destaque** coloridos com ícone e mini-gráfico (`<x-home.hero-card>` + `<x-home.spark>`), títulos de seção em caixa alta, painéis com cabeçalho em degradê e barras com degradê. Gráficos Chart.js com preenchimento em degradê (`gradient` no dataset), rosca com total no centro (`plugins.mpCenter`) . Cor só por variável no SCSS; nada de CSS/JS inline.
 
 ## Regras de tempo (decisão do produto, 2026-10-25)
 
@@ -30,8 +30,8 @@ Mesma linguagem do Dashboard da Parceira (`livewire/partner/main.blade.php`): fu
 ## Produtividade
 
 - Período padrão: últimos 30 dias (atalhos 7 dias, mês atual, mês anterior, ou datas livres; máximo 366 dias). Comparado ao período anterior de mesma duração.
-- Por atividade: notas, postes (`postes_u`), dias trabalhados, notas/dia, e tempo médio.
-- Sem meta fixa e sem comparação com a equipe: o painel mostra só a produção da própria pessoa (a visão da equipe está no Painel da equipe).
+- Por atividade: notas, postes (`postes_u`), dias trabalhados, notas/dia e tempo médio.
+- **Sem comparação com a equipe, de propósito (2026-10-26):** o painel mostra só a produção do próprio usuário (nem na tela nem no Excel); não há média da equipe, "vs. equipe" nem varredura da base de outros usuários. A única comparação é com o **período anterior do próprio usuário**.
 - Etapas (concluídas do período): fila = despacho→ATT; execução = ATT→conclusão menos `stopped` (pausas); parada = `stopped`.
 
 ## Excel
@@ -41,7 +41,3 @@ Botão **Exportar Excel** → `PersonalProductionsJob` (fila `exports`) → arqu
 ## Contrato dos gráficos
 
 `MyPanelCharts::all()` devolve a config de `daily`, `week` e `monthly`. A **quantidade e a ordem dos datasets são fixas** por gráfico para que `my-panel.js` atualize por índice (`Object.assign`, `push`, `splice`), nunca substituindo `chart.data.datasets` e nunca limpando o gráfico: sem dados, o aviso (`.mp-chart-empty`) fica por cima.
-
-## Versão da gerência
-
-O mesmo painel sobre a equipe toda (filtros por empresa, atividade e pessoa) está em Serviços → Relatórios → Painel da equipe: ver [../reports/PAINEL_DA_EQUIPE.md](../reports/PAINEL_DA_EQUIPE.md). Os helpers `MyPanelAnalytics::{informedSql,sinceSql,aggregateSql,group}`, `openByActivity/ageBuckets/openByStatus/stageRow` e `MyPanelCharts::options` são públicos para essa reutilização.

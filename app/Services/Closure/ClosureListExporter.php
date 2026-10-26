@@ -17,7 +17,7 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 class ClosureListExporter
 {
     public const HEADINGS = [
-        'Tipo', 'Nota', 'Ordem', 'Competência', 'Município', 'Descrição da obra', 'Empresa (informe)', 'Valor da obra (ADS) R$', 'Status SAP', 'Status usuário',
+        'Tipo', 'Nota', 'Ordem', 'Competência', 'Município', 'Descrição da obra', 'Empresa (informe)', 'Valor planejado R$', 'Valor realizado R$', 'Status SAP', 'Status usuário',
         'Operações confirmadas', 'Operações total', 'Status da atividade', 'Depósito bloqueado', 'Responsável', 'Empresa (posse atual)',
         'Prioridade', 'Horas no status', 'Data de entrada no status', 'Data fim real OP 0020',
     ];
@@ -42,7 +42,8 @@ class ClosureListExporter
                 $order->city_name,
                 $order->descricao,
                 $order->inform_company_name,
-                $order->inform_value,
+                $order->custPlanejado,
+                $order->custRealizado,
                 $order->statusSist,
                 $order->statusUser,
                 (int) $order->ops_conf,
@@ -69,8 +70,6 @@ class ClosureListExporter
     {
         $rows = $types = $statuses = [];
 
-        $values = app(ClosureInformValue::class)->forOrders($states->pluck('order_id'));
-
         foreach ($states as $state) {
             $order      = $state->Order;
             $ops        = $order?->Operations ?? collect();
@@ -85,7 +84,8 @@ class ClosureListExporter
                 $order?->Note?->lexp,
                 $order?->descricao,
                 null,
-                $values[$state->order_id] ?? null,
+                $order?->custPlanejado,
+                $order?->custRealizado,
                 $order?->statusSist,
                 $order?->statusUser,
                 $ops->filter(fn ($op) => str_starts_with(strtoupper((string) $op->status), 'CONF'))->count(),

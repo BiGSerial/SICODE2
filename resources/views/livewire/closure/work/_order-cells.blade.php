@@ -16,7 +16,7 @@
     <div>{{ $order?->Note?->pep ?? '—' }}</div>
     <div class="text-muted">{{ $order?->Note?->lexp ?? '—' }}</div>
 </td>
-<td class="small text-end text-nowrap" title="Valor da ADS do informe a que a Ordem pertence">{{ \App\Services\Closure\ClosureInformValue::format(($informValues ?? [])[$state->order_id] ?? null) }}</td>
+<x-closure.order-cost :planned="$order?->custPlanejado" :actual="$order?->custRealizado" />
 <td><span class="badge bg-light text-dark border">{{ $order?->statusSist ?? '—' }}</span></td>
 <td class="small">
     @forelse ($ops->take(8) as $op)

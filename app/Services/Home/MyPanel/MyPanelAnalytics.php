@@ -5,7 +5,7 @@ namespace App\Services\Home\MyPanel;
 use App\Custom\Notestatus;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\{DB};
+use Illuminate\Support\Facades\DB;
 
 /**
  * Dados do "Meu painel" (home do usuário) e do seu Excel: tudo o que a tela mostra, calculado aqui e nunca na view.
@@ -149,7 +149,7 @@ final class MyPanelAnalytics
      */
     private function openRows(string $userId, array $f, Carbon $now): array
     {
-        $informedSql = self::informedSql();
+        $informedSql = $this->informedSql();
 
         $rows = DB::table('productions as p')
             ->join('services as s', 's.uuid', '=', 'p.service_id')
@@ -361,7 +361,7 @@ final class MyPanelAnalytics
      */
     private function completedRows(string $userId, array $f): array
     {
-        $informedSql = self::informedSql();
+        $informedSql = $this->informedSql();
         $since       = $this->sinceSql();
 
         return $this->completedQuery($userId, $f, $f['from'], $f['to'])
@@ -469,7 +469,7 @@ final class MyPanelAnalytics
     }
 
     /**
-     * Concluídas por dia nos últimos 7 dias.
+     * Concluídas do próprio usuário nos últimos 7 dias.
      *
      * @return array<string, mixed>
      */

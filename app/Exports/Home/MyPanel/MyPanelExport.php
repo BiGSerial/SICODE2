@@ -164,12 +164,12 @@ class MyPanelExport implements WithMultipleSheets, WithProperties
         $acts  = $r['activities'];
         $sum   = $r['summary'];
         $total = [
-            'TOTAL', '', $sum['done'], $sum['done'] > 0 ? 100.0 : 0, $sum['done_postes'], '', '', '', '', '', '',
+            'TOTAL', '', $sum['done'], $sum['done'] > 0 ? 100.0 : 0, $sum['done_postes'],
         ];
 
         $add(
             'Produtividade',
-            'Concluídas no período por atividade.',
+            'Concluídas no período por atividade: volume, ritmo (notas por dia trabalhado) e tempos médios (dias corridos).',
             ['Atividade', 'Grupo', 'Notas', '% das notas', 'Postes/ativos', 'Dias trabalhados', 'Notas/dia', 'Tempo médio total (dias)', 'Fila média (dias)', 'Execução média (dias)', 'Parada média (dias)'],
             array_merge(
                 array_map(fn (array $a) => [
@@ -179,11 +179,11 @@ class MyPanelExport implements WithMultipleSheets, WithProperties
                 [array_pad($total, 11, '')],
             ),
             [
-                'tab'      => DashboardTheme::GREEN, 'totalRows' => [count($acts)], 'center' => ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'],
+                'tab'      => DashboardTheme::GREEN, 'totalRows' => [count($acts)], 'center' => ['B', 'C', 'D', 'E', 'F', 'G'],
                 'formats'  => ['C' => DashboardTableSheet::INT, 'D' => '0.0"%"', 'E' => DashboardTableSheet::INT, 'F' => DashboardTableSheet::INT, 'G' => '0.0', 'H' => self::DAYS2, 'I' => self::DAYS2, 'J' => self::DAYS2, 'K' => self::DAYS2],
                 'dataBars' => ['C' => DashboardTheme::GREEN],
                 'widths'   => ['A' => 26, 'B' => 13, 'H' => 14],
-                'chart'    => ['type' => 'columns', 'title' => 'Notas por dia trabalhado', 'category' => 'A', 'series' => ['G'], 'colors' => [DashboardTheme::BLUE], 'rows' => count($acts), 'from' => 'A' . (DashboardTableSheet::FIRST_DATA_ROW + count($acts) + 3), 'to' => 'H' . (DashboardTableSheet::FIRST_DATA_ROW + count($acts) + 21)],
+                'chart'    => ['type' => 'columns', 'title' => 'Notas concluídas por atividade', 'category' => 'A', 'series' => ['C'], 'colors' => [DashboardTheme::GREEN], 'rows' => count($acts), 'from' => 'A' . (DashboardTableSheet::FIRST_DATA_ROW + count($acts) + 3), 'to' => 'H' . (DashboardTableSheet::FIRST_DATA_ROW + count($acts) + 21)],
             ],
         );
 
