@@ -29,7 +29,7 @@
 @endsection
 
 @section('content')
-    @livewire('home.dashboard.dashboard', key('dashboard'))
+    @livewire('home.dashboard.my-panel', key('my-panel'))
 @endsection
 
 @push('script')

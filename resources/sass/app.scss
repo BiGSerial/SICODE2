@@ -33,6 +33,9 @@ h6,
 // Módulo Encerramento
 @import 'closure/closure';
 
+// Home do usuário (Meu painel)
+@import 'home/home';
+
 .dispatch-scroll-area,
 .dispatch-modal__table-wrap,
 #add_mass_notes .modal-body > .table-responsive {

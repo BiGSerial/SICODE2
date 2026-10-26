@@ -81,7 +81,8 @@
                             <input wire:model.debounce.400ms="search" type="search" class="form-control" id="search" placeholder="Empresa, email, município, contrato ou atividade">
                         </div>
                     </div>
-                    <div class="col-lg-6 text-lg-end">
+                    <div class="col-lg-6 text-lg-end d-flex gap-2 flex-wrap justify-content-lg-end">
+                        @livewire('admin.company.bulk')
                         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create_modal">
                             <i class="ri-community-fill"></i> Nova empresa
                         </button>
@@ -268,10 +269,6 @@
                 </div>
                 <div class="modal-body bg-light">
                     @livewire('admin.company.create', key(hash('ripemd160', now())))
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                    <button type="button" class="btn btn-primary" wire:click.prevent="$emit('save_create_company')">Salvar</button>
                 </div>
             </div>
         </div>
