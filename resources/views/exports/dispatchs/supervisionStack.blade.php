@@ -9,7 +9,7 @@
             <th>Usuário</th>
             <th>AttAt</th>
             <th>DtAds</th>
-            <th>MoAberto</th>
+            <th>Valor ADS</th>
             <th>Prazo</th>
             <th>Status</th>
         </tr>
@@ -23,10 +23,9 @@
                 <td>{{ $item->note?->lexp }}</td>
                 <td>{{ $item->note?->postes ?? '---' }}</td>
                 <td>{{ $item->user?->name }}</td>
-                <td>{{ $item->att_at ? $item->att_at->diffInDays(now()) . ' dias' : '' }}</td>
-                <td>{{ $item->note?->workform?->adsform?->created_at ? $item->note?->workform?->adsform?->created_at->diffInDays(now()) . ' dias' : '' }}
-                </td>
-                <td>{{ number_format($item->note?->orders?->sum('moaberto'), 2, ',', '.') }}</td>
+                <td>{{ $item->att_at ? $item->att_at->copy()->startOfDay()->diffInDays(now()->startOfDay()) . ' dias' : '' }}</td>
+                <td>{{ $item->dt_ads ? \Carbon\Carbon::parse($item->dt_ads)->format('d/m/Y') . ' - ' . \Carbon\Carbon::parse($item->dt_ads)->startOfDay()->diffInDays(now()->startOfDay()) . ' dia(s)' : '' }}</td>
+                <td>{{ number_format((float) $item->ads_amount, 2, ',', '.') }}</td>
                 <td>{{ \Carbon\Carbon::parse($item->pzo)->format('d/m/Y') }}</td>
                 <td>{{ \App\Custom\Notestatus::status($item->status)->status ?? '—' }}</td>
             </tr>

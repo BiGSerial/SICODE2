@@ -173,7 +173,7 @@
                         <th>Usuário</th>
                         <th>AttAt</th>
                         <th>DtAds</th>
-                        <th>MoAberto</th>
+                        <th>Valor ADS</th>
                         <th>DT_Informe</th>
                         <th>Em Despacho</th>
                         <th>Em Att</th>
@@ -325,6 +325,17 @@
                             }
                             $workReportId = $currentFlow?->work_report_id;
 
+                            // Valor e data da ADS vêm do informe da atividade, não da Nota.
+                            if ($workReportId) {
+                                $adsAt          = $item->dt_ads ? Carbon::parse($item->dt_ads) : null;
+                                $adsAmount      = $item->ads_amount;
+                                $isTacitAds     = (bool) $item->ads_tacit;
+                                $tacitDelivered = (bool) $item->ads_tacit_delivered_at;
+                            } else {
+                                $adsAt     = $adsForm?->created_at;
+                                $adsAmount = $adsForm?->amount;
+                            }
+
                         @endphp
                         <tr wire:key="stack-production-{{ $item->id }}-report-{{ $workReportId ?? 0 }}" class="align-middle text-center">
 
@@ -382,11 +393,11 @@
                                 @endif
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
-                                {{ $item->att_at?->diffInDays(Carbon::now()) }} dias
+                                {{ $item->att_at?->copy()->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }} dias
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }}">
-                                @if ($adsForm?->created_at)
-                                    <div>{{ $adsForm->created_at?->diffInDays(Carbon::now()) }} dias</div>
+                                @if ($adsAt)
+                                    <span class="badge text-bg-info">{{ $adsAt->format('d/m/Y') }} · {{ $adsAt->copy()->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }} dia(s)</span>
                                 @endif
                                 @if ($isTacitAds)
                                     <div class="mt-1">
@@ -398,7 +409,7 @@
                                 @endif
                             </td>
                             <td class="{{ $rowClass['color'] ?? '' }} {{ $rowClass['color-text'] ?? '' }} fw-bold">
-                                R$ {{ number_format($item->note?->orders?->sum('moaberto'), 2, ',', '.') }}
+                                R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
                             </td>
                             <td class="{{ $colorColumn }} fw-bold">
                                 @if ($item->dt_inform)

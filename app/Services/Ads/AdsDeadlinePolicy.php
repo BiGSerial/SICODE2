@@ -37,6 +37,58 @@ class AdsDeadlinePolicy
         return $date->endOfDay();
     }
 
+    /**
+     * Mantém work_reports.ads_due_at: prazo vigente de entrega da ADS (regra do deployment em SicodeRules).
+     * Segue o informed_at atual (reinforme recalcula) e fica congelado quando já existe ADS tácita,
+     * pois a partir daí o prazo oficial é adsforms.tacit_due_at. Grava por query para não disparar eventos.
+     */
+    public function syncWorkReport(WorkReport $workReport): ?Carbon
+    {
+        if ($workReport->Adsform()->where('tacit', true)->exists()) {
+            return $workReport->ads_due_at;
+        }
+
+        $dueAt = $workReport->informed_at && !$workReport->rejected && !$workReport->canceled
+            ? $this->dueAt($workReport->informed_at, $this->stateForWorkReport($workReport), (int) $workReport->id)
+            : null;
+
+        WorkReport::query()->whereKey($workReport->id)->update(['ads_due_at' => $dueAt]);
+        $workReport->setAttribute('ads_due_at', $dueAt);
+        $workReport->syncOriginalAttribute('ads_due_at');
+
+        return $dueAt;
+    }
+
+    /**
+     * Recalcula ads_due_at dos informes ainda sem ADS tácita (feriado novo, regra alterada, backfill).
+     * Com $state, restringe aos informes de empresas daquele UF. Retorna quantos foram processados.
+     */
+    public function syncPending(?string $state = null, int $chunk = 500): int
+    {
+        $total = 0;
+
+        WorkReport::query()
+            ->whereNotNull('informed_at')
+            ->where('canceled', false)
+            ->where('rejected', false)
+            ->whereDoesntHave('Adsform', fn ($q) => $q->where('tacit', true))
+            ->with('Company.Address')
+            ->chunkById($chunk, function (Collection $reports) use ($state, &$total) {
+                $this->preloadAdjustments($reports->pluck('id'));
+
+                foreach ($reports as $report) {
+                    if ($state && $this->stateForWorkReport($report) !== $this->normalizeState($state)) {
+                        continue;
+                    }
+
+                    $this->syncWorkReport($report);
+                    $total++;
+                }
+            });
+
+        return $total;
+    }
+
     /** Dia que conta para o prazo: útil ou corrido, conforme SicodeRules (ads.delivery_deadline). */
     public function countsAsDeadlineDay(Carbon $date, ?string $state = null, ?int $workReportId = null): bool
     {

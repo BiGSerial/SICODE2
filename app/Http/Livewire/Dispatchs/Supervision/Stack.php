@@ -229,6 +229,9 @@ class Stack extends Component
             ->addSelect(DB::raw("$pzoExpr AS pzo"))
             ->addSelect(DB::raw("$dtInformExpr AS dt_inform"))
             ->addSelect(DB::raw('af.created_at AS dt_ads'))
+            ->addSelect(DB::raw('af.amount AS ads_amount'))
+            ->addSelect(DB::raw('af.tacit AS ads_tacit'))
+            ->addSelect(DB::raw('af.tacit_delivered_at AS ads_tacit_delivered_at'))
             ->addSelect(DB::raw('wr.informed_at AS dt_informed'))
             ->with([
                 'wpas:id,production_id,dd,execstats,ststusexec,completed_at',

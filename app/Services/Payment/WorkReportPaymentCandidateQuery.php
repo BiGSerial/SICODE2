@@ -25,11 +25,15 @@ class WorkReportPaymentCandidateQuery
 
         return $query
             ->whereHas('Operations', fn (Builder $operation) => $this->whereOperationStatus($operation, '0040', [
+                'CONF%',
                 'CNPA%',
                 'JBFI LIB%',
                 'LIB%',
             ]))
-            ->whereHas('Operations', fn (Builder $operation) => $this->whereOperationStatus($operation, '0050', ['LIB%']));
+            ->whereHas('Operations', fn (Builder $operation) => $this->whereOperationStatus($operation, '0050', [
+                'LIB%',
+                'JBFI LIB%',
+            ]));
     }
 
     public function orderIsEligible(Order $order): bool
@@ -58,10 +62,14 @@ class WorkReportPaymentCandidateQuery
         }
 
         return $statuses('0040')->contains(
-            fn (string $status) => str_starts_with($status, 'CNPA')
+            fn (string $status) => str_starts_with($status, 'CONF')
+            || str_starts_with($status, 'CNPA')
             || str_starts_with($status, 'JBFI LIB')
             || str_starts_with($status, 'LIB')
-        ) && $statuses('0050')->contains(fn (string $status) => str_starts_with($status, 'LIB'));
+        ) && $statuses('0050')->contains(
+            fn (string $status) => str_starts_with($status, 'LIB')
+            || str_starts_with($status, 'JBFI LIB')
+        );
     }
 
     private function whereOperationStatus(Builder $query, string $operation, array $statuses): Builder

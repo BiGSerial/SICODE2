@@ -316,34 +316,28 @@ class Main extends Component
             ->values();
     }
 
+    /** Informes sem ADS tácita com prazo (work_reports.ads_due_at) vencendo entre hoje e os próximos dias. */
     public function getWorkReportsWithoutAdsDueSoon(): Collection
     {
-        $today          = Carbon::today();
-        $dueLimit       = Carbon::today()->addDays($this->daysAhead);
-        $deadlinePolicy = app(AdsDeadlinePolicy::class);
+        $today = Carbon::today();
 
         $query = WorkReport::query()->active()
             ->where('rejected', false)
-            ->whereNotNull('informed_at')
-            ->where('informed_at', '>=', $today->copy()->subDays(14)->startOfDay())
-            ->where('informed_at', '<=', $dueLimit->endOfDay())
-            ->whereDoesntHave('Note.Adsform')
+            ->whereBetween('ads_due_at', [$today->copy()->startOfDay(), $today->copy()->addDays($this->daysAhead)->endOfDay()])
+            ->whereDoesntHave('Adsform', function ($q) {
+                // Só conta como entregue a ADS vinculada ao informe; tácita sem entrega não conta.
+                $q->where(fn ($q) => $q->where('tacit', false)->orWhereNull('tacit')->orWhereNotNull('tacit_delivered_at'));
+            })
             ->whereDoesntHave('Note.OldAds')
             ->with(['Note:id,note', 'Company:id,name', 'Company.Address'])
-            ->orderBy('informed_at');
+            ->orderBy('ads_due_at');
 
         $this->scopeByCompany($query);
 
         return $query->get()
-            ->map(function (WorkReport $workReport) use ($deadlinePolicy, $today) {
-                $state                     = $deadlinePolicy->stateForWorkReport($workReport);
-                $dueAt                     = $deadlinePolicy->dueAt($workReport->informed_at, $state, (int) $workReport->id);
-                $workReport->ads_due_at    = $dueAt;
-                $workReport->ads_days_left = $today->copy()->startOfDay()->diffInDays($dueAt->copy()->startOfDay(), false);
-
-                return $workReport;
+            ->each(function (WorkReport $workReport) use ($today) {
+                $workReport->ads_days_left = $today->diffInDays($workReport->ads_due_at->copy()->startOfDay(), false);
             })
-            ->filter(fn (WorkReport $workReport) => $workReport->ads_days_left >= 0 && $workReport->ads_days_left <= $this->daysAhead)
             ->values();
     }
 
@@ -357,33 +351,10 @@ class Main extends Component
         return $this->overdueCache[(string) $this->partnerCompanyFilter] ??= $this->buildWorkReportsWithoutAdsOverdue();
     }
 
+    /** Atraso de ADS = ADS tácita vencida (tacit_due_at) sem tacit_delivered_at; os dias contam a partir de tacit_due_at. */
     protected function buildWorkReportsWithoutAdsOverdue(): Collection
     {
-        $deadlinePolicy = app(AdsDeadlinePolicy::class);
-
-        // Em qualquer regra o prazo vence depois de pelo menos N dias corridos: só esses entram na análise.
-        $query = WorkReport::query()->active()
-            ->where('rejected', false)
-            ->whereNotNull('informed_at')
-            ->where('informed_at', '<', Carbon::today()->subDays(\App\Support\SicodeRules::adsDeliveryDeadlineDays())->startOfDay())
-            ->whereDoesntHave('Note.Adsform')
-            ->whereDoesntHave('Note.OldAds')
-            ->with(['Company:id,name', 'Company.Address']);
-
-        $this->scopeByCompany($query);
-
-        $reports = $query->get(['work_reports.id', 'work_reports.company_id', 'work_reports.note_id', 'work_reports.informed_at']);
-        $deadlinePolicy->preloadAdjustments($reports->pluck('id'));
-        $now = now();
-
-        return $reports
-            ->map(function (WorkReport $workReport) use ($deadlinePolicy, $now) {
-                $state                     = $deadlinePolicy->stateForWorkReport($workReport);
-                $workReport->ads_due_at    = $deadlinePolicy->dueAt($workReport->informed_at, $state, (int) $workReport->id);
-                $workReport->ads_late_days = $deadlinePolicy->lateDays($workReport->ads_due_at, null, $now, $state, (int) $workReport->id);
-
-                return $workReport;
-            })
+        return $this->getTacitAdsOverdueWithoutDelivery()
             ->filter(fn (WorkReport $workReport) => $workReport->ads_late_days >= 1)
             ->values();
     }

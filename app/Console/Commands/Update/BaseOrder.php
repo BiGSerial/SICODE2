@@ -120,7 +120,7 @@ class BaseOrder extends Command
                             ->whereIn('note_id', $noteIds)
                             ->whereIn('ordem', $ordens)
                             ->orderBy('id')
-                            ->get(['id', 'note_id', 'ordem'])
+                            ->get(array_merge(['id', 'note_id', 'ordem'], array_diff($updateColumns, ['updated_at'])))
                             ->groupBy(fn ($r) => $r->note_id . '|' . $r->ordem)
                             ->map(fn ($orders) => $orders->first());
 
@@ -182,6 +182,13 @@ class BaseOrder extends Command
                         // contabilização prévia: se existe o par, será "update"; senão, "create"
                         $pairKey  = $noteId . '|' . $ordemStr;
                         $existing = $existingMap->get($pairKey);
+
+                        // Ordem existente e sem alteração: não reescreve (evita upsert à toa)
+                        if ($existing && !$this->orderChanged($existing, $row, $updateColumns)) {
+                            $bar->advance();
+
+                            continue;
+                        }
 
                         if ($existing) {
                             $globalUpdated++;
@@ -275,11 +282,30 @@ class BaseOrder extends Command
         }
 
         if ($canUseUpsert) {
-            Order::upsert(
-                array_map(fn (array $row) => $this->withoutInternalColumns($row), $rows),
-                ['note_id', 'ordem'],
-                $updateColumns
-            );
+            // INSERT ... ON DUPLICATE KEY UPDATE consome um auto_increment por linha enviada,
+            // mesmo quando ela só atualiza. Linhas existentes vão com o id explícito (não consomem);
+            // só as realmente novas vão sem id.
+            $existingRows = [];
+            $newRows      = [];
+
+            foreach ($rows as $row) {
+                $existingId = $row['_existing_id'] ?? null;
+                $row        = $this->withoutInternalColumns($row);
+
+                if ($existingId) {
+                    $existingRows[] = ['id' => $existingId] + $row;
+                } else {
+                    $newRows[] = $row;
+                }
+            }
+
+            if ($existingRows) {
+                Order::upsert($existingRows, ['note_id', 'ordem'], $updateColumns);
+            }
+
+            if ($newRows) {
+                Order::upsert($newRows, ['note_id', 'ordem'], $updateColumns);
+            }
 
             return;
         }
@@ -302,6 +328,43 @@ class BaseOrder extends Command
 
             Order::create($row);
         }
+    }
+
+    private function orderChanged(Order $existing, array $incoming, array $columns): bool
+    {
+        foreach ($columns as $column) {
+            if ($column === 'updated_at') {
+                continue;
+            }
+
+            $old = $existing->getRawOriginal($column);
+            $new = $incoming[$column] ?? null;
+
+            $oldEmpty = $old === null || trim((string) $old) === '';
+            $newEmpty = $new === null || trim((string) $new) === '';
+
+            if ($oldEmpty || $newEmpty) {
+                if ($oldEmpty !== $newEmpty) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (is_numeric($old) && is_numeric($new)) {
+                if (abs((float) $old - (float) $new) > 0.000001) {
+                    return true;
+                }
+
+                continue;
+            }
+
+            if (trim((string) $old) !== trim((string) $new)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function withoutInternalColumns(array $row): array

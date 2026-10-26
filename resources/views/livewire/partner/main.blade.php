@@ -732,7 +732,7 @@
                             @php
                                 $k = $row['kpis'];
                                 $p = $row['period'];
-                                $dueSoon = (int) ($k['work_without_ads_due_soon'] ?? 0) + (int) ($k['viability_due_soon'] ?? 0);
+                                $rowDueSoon = (int) ($k['work_without_ads_due_soon'] ?? 0) + (int) ($k['viability_due_soon'] ?? 0);
                                 $barColor = $row['ads_rate'] === null ? '#cbd5e1' : ($row['ads_rate'] >= 90 ? '#15803d' : ($row['ads_rate'] >= 70 ? '#b45309' : '#b91c1c'));
                             @endphp
                             <tr wire:key="branch-{{ $row['id'] }}">
@@ -752,7 +752,7 @@
                                 <td class="text-end">{{ $p['partials_total'] ?? 0 }}</td>
                                 <td class="text-end">R$ {{ number_format($p['partials_amount_total'] ?? 0, 2, ',', '.') }}</td>
                                 <td class="text-end {{ $cell($k['work_without_ads_overdue'] ?? 0) }}">{{ $k['work_without_ads_overdue'] ?? 0 }}</td>
-                                <td class="text-end {{ $cell($dueSoon, 'pd-cell-warn') }}">{{ $dueSoon }}</td>
+                                <td class="text-end {{ $cell($rowDueSoon, 'pd-cell-warn') }}">{{ $rowDueSoon }}</td>
                                 <td class="text-end">{{ $k['pending_viability'] ?? 0 }}</td>
                                 <td class="text-end">{{ $k['d5_pending'] ?? 0 }}</td>
                                 <td class="text-end {{ $cell($k['d5_returned'] ?? 0, 'pd-cell-warn') }}">{{ $k['d5_returned'] ?? 0 }}</td>

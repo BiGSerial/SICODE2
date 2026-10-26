@@ -130,6 +130,7 @@ class BaseOperation extends Command
                         ->whereIn('order_id', $orderIds)
                         ->whereIn('operacao', $operacoes)
                         ->get([
+                            'id',
                             'order_id',
                             'operacao',
                             'descOperacao',
@@ -206,11 +207,12 @@ class BaseOperation extends Command
                             $count['ctd']++;
                         }
 
-                        // dedup dentro do lote
+                        // dedup dentro do lote; id explícito nas existentes (não consome auto_increment)
+                        $row['_existing_id'] = $existingRow?->id;
                         $bucket[$pairKey] = $row;
 
                         if (count($bucket) >= $this->upsertBatchSize) {
-                            Operation::upsert(array_values($bucket), ['order_id','operacao'], $this->updateColumns);
+                            $this->persistOperationRows(array_values($bucket));
                             $bucket = [];
                         }
                     }
@@ -226,7 +228,7 @@ class BaseOperation extends Command
                 }
 
                 if (!empty($bucket)) {
-                    Operation::upsert(array_values($bucket), ['order_id','operacao'], $this->updateColumns);
+                    $this->persistOperationRows(array_values($bucket));
                 }
             });
 
@@ -247,6 +249,35 @@ class BaseOperation extends Command
             }
 
             return self::FAILURE;
+        }
+    }
+
+    /**
+     * INSERT ... ON DUPLICATE KEY UPDATE consome um auto_increment por linha enviada, mesmo
+     * quando ela só atualiza. Existentes vão com id explícito; só as novas vão sem id.
+     */
+    private function persistOperationRows(array $rows): void
+    {
+        $existingRows = [];
+        $newRows = [];
+
+        foreach ($rows as $row) {
+            $existingId = $row['_existing_id'] ?? null;
+            unset($row['_existing_id']);
+
+            if ($existingId) {
+                $existingRows[] = ['id' => $existingId] + $row;
+            } else {
+                $newRows[] = $row;
+            }
+        }
+
+        if ($existingRows) {
+            Operation::upsert($existingRows, ['order_id', 'operacao'], $this->updateColumns);
+        }
+
+        if ($newRows) {
+            Operation::upsert($newRows, ['order_id', 'operacao'], $this->updateColumns);
         }
     }
 
