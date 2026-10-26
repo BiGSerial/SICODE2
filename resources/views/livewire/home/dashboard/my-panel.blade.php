@@ -272,12 +272,12 @@
         <h2 class="mp-section-title">Produtividade</h2>
 
         <div class="row g-3 mb-3">
-            <div class="col-12 col-xl-7">
+            <div class="col-12">
                 <section class="mp-panel h-100" aria-labelledby="mp-prod-title">
                     <div class="mp-panel-head">
                         <div>
                             <h3 id="mp-prod-title" class="mp-panel-title">Produtividade por atividade</h3>
-                            <div class="mp-panel-sub">Concluídas de {{ $period }}. Média da equipe: por pessoa em cada dia trabalhado.</div>
+                            <div class="mp-panel-sub">Concluídas de {{ $period }}.</div>
                         </div>
                         <span class="mp-pill">{{ $s['done'] }} notas · {{ $s['done_postes'] }} postes</span>
                     </div>
@@ -287,7 +287,7 @@
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0 mp-table">
                                 <colgroup>
-                                    <col class="col-pct-22"><col class="col-pct-20"><col class="col-pct-8"><col class="col-pct-8"><col class="col-pct-10"><col class="col-pct-12"><col class="col-pct-10"><col>
+                                    <col class="col-pct-26"><col class="col-pct-24"><col class="col-pct-10"><col class="col-pct-10"><col class="col-pct-12"><col>
                                 </colgroup>
                                 <thead>
                                     <tr>
@@ -296,8 +296,6 @@
                                         <th scope="col" class="text-end">Postes</th>
                                         <th scope="col" class="text-end">Dias</th>
                                         <th scope="col" class="text-end">Notas/dia</th>
-                                        <th scope="col" class="text-end">Equipe</th>
-                                        <th scope="col" class="text-end">vs. equipe</th>
                                         <th scope="col" class="text-end">Tempo médio</th>
                                     </tr>
                                 </thead>
@@ -314,16 +312,6 @@
                                             <td class="text-end">{{ $row['postes'] }}</td>
                                             <td class="text-end">{{ $row['dias'] }}</td>
                                             <td class="text-end fw-bold">{{ number_format($row['per_day'], 1, ',', '.') }}</td>
-                                            <td class="text-end">{{ $row['team_per_day'] !== null ? number_format($row['team_per_day'], 1, ',', '.') : '—' }}</td>
-                                            <td class="text-end">
-                                                @if ($row['delta'] === null)
-                                                    <span class="text-muted">—</span>
-                                                @else
-                                                    <span class="mp-delta {{ $row['delta'] >= 0 ? 'is-up' : 'is-down' }}">
-                                                        <i class="{{ $row['delta'] >= 0 ? 'ri-arrow-up-line' : 'ri-arrow-down-line' }}" aria-hidden="true"></i>{{ number_format(abs($row['delta']), 0) }}%
-                                                    </span>
-                                                @endif
-                                            </td>
                                             <td class="text-end">{{ Panel::duration($row['avg_total']) }}</td>
                                         </tr>
                                     @endforeach
@@ -331,19 +319,6 @@
                             </table>
                         </div>
                     @endif
-                </section>
-            </div>
-            <div class="col-12 col-xl-5">
-                <section class="mp-panel h-100">
-                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Você × equipe</h3><div class="mp-panel-sub">Notas por dia trabalhado, por atividade</div></div></div>
-                    <div class="mp-chart-wrap">
-                        <div class="mp-chart" wire:ignore>
-                            <canvas data-my-panel-chart="productivity" data-config="{{ json_encode($charts['productivity']) }}" role="img" aria-label="Barras: notas por dia trabalhado por atividade, você contra a média da equipe"></canvas>
-                        </div>
-                        @if (count($snapshot['activities']) === 0)
-                            <div class="mp-chart-empty">Nenhuma conclusão no período</div>
-                        @endif
-                    </div>
                 </section>
             </div>
         </div>
@@ -364,7 +339,7 @@
             </div>
             <div class="col-12 col-xl-4">
                 <section class="mp-panel h-100">
-                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Últimos 7 dias</h3><div class="mp-panel-sub">{{ $snapshot['week']['total'] }} concluídas · linha tracejada: média da equipe por pessoa/dia</div></div></div>
+                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Últimos 7 dias</h3><div class="mp-panel-sub">{{ $snapshot['week']['total'] }} concluídas</div></div></div>
                     <div class="mp-chart-wrap">
                         <div class="mp-chart" wire:ignore>
                             <canvas data-my-panel-chart="week" data-config="{{ json_encode($charts['week']) }}" role="img" aria-label="Gráfico de barras: atividades concluídas por dia nos últimos 7 dias"></canvas>
