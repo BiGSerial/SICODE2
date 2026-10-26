@@ -33,11 +33,10 @@ final class MyPanelCharts
     public static function all(array $snapshot): array
     {
         return [
-            'daily'        => self::daily($snapshot['daily']),
-            'week'         => self::week($snapshot['week']),
-            'monthly'      => self::monthly($snapshot['monthly']),
-            'situation'    => self::situation($snapshot['status'], $snapshot['summary']['open']),
-            'productivity' => self::productivity($snapshot['activities']),
+            'daily'     => self::daily($snapshot['daily']),
+            'week'      => self::week($snapshot['week']),
+            'monthly'   => self::monthly($snapshot['monthly']),
+            'situation' => self::situation($snapshot['status'], $snapshot['summary']['open']),
         ];
     }
 
@@ -62,15 +61,12 @@ final class MyPanelCharts
     /** @param array<string, mixed> $w */
     public static function week(array $w): array
     {
-        $team = array_fill(0, count($w['labels']), $w['team']);
-
         return [
             'type' => 'bar',
             'data' => [
                 'labels'   => $w['labels'],
                 'datasets' => [
                     ['type' => 'bar', 'label' => 'Concluídas por dia', 'data' => $w['completed'], 'gradient' => ['#60a5fa', '#1d4ed8'], 'borderRadius' => 8, 'maxBarThickness' => 30, 'order' => 2],
-                    ['type' => 'line', 'label' => 'Média da equipe (pessoa/dia)', 'data' => $team, 'borderColor' => self::AMBER, 'borderWidth' => 2, 'borderDash' => [6, 4], 'pointRadius' => 0, 'fill' => false, 'order' => 1],
                 ],
             ],
             'options' => self::options(['scales' => ['x' => ['grid' => ['display' => false]]]]),
@@ -122,26 +118,6 @@ final class MyPanelCharts
                     'mpCenter' => ['text' => (string) $open, 'sub' => $open === 1 ? 'aberta' : 'abertas'],
                 ],
             ],
-        ];
-    }
-
-    /**
-     * Notas por dia trabalhado, por atividade: você × média da equipe.
-     *
-     * @param array<int, array<string, mixed>> $activities
-     */
-    public static function productivity(array $activities): array
-    {
-        return [
-            'type' => 'bar',
-            'data' => [
-                'labels'   => array_column($activities, 'service'),
-                'datasets' => [
-                    ['label' => 'Você (notas/dia)', 'data' => array_column($activities, 'per_day'), 'gradient' => ['#1d4ed8', '#38bdf8'], 'borderRadius' => 8, 'maxBarThickness' => 22],
-                    ['label' => 'Média da equipe', 'data' => array_column($activities, 'team_per_day'), 'backgroundColor' => '#cbd5e1', 'borderRadius' => 8, 'maxBarThickness' => 22],
-                ],
-            ],
-            'options' => self::options(['indexAxis' => 'y', 'scales' => ['x' => ['beginAtZero' => true, 'grid' => ['color' => '#e8eef2']], 'y' => ['grid' => ['display' => false]]]]),
         ];
     }
 

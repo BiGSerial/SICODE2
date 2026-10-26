@@ -373,7 +373,11 @@
                                         ? $partial->Orders ?? collect()
                                         : collect());
 
-                                $five = $list->FiveNote;
+                                // Parcial não tem D5, e D5 arquivada nunca vira badge.
+                                $five = $partial ? null : $list->FiveNote;
+                                if ($five?->is_archived) {
+                                    $five = null;
+                                }
                                 $hasD5 = (bool) $five;
                                 $d5BadgeClass = '';
                                 $d5Msg = '';

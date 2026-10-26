@@ -315,7 +315,20 @@ class DispatchWorkflowService
                 $targetWorkReportIds = [$explicitWorkReportId];
             }
 
-            if (!$explicitWorkReportId && !$this->isD5Dispatch($note, $serviceKey, $finalScopes)) {
+            // D5 passiva (sem informe) é identidade própria: o escopo do modal e informes já
+            // finalizados da Nota não podem redirecioná-la para um informe.
+            $isPassiveD5Dispatch = $serviceKey === 'payment'
+                && !$partialId
+                && !$explicitWorkReportId
+                && $explicitFiveNote
+                && $explicitFiveNote->isPassive
+                && !$explicitFiveNote->work_report_id;
+
+            if ($isPassiveD5Dispatch) {
+                $finalScopes = [];
+            }
+
+            if (!$explicitWorkReportId && !$isPassiveD5Dispatch && !$this->isD5Dispatch($note, $serviceKey, $finalScopes)) {
                 $targetWorkReportIds = $this->targetWorkReportIdsForDispatch($note, $serviceKey, $finalScopes);
 
                 if (count($targetWorkReportIds) === 1) {
@@ -474,7 +487,9 @@ class DispatchWorkflowService
                 $this->attachDd($note, $production, $dd);
             }
 
-            $this->linkWorkReportFlow($production, $context['service_key'], $finalScopes, $explicitWorkReportId);
+            if (!$isPassiveD5Dispatch) {
+                $this->linkWorkReportFlow($production, $context['service_key'], $finalScopes, $explicitWorkReportId);
+            }
 
             if ($targetUser) {
                 $this->afterAssigned($production, $actor, null, $explicitWorkReportId);

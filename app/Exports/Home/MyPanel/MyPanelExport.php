@@ -69,7 +69,6 @@ class MyPanelExport implements WithMultipleSheets, WithProperties
             'Período anterior'     => $f['prev_from']->format('d/m/Y') . ' a ' . $f['prev_to']->format('d/m/Y'),
             'Incluir RI'           => $f['include_ri'] ? 'Sim' : 'Não',
             'Tempo das abertas'    => 'Desde a ATT; Fiscalização, Medição e Publicação contam desde o informe da Nota',
-            'Média da equipe'      => 'Notas por pessoa em cada dia trabalhado, na mesma atividade e período',
         ];
     }
 
@@ -165,26 +164,26 @@ class MyPanelExport implements WithMultipleSheets, WithProperties
         $acts  = $r['activities'];
         $sum   = $r['summary'];
         $total = [
-            'TOTAL', '', $sum['done'], $sum['done'] > 0 ? 100.0 : 0, $sum['done_postes'], '', '', '', '', '', '', '', '',
+            'TOTAL', '', $sum['done'], $sum['done'] > 0 ? 100.0 : 0, $sum['done_postes'], '', '', '', '', '', '',
         ];
 
         $add(
             'Produtividade',
-            'Concluídas no período por atividade, comparadas com a média da equipe (notas por pessoa em cada dia trabalhado).',
-            ['Atividade', 'Grupo', 'Notas', '% das notas', 'Postes/ativos', 'Dias trabalhados', 'Notas/dia', 'Média equipe (notas/dia)', 'Pessoas na média', 'vs. equipe (%)', 'Tempo médio total (dias)', 'Fila média (dias)', 'Execução média (dias)', 'Parada média (dias)'],
+            'Concluídas no período por atividade.',
+            ['Atividade', 'Grupo', 'Notas', '% das notas', 'Postes/ativos', 'Dias trabalhados', 'Notas/dia', 'Tempo médio total (dias)', 'Fila média (dias)', 'Execução média (dias)', 'Parada média (dias)'],
             array_merge(
                 array_map(fn (array $a) => [
-                    $a['service'], Panel::GROUP_LABELS[$a['group']], $a['notas'], $a['share'], $a['postes'], $a['dias'], $a['per_day'], $a['team_per_day'], $a['team_people'], $a['delta'],
+                    $a['service'], Panel::GROUP_LABELS[$a['group']], $a['notas'], $a['share'], $a['postes'], $a['dias'], $a['per_day'],
                     $this->days($a['avg_total']), $this->days($a['avg_queue']), $this->days($a['avg_exec']), $this->days($a['avg_stopped']),
                 ], $acts),
-                [array_pad($total, 14, '')],
+                [array_pad($total, 11, '')],
             ),
             [
-                'tab'      => DashboardTheme::GREEN, 'totalRows' => [count($acts)], 'center' => ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'],
-                'formats'  => ['C' => DashboardTableSheet::INT, 'D' => '0.0"%"', 'E' => DashboardTableSheet::INT, 'F' => DashboardTableSheet::INT, 'G' => '0.0', 'H' => '0.0', 'I' => DashboardTableSheet::INT, 'J' => '+0.0"%";-0.0"%";"–"', 'K' => self::DAYS2, 'L' => self::DAYS2, 'M' => self::DAYS2, 'N' => self::DAYS2],
+                'tab'      => DashboardTheme::GREEN, 'totalRows' => [count($acts)], 'center' => ['B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'],
+                'formats'  => ['C' => DashboardTableSheet::INT, 'D' => '0.0"%"', 'E' => DashboardTableSheet::INT, 'F' => DashboardTableSheet::INT, 'G' => '0.0', 'H' => self::DAYS2, 'I' => self::DAYS2, 'J' => self::DAYS2, 'K' => self::DAYS2],
                 'dataBars' => ['C' => DashboardTheme::GREEN],
-                'widths'   => ['A' => 26, 'B' => 13, 'H' => 16, 'K' => 14],
-                'chart'    => ['type' => 'columns', 'title' => 'Notas por dia: você × equipe', 'category' => 'A', 'series' => ['G', 'H'], 'colors' => [DashboardTheme::BLUE, '94A3B8'], 'rows' => count($acts), 'from' => 'A' . (DashboardTableSheet::FIRST_DATA_ROW + count($acts) + 3), 'to' => 'H' . (DashboardTableSheet::FIRST_DATA_ROW + count($acts) + 21)],
+                'widths'   => ['A' => 26, 'B' => 13, 'H' => 14],
+                'chart'    => ['type' => 'columns', 'title' => 'Notas por dia trabalhado', 'category' => 'A', 'series' => ['G'], 'colors' => [DashboardTheme::BLUE], 'rows' => count($acts), 'from' => 'A' . (DashboardTableSheet::FIRST_DATA_ROW + count($acts) + 3), 'to' => 'H' . (DashboardTableSheet::FIRST_DATA_ROW + count($acts) + 21)],
             ],
         );
 

@@ -1297,6 +1297,11 @@ class Main extends Component
 
                 $note->setAttribute('payment_context_key', (string) $note->id);
 
+                // D5 sem informe (ex.: passiva) é despachada pela identidade da própria D5.
+                if ($note->FiveNote?->needsPaymentAction()) {
+                    $note->setAttribute('dispatch_five_note_id', (int) $note->FiveNote->id);
+                }
+
                 $partial = $note->relationLoaded('Partials')
                     ? $note->Partials
                         ->where('allow', true)
@@ -1311,6 +1316,8 @@ class Main extends Component
                     $row = clone $note;
                     $row->setAttribute('payment_context_key', $note->id . ':0:p' . $partial->id);
                     $row->setAttribute('dispatch_partial_id', (int) $partial->id);
+                    // Parcial não tem D5: não herdar a D5 sem informe da Nota.
+                    $row->setRelation('FiveNote', null);
 
                     return [$row];
                 }

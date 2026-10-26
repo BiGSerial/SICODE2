@@ -17,7 +17,7 @@ Tela inicial (`/home`) do usuário interno. Substitui o antigo Dashboard (cartõ
 
 ## Visual
 
-Mesma linguagem do Dashboard da Parceira (`livewire/partner/main.blade.php`): fundo com brilho suave, hero escuro em degradê, **cartões-destaque** coloridos com ícone e mini-gráfico (`<x-home.hero-card>` + `<x-home.spark>`), títulos de seção em caixa alta, painéis com cabeçalho em degradê e barras com degradê. Gráficos Chart.js com preenchimento em degradê (`gradient` no dataset), rosca com total no centro (`plugins.mpCenter`) e barras "você × equipe". Cor só por variável no SCSS; nada de CSS/JS inline.
+Mesma linguagem do Dashboard da Parceira (`livewire/partner/main.blade.php`): fundo com brilho suave, hero escuro em degradê, **cartões-destaque** coloridos com ícone e mini-gráfico (`<x-home.hero-card>` + `<x-home.spark>`), títulos de seção em caixa alta, painéis com cabeçalho em degradê e barras com degradê. Gráficos Chart.js com preenchimento em degradê (`gradient` no dataset), rosca com total no centro (`plugins.mpCenter`) e barras com degradê. Cor só por variável no SCSS; nada de CSS/JS inline.
 
 ## Regras de tempo (decisão do produto, 2026-10-25)
 
@@ -30,8 +30,8 @@ Mesma linguagem do Dashboard da Parceira (`livewire/partner/main.blade.php`): fu
 ## Produtividade
 
 - Período padrão: últimos 30 dias (atalhos 7 dias, mês atual, mês anterior, ou datas livres; máximo 366 dias). Comparado ao período anterior de mesma duração.
-- Por atividade: notas, postes (`postes_u`), dias trabalhados, notas/dia, **média da equipe** (notas por pessoa em cada dia trabalhado, mesma atividade e período) e tempo médio.
-- Sem meta fixa: a referência é a média da equipe. A média da equipe varre a base toda e fica em **cache de 10 min** (`MyPanelAnalytics::TEAM_CACHE_TTL`).
+- Por atividade: notas, postes (`postes_u`), dias trabalhados, notas/dia, e tempo médio.
+- Sem meta fixa e sem comparação com a equipe: o painel mostra só a produção da própria pessoa (a visão da equipe está no Painel da equipe).
 - Etapas (concluídas do período): fila = despacho→ATT; execução = ATT→conclusão menos `stopped` (pausas); parada = `stopped`.
 
 ## Excel

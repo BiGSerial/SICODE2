@@ -96,7 +96,7 @@ it('deixa a RI de fora até o filtro ser ligado', function () {
         ->and($analytics->snapshot($f['me']->id, ['include_ri' => true])['summary']['ri'])->toBe(1);
 });
 
-it('soma a produtividade por atividade no período e compara com a média da equipe', function () {
+it('soma a produtividade por atividade no período', function () {
     $f = panelFixture();
 
     // Eu: 2 notas em 2 dias na Análise; a outra pessoa: 1 nota em 1 dia.
@@ -114,8 +114,6 @@ it('soma a produtividade por atividade no período e compara com a média da equ
         ->and($row['postes'])->toBe(5)
         ->and($row['dias'])->toBe(2)
         ->and($row['per_day'])->toBe(1.0)
-        ->and($row['team_per_day'])->toBe(1.0)
-        ->and($row['team_people'])->toBe(2)
         ->and($snapshot['summary']['done'])->toBe(2)
         ->and($snapshot['summary']['done_prev'])->toBe(1)
         ->and($snapshot['summary']['done_delta'])->toBe(100.0)

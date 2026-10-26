@@ -5,7 +5,7 @@ namespace App\Services\Home\MyPanel;
 use App\Custom\Notestatus;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\{Cache, DB};
+use Illuminate\Support\Facades\{DB};
 
 /**
  * Dados do "Meu painel" (home do usuário) e do seu Excel: tudo o que a tela mostra, calculado aqui e nunca na view.
@@ -23,9 +23,6 @@ final class MyPanelAnalytics
     public const INFORM_FOLDERS = ['fiscalizacao', 'pagamento', 'publicacao'];
 
     public const GROUP_LABELS = ['project' => 'Projeto', 'construction' => 'Construção', 'post_construction' => 'Pós-obra', 'other' => 'Outras'];
-
-    /** Médias da equipe não dependem do usuário e varrem a base toda: ficam em cache por este tempo (segundos). */
-    public const TEAM_CACHE_TTL = 600;
 
     /** Tamanho máximo do período (dias) para o gráfico diário não explodir. */
     public const MAX_DAYS = 366;
@@ -88,11 +85,10 @@ final class MyPanelAnalytics
 
         $open      = $this->openRows($userId, $f, $now);
         $byService = $this->completedByActivity($userId, $f, $f['from'], $f['to']);
-        $team      = $this->teamAverages($f, $byService->pluck('service_id')->all());
         $totals    = $this->completedTotals($userId, $f, $f['from'], $f['to']);
         $previous  = $this->completedTotals($userId, $f, $f['prev_from'], $f['prev_to']);
 
-        $activities = $this->activityRows($byService, $team);
+        $activities = $this->activityRows($byService);
 
         return [
             'generated_at' => $now,
@@ -319,66 +315,28 @@ final class MyPanelAnalytics
     }
 
     /**
-     * Média da equipe por atividade: notas/postes por pessoa por dia trabalhado, no mesmo período.
-     *
-     * @param array<int, string> $serviceIds
-     */
-    private function teamAverages(array $f, array $serviceIds): Collection
-    {
-        if ($serviceIds === []) {
-            return collect();
-        }
-
-        $key = 'my-panel:team:' . md5(json_encode([$f['from']->toDateString(), $f['to']->toDateString(), $f['include_ri'], $serviceIds]));
-
-        return collect(Cache::remember($key, self::TEAM_CACHE_TTL, function () use ($f, $serviceIds) {
-            $perDay = DB::table('productions as p')
-                ->where('p.completed', true)
-                ->where('p.rejected', false)
-                ->when(!$f['include_ri'], fn ($q) => $q->where('p.d5', false))
-                ->whereIn('p.service_id', $serviceIds)
-                ->whereBetween('p.completed_at', [$f['from'], $f['to']])
-                ->whereNotNull('p.user_id')
-                ->selectRaw('p.service_id, p.user_id, DATE(p.completed_at) as d, COUNT(*) as n, COALESCE(SUM(p.postes_u), 0) as pst')
-                ->groupBy('p.service_id', 'p.user_id', 'd');
-
-            return DB::query()->fromSub($perDay, 't')
-                ->selectRaw('service_id, AVG(n) as avg_notas, AVG(pst) as avg_postes, COUNT(DISTINCT user_id) as pessoas')
-                ->groupBy('service_id')
-                ->get()
-                ->map(fn ($r) => (array) $r)
-                ->all();
-        }))->map(fn (array $r) => (object) $r)->keyBy('service_id');
-    }
-
-    /**
      * @return array<int, array<string, mixed>>
      */
-    private function activityRows(Collection $byService, Collection $team): array
+    private function activityRows(Collection $byService): array
     {
         $totalNotas = max(1, (int) $byService->sum('notas'));
 
-        return $byService->map(function ($r) use ($team, $totalNotas) {
-            $avg     = $team->get($r->service_id);
-            $perDay  = $r->dias > 0 ? $r->notas / $r->dias : 0;
-            $teamDay = $avg ? (float) $avg->avg_notas : null;
+        return $byService->map(function ($r) use ($totalNotas) {
+            $perDay = $r->dias > 0 ? $r->notas / $r->dias : 0;
 
             return [
-                'service_id'   => $r->service_id,
-                'service'      => $r->service,
-                'group'        => $this->group($r),
-                'notas'        => (int) $r->notas,
-                'postes'       => (int) $r->postes,
-                'dias'         => (int) $r->dias,
-                'share'        => round($r->notas / $totalNotas * 100, 1),
-                'per_day'      => round($perDay, 1),
-                'team_per_day' => $teamDay !== null ? round($teamDay, 1) : null,
-                'team_people'  => $avg ? (int) $avg->pessoas : null,
-                'delta'        => $teamDay ? round(($perDay - $teamDay) / $teamDay * 100, 1) : null,
-                'avg_total'    => $r->avg_total !== null ? (float) $r->avg_total : null,
-                'avg_queue'    => $r->avg_queue !== null ? (float) $r->avg_queue : null,
-                'avg_exec'     => $r->avg_exec !== null ? (float) $r->avg_exec : null,
-                'avg_stopped'  => $r->avg_stopped !== null ? (float) $r->avg_stopped : null,
+                'service_id'  => $r->service_id,
+                'service'     => $r->service,
+                'group'       => $this->group($r),
+                'notas'       => (int) $r->notas,
+                'postes'      => (int) $r->postes,
+                'dias'        => (int) $r->dias,
+                'share'       => round($r->notas / $totalNotas * 100, 1),
+                'per_day'     => round($perDay, 1),
+                'avg_total'   => $r->avg_total !== null ? (float) $r->avg_total : null,
+                'avg_queue'   => $r->avg_queue !== null ? (float) $r->avg_queue : null,
+                'avg_exec'    => $r->avg_exec !== null ? (float) $r->avg_exec : null,
+                'avg_stopped' => $r->avg_stopped !== null ? (float) $r->avg_stopped : null,
             ];
         })->values()->all();
     }
@@ -511,7 +469,7 @@ final class MyPanelAnalytics
     }
 
     /**
-     * Concluídas nos últimos 7 dias e média da equipe por pessoa por dia (referência, não meta fixa).
+     * Concluídas por dia nos últimos 7 dias.
      *
      * @return array<string, mixed>
      */
@@ -525,24 +483,6 @@ final class MyPanelAnalytics
             ->groupBy('d')
             ->pluck('n', 'd');
 
-        $key  = 'my-panel:week:' . md5(json_encode([$from->toDateString(), $f['include_ri'], $f['service']]));
-        $team = Cache::remember($key, self::TEAM_CACHE_TTL, function () use ($f, $from, $to) {
-            $perDay = DB::table('productions as p')
-                ->where('p.completed', true)
-                ->where('p.rejected', false)
-                ->when(!$f['include_ri'], fn ($q) => $q->where('p.d5', false))
-                ->when($f['service'], fn ($q, $service) => $q->where('p.service_id', $service))
-                ->whereNotNull('p.user_id')
-                ->whereBetween('p.completed_at', [$from, $to])
-                ->selectRaw('p.user_id, DATE(p.completed_at) as d, COUNT(*) as n')
-                ->groupBy('p.user_id', 'd');
-
-            $avg = DB::query()->fromSub($perDay, 't')->selectRaw('AVG(n) as avg_n')->value('avg_n');
-
-            return $avg !== null ? (float) $avg : -1.0;
-        });
-        $team = $team >= 0 ? $team : null;
-
         $labels = $values = [];
 
         for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
@@ -550,7 +490,7 @@ final class MyPanelAnalytics
             $values[] = (int) $done->get($day->toDateString(), 0);
         }
 
-        return ['labels' => $labels, 'completed' => $values, 'team' => $team !== null ? round((float) $team, 1) : null, 'total' => array_sum($values)];
+        return ['labels' => $labels, 'completed' => $values, 'total' => array_sum($values)];
     }
 
     /**

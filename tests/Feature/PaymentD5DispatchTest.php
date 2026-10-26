@@ -81,6 +81,34 @@ class PaymentD5DispatchTest extends TestCase
         $this->assertSame([$five->id], $production->fresh()->fiveNotes()->pluck('five_notes.id')->all());
     }
 
+    public function test_passive_d5_dispatch_ignores_modal_scope_and_existing_informe(): void
+    {
+        [$note, , $service, $company, $actor] = $this->fixture();
+        $five                                 = FiveNote::create([
+            'note_id'          => $note->id,
+            'note_d5'          => 'P2',
+            'isPassive'        => true,
+            'is_completed'     => true,
+            'is_supervisioned' => true,
+        ]);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $actor,
+            $actor,
+            null,
+            [WorkReportFlowProduction::SCOPE_NETWORK],
+            null,
+            null,
+            $five->id
+        );
+
+        $this->assertTrue((bool) $production->fresh()->dfive);
+        $this->assertSame([$five->id], $production->fresh()->fiveNotes()->pluck('five_notes.id')->all());
+    }
+
     public function test_payment_dispatch_for_cycle_one_accepts_explicit_pending_d5_of_the_informe(): void
     {
         [$note, $report, $service, $company, $actor] = $this->fixture();
