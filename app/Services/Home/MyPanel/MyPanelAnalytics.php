@@ -153,7 +153,7 @@ final class MyPanelAnalytics
      */
     private function openRows(string $userId, array $f, Carbon $now): array
     {
-        $informedSql = $this->informedSql();
+        $informedSql = self::informedSql();
 
         $rows = DB::table('productions as p')
             ->join('services as s', 's.uuid', '=', 'p.service_id')
@@ -209,7 +209,7 @@ final class MyPanelAnalytics
      *
      * @return array<int, array<string, mixed>>
      */
-    private function openByActivity(array $open): array
+    public function openByActivity(array $open): array
     {
         return collect($open)
             ->groupBy('service_id')
@@ -238,7 +238,7 @@ final class MyPanelAnalytics
      *
      * @return array{labels: array<int, string>, values: array<int, int>}
      */
-    private function ageBuckets(array $open): array
+    public function ageBuckets(array $open): array
     {
         $ranges = ['0-7 dias' => [0, 7], '8-15 dias' => [8, 15], '16-30 dias' => [16, 30], '31-60 dias' => [31, 60], '61+ dias' => [61, PHP_INT_MAX]];
         $ages   = collect($open)->pluck('age_days')->filter(fn ($d) => $d !== null);
@@ -254,7 +254,7 @@ final class MyPanelAnalytics
      *
      * @return array<int, array{label: string, color: string, total: int}>
      */
-    private function openByStatus(array $open): array
+    public function openByStatus(array $open): array
     {
         return collect($open)
             ->groupBy('status')
@@ -279,9 +279,9 @@ final class MyPanelAnalytics
     }
 
     /** Agregados de uma conclusão: volume e tempos médios (em segundos). */
-    private function aggregateSql(): string
+    public static function aggregateSql(): string
     {
-        $since = $this->sinceSql();
+        $since = self::sinceSql();
 
         return "COUNT(*) as notas,
             COALESCE(SUM(p.postes_u), 0) as postes,
@@ -388,7 +388,7 @@ final class MyPanelAnalytics
      *
      * @return array<int, array{key: string, label: string, seconds: ?float}>
      */
-    private function stageRow(object $totals): array
+    public function stageRow(object $totals): array
     {
         return [
             ['key' => 'queue', 'label' => 'Na fila (despacho até a ATT)', 'seconds' => $totals->avg_queue !== null ? (float) $totals->avg_queue : null],
@@ -403,7 +403,7 @@ final class MyPanelAnalytics
      */
     private function completedRows(string $userId, array $f): array
     {
-        $informedSql = $this->informedSql();
+        $informedSql = self::informedSql();
         $since       = $this->sinceSql();
 
         return $this->completedQuery($userId, $f, $f['from'], $f['to'])
@@ -595,7 +595,7 @@ final class MyPanelAnalytics
     // ───────────────────────────── Apoio ─────────────────────────────
 
     /** Subconsulta do informe (data mais recente, não cancelado) — só avaliada nas atividades pós-obra. */
-    private function informedSql(): string
+    public static function informedSql(): string
     {
         $folders = "'" . implode("','", self::INFORM_FOLDERS) . "'";
 
@@ -603,12 +603,12 @@ final class MyPanelAnalytics
     }
 
     /** Onde o tempo começa: informe (pós-obra) → ATT → despacho. */
-    private function sinceSql(): string
+    public static function sinceSql(): string
     {
-        return 'COALESCE(' . $this->informedSql() . ', p.att_at, p.dispatch_at)';
+        return 'COALESCE(' . self::informedSql() . ', p.att_at, p.dispatch_at)';
     }
 
-    private function group(object $row): string
+    public static function group(object $row): string
     {
         return match (true) {
             (bool) $row->post_construction => 'post_construction',

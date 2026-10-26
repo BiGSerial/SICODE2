@@ -146,7 +146,7 @@ final class MyPanelCharts
     }
 
     /** @param array<string, mixed> $extra */
-    private static function options(array $extra = []): array
+    public static function options(array $extra = []): array
     {
         return array_replace_recursive([
             'responsive'          => true,

@@ -9,6 +9,11 @@ class ReportsController extends Controller
         return view('reports.productions');
     }
 
+    public function teamPanel()
+    {
+        return view('reports.team-panel');
+    }
+
     public function generalSicode()
     {
         return view('reports.general-sicode');
@@ -132,7 +137,7 @@ class ReportsController extends Controller
     public function productionWallV2(int $wall)
     {
         return view('reports.production-wall-v2', [
-            'wallId' => $wall,
+            'wallId'   => $wall,
             'screenId' => null,
         ]);
     }
@@ -140,7 +145,7 @@ class ReportsController extends Controller
     public function productionWallV2Screen(int $wall, int $screen)
     {
         return view('reports.production-wall-v2', [
-            'wallId' => $wall,
+            'wallId'   => $wall,
             'screenId' => $screen,
         ]);
     }
@@ -148,7 +153,7 @@ class ReportsController extends Controller
     public function productionWallV2Vue(int $wall)
     {
         return view('reports.production-wall-v2-vue', [
-            'wallId' => $wall,
+            'wallId'   => $wall,
             'screenId' => null,
         ]);
     }
@@ -156,7 +161,7 @@ class ReportsController extends Controller
     public function productionWallV2VueScreen(int $wall, int $screen)
     {
         return view('reports.production-wall-v2-vue', [
-            'wallId' => $wall,
+            'wallId'   => $wall,
             'screenId' => $screen,
         ]);
     }

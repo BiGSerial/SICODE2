@@ -41,3 +41,7 @@ Botão **Exportar Excel** → `PersonalProductionsJob` (fila `exports`) → arqu
 ## Contrato dos gráficos
 
 `MyPanelCharts::all()` devolve a config de `daily`, `week` e `monthly`. A **quantidade e a ordem dos datasets são fixas** por gráfico para que `my-panel.js` atualize por índice (`Object.assign`, `push`, `splice`), nunca substituindo `chart.data.datasets` e nunca limpando o gráfico: sem dados, o aviso (`.mp-chart-empty`) fica por cima.
+
+## Versão da gerência
+
+O mesmo painel sobre a equipe toda (filtros por empresa, atividade e pessoa) está em Serviços → Relatórios → Painel da equipe: ver [../reports/PAINEL_DA_EQUIPE.md](../reports/PAINEL_DA_EQUIPE.md). Os helpers `MyPanelAnalytics::{informedSql,sinceSql,aggregateSql,group}`, `openByActivity/ageBuckets/openByStatus/stageRow` e `MyPanelCharts::options` são públicos para essa reutilização.

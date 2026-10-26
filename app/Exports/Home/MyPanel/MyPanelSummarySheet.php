@@ -24,8 +24,10 @@ class MyPanelSummarySheet implements FromArray, WithEvents, WithTitle
      * @param array<string, mixed>                                   $report  MyPanelAnalytics::report()
      * @param array<string, string>                                  $filters rótulo => valor dos filtros aplicados
      * @param array<int, array{title: string, description: string}> $tabs    abas do arquivo (índice)
+     * @param array<string, mixed>|null                              $layout  reaproveitamento por outros painéis: `title`, `subtitle` e `sections`
+     *                                                                       (lista de [título, cartões]); sem isso, o desenho do Meu painel
      */
-    public function __construct(private readonly array $report, private readonly string $userName, private readonly array $filters, private readonly array $tabs)
+    public function __construct(private readonly array $report, private readonly string $userName, private readonly array $filters, private readonly array $tabs, private readonly ?array $layout = null)
     {
     }
 
@@ -60,7 +62,7 @@ class MyPanelSummarySheet implements FromArray, WithEvents, WithTitle
         }
 
         $sheet->mergeCells("A1:{$last}1");
-        $sheet->setCellValue('A1', 'SICODE · Meu painel — ' . $this->userName);
+        $sheet->setCellValue('A1', $this->layout['title'] ?? 'SICODE · Meu painel — ' . $this->userName);
         $sheet->getRowDimension(1)->setRowHeight(38);
         $sheet->getStyle("A1:{$last}1")->applyFromArray([
             'font'      => ['bold' => true, 'size' => 18, 'color' => ['rgb' => 'FFFFFF']],
@@ -69,7 +71,7 @@ class MyPanelSummarySheet implements FromArray, WithEvents, WithTitle
         ]);
 
         $sheet->mergeCells("A2:{$last}2");
-        $sheet->setCellValue('A2', 'Gerado em ' . $r['generated_at']->format('d/m/Y H:i') . ' · Atividades abertas (situação de agora) e produtividade do período selecionado.');
+        $sheet->setCellValue('A2', 'Gerado em ' . $r['generated_at']->format('d/m/Y H:i') . ' · ' . ($this->layout['subtitle'] ?? 'Atividades abertas (situação de agora) e produtividade do período selecionado.'));
         $sheet->getRowDimension(2)->setRowHeight(24);
         $sheet->getStyle("A2:{$last}2")->applyFromArray([
             'font'      => ['italic' => true, 'size' => 10, 'color' => ['rgb' => DashboardTheme::MUTED]],
@@ -78,6 +80,18 @@ class MyPanelSummarySheet implements FromArray, WithEvents, WithTitle
         ]);
 
         $row = 4;
+
+        if ($this->layout !== null) {
+            foreach ($this->layout['sections'] as [$title, $tiles]) {
+                $row = $this->section($sheet, $row, $title, $tiles);
+            }
+
+            $row = $this->keyValues($sheet, $row, 'Filtros aplicados', $this->filters);
+            $this->index($sheet, $row);
+            $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)->setFitToWidth(1)->setFitToHeight(0);
+
+            return;
+        }
 
         $row = $this->section($sheet, $row, 'Atividades abertas (agora)', [
             ['Abertas', $s['open'], 'em ' . $s['open_services'] . ' atividade(s)', DashboardTheme::BLUE],
