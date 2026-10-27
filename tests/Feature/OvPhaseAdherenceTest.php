@@ -24,7 +24,7 @@ function phaseNote(string $ov, array $events): Note
 }
 
 it('calcula levantamento e desenho até o evento seguinte', function () {
-    $note = phaseNote('8001', [
+    $note = phaseNote('6001', [
         [10, '2026-02-01 08:00:00'],
         [27, '2026-02-03 08:00:00'],
         [28, '2026-02-09 08:00:00'],
@@ -41,7 +41,7 @@ it('calcula levantamento e desenho até o evento seguinte', function () {
 });
 
 it('considera só a última passagem pelo status 27', function () {
-    $note = phaseNote('8002', [
+    $note = phaseNote('6002', [
         [27, '2026-01-02 08:00:00'],
         [10, '2026-01-04 08:00:00'],
         [27, '2026-01-10 08:00:00'],
@@ -54,7 +54,7 @@ it('considera só a última passagem pelo status 27', function () {
 });
 
 it('fase aberta não gera linha e remove a anterior', function () {
-    $note    = phaseNote('8003', [[27, '2026-01-02 08:00:00'], [28, '2026-01-05 08:00:00']]);
+    $note    = phaseNote('6003', [[27, '2026-01-02 08:00:00'], [28, '2026-01-05 08:00:00']]);
     $service = app(OvPhaseDurationService::class);
 
     $service->rebuildForNotes([$note->id]);
@@ -69,7 +69,7 @@ it('fase aberta não gera linha e remove a anterior', function () {
 it('vincula a empresa da produção concluída da fase', function () {
     $company = Company::create(['name' => 'EDP ES', 'email' => 'edp-es@example.test']);
     $service = Service::create(['service' => 'LEVANTAMENTO', 'status' => 27]);
-    $note    = phaseNote('8004', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00']]);
+    $note    = phaseNote('6004', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00']]);
 
     $production = Production::forceCreate([
         'note_id'      => $note->id,
@@ -306,4 +306,72 @@ it('no SP o último 27 é o mais recente por data', function () {
 
     $survey = OvPhaseDuration::where('note_id', $note->id)->where('phase', 27)->sole();
     expect($survey->started_at->toDateString())->toBe('2026-03-20')->and($survey->days)->toBe(5.0);
+});
+
+it('expurga a fase quando o evento imediatamente acima é o status 99', function (string $ruleset) {
+    config(['sicode.ruleset' => $ruleset]);
+    // 27 → 28 → 99: o levantamento fecha normalmente; o desenho é seguido do 99 e é expurgado
+    $note = phaseNote('9920', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [99, '2026-03-10 08:00:00']]);
+    // 27 direto para o 99: expurgado
+    $direct = phaseNote('9921', [[27, '2026-03-01 08:00:00'], [99, '2026-03-02 08:00:00']]);
+
+    app(OvPhaseDurationService::class)->rebuildForNotes([$note->id, $direct->id]);
+
+    expect(OvPhaseDuration::where('note_id', $note->id)->where('phase', 27)->sole()->days)->toBe(3.0)
+        ->and(OvPhaseDuration::where('note_id', $note->id)->where('phase', 28)->exists())->toBeFalse()
+        ->and(OvPhaseDuration::where('note_id', $direct->id)->exists())->toBeFalse();
+})->with(['es', 'sp']);
+
+it('remove a fase já calculada quando ela passa a ser seguida do status 99', function () {
+    $note    = phaseNote('9922', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00']]);
+    $service = app(OvPhaseDurationService::class);
+
+    $service->rebuildForNotes([$note->id]);
+    expect(OvPhaseDuration::where('note_id', $note->id)->where('phase', 28)->count())->toBe(0); // 28 aberto
+
+    HistoricNote::create(['note_id' => $note->id, 'id_num' => 3, 'num_stat' => 99, 'dt_stats' => '2026-03-08 08:00:00']);
+    $service->rebuildForNotes([$note->id]);
+
+    expect(OvPhaseDuration::where('note_id', $note->id)->where('phase', 27)->sole()->days)->toBe(3.0)
+        ->and(OvPhaseDuration::where('note_id', $note->id)->where('phase', 28)->exists())->toBeFalse();
+});
+
+it('expurga OVs que começam com 800 e as rubricas Acompanhamento, Incoporação e Desconsiderar', function () {
+    $events = [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [50, '2026-03-09 08:00:00']];
+
+    $kept = phaseNote('7000001', $events);
+    $kept->update(['rubrica' => 'Mercado']);
+    $prefix = phaseNote('8000001', $events);
+    $follow = phaseNote('7000002', $events);
+    $follow->update(['rubrica' => 'Acompanhamento']);
+    $incorp = phaseNote('7000003', $events);
+    $incorp->update(['rubrica' => 'Incoporação']);
+    $noRubric = phaseNote('7000004', $events);
+    $ignored  = phaseNote('7000005', $events);
+    $ignored->update(['rubrica' => 'Desconsiderar']);
+
+    app(OvPhaseDurationService::class)->rebuildForNotes([$kept->id, $prefix->id, $follow->id, $incorp->id, $noRubric->id, $ignored->id]);
+
+    expect(OvPhaseDuration::pluck('note_id')->unique()->sort()->values()->all())->toBe(collect([$kept->id, $noRubric->id])->sort()->values()->all());
+});
+
+it('o expurgo apaga fases que já existiam e sai do retrato de agora', function () {
+    $note    = phaseNote('7100001', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [50, '2026-03-09 08:00:00']]);
+    $service = app(OvPhaseDurationService::class);
+    $service->rebuildForNotes([$note->id]);
+    expect(OvPhaseDuration::where('note_id', $note->id)->count())->toBe(2);
+
+    $note->update(['rubrica' => 'Acompanhamento']);
+    $service->rebuildForNotes([$note->id]);
+    expect(OvPhaseDuration::where('note_id', $note->id)->count())->toBe(0);
+
+    Note::create(['note' => '7100002', 'type_note' => 2, 'nstats' => '27', 'rubrica' => 'Mercado']);
+    Note::create(['note' => '8000002', 'type_note' => 2, 'nstats' => '27', 'rubrica' => 'Mercado']);
+    Note::create(['note' => '7100003', 'type_note' => 2, 'nstats' => '28', 'rubrica' => 'Incoporação']);
+    Note::create(['note' => '7100004', 'type_note' => 2, 'nstats' => '28']);
+    \Illuminate\Support\Facades\Cache::flush();
+
+    $report = app(\App\Services\Indicators\ProjectDeadlineAnalytics::class)->report(['from' => '2026-01-01', 'to' => '2026-12-31'], withDetail: false);
+
+    expect($report['status_now'])->toBe(['s27' => 1, 's28' => 1, 'total' => 2]);
 });

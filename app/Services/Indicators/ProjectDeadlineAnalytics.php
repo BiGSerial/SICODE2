@@ -3,7 +3,7 @@
 namespace App\Services\Indicators;
 
 use App\Models\{Note, OvPhaseDuration};
-use App\Services\Notes\OvStatusHistoryService;
+use App\Services\Notes\{OvPhaseDurationService, OvStatusHistoryService};
 use Carbon\Carbon;
 use Illuminate\Support\Facades\{Cache, DB};
 
@@ -131,9 +131,15 @@ class ProjectDeadlineAnalytics
      */
     private function statusNow(): array
     {
-        $counts = Cache::remember('project_deadline:status_now', 600, fn () => Note::query()
+        $counts = Cache::remember('project_deadline:status_now:v2', 600, fn () => Note::query()
             ->where('type_note', 2)
             ->whereIn('nstats', ['27', '28'])
+            ->where(function ($q) {
+                foreach (OvPhaseDurationService::PURGE_NOTE_PREFIXES as $prefix) {
+                    $q->where('note', 'not like', $prefix . '%');
+                }
+            })
+            ->where(fn ($q) => $q->whereNull('rubrica')->orWhereNotIn('rubrica', OvPhaseDurationService::PURGE_RUBRICS))
             ->selectRaw('nstats, COUNT(*) as total')
             ->groupBy('nstats')
             ->pluck('total', 'nstats')
