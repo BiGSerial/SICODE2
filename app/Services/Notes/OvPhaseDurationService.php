@@ -3,6 +3,7 @@
 namespace App\Services\Notes;
 
 use App\Models\{HistoricNote, OvPhaseDuration};
+use App\Support\SicodeRules;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -36,6 +37,7 @@ class OvPhaseDurationService
             ->groupBy('note_id');
 
         $producers = $this->lastProductionByNotePhase($noteIds);
+        $byDate    = SicodeRules::ovPhasesOrderByDate();
         $now       = now();
         $rows      = [];
         $stale     = [];
@@ -44,9 +46,7 @@ class OvPhaseDurationService
             $list = ($events->get($noteId) ?? collect())->values();
 
             foreach (self::PHASES as $phase) {
-                // Última passagem pelo status = a de maior id_num; o término é o evento de menor id_num acima dele.
-                $current = $list->filter(fn ($e) => (int) $e->num_stat === $phase)->sortBy('id_num')->last();
-                $next    = $current === null ? null : $list->filter(fn ($e) => (int) $e->id_num > (int) $current->id_num)->sortBy('id_num')->first();
+                [$current, $next] = $this->phaseEdges($list, $phase, $byDate);
 
                 if ($current === null || $next === null) {
                     $stale[] = [$noteId, $phase];
@@ -87,6 +87,33 @@ class OvPhaseDurationService
                     ->delete();
             }
         });
+    }
+
+    /**
+     * Última passagem pelo status da fase e o evento que a encerra.
+     *  - Padrão: a passagem de maior id_num; o término é o evento de menor id_num acima dela.
+     *  - Por data (SP, numeração da origem fora de sequência): eventos ordenados por data (e id_num no empate);
+     *    a passagem é a última nessa ordem e o término é o evento imediatamente acima.
+     *
+     * @param  \Illuminate\Support\Collection<int,HistoricNote>  $list
+     * @return array{0:?HistoricNote,1:?HistoricNote}
+     */
+    private function phaseEdges($list, int $phase, bool $byDate): array
+    {
+        if ($byDate) {
+            $ordered = $list
+                ->sort(fn ($a, $b) => [$a->dt_stats->getTimestamp(), (int) $a->id_num] <=> [$b->dt_stats->getTimestamp(), (int) $b->id_num])
+                ->values();
+
+            $index = $ordered->keys()->filter(fn ($i) => (int) $ordered[$i]->num_stat === $phase)->last();
+
+            return $index === null ? [null, null] : [$ordered[$index], $ordered->get($index + 1)];
+        }
+
+        $current = $list->filter(fn ($e) => (int) $e->num_stat === $phase)->sortBy('id_num')->last();
+        $next    = $current === null ? null : $list->filter(fn ($e) => (int) $e->id_num > (int) $current->id_num)->sortBy('id_num')->first();
+
+        return [$current, $next];
     }
 
     /**

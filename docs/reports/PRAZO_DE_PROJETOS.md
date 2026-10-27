@@ -15,6 +15,7 @@ Serviços → Relatórios → **RELATÓRIO PRAZO DE PROJETOS** (`/reports/projec
 
 ## Regras (decisão do produto, 2026-10-27)
 
+- **SP ordena por data (regra `ov_phases.order_by_date`, `SicodeRules::ovPhasesOrderByDate()`, ligada por padrão só no ruleset `sp`):** a numeração (`idNum`) do SP saiu fora de sequência. Lá os eventos da OV são ordenados pela data (e `id_num` no empate), o último 27/28 é o mais recente nessa ordem e o término é o evento imediatamente acima. Pode ser ligada ou desligada por `sicode.rules.{ruleset}.ov_phases.order_by_date` (config ou `system_settings`).
 - **Fase:** levantamento = evento de status **27** até o evento seguinte da mesma OV (`id_num` sequencial); desenho = status **28** até o evento seguinte.
 - **Última passagem:** se a OV voltar ao 27 (ou ao 28), vale só a última.
 - **Fase aberta** (sem evento seguinte) não entra: nem nas faixas, nem na aderência.

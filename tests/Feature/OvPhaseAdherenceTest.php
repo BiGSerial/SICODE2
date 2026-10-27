@@ -266,3 +266,44 @@ it('o comando recalcula tudo e corrige fases calculadas por regra antiga', funct
     expect(OvPhaseDuration::where('phase', 27)->sole()->days)->toBe(3.0)
         ->and(OvPhaseDuration::where('phase', 28)->sole()->days)->toBe(16.0);
 });
+
+it('no SP ordena pela data e pega a data imediatamente acima, ignorando a numeração', function () {
+    // numeração fora de sequência: o id_num 2 (status 50) é o mais recente por data
+    $events = [[1, 27, '2026-03-04 08:00:00'], [2, 50, '2026-03-30 08:00:00'], [3, 28, '2026-03-10 08:00:00']];
+    $make   = function (string $ov) use ($events) {
+        $note = Note::create(['note' => $ov, 'type_note' => 2]);
+
+        foreach ($events as [$idNum, $stat, $at]) {
+            HistoricNote::create(['note_id' => $note->id, 'id_num' => $idNum, 'num_stat' => $stat, 'dt_stats' => $at]);
+        }
+
+        return $note;
+    };
+
+    $es = $make('9910');
+    config(['sicode.ruleset' => 'es']);
+    app(OvPhaseDurationService::class)->rebuildForNotes([$es->id]);
+    // ES: próximo id_num acima do 1 é o 2 (30/03): 26 dias
+    expect(OvPhaseDuration::where('note_id', $es->id)->where('phase', 27)->sole()->days)->toBe(26.0);
+
+    $sp = $make('9911');
+    config(['sicode.ruleset' => 'sp']);
+    app(OvPhaseDurationService::class)->rebuildForNotes([$sp->id]);
+    // SP: por data, depois do 27 (04/03) vem o 28 (10/03): 6 dias; depois do 28, o 50 (30/03): 20 dias
+    expect(OvPhaseDuration::where('note_id', $sp->id)->where('phase', 27)->sole()->days)->toBe(6.0)
+        ->and(OvPhaseDuration::where('note_id', $sp->id)->where('phase', 28)->sole()->days)->toBe(20.0);
+});
+
+it('no SP o último 27 é o mais recente por data', function () {
+    config(['sicode.ruleset' => 'sp']);
+    $note = Note::create(['note' => '9912', 'type_note' => 2]);
+
+    foreach ([[5, 27, '2026-03-04 08:00:00'], [1, 10, '2026-03-06 08:00:00'], [2, 27, '2026-03-20 08:00:00'], [9, 28, '2026-03-25 08:00:00']] as [$idNum, $stat, $at]) {
+        HistoricNote::create(['note_id' => $note->id, 'id_num' => $idNum, 'num_stat' => $stat, 'dt_stats' => $at]);
+    }
+
+    app(OvPhaseDurationService::class)->rebuildForNotes([$note->id]);
+
+    $survey = OvPhaseDuration::where('note_id', $note->id)->where('phase', 27)->sole();
+    expect($survey->started_at->toDateString())->toBe('2026-03-20')->and($survey->days)->toBe(5.0);
+});
