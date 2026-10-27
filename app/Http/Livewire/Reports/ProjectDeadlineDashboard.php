@@ -4,135 +4,99 @@ namespace App\Http\Livewire\Reports;
 
 use App\Jobs\Reports\ProjectDeadlineExportJob;
 use App\Models\{Company, OvPhaseDuration};
-use App\Services\Indicators\ProjectDeadlineAnalytics;
+use App\Services\Indicators\{ProjectDeadlineAnalytics, ProjectDeadlineCharts};
 use App\Services\Notes\OvStatusHistoryService;
+use Carbon\Carbon;
 use Livewire\Component;
 
+/**
+ * Prazo de Projetos (Serviços → Relatórios, gerência): aderência de prazo do levantamento (status 27) e do desenho (status 28), TMEP e empresas.
+ * A tela só orquestra filtros; os números vêm de ProjectDeadlineAnalytics e os gráficos de ProjectDeadlineCharts (mesmo `my-panel.js`).
+ */
 class ProjectDeadlineDashboard extends Component
 {
-    private const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+    public const PRESETS = [
+        'year'  => 'Ano todo',
+        '90d'   => 'Últimos 90 dias',
+        'month' => 'Mês atual',
+        'prev'  => 'Mês anterior',
+    ];
 
-    public string $dt_in = '';
+    public ?string $selectedCompany = null;
 
-    public string $dt_out = '';
+    public string $preset = 'year';
 
-    public string $companyId = '';
+    public ?string $dt_in = null;
+
+    public ?string $dt_out = null;
 
     protected $queryString = [
-        'dt_in'     => ['except' => '', 'as' => 'de'],
-        'dt_out'    => ['except' => '', 'as' => 'ate'],
-        'companyId' => ['except' => '', 'as' => 'emp'],
+        'selectedCompany' => ['except' => '', 'as' => 'empresa'],
+        'preset'          => ['except' => 'year', 'as' => 'periodo'],
+        'dt_in'           => ['except' => '', 'as' => 'dtin'],
+        'dt_out'          => ['except' => '', 'as' => 'dtout'],
     ];
 
     public function mount(): void
     {
-        $this->dt_in  = $this->dt_in ?: substr(OvStatusHistoryService::FLOOR, 0, 10);
-        $this->dt_out = $this->dt_out ?: now()->toDateString();
-    }
+        abort_unless(auth()->user()?->can('management'), 403);
 
-    public function updated(): void
-    {
-        foreach ($this->phases() as $phase) {
-            $this->dispatchBrowserEvent('grafico-atualizar-pd_' . $phase['phase'], $phase['chart']);
+        Carbon::setLocale('pt_BR');
+
+        if ($this->preset !== 'custom' || !$this->dt_in || !$this->dt_out) {
+            $this->applyPreset($this->preset);
         }
     }
 
-    public function getCompaniesProperty()
+    public function hydrate(): void
     {
-        return Company::query()
-            ->whereIn('id', OvPhaseDuration::query()->whereNotNull('company_id')->select('company_id'))
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        Carbon::setLocale('pt_BR');
+        abort_unless(auth()->user()?->can('management'), 403);
     }
 
-    /**
-     * @return array<int,array<string,mixed>> fases do ProjectDeadlineAnalytics, cada uma com o gráfico da tela
-     */
-    protected function phases(): array
+    public function setPreset(string $preset): void
     {
-        $report = app(ProjectDeadlineAnalytics::class)->report($this->filters(), withDetail: false);
-
-        return array_map(fn (array $phase) => $phase + ['chart' => $this->buildChart($phase['phase'], $phase['months'])], $report['phases']);
+        $this->applyPreset($preset);
+        $this->refreshCharts();
     }
 
-    /** @return array{from:?string,to:?string,company:?string} */
-    protected function filters(): array
+    public function updatedDtIn(): void
     {
-        return ['from' => $this->dt_in, 'to' => $this->dt_out, 'company' => $this->companyId];
+        $this->preset = 'custom';
+        $this->refreshCharts();
     }
 
-    public function bandLabels(int $phase): array
+    public function updatedDtOut(): void
     {
-        return ProjectDeadlineAnalytics::bandLabels($phase);
+        $this->preset = 'custom';
+        $this->refreshCharts();
     }
 
-    public function monthLabel(string $ym): string
+    public function updatedSelectedCompany(): void
     {
-        [$year, $month] = explode('-', $ym);
-
-        return self::MONTHS[(int) $month - 1] . '-' . substr($year, 2);
+        $this->selectedCompany = $this->selectedCompany ?: null;
+        $this->refreshCharts();
     }
 
-    protected function buildChart(int $phase, array $months): array
+    /** Clique numa empresa da tabela: filtra o painel inteiro nela. */
+    public function focusCompany(string $companyId): void
     {
-        $colors   = ['#22c55e', '#9ca3af', '#0f4c5c', '#dc2626'];
-        $datasets = [];
+        $this->selectedCompany = $companyId;
+        $this->refreshCharts();
+    }
 
-        foreach ($this->bandLabels($phase) as $i => $label) {
-            $datasets[] = [
-                'type'            => 'bar',
-                'label'           => $label,
-                'data'            => array_map(fn ($m) => $m['bands'][$i], $months),
-                'backgroundColor' => $colors[$i],
-                'stack'           => 'faixas',
-                'yAxisID'         => 'y',
-            ];
-        }
-
-        $datasets[] = [
-            'type'            => 'line',
-            'label'           => '% aderência',
-            'data'            => array_column($months, 'adherence'),
-            'borderColor'     => '#1d4ed8',
-            'backgroundColor' => '#1d4ed8',
-            'borderWidth'     => 2,
-            'tension'         => 0.2,
-            'yAxisID'         => 'y1',
-        ];
-
-        return [
-            'type' => 'bar',
-            'data' => [
-                'labels'   => array_map(fn ($m) => $this->monthLabel($m['month']), $months),
-                'datasets' => $datasets,
-            ],
-            'options' => [
-                'responsive'          => true,
-                'maintainAspectRatio' => false,
-                'plugins'             => ['legend' => ['position' => 'bottom']],
-                'scales'              => [
-                    'x'  => ['stacked' => true],
-                    'y'  => ['stacked' => true, 'beginAtZero' => true, 'title' => ['display' => true, 'text' => 'OVs']],
-                    'y1' => [
-                        'position' => 'right',
-                        'min'      => 0,
-                        'max'      => 100,
-                        'grid'     => ['drawOnChartArea' => false],
-                        'title'    => ['display' => true, 'text' => '% aderência'],
-                    ],
-                ],
-            ],
-        ];
+    public function clearFilters(): void
+    {
+        $this->selectedCompany = null;
+        $this->refreshCharts();
     }
 
     public function exportToExcel(): void
     {
-        $filters = $this->filters();
-
         ProjectDeadlineExportJob::dispatch([
-            'company' => $filters['company'] ?: null,
-            'dt_init' => $filters['from'],
-            'dt_end'  => $filters['to'],
+            'company' => $this->selectedCompany,
+            'dt_init' => $this->dt_in,
+            'dt_end'  => $this->dt_out,
         ], auth()->id())
             ->onConnection((string) config('queue.channels.exports.connection', 'database'))
             ->onQueue((string) config('queue.channels.exports.queue', 'exports'));
@@ -146,10 +110,59 @@ class ProjectDeadlineDashboard extends Component
         ]);
     }
 
+    /** @return array<string,mixed> resultado do ProjectDeadlineAnalytics, calculado uma vez por requisição */
+    public function getSnapshotProperty(): array
+    {
+        return app(ProjectDeadlineAnalytics::class)->report($this->filters(), withDetail: false);
+    }
+
+    public function getCompanyListProperty()
+    {
+        return Company::query()
+            ->whereIn('id', OvPhaseDuration::query()->whereNotNull('company_id')->select('company_id'))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+    }
+
     public function render()
     {
+        $snapshot = $this->snapshot;
+
         return view('livewire.reports.project-deadline-dashboard', [
-            'phases' => $this->phases(),
+            'snapshot'    => $snapshot,
+            'charts'      => ProjectDeadlineCharts::all($snapshot),
+            'companyList' => $this->companyList,
+            'hasFilters'  => (bool) $this->selectedCompany,
+            'greeting'    => now()->translatedFormat('l, d \d\e F'),
         ]);
+    }
+
+    /** @return array{company: ?string, from: ?string, to: ?string} */
+    private function filters(): array
+    {
+        return ['company' => $this->selectedCompany, 'from' => $this->dt_in, 'to' => $this->dt_out];
+    }
+
+    private function applyPreset(string $preset): void
+    {
+        $today = now();
+        $floor = Carbon::parse(OvStatusHistoryService::FLOOR);
+
+        [$from, $to] = match ($preset) {
+            '90d'   => [$today->copy()->subDays(89), $today],
+            'month' => [$today->copy()->startOfMonth(), $today],
+            'prev'  => [$today->copy()->subMonthNoOverflow()->startOfMonth(), $today->copy()->subMonthNoOverflow()->endOfMonth()],
+            default => [$floor, $today],
+        };
+
+        $this->preset = array_key_exists($preset, self::PRESETS) ? $preset : 'year';
+        $this->dt_in  = max($from, $floor)->toDateString();
+        $this->dt_out = $to->toDateString();
+    }
+
+    /** Envia os gráficos novos; o JS atualiza cada dataset in-place (sem recriar o gráfico). */
+    private function refreshCharts(): void
+    {
+        $this->dispatchBrowserEvent('my-panel:charts', ['charts' => ProjectDeadlineCharts::all($this->snapshot)]);
     }
 }

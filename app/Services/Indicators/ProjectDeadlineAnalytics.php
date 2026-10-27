@@ -2,10 +2,10 @@
 
 namespace App\Services\Indicators;
 
-use App\Models\OvPhaseDuration;
+use App\Models\{Note, OvPhaseDuration};
 use App\Services\Notes\OvStatusHistoryService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{Cache, DB};
 
 /**
  * Dados da tela e do Excel "Prazo de Projetos": aderência por fase (levantamento 27, desenho 28), por empresa e a lista completa.
@@ -17,6 +17,9 @@ class ProjectDeadlineAnalytics
         OvPhaseDuration::SURVEY => 'Levantamento',
         OvPhaseDuration::DESIGN => 'Desenho',
     ];
+
+    /** Meta do TMEP (levantamento + desenho + PA), em dias. */
+    public const TMEP_TARGET = 17;
 
     /** Máximo de linhas da lista completa (o Excel avisa quando corta). */
     public const DETAIL_LIMIT = 50000;
@@ -80,6 +83,8 @@ class ProjectDeadlineAnalytics
             'filters'      => $f,
             'generated_at' => now(),
             'phases'       => $phases,
+            'tmep'         => $this->tmep($phases),
+            'status_now'   => $this->statusNow(),
             'companies'    => $this->companies($f),
             'detail'       => [],
             'truncated'    => false,
@@ -92,6 +97,52 @@ class ProjectDeadlineAnalytics
         }
 
         return $report;
+    }
+
+    /**
+     * TMEP por mês de término: média de dias do levantamento + média de dias do desenho. `average` é o TMEP do período todo.
+     *
+     * @param  array<int,array<string,mixed>>  $phases
+     * @return array{months:array<int,array{month:string,survey:float,design:float,total:float}>,average:float,target:int}
+     */
+    private function tmep(array $phases): array
+    {
+        $survey = collect($phases[OvPhaseDuration::SURVEY]['months'])->keyBy('month');
+        $design = collect($phases[OvPhaseDuration::DESIGN]['months'])->keyBy('month');
+
+        $months = $survey->keys()->merge($design->keys())->unique()->sort()->values()->map(function (string $month) use ($survey, $design) {
+            $s = (float) ($survey[$month]['avg_days'] ?? 0);
+            $d = (float) ($design[$month]['avg_days'] ?? 0);
+
+            return ['month' => $month, 'survey' => $s, 'design' => $d, 'total' => round($s + $d, 2)];
+        })->all();
+
+        return [
+            'months'  => $months,
+            'average' => round($phases[OvPhaseDuration::SURVEY]['summary']['avg_days'] + $phases[OvPhaseDuration::DESIGN]['summary']['avg_days'], 2),
+            'target'  => self::TMEP_TARGET,
+        ];
+    }
+
+    /**
+     * Retrato de agora: OVs em levantamento (27) e desenho (28). Não depende dos filtros; fica em cache curto (notes é grande).
+     *
+     * @return array{s27:int,s28:int,total:int}
+     */
+    private function statusNow(): array
+    {
+        $counts = Cache::remember('project_deadline:status_now', 600, fn () => Note::query()
+            ->where('type_note', 2)
+            ->whereIn('nstats', ['27', '28'])
+            ->selectRaw('nstats, COUNT(*) as total')
+            ->groupBy('nstats')
+            ->pluck('total', 'nstats')
+            ->all());
+
+        $s27 = (int) ($counts['27'] ?? 0);
+        $s28 = (int) ($counts['28'] ?? 0);
+
+        return ['s27' => $s27, 's28' => $s28, 'total' => $s27 + $s28];
     }
 
     /** @return array<int,string> */
@@ -140,6 +191,7 @@ class ProjectDeadlineAnalytics
 
         foreach ($rows as $r) {
             $key                        = $r->company_id ?? '-';
+            $byCompany[$key]['id']      = $r->company_id;
             $byCompany[$key]['name']    = $r->company;
             $byCompany[$key][$r->phase] = [
                 'total'     => (int) $r->total,

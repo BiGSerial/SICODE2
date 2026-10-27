@@ -1,122 +1,309 @@
-<div class="pd-page">
-    <x-show-loading />
+@php
+    use App\Http\Livewire\Reports\ProjectDeadlineDashboard as Screen;
+    use App\Models\OvPhaseDuration;
+    use App\Services\Indicators\ProjectDeadlineCharts;
 
-    @push('css')
-        <style>
-            .pd-page { padding: 1rem 0; }
-            .pd-header { background: linear-gradient(120deg, #0f172a, #0f766e 70%); color: #f8fafc; border-radius: 1rem; padding: 1.4rem 2rem; margin-bottom: 1.2rem; }
-            .pd-header h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
-            .pd-card { background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, .08); margin-bottom: 1.2rem; }
-            .pd-card-head { padding: .9rem 1.2rem; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
-            .pd-card-body { padding: 1rem 1.2rem; }
-            .pd-chart { height: 340px; }
-            .pd-kpi-label { text-transform: uppercase; font-size: .72rem; letter-spacing: .06em; color: #6c757d; font-weight: 600; }
-            .pd-kpi-value { font-size: 1.7rem; font-weight: 700; color: #1f2937; }
-            .pd-table th, .pd-table td { text-align: center; white-space: nowrap; }
-            @media print {
-                #sidebar, #header, .no-print, .breadcrumb { display: none !important; }
-                #main { margin: 0 !important; padding: 0 !important; }
-                .pd-card { box-shadow: none; border: 1px solid #d1d5db; break-inside: avoid; }
-                .pd-header { background: #0f172a !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                canvas { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-            }
-        </style>
-    @endpush
+    $survey   = $snapshot['phases'][OvPhaseDuration::SURVEY];
+    $design   = $snapshot['phases'][OvPhaseDuration::DESIGN];
+    $tmep     = $snapshot['tmep'];
+    $now      = $snapshot['status_now'];
+    $filters  = $snapshot['filters'];
+    $period   = $filters['from']->format('d/m/Y') . ' a ' . $filters['to']->format('d/m/Y');
+    $hasData  = $survey['summary']['total'] + $design['summary']['total'] > 0;
+    $dec      = fn (?float $v, int $d = 1) => $v === null ? '—' : number_format($v, $d, ',', '.');
+    $int      = fn ($v) => number_format((int) $v, 0, ',', '.');
+    $label    = fn (string $ym) => ProjectDeadlineCharts::monthLabel($ym);
+    $monthsOf = fn (array $phase) => array_map(fn ($m) => $label($m['month']), $phase['months']);
 
-    <div class="pd-header">
-        <h1>Prazo de Projetos</h1>
-        <div class="small opacity-75">
-            Aderência de levantamento (status 27) e desenho (status 28) · fases concluídas de
-            {{ \Carbon\Carbon::parse($dt_in)->format('d/m/Y') }} a {{ \Carbon\Carbon::parse($dt_out)->format('d/m/Y') }}
+    // OVs em status de projeto agora
+    $nowMax  = max(1, $now['s27'], $now['s28']);
+    $nowRows = [
+        ['label' => 'Status 27 · levantamento', 'text' => $int($now['s27']), 'pct' => $now['s27'] / $nowMax * 100, 'tone' => 'blue'],
+        ['label' => 'Status 28 · desenho', 'text' => $int($now['s28']), 'pct' => $now['s28'] / $nowMax * 100, 'tone' => 'teal'],
+    ];
+
+    // TMEP por fase (barras)
+    $tmepMax  = max(1, $survey['summary']['avg_days'], $design['summary']['avg_days'], $tmep['target']);
+    $tmepRows = [
+        ['label' => 'Levantamento', 'text' => $dec($survey['summary']['avg_days'], 2) . ' dias', 'pct' => $survey['summary']['avg_days'] / $tmepMax * 100, 'mark' => $survey['limit'] / $tmepMax * 100, 'tone' => 'blue', 'sub' => 'Prazo de ' . $survey['limit'] . ' dias'],
+        ['label' => 'Desenho', 'text' => $dec($design['summary']['avg_days'], 2) . ' dias', 'pct' => $design['summary']['avg_days'] / $tmepMax * 100, 'mark' => $design['limit'] / $tmepMax * 100, 'tone' => 'teal', 'sub' => 'Prazo de ' . $design['limit'] . ' dias'],
+        ['label' => 'TMEP (levantamento + desenho)', 'text' => $dec($tmep['average'], 2) . ' dias', 'pct' => $tmep['average'] / $tmepMax * 100, 'mark' => $tmep['target'] / $tmepMax * 100, 'tone' => $tmep['average'] <= $tmep['target'] ? 'green' : 'red', 'sub' => 'Meta de ' . $tmep['target'] . ' dias'],
+    ];
+
+    $tmepGap = $tmep['average'] - $tmep['target'];
+    $maxCompanyOvs = max(1, collect($snapshot['companies'])->map(fn ($c) => ($c[OvPhaseDuration::SURVEY]['total'] ?? 0) + ($c[OvPhaseDuration::DESIGN]['total'] ?? 0))->max() ?? 1);
+
+    $phaseBlocks = [
+        ['key' => 'survey', 'phase' => $survey, 'icon' => 'ri-map-pin-range-line'],
+        ['key' => 'design', 'phase' => $design, 'icon' => 'ri-ruler-2-line'],
+    ];
+@endphp
+
+<div class="closure-dash my-panel">
+
+    {{-- Hero --}}
+    <header class="mp-hero">
+        <div class="mp-hero-text">
+            <div class="mp-eyebrow">{{ $greeting }}</div>
+            <h1 class="mp-hero-title">Prazo de Projetos</h1>
+            <p class="mp-hero-sub">Aderência de prazo do levantamento (status 27) e do desenho (status 28), o TMEP contra a meta de {{ $tmep['target'] }} dias e quem executa. Por mês de término da fase.</p>
         </div>
-    </div>
+        <div class="mp-hero-actions">
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel" title="Excel completo do relatório, com uma aba por bloco, nos filtros atuais">
+                <i class="ri-file-excel-2-line"></i> Exportar Excel
+            </button>
+        </div>
+    </header>
 
-    <div class="pd-card no-print">
-        <div class="pd-card-body row g-3 align-items-end">
-            <div class="col-6 col-md-3">
-                <label class="form-label">Término da fase — de</label>
-                <input type="date" class="form-control" wire:model.lazy="dt_in" min="2026-01-01">
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label">até</label>
-                <input type="date" class="form-control" wire:model.lazy="dt_out" min="{{ $dt_in }}">
-            </div>
-            <div class="col-12 col-md-3">
-                <label class="form-label">Empresa executora</label>
-                <select class="form-select" wire:model="companyId">
-                    <option value="">Todas</option>
-                    @foreach ($this->companies as $company)
+    {{-- Filtros --}}
+    <section class="mp-filters filter-bar" aria-label="Filtros do relatório">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-4 col-xl-3">
+                <label class="form-label small mb-1" for="pd-company">Empresa executora</label>
+                <select id="pd-company" class="form-select form-select-sm" wire:model="selectedCompany">
+                    <option value="">Todas as empresas</option>
+                    @foreach ($companyList as $company)
                         <option value="{{ $company->id }}">{{ $company->name }}</option>
                     @endforeach
                 </select>
+                @if ($hasFilters)
+                    <button type="button" class="btn btn-link btn-sm p-0 mt-1" wire:click="clearFilters"><i class="ri-close-circle-line"></i> Limpar filtros</button>
+                @endif
             </div>
-            <div class="col-12 col-md-3 d-flex gap-2 justify-content-md-end">
-                <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
-                    <i class="bi bi-printer me-1"></i> Imprimir / PDF
-                </button>
-                <button type="button" class="btn btn-success" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel">
-                    <i class="bi bi-file-earmark-excel me-1"></i> Excel
-                </button>
+            <div class="col-12 col-xl-5">
+                <span class="form-label small d-block mb-1">Período (término da fase)</span>
+                <div class="mp-presets" role="group" aria-label="Períodos rápidos">
+                    @foreach (Screen::PRESETS as $key => $presetLabel)
+                        <button type="button" class="mp-preset {{ $preset === $key ? 'is-active' : '' }}" wire:click="setPreset('{{ $key }}')" aria-pressed="{{ $preset === $key ? 'true' : 'false' }}">{{ $presetLabel }}</button>
+                    @endforeach
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <label class="form-label small mb-1" for="pd-from">De</label>
+                <input id="pd-from" type="date" class="form-control form-control-sm" wire:model.lazy="dt_in" min="{{ substr(\App\Services\Notes\OvStatusHistoryService::FLOOR, 0, 10) }}" max="{{ now()->toDateString() }}">
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <label class="form-label small mb-1" for="pd-to">Até</label>
+                <input id="pd-to" type="date" class="form-control form-control-sm" wire:model.lazy="dt_out" max="{{ now()->toDateString() }}">
+            </div>
+        </div>
+        <div class="mp-period-note" wire:loading.class="is-loading-soft">
+            Período exibido: <strong>{{ $period }}</strong>. Só o ano corrente, em dias corridos. "OVs em projeto agora" mostra sempre a situação de agora, sem filtro de empresa.
+        </div>
+    </section>
+
+    @if (!$hasData)
+        <section class="mp-panel mb-3">
+            <x-closure.empty-state icon="ri-inbox-line" title="Nenhuma fase concluída nos filtros atuais" text="Amplie o período ou limpe o filtro de empresa. Se for a primeira vez, o histórico precisa ter sido carregado (sicode:backfill_ov_history)." />
+        </section>
+    @endif
+
+    <div wire:loading.class="is-loading-soft" wire:target="selectedCompany,setPreset,dt_in,dt_out,focusCompany,clearFilters">
+
+        <h2 class="mp-section-title">Painel executivo</h2>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="green" icon="ri-map-pin-range-line" label="Aderência · levantamento" :value="$dec($survey['summary']['adherence']) . '%'"
+                    :note="$int($survey['summary']['total']) . ' OVs · média ' . $dec($survey['summary']['avg_days'], 2) . ' dias · prazo ' . $survey['limit'] . ' dias'"
+                    :values="array_column($survey['months'], 'adherence')" :labels="$monthsOf($survey)" />
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="blue" icon="ri-ruler-2-line" label="Aderência · desenho" :value="$dec($design['summary']['adherence']) . '%'"
+                    :note="$int($design['summary']['total']) . ' OVs · média ' . $dec($design['summary']['avg_days'], 2) . ' dias · prazo ' . $design['limit'] . ' dias'"
+                    :values="array_column($design['months'], 'adherence')" :labels="$monthsOf($design)" />
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="{{ $tmepGap <= 0 ? 'green' : 'amber' }}" icon="ri-timer-flash-line" label="TMEP no período" :value="$dec($tmep['average'], 2) . ' d'"
+                    :note="($tmepGap <= 0 ? 'Dentro da meta de ' : 'Acima da meta de ') . $tmep['target'] . ' dias (' . ($tmepGap > 0 ? '+' : '') . $dec($tmepGap, 2) . ' d)'"
+                    :values="array_column($tmep['months'], 'total')" :labels="array_map($label, array_column($tmep['months'], 'month'))" />
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="red" icon="ri-folder-open-line" label="OVs em projeto agora" :value="$int($now['total'])"
+                    :note="'Levantamento (27): ' . $int($now['s27']) . ' · Desenho (28): ' . $int($now['s28'])"
+                    :values="[$now['s27'], $now['s28']]" :labels="['Status 27', 'Status 28']" />
+            </div>
+        </div>
+
+        <h2 class="mp-section-title">Aderência ao prazo</h2>
+
+        <div class="row g-3 mb-3">
+            @foreach ($phaseBlocks as $block)
+                @php($p = $block['phase'])
+                <div class="col-12 col-xl-6">
+                    <section class="mp-panel h-100" aria-labelledby="pd-{{ $block['key'] }}-title">
+                        <div class="mp-panel-head">
+                            <div>
+                                <h3 id="pd-{{ $block['key'] }}-title" class="mp-panel-title">Faixa de dias · {{ $p['label'] }}</h3>
+                                <div class="mp-panel-sub">OVs concluídas por mês e faixa de dias; a linha é a % dentro do prazo de {{ $p['limit'] }} dias.</div>
+                            </div>
+                            <span class="mp-pill">{{ $dec($p['summary']['adherence']) }}% no prazo</span>
+                        </div>
+                        <div class="mp-chart-wrap">
+                            <div class="mp-chart mp-chart-tall" wire:ignore>
+                                <canvas data-my-panel-chart="{{ $block['key'] }}" data-config="{{ json_encode($charts[$block['key']]) }}" role="img" aria-label="Barras empilhadas: OVs de {{ strtolower($p['label']) }} concluídas por mês e faixa de dias, com a linha de aderência ao prazo"></canvas>
+                            </div>
+                            @if ($p['summary']['total'] === 0)
+                                <div class="mp-chart-empty">Nenhuma fase concluída</div>
+                            @endif
+                        </div>
+                        <details class="mp-table-toggle">
+                            <summary>Ver como tabela</summary>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0 mp-table">
+                                    <caption class="visually-hidden">{{ $p['label'] }}: OVs por mês e faixa de dias</caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col">Mês</th>
+                                            <th scope="col" class="text-end">OVs</th>
+                                            @foreach ($p['labels'] as $bandLabel)
+                                                <th scope="col" class="text-end">{{ $bandLabel }}</th>
+                                            @endforeach
+                                            <th scope="col" class="text-end">% no prazo</th>
+                                            <th scope="col" class="text-end">Média</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($p['months'] as $m)
+                                            <tr>
+                                                <td>{{ $label($m['month']) }}</td>
+                                                <td class="text-end">{{ $int($m['total']) }}</td>
+                                                @foreach ($m['bands'] as $band)
+                                                    <td class="text-end">{{ $int($band) }}</td>
+                                                @endforeach
+                                                <td class="text-end fw-bold">{{ $dec($m['adherence']) }}%</td>
+                                                <td class="text-end">{{ $dec($m['avg_days'], 2) }} d</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                    </section>
+                </div>
+            @endforeach
+        </div>
+
+        <h2 class="mp-section-title">TMEP e situação de agora</h2>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-xl-8">
+                <section class="mp-panel h-100">
+                    <div class="mp-panel-head">
+                        <div>
+                            <h3 class="mp-panel-title">TMEP mensal</h3>
+                            <div class="mp-panel-sub">Média de dias do levantamento + do desenho, por mês de término, contra a meta de {{ $tmep['target'] }} dias (linha tracejada).</div>
+                        </div>
+                        <span class="mp-pill">Meta {{ $tmep['target'] }} dias</span>
+                    </div>
+                    <div class="mp-chart-wrap">
+                        <div class="mp-chart mp-chart-tall" wire:ignore>
+                            <canvas data-my-panel-chart="tmep" data-config="{{ json_encode($charts['tmep']) }}" role="img" aria-label="Barras empilhadas: média de dias do levantamento e do desenho por mês, com a linha do TMEP e a meta de {{ $tmep['target'] }} dias"></canvas>
+                        </div>
+                        @if (!$hasData)
+                            <div class="mp-chart-empty">Sem fases concluídas</div>
+                        @endif
+                    </div>
+                </section>
+            </div>
+            <div class="col-12 col-xl-4">
+                <div class="row g-3 h-100">
+                    <div class="col-12">
+                        <section class="mp-panel h-100">
+                            <div class="mp-panel-head"><div><h3 class="mp-panel-title">OVs em status de projeto</h3><div class="mp-panel-sub">Situação de agora</div></div></div>
+                            <div class="mp-panel-body">
+                                <x-home.bar-list :rows="$nowRows" caption="OVs em status de projeto agora" :headers="['Status', 'OVs', '']" empty="Nenhuma OV em projeto" />
+                            </div>
+                        </section>
+                    </div>
+                    <div class="col-12">
+                        <section class="mp-panel h-100">
+                            <div class="mp-panel-head"><div><h3 class="mp-panel-title">Tempo médio × prazo</h3><div class="mp-panel-sub">O traço marca o prazo de cada fase e a meta do TMEP</div></div></div>
+                            <div class="mp-panel-body">
+                                <x-home.bar-list :rows="$tmepRows" caption="Tempo médio por fase" :headers="['Fase', 'Média', 'Detalhe']" empty="Sem fases concluídas" />
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <h2 class="mp-section-title">Quem executa</h2>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-xl-5">
+                <section class="mp-panel h-100">
+                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Aderência por empresa</h3><div class="mp-panel-sub">As {{ ProjectDeadlineCharts::TOP }} empresas com mais OVs; % dentro do prazo em cada fase</div></div></div>
+                    <div class="mp-chart-wrap">
+                        <div class="mp-chart mp-chart-tall" wire:ignore>
+                            <canvas data-my-panel-chart="companies" data-config="{{ json_encode($charts['companies']) }}" role="img" aria-label="Barras horizontais: percentual de aderência ao prazo do levantamento e do desenho por empresa"></canvas>
+                        </div>
+                        @if (count($snapshot['companies']) === 0)
+                            <div class="mp-chart-empty">Sem empresas no período</div>
+                        @endif
+                    </div>
+                </section>
+            </div>
+            <div class="col-12 col-xl-7">
+                <section class="mp-panel h-100" aria-labelledby="pd-companies-title">
+                    <div class="mp-panel-head">
+                        <div>
+                            <h3 id="pd-companies-title" class="mp-panel-title">Empresas executoras</h3>
+                            <div class="mp-panel-sub">Fases concluídas em {{ $period }}. Clique no nome para filtrar o relatório. "Sem empresa" são fases sem produção concluída vinculada.</div>
+                        </div>
+                        <span class="mp-pill">{{ count($snapshot['companies']) }} {{ count($snapshot['companies']) === 1 ? 'empresa' : 'empresas' }}</span>
+                    </div>
+                    @if (count($snapshot['companies']) === 0)
+                        <x-closure.empty-state icon="ri-building-line" title="Nenhuma empresa no recorte" text="Amplie o período ou limpe o filtro." />
+                    @else
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0 mp-table">
+                                <colgroup>
+                                    <col class="col-pct-28"><col class="col-pct-12"><col class="col-pct-12"><col class="col-pct-12"><col class="col-pct-12"><col class="col-pct-12"><col>
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Empresa</th>
+                                        <th scope="col" class="text-end">Lev. OVs</th>
+                                        <th scope="col" class="text-end">Lev. no prazo</th>
+                                        <th scope="col" class="text-end">Lev. média</th>
+                                        <th scope="col" class="text-end">Des. OVs</th>
+                                        <th scope="col" class="text-end">Des. no prazo</th>
+                                        <th scope="col" class="text-end">Des. média</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($snapshot['companies'] as $c)
+                                        @php($lev = $c[OvPhaseDuration::SURVEY] ?? null)
+                                        @php($des = $c[OvPhaseDuration::DESIGN] ?? null)
+                                        <tr wire:key="company-{{ $c['id'] ?? 'none' }}">
+                                            <td>
+                                                @if ($c['id'])
+                                                    <button type="button" class="btn btn-link p-0 mp-link text-start fw-bold" wire:click="focusCompany('{{ $c['id'] }}')" title="Filtrar o relatório nesta empresa">{{ $c['name'] }}</button>
+                                                @else
+                                                    <span class="fw-bold text-muted">{{ $c['name'] }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end">{{ $lev ? $int($lev['total']) : '—' }}</td>
+                                            <td class="text-end fw-bold">{{ $lev ? $dec($lev['adherence']) . '%' : '—' }}</td>
+                                            <td class="text-end">{{ $lev ? $dec($lev['avg_days'], 2) . ' d' : '—' }}</td>
+                                            <td class="text-end">{{ $des ? $int($des['total']) : '—' }}</td>
+                                            <td class="text-end fw-bold">{{ $des ? $dec($des['adherence']) . '%' : '—' }}</td>
+                                            <td class="text-end">{{ $des ? $dec($des['avg_days'], 2) . ' d' : '—' }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </section>
             </div>
         </div>
     </div>
-
-    @foreach ($phases as $phase)
-        <div class="pd-card">
-            <div class="pd-card-head">
-                <h5 class="mb-0">{{ $phase['label'] }} <small class="text-muted">· prazo de {{ $phase['limit'] }} dias</small></h5>
-            </div>
-            <div class="pd-card-body">
-                <div class="row g-3 mb-3">
-                    <div class="col-4">
-                        <div class="pd-kpi-label">OVs concluídas</div>
-                        <div class="pd-kpi-value">{{ number_format($phase['summary']['total'], 0, ',', '.') }}</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="pd-kpi-label">Aderência ao prazo</div>
-                        <div class="pd-kpi-value">{{ number_format($phase['summary']['adherence'], 1, ',', '.') }}%</div>
-                    </div>
-                    <div class="col-4">
-                        <div class="pd-kpi-label">Média de dias</div>
-                        <div class="pd-kpi-value">{{ number_format($phase['summary']['avg_days'], 2, ',', '.') }}</div>
-                    </div>
-                </div>
-
-                <div class="pd-chart" wire:ignore>
-                    <x-grafico.apex :chart="$phase['chart']" chartId="pd_{{ $phase['phase'] }}" class="w-100" />
-                </div>
-
-                <div class="table-responsive mt-3">
-                    <table class="table table-sm table-striped pd-table mb-0">
-                        <thead>
-                            <tr>
-                                <th>Mês</th>
-                                <th>Total</th>
-                                @foreach ($this->bandLabels($phase['phase']) as $label)
-                                    <th>{{ $label }}</th>
-                                @endforeach
-                                <th>% aderência</th>
-                                <th>Média (dias)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($phase['months'] as $m)
-                                <tr>
-                                    <td>{{ $this->monthLabel($m['month']) }}</td>
-                                    <td>{{ $m['total'] }}</td>
-                                    @foreach ($m['bands'] as $band)
-                                        <td>{{ $band }}</td>
-                                    @endforeach
-                                    <td class="fw-bold">{{ number_format($m['adherence'], 1, ',', '.') }}%</td>
-                                    <td>{{ number_format($m['avg_days'], 2, ',', '.') }}</td>
-                                </tr>
-                            @empty
-                                <tr><td colspan="7" class="text-muted">Sem fases concluídas no período.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    @endforeach
 </div>
+
+@once
+    @push('script')
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    @endpush
+@endonce
