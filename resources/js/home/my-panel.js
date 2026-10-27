@@ -7,7 +7,8 @@
 // escreve o valor dentro de cada faixa das barras empilhadas e o total acima da pilha (dataset.labelColor muda a cor do texto);
 // em datasets de linha, `showValues` escreve o valor sobre cada ponto (`decimals`, `valueSuffix`).
 
-const registry = (window.__myPanelCharts = window.__myPanelCharts || { instances: {}, bound: false, tries: 0, defaults: false });
+const registry = (window.__myPanelCharts = window.__myPanelCharts || { instances: {}, bound: false, tries: 0, defaults: false, plugins: [] });
+registry.plugins = registry.plugins || [];
 
 function readConfig(canvas) {
     try {
@@ -67,7 +68,7 @@ function setDefaults() {
     Chart.defaults.plugins.tooltip.titleFont = { weight: '700' };
     Chart.defaults.plugins.tooltip.boxPadding = 4;
 
-    Chart.register({
+    registry.plugins.push({
         id: 'mpBarLabels',
         afterDatasetsDraw(chart) {
             const config = chart.options.plugins && chart.options.plugins.mpBarLabels;
@@ -143,7 +144,7 @@ function setDefaults() {
         },
     });
 
-    Chart.register({
+    registry.plugins.push({
         id: 'mpCenter',
         afterDraw(chart) {
             const center = chart.options.plugins && chart.options.plugins.mpCenter;
@@ -190,7 +191,7 @@ function mount(canvas) {
 
     setDefaults();
     applyGradients(config);
-    registry.instances[id] = new window.Chart(canvas, { type: config.type, data: config.data, options: config.options });
+    registry.instances[id] = new window.Chart(canvas, { type: config.type, data: config.data, options: config.options, plugins: registry.plugins });
 }
 
 function syncInPlace(chart, next) {
@@ -275,3 +276,6 @@ if (document.readyState !== 'loading') {
 } else {
     document.addEventListener('DOMContentLoaded', mountAll);
 }
+
+// Depois do último script da página (inclusive o Chart.js do CDN): mount() não recria o que já foi montado.
+window.addEventListener('load', mountAll);
