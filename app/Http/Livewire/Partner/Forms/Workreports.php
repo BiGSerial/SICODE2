@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Partner\Forms;
 
-use App\Models\{Company, Note, Order, User, WorkReport};
+use App\Models\{Company, Note, Order, WorkReport};
 use App\Services\Partner\{BlockEvaluator, WorkReportBudgetGuard};
 use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Services\WorkReports\{FinalWorkReportCreationGuard, WorkReportAcceptanceSignature, WorkReportFinalScopeResolver};
@@ -452,6 +452,12 @@ class Workreports extends Component
             return;
         }
 
+        if ($openPartial = app(FinalWorkReportCreationGuard::class)->openPartialFor($this->note, $this->form['selected_final_scopes'])) {
+            $this->warnOpenPartial($openPartial);
+
+            return;
+        }
+
         $existingWorkReport = $this->activeWorkReportWithAnySelectedFinalScope($this->form['selected_final_scopes']);
 
         if ($existingWorkReport) {
@@ -596,18 +602,8 @@ class Workreports extends Component
                 $createdReports[] = $form;
             }
 
-            if ($this->hasPartial) {
-                $user = User::first();
-
-                $this->hasPartial->update([
-                    'complete'      => true,
-                    'allow'         => false,
-                    'deny'          => true,
-                    'engineer_id'   => $user->id,
-                    'decision_at'   => now(),
-                    'engineer_info' => 'Parcial cancelada automaticamente devido a entrada do informe final. (System Info)',
-                ]);
-            }
+            // Parcial ainda em aprovação do engenheiro no mesmo escopo é cancelada pelo Final.
+            app(FinalWorkReportCreationGuard::class)->cancelPendingPartialsFor($this->note, $creationScopes);
 
             DB::commit();
 
@@ -1489,15 +1485,8 @@ class Workreports extends Component
             return false;
         }
 
-        $openPartial = app(FinalWorkReportCreationGuard::class)->openPartialFor($note);
-
-        if ($openPartial) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'PARCIAL EM ANDAMENTO',
-                'html'     => 'Não é permitido criar um informe final enquanto existir uma parcial em andamento para esta obra.',
-            ]);
+        if ($openPartial = app(FinalWorkReportCreationGuard::class)->openPartialCoveringAllScopes($note)) {
+            $this->warnOpenPartial($openPartial);
 
             return false;
         }
@@ -1520,6 +1509,18 @@ class Workreports extends Component
         }
 
         return true;
+    }
+
+    protected function warnOpenPartial(\App\Models\Partial $partial): void
+    {
+        $label = app(\App\Services\Partner\PartialScopeAvailabilityService::class)->label($partial->scope ?: WorkReportFinalScopeResolver::SCOPE_GENERAL);
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'PARCIAL EM ANDAMENTO',
+            'html'     => "Existe a Parcial #{$partial->id} ({$label}) em andamento neste escopo. Solicite o cancelamento do informe parcial antes de informar o final.",
+        ]);
     }
 
     protected function requiresAsbuiltForSubmit(): bool

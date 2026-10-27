@@ -1290,9 +1290,13 @@ class Main extends Component
                 })
                 ->values();
 
+            // Informes (Final e Parcial) são independentes: cada Parcial em
+            // medição gera a própria linha, coexistindo com a do Informe Final.
+            $partialRows = $this->partialPaymentRows($note);
+
             if ($eligibleWorkForms->isEmpty()) {
                 if ($workForms->isNotEmpty() && !$note->FiveNote?->needsPaymentAction()) {
-                    return [];
+                    return $partialRows->all();
                 }
 
                 $note->setAttribute('payment_context_key', (string) $note->id);
@@ -1302,27 +1306,9 @@ class Main extends Component
                     $note->setAttribute('dispatch_five_note_id', (int) $note->FiveNote->id);
                 }
 
-                $partial = $note->relationLoaded('Partials')
-                    ? $note->Partials
-                        ->where('allow', true)
-                        ->where('deny', false)
-                        ->where('supervision', true)
-                        ->where('payment', false)
-                        ->sortByDesc(fn ($item) => [$item->created_at?->timestamp ?? 0, $item->id])
-                        ->first()
-                    : null;
-
-                if ($partial) {
-                    $row = clone $note;
-                    $row->setAttribute('payment_context_key', $note->id . ':0:p' . $partial->id);
-                    $row->setAttribute('dispatch_partial_id', (int) $partial->id);
-                    // Parcial não tem D5: não herdar a D5 sem informe da Nota.
-                    $row->setRelation('FiveNote', null);
-
-                    return [$row];
-                }
-
-                return [$note];
+                return $partialRows->isNotEmpty()
+                    ? $partialRows->all()
+                    : [$note];
             }
 
             $informeRows = $eligibleWorkForms->map(function ($workForm) use ($note) {
@@ -1353,8 +1339,37 @@ class Main extends Component
                 $informeRows = collect([$legacyRow])->concat($informeRows);
             }
 
-            return $informeRows;
+            return $informeRows->concat($partialRows);
         })->values();
+    }
+
+    /**
+     * Uma linha por Parcial em medição. Parcial não tem D5 nem Informe Final:
+     * não herda a D5 nem o WorkForm da Nota.
+     */
+    private function partialPaymentRows(Note $note): \Illuminate\Support\Collection
+    {
+        if (!$note->relationLoaded('Partials')) {
+            return collect();
+        }
+
+        return $note->Partials
+            ->where('allow', true)
+            ->where('deny', false)
+            ->where('supervision', true)
+            ->where('payment', false)
+            ->sortByDesc(fn ($item) => [$item->created_at?->timestamp ?? 0, $item->id])
+            ->map(function ($partial) use ($note) {
+                $row = clone $note;
+                $row->setAttribute('payment_context_key', $note->id . ':0:p' . $partial->id);
+                $row->setAttribute('dispatch_partial_id', (int) $partial->id);
+                $row->setRelation('FiveNote', null);
+                $row->setRelation('WorkForm', null);
+                $row->setRelation('WorkForms', collect());
+
+                return $row;
+            })
+            ->values();
     }
 
     private function workReportEligibleForPayment($workForm): bool
