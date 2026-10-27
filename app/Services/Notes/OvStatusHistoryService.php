@@ -99,6 +99,9 @@ class OvStatusHistoryService
             );
         }
 
+        // Fases 27/28 derivam do histórico; só as notas deste lote precisam ser recalculadas.
+        app(OvPhaseDurationService::class)->rebuildForNotes(array_unique(array_column($batch, 'note_id')));
+
         return ['written' => count($batch), 'skipped' => $skipped];
     }
 

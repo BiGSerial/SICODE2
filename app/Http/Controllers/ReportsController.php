@@ -99,6 +99,11 @@ class ReportsController extends Controller
         return view('reports.cancellation-dashboard');
     }
 
+    public function projectDeadlines()
+    {
+        return view('reports.project-deadlines');
+    }
+
     public function cancellationList()
     {
         return view('reports.cancellation-list');
