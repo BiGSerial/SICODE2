@@ -3,7 +3,6 @@
 namespace App\Console\Commands\Fix;
 
 use App\Models\Edp_depc\BaseOV;
-use App\Models\HistoricNote;
 use App\Models\Note;
 use Illuminate\Console\Command;
 use Illuminate\Support\Collection;
@@ -22,7 +21,7 @@ class fixBaseDestiny extends Command
     public function handle(): int
     {
         $status = $this->option('status');
-        $ov = $this->option('ov');
+        $ov     = $this->option('ov');
 
         if (!$status && !$ov) {
             $this->error('Informe --status=XX para diagnosticar/corrigir um status ou --ov=XXXX para corrigir uma OV.');
@@ -39,7 +38,7 @@ class fixBaseDestiny extends Command
 
     private function checkStatus(string $status): int
     {
-        $fix = (bool) $this->option('fix');
+        $fix         = (bool) $this->option('fix');
         $statusValue = ctype_digit($status) ? (int) $status : $status;
 
         $originOvs = BaseOV::query()
@@ -63,7 +62,7 @@ class fixBaseDestiny extends Command
             ->values();
 
         $missingInDestiny = $originOvs->diff($destinyOvs)->values();
-        $missingInOrigin = $destinyOvs->diff($originOvs)->values();
+        $missingInOrigin  = $destinyOvs->diff($originOvs)->values();
         $duplicateDestiny = $this->duplicateDestinyOvs($status);
 
         $this->info("Status {$status}");
@@ -83,9 +82,9 @@ class fixBaseDestiny extends Command
             return Command::SUCCESS;
         }
 
-        $updated = 0;
-        $created = 0;
-        $notFound = 0;
+        $updated          = 0;
+        $created          = 0;
+        $notFound         = 0;
         $candidateOrigins = $this->option('refresh')
             ? $originOvs
             : $missingInDestiny;
@@ -109,6 +108,7 @@ class fixBaseDestiny extends Command
 
             if (!$origin) {
                 $notFound++;
+
                 continue;
             }
 
@@ -147,7 +147,7 @@ class fixBaseDestiny extends Command
 
     private function applyOriginToDestiny(BaseOV $origin): string
     {
-        $ov = trim((string) $origin->OV);
+        $ov      = trim((string) $origin->OV);
         $destiny = Note::query()
             ->where('note', $ov)
             ->where('type_note', 2)
@@ -156,16 +156,6 @@ class fixBaseDestiny extends Command
         $data = $this->baseOvToNoteData($origin, $destiny?->lexp);
 
         if ($destiny) {
-            if ((string) $destiny->nstats !== (string) $origin->numStat) {
-                HistoricNote::query()->create([
-                    'note_id'  => $destiny->id,
-                    'old_date' => $destiny->dt_status,
-                    'old_stat' => $destiny->nstats,
-                    'new_date' => $origin->dhStat,
-                    'new_stat' => $origin->numStat,
-                ]);
-            }
-
             $destiny->update($data);
 
             return 'updated';
@@ -258,8 +248,8 @@ class fixBaseDestiny extends Command
             return;
         }
 
-        $limit = max((int) $this->option('limit'), 1);
-        $shown = $ovs->take($limit)->implode(', ');
+        $limit     = max((int) $this->option('limit'), 1);
+        $shown     = $ovs->take($limit)->implode(', ');
         $remaining = $ovs->count() - min($ovs->count(), $limit);
 
         $this->line("{$title}: {$shown}" . ($remaining > 0 ? " ... (+{$remaining})" : ''));

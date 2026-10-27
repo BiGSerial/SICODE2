@@ -2,17 +2,20 @@
 
 namespace App\Http\Livewire\Reports;
 
-use App\Models\Edp_depc\BaseOV;
-use App\Models\File;
-use App\Models\Note;
+use App\Models\{File, HistoricNote, Note};
+use App\Services\Notes\OvStatusHistoryService;
 use Livewire\Component;
 
 class Search extends Component
 {
     public $search = '';
+
     public $selectedFiles = [];
+
     public $historico = null;
+
     public $openServiceId = null;
+
     public bool $hasProtestOverview = false;
 
     /** @var \App\Models\Note|null */
@@ -23,7 +26,7 @@ class Search extends Component
     ];
 
     protected $listeners = [
-        'update_list'   => '$refresh',
+        'update_list' => '$refresh',
         'setOpenService',
     ];
 
@@ -112,7 +115,7 @@ class Search extends Component
                     $q->with([
                         'Orders:id,ordem',
                     ])->select([
-                        'id','note_id','scope','status','closed_at','created_at'
+                        'id', 'note_id', 'scope', 'status', 'closed_at', 'created_at',
                     ]);
                 },
 
@@ -127,9 +130,9 @@ class Search extends Component
                           'partialInforms:id',
                       ])
                       ->select([
-                          'id','note_id','service_id','user_id','company_id',
-                          'status','status_note','dispatch_at','att_at','completed_at',
-                          'stopped','manual','confirmed','d5','dfive','partial'
+                          'id', 'note_id', 'service_id', 'user_id', 'company_id',
+                          'status', 'status_note', 'dispatch_at', 'att_at', 'completed_at',
+                          'stopped', 'manual', 'confirmed', 'd5', 'dfive', 'partial',
                       ]);
                 },
 
@@ -148,11 +151,11 @@ class Search extends Component
                         'Files:id,file_name,original_name,path,disk,mime,size,sha256,noexists,ext,user_id,created_at,updated_at',
                         'Files.User:id,name',
                     ])->select([
-                        'id','note_id','user_id','engineer_id','company_id',
-                        'hired','tacit','hired_at','sended_at','returned_at',
-                        'approved','rejected','completed','canceled',
-                        'engineer','engineer_at','completed_at','status',
-                        'init_at','tacit_at','visible_partner','value',
+                        'id', 'note_id', 'user_id', 'engineer_id', 'company_id',
+                        'hired', 'tacit', 'hired_at', 'sended_at', 'returned_at',
+                        'approved', 'rejected', 'completed', 'canceled',
+                        'engineer', 'engineer_at', 'completed_at', 'status',
+                        'init_at', 'tacit_at', 'visible_partner', 'value',
                     ]);
                 },
 
@@ -186,10 +189,10 @@ class Search extends Component
                         },
                     ])
                     ->select([
-                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
-                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
-                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
-                        'selected_final_scopes'
+                        'id', 'note_id', 'company_id', 'user_id', 'team', 'responsible', 'date', 'created_at',
+                        'changes', 'rejected', 'informed_at', 'canceled', 'canceled_at', 'canceled_by',
+                        'acceptance_name', 'acceptance_accepted', 'acceptance_at', 'acceptance_meta',
+                        'selected_final_scopes',
                     ]);
                 },
 
@@ -218,10 +221,10 @@ class Search extends Component
                         },
                     ])
                     ->select([
-                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
-                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
-                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
-                        'selected_final_scopes'
+                        'id', 'note_id', 'company_id', 'user_id', 'team', 'responsible', 'date', 'created_at',
+                        'changes', 'rejected', 'informed_at', 'canceled', 'canceled_at', 'canceled_by',
+                        'acceptance_name', 'acceptance_accepted', 'acceptance_at', 'acceptance_meta',
+                        'selected_final_scopes',
                     ]);
                 },
 
@@ -250,10 +253,10 @@ class Search extends Component
                         },
                     ])
                     ->select([
-                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
-                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
-                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
-                        'selected_final_scopes'
+                        'id', 'note_id', 'company_id', 'user_id', 'team', 'responsible', 'date', 'created_at',
+                        'changes', 'rejected', 'informed_at', 'canceled', 'canceled_at', 'canceled_by',
+                        'acceptance_name', 'acceptance_accepted', 'acceptance_at', 'acceptance_meta',
+                        'selected_final_scopes',
                     ])
                     ->orderBy('created_at')
                     ->orderBy('id');
@@ -284,10 +287,10 @@ class Search extends Component
                         },
                     ])
                     ->select([
-                        'id','note_id','company_id','user_id','team','responsible','date','created_at',
-                        'changes','rejected','informed_at','canceled','canceled_at','canceled_by',
-                        'acceptance_name','acceptance_accepted','acceptance_at','acceptance_meta',
-                        'selected_final_scopes'
+                        'id', 'note_id', 'company_id', 'user_id', 'team', 'responsible', 'date', 'created_at',
+                        'changes', 'rejected', 'informed_at', 'canceled', 'canceled_at', 'canceled_by',
+                        'acceptance_name', 'acceptance_accepted', 'acceptance_at', 'acceptance_meta',
+                        'selected_final_scopes',
                     ])
                     ->orderBy('created_at')
                     ->orderBy('id');
@@ -304,7 +307,7 @@ class Search extends Component
 
                         'ReturnRamal:id,ramal_report_id,created_at',
                     ])->select([
-                        'id','note_id','company_id','user_id','created_at','rejected'
+                        'id', 'note_id', 'company_id', 'user_id', 'created_at', 'rejected',
                     ]);
                 },
 
@@ -313,7 +316,7 @@ class Search extends Component
                         'Orders:id,ordem',
                         'Company:id,name',
                     ])->select([
-                        'id','note_id','company_id','responsible','deny','allow','supervision','payment','complete','created_at'
+                        'id', 'note_id', 'company_id', 'responsible', 'deny', 'allow', 'supervision', 'payment', 'complete', 'created_at',
                     ]);
                 },
             ])
@@ -341,9 +344,18 @@ class Search extends Component
             return;
         }
 
-        $this->historico = BaseOV::where('OV', trim($this->lists->note))
-            ->orderBy('dhStat', 'DESC')
+        $read = fn () => HistoricNote::where('note_id', $this->lists->id)
+            ->orderByDesc('dt_stats')
+            ->orderByDesc('id_num')
             ->get();
+
+        $this->historico = $read();
+
+        // Sem registro local: puxa da origem, grava e relê.
+        if ($this->historico->isEmpty() && (int) $this->lists->type_note === 2) {
+            app(OvStatusHistoryService::class)->syncForOvs([$this->lists->note]);
+            $this->historico = $read();
+        }
     }
 
     /**
@@ -357,6 +369,7 @@ class Search extends Component
 
         $files = $this->lists->Files->filter(function ($f) use ($slug) {
             $service = $f->Service->service ?? 'Outros';
+
             return \Illuminate\Support\Str::slug($service) === $slug;
         });
 
@@ -377,6 +390,7 @@ class Search extends Component
         if (!$file) {
             return;
         }
+
         return redirect()->route('files.download', ['file' => $file->id]);
     }
 
@@ -384,6 +398,7 @@ class Search extends Component
     {
         if (!$this->lists) {
             $this->selectedFiles = [];
+
             return;
         }
 
@@ -395,6 +410,7 @@ class Search extends Component
 
         if ($ids->isEmpty()) {
             $this->selectedFiles = [];
+
             return;
         }
 
@@ -420,6 +436,7 @@ class Search extends Component
                 'title'    => 'NENHUM ARQUIVO SELECIONADO',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
@@ -437,6 +454,7 @@ class Search extends Component
                 'text'     => 'Atualize a lista de arquivos e selecione novamente.',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
@@ -457,12 +475,13 @@ class Search extends Component
                 'text'     => 'Atualize a lista de arquivos e selecione novamente.',
                 'timer'    => 5000,
             ]);
+
             return;
         }
 
         return redirect()->route('files.zip', [
-            'ids'  => implode(',', $selectedIds),
-            'note' => $this->lists->note,
+            'ids'     => implode(',', $selectedIds),
+            'note'    => $this->lists->note,
             'note_id' => (int) $this->lists->id,
         ]);
     }

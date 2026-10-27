@@ -4,11 +4,11 @@ namespace App\Console\Commands\Update;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
+use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV as Edp_depcBaseOV;
-use App\Models\{Bancoupdate, HistoricNote, Note};
+use App\Services\Notes\OvStatusHistoryService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use Throwable;
 
 class BaseOV extends Command
@@ -37,189 +37,201 @@ class BaseOV extends Command
         $log = null;
 
         try {
-        // Banner com fundo azul e texto branco
-        $this->line('<options=bold;fg=white;bg=blue> BaseOV </>');
+            // Banner com fundo azul e texto branco
+            $this->line('<options=bold;fg=white;bg=blue> BaseOV </>');
 
-        $chunkSize = 500;
+            $chunkSize = 500;
 
-        $log   = new RegistroJson('upd_baseOV', $this->options());
-        $count = ['ins' => 0, 'upd' => 0, 'tins' => 1, 'errors' => 0];
+            $log   = new RegistroJson('upd_baseOV', $this->options());
+            $count = ['ins' => 0, 'upd' => 0, 'tins' => 1, 'errors' => 0];
 
-        $days = max(0, (int) $this->option('days'));
+            $days = max(0, (int) $this->option('days'));
 
-        // O recorte operacional deve ser feito pelo contador da origem
-        // (diasNoStatus / days_stat), e não por dhStat. Assim detectamos
-        // alterações de days_left dentro da janela sem varrer toda a BaseOV.
-        $baseQuery = Edp_depcBaseOV::where('ultimoStatus', 1)
-            ->when(!$this->option('full'), fn ($q) => $q->where('diasNoStatus', '<=', $days))
-            ->when($this->option('prazos'), function ($q) {
-                $q->where('numStat', '<', 98)
-                    ->where(function ($query) {
-                        $query
-                            ->whereNull('considerarPrazo')
-                            ->orWhereRaw(
-                                "LOWER(LTRIM(RTRIM(considerarPrazo))) <> ?",
-                                ['expurgar']
-                            );
-                    });
-            });
+            // O recorte operacional deve ser feito pelo contador da origem
+            // (diasNoStatus / days_stat), e não por dhStat. Assim detectamos
+            // alterações de days_left dentro da janela sem varrer toda a BaseOV.
+            $baseQuery = Edp_depcBaseOV::where('ultimoStatus', 1)
+                ->when(!$this->option('full'), fn ($q) => $q->where('diasNoStatus', '<=', $days))
+                ->when($this->option('prazos'), function ($q) {
+                    $q->where('numStat', '<', 98)
+                        ->where(function ($query) {
+                            $query
+                                ->whereNull('considerarPrazo')
+                                ->orWhereRaw(
+                                    "LOWER(LTRIM(RTRIM(considerarPrazo))) <> ?",
+                                    ['expurgar']
+                                );
+                        });
+                });
 
-        // A barra avança por OV distinta, não por linha da origem.
-        $total = (clone $baseQuery)->distinct()->count('OV');
-        $log->setTotal($total);
+            // A barra avança por OV distinta, não por linha da origem.
+            $total = (clone $baseQuery)->distinct()->count('OV');
+            $log->setTotal($total);
 
-        $this->info("Starting BaseOV data transfer...(Source daysNoStatus <= {$days})");
-        $this->info('');
+            $this->info("Starting BaseOV data transfer...(Source daysNoStatus <= {$days})");
+            $this->info('');
 
-        // ProgressBar com tempo restante
-        $bar = $this->createProgressBar($total);
-        $bar->setFormat("%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%% (ETA: %remaining%)");
-        $bar->setMessage('start', 'message');
-        $bar->start();
+            // ProgressBar com tempo restante
+            $bar = $this->createProgressBar($total);
+            $bar->setFormat("%current%/%max% [%tins%][I: %ins%/U: %upd%] [%bar%] %percent%% (ETA: %remaining%)");
+            $bar->setMessage('start', 'message');
+            $bar->start();
 
-        // Processa OVs distintas para manter o total e o avanço da barra coerentes.
-        $ovQuery = (clone $baseQuery)
-            ->select('OV')
-            ->distinct()
-            ->orderBy('OV');
+            // Processa OVs distintas para manter o total e o avanço da barra coerentes.
+            $ovQuery = (clone $baseQuery)
+                ->select('OV')
+                ->distinct()
+                ->orderBy('OV');
 
-        $ovQuery->chunk($chunkSize, function ($ovRows) use ($baseQuery, $bar, &$count) {
-            $ovList = $ovRows->pluck('OV')->filter()->unique()->values();
+            $history = app(OvStatusHistoryService::class);
 
-            // Uma OV pode aparecer em mais de uma linha na origem. A consulta
-            // vem ordenada pela situação mais recente; se ela não trouxer
-            // prazo, aproveitamos a ocorrência mais recente que o possua.
-            $recordsByOv = (clone $baseQuery)
-                ->whereIn('OV', $ovList)
-                ->orderByDesc('dhStat')
-                ->orderByDesc('id')
-                ->get()
-                ->groupBy('OV');
+            $ovQuery->chunk($chunkSize, function ($ovRows) use ($baseQuery, $bar, $history, $log, &$count) {
+                $historyOvs = [];
+                $ovList     = $ovRows->pluck('OV')->filter()->unique()->values();
 
-            $existingNotes = Note::whereIn('note', $ovList)->get()->keyBy('note');
+                // Uma OV pode aparecer em mais de uma linha na origem. A consulta
+                // vem ordenada pela situação mais recente; se ela não trouxer
+                // prazo, aproveitamos a ocorrência mais recente que o possua.
+                $recordsByOv = (clone $baseQuery)
+                    ->whereIn('OV', $ovList)
+                    ->orderByDesc('dhStat')
+                    ->orderByDesc('id')
+                    ->get()
+                    ->groupBy('OV');
 
-            foreach ($ovList as $ov) {
-                $sourceRecords = $recordsByOv->get($ov, collect());
-                $record = $sourceRecords->first();
+                $existingNotes = Note::whereIn('note', $ovList)->get()->keyBy('note');
 
-                if ($record && !$this->hasSourceValue($record->diasPVencimento)) {
-                    $record = $sourceRecords->first(
-                        fn ($candidate) => $this->hasSourceValue($candidate->diasPVencimento)
-                    ) ?? $record;
-                }
+                foreach ($ovList as $ov) {
+                    $sourceRecords = $recordsByOv->get($ov, collect());
+                    $record        = $sourceRecords->first();
 
-                if (!$record) {
-                    $bar->advance();
-                    continue;
-                }
+                    if ($record && !$this->hasSourceValue($record->diasPVencimento)) {
+                        $record = $sourceRecords->first(
+                            fn ($candidate) => $this->hasSourceValue($candidate->diasPVencimento)
+                        ) ?? $record;
+                    }
 
-                $existing = $existingNotes->get($ov);
+                    if (!$record) {
+                        $bar->advance();
 
-                $nstatsDiverged = $existing
-                    && $this->hasSourceValue($record->numStat)
-                    && $this->valuesDiffer($existing->nstats, $record->numStat);
-                $daysLeftDiverged = $existing
-                    && $this->hasSourceValue($record->diasPVencimento)
-                    && $this->valuesDiffer($existing->days_left, $record->diasPVencimento);
+                        continue;
+                    }
 
-                $statusDateIsNewer = $existing
-                    && $this->sourceDateIsNewer($record->dhStat, $existing->dt_status);
+                    $existing = $existingNotes->get($ov);
 
-                $shouldUpdate = is_null($existing)
-                    || $statusDateIsNewer
-                    || $nstatsDiverged
-                    || $daysLeftDiverged
-                    || $this->option('full')
-                    || $this->option('force');
+                    $nstatsDiverged = $existing
+                        && $this->hasSourceValue($record->numStat)
+                        && $this->valuesDiffer($existing->nstats, $record->numStat);
+                    $daysLeftDiverged = $existing
+                        && $this->hasSourceValue($record->diasPVencimento)
+                        && $this->valuesDiffer($existing->days_left, $record->diasPVencimento);
 
-                if (!$shouldUpdate) {
+                    $statusDateIsNewer = $existing
+                        && $this->sourceDateIsNewer($record->dhStat, $existing->dt_status);
+
+                    $shouldUpdate = is_null($existing)
+                        || $statusDateIsNewer
+                        || $nstatsDiverged
+                        || $daysLeftDiverged
+                        || $this->option('full')
+                        || $this->option('force');
+
+                    if (!$shouldUpdate) {
+                        $bar->setMessage($count['tins'], 'tins');
+                        $bar->setMessage($count['ins'], 'ins');
+                        $bar->setMessage($count['upd'], 'upd');
+                        $bar->advance();
+
+                        continue;
+                    }
+
+                    // Só OVs novas ou com status/data novos vão ao histórico (days_left não).
+                    $needsHistory = is_null($existing)
+                        || $statusDateIsNewer
+                        || $nstatsDiverged
+                        || $this->option('force');
+
+                    $data = [
+                        'created_by'    => $record->criadoPor,
+                        'dt_created'    => "$record->dtCriacao $record->hrCriacao",
+                        'dt_status'     => $record->dhStat,
+                        'user'          => $record->usuario,
+                        'value'         => $record->valorLiq,
+                        'currency'      => $record->moeda,
+                        'eq_venda'      => $record->eqVenda,
+                        'numPedido'     => $record->numPedido,
+                        'client'        => $record->emissorOV,
+                        'group1'        => $record->grpCliente1,
+                        'group2'        => $record->grpCliente2,
+                        'group3'        => $record->grpCliente3,
+                        'group4'        => $record->grpCliente4,
+                        'group5'        => $record->grpCliente5,
+                        'pze'           => $record->PzE,
+                        'num_material'  => $record->numMaterial,
+                        'material'      => $record->material,
+                        'nexp'          => $record->numExp,
+                        'lexp'          => $record->localExp ?? $existing?->lexp,
+                        'pep'           => $record->PEP,
+                        'nstats'        => $record->numStat,
+                        'status'        => $record->status,
+                        'days'          => $record->dias,
+                        'transaction'   => $record->transicao,
+                        'validar_prazo' => $record->considerarPrazo,
+                        'rubrica'       => $record->rubrica,
+                        'pze_tratado'   => $record->PzETratado,
+                        'days_stat'     => $record->diasNoStatus,
+                        'pze_parecer'   => $record->parecerPrazo,
+                        'days_left'     => $record->diasPVencimento,
+                        'type_note'     => 2,
+                    ];
+
+                    if ($existing) {
+                        // Não substitui um valor existente quando a origem vier vazia.
+                        $data = array_filter($data, fn ($value) => $this->hasSourceValue($value));
+                        $existing->update($data);
+                        $count['upd']++;
+                    } else {
+                        $model = Note::create(array_merge(['note' => $ov], $data));
+                        $existingNotes->put($ov, $model);
+                        $count['ins']++;
+                    }
+
+                    if ($needsHistory) {
+                        $historyOvs[] = $ov;
+                    }
+
                     $bar->setMessage($count['tins'], 'tins');
                     $bar->setMessage($count['ins'], 'ins');
                     $bar->setMessage($count['upd'], 'upd');
                     $bar->advance();
-                    continue;
                 }
 
-                if ($existing && $existing->nstats != $record->numStat) {
-                    HistoricNote::create([
-                        'note_id'  => $existing->id,
-                        'old_date' => $existing->dt_status,
-                        'old_stat' => $existing->nstats,
-                        'new_date' => $record->dhStat,
-                        'new_stat' => $record->numStat,
-                    ]);
+                // Uma leitura na origem e um upsert em lote por chunk de OVs.
+                try {
+                    $history->syncForOvs($historyOvs);
+                } catch (Throwable $e) {
+                    $log->setErrorMessage('Histórico: ' . $e->getMessage());
                 }
 
-                $data = [
-                    'created_by'    => $record->criadoPor,
-                    'dt_created'    => "$record->dtCriacao $record->hrCriacao",
-                    'dt_status'     => $record->dhStat,
-                    'user'          => $record->usuario,
-                    'value'         => $record->valorLiq,
-                    'currency'      => $record->moeda,
-                    'eq_venda'      => $record->eqVenda,
-                    'numPedido'     => $record->numPedido,
-                    'client'        => $record->emissorOV,
-                    'group1'        => $record->grpCliente1,
-                    'group2'        => $record->grpCliente2,
-                    'group3'        => $record->grpCliente3,
-                    'group4'        => $record->grpCliente4,
-                    'group5'        => $record->grpCliente5,
-                    'pze'           => $record->PzE,
-                    'num_material'  => $record->numMaterial,
-                    'material'      => $record->material,
-                    'nexp'          => $record->numExp,
-                    'lexp'          => $record->localExp ?? $existing?->lexp,
-                    'pep'           => $record->PEP,
-                    'nstats'        => $record->numStat,
-                    'status'        => $record->status,
-                    'days'          => $record->dias,
-                    'transaction'   => $record->transicao,
-                    'validar_prazo' => $record->considerarPrazo,
-                    'rubrica'       => $record->rubrica,
-                    'pze_tratado'   => $record->PzETratado,
-                    'days_stat'     => $record->diasNoStatus,
-                    'pze_parecer'   => $record->parecerPrazo,
-                    'days_left'     => $record->diasPVencimento,
-                    'type_note'     => 2,
-                ];
+                $count['tins']++;
+            });
 
-                if ($existing) {
-                    // Não substitui um valor existente quando a origem vier vazia.
-                    $data = array_filter($data, fn ($value) => $this->hasSourceValue($value));
-                    $existing->update($data);
-                    $count['upd']++;
-                } else {
-                    $model = Note::create(array_merge(['note' => $ov], $data));
-                    $existingNotes->put($ov, $model);
-                    $count['ins']++;
-                }
+            // Save log and summary
+            $bar->finish();
+            $log->setCreated($count['ins']);
+            $log->setUpdated($count['upd']);
+            $log->save();
 
-                $bar->setMessage($count['tins'], 'tins');
-                $bar->setMessage($count['ins'], 'ins');
-                $bar->setMessage($count['upd'], 'upd');
-                $bar->advance();
-            }
+            Bancoupdate::create([
+                'last_update' => now(),
+                'error'       => $log->getErrors(),
+                'inserts'     => $count['ins'],
+                'updates'     => $count['upd'],
+            ]);
 
-            $count['tins']++;
-        });
+            Bancoupdate::whereDate('created_at', '<', now()->subDays(30))->delete();
 
-        // Save log and summary
-        $bar->finish();
-        $log->setCreated($count['ins']);
-        $log->setUpdated($count['upd']);
-        $log->save();
-
-        Bancoupdate::create([
-            'last_update' => now(),
-            'error'       => $log->getErrors(),
-            'inserts'     => $count['ins'],
-            'updates'     => $count['upd'],
-        ]);
-
-        Bancoupdate::whereDate('created_at', '<', now()->subDays(30))->delete();
-
-        $this->info('Data transfer completed: '.($count['ins'] + $count['upd']).' records processed.');
+            $this->info('Data transfer completed: ' . ($count['ins'] + $count['upd']) . ' records processed.');
         } catch (Throwable $e) {
             if ($log instanceof RegistroJson) {
                 $log->setErrorMessage($e->getMessage());
@@ -257,7 +269,7 @@ class BaseOV extends Command
         }
 
         try {
-            $sourceDate = Carbon::parse($source);
+            $sourceDate      = Carbon::parse($source);
             $destinationDate = $this->hasSourceValue($destination)
                 ? Carbon::parse($destination)
                 : null;

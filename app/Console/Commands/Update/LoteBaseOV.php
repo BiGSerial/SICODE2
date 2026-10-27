@@ -4,8 +4,9 @@ namespace App\Console\Commands\Update;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
-use App\Models\{Bancoupdate, HistoricNote, Note};
+use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV;
+use App\Services\Notes\OvStatusHistoryService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Throwable;
@@ -54,9 +55,9 @@ class LoteBaseOV extends Command
 
             BaseOV::where('ultimoStatus', 1)->where('dhStat', '>=', $DaysAgo)->chunk($chunkSize, function ($records) use ($progressBar, &$count) {
 
-                $recordsToInsert  = [];
-                $recordsToUpdate  = [];
-                $recordsToHistory = [];
+                $recordsToInsert = [];
+                $recordsToUpdate = [];
+                $historyOvs      = [];
 
                 $progressBar->setMessage('Inserting in bulk');
                 $notes = Note::WhereIn('note', $records->pluck('OV'))->get();
@@ -77,14 +78,8 @@ class LoteBaseOV extends Command
                         && strtotime((string) $existingRecord->dt_status) < strtotime((string) $record->dhStat);
 
                     if ($existingRecord && ($statusDateIsNewer || $nstatsDiverged || $daysLeftDiverged)) {
-                        if ($nstatsDiverged) {
-                            $recordsToHistory[] = [
-                                'note_id'  => $existingRecord->id,
-                                'old_date' => $existingRecord->dt_status,
-                                'old_stat' => $existingRecord->nstats,
-                                'new_date' => $record->dhStat,
-                                'new_stat' => $record->numStat,
-                            ];
+                        if ($nstatsDiverged || $statusDateIsNewer) {
+                            $historyOvs[] = $record->OV;
                         }
 
                         // Atualiza em qualquer divergência (status, prazo ou data), não só quando muda o status.
@@ -95,6 +90,7 @@ class LoteBaseOV extends Command
                         $count['upd']++;
                     } elseif (!$existingRecord) {
                         $recordsToInsert[] = $this->prepareRecordForInsert($record);
+                        $historyOvs[]      = $record->OV;
                         $count['ins']++;
                     }
 
@@ -124,9 +120,9 @@ class LoteBaseOV extends Command
                     foreach ($recordsToUpdate as $recordToUpdate) {
                         $noteId = $recordToUpdate['note_id'];
                         unset($recordToUpdate['note_id']);
-                    // Não substitui valor existente quando a origem vier vazia.
-                    $recordToUpdate = array_filter($recordToUpdate, fn ($value) => $this->hasSourceValue($value));
-                        $chk = Note::where('id', $noteId)->update($recordToUpdate);
+                        // Não substitui valor existente quando a origem vier vazia.
+                        $recordToUpdate = array_filter($recordToUpdate, fn ($value) => $this->hasSourceValue($value));
+                        $chk            = Note::where('id', $noteId)->update($recordToUpdate);
 
                         if (!$chk) {
                             $count['errors']++;
@@ -134,9 +130,9 @@ class LoteBaseOV extends Command
                     }
                 }
 
-                // Inserção em lote dos registros de histórico
-                if (!empty($recordsToHistory)) {
-                    HistoricNote::insert($recordsToHistory);
+                // Histórico depois das notas (precisa do note_id): uma leitura e um upsert por chunk.
+                if (!empty($historyOvs)) {
+                    app(OvStatusHistoryService::class)->syncForOvs($historyOvs);
                 }
 
             });

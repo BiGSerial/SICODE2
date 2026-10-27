@@ -868,12 +868,12 @@
                                         </thead>
                                         <tbody>
                                             @foreach ($historico as $hist)
-                                                <tr class="{{ $hist->ultimoStatus ? 'table-primary' : '' }}">
+                                                <tr class="{{ $loop->first ? 'table-primary' : '' }}">
                                                     <td class="text-center">
-                                                        {{ date('d/m/Y H:i:s', strtotime($hist->dhStat)) }}</td>
-                                                    <td class="text-center fw-bold">{{ $hist->numStat }}</td>
+                                                        {{ $hist->dt_stats->format('d/m/Y H:i:s') }}</td>
+                                                    <td class="text-center fw-bold">{{ $hist->num_stat }}</td>
                                                     <td class="text-center">{{ $hist->status }}</td>
-                                                    <td class="text-center">{{ $hist->transicaoUsuario }}</td>
+                                                    <td class="text-center">{{ $hist->transicao_usuario }}</td>
                                                 </tr>
                                             @endforeach
                                         </tbody>

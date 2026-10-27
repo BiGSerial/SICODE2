@@ -4,7 +4,7 @@ namespace App\Console\Commands\Fix;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
-use App\Models\{Bancoupdate, HistoricNote, Note};
+use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -40,10 +40,10 @@ class FixPrazos extends Command
 
         try {
             if ($this->option('chk')) {
-                $log = new RegistroJson('fix_prazos_chk', $this->options());
+                $log   = new RegistroJson('fix_prazos_chk', $this->options());
                 $count = $this->chk_prazos($log);
             } else {
-                $log = new RegistroJson('fix_prazos', $this->options());
+                $log   = new RegistroJson('fix_prazos', $this->options());
                 $count = $this->update_base($log);
 
                 Bancoupdate::create([
@@ -78,7 +78,7 @@ class FixPrazos extends Command
     public function update_base(RegistroJson $log): array
     {
         $baseQuery = BaseOV::where('ultimoStatus', 1)->where('numStat', '<', 98);
-        $total = (clone $baseQuery)->count();
+        $total     = (clone $baseQuery)->count();
         $log->setTotal($total);
 
         if (!$total) {
@@ -92,25 +92,24 @@ class FixPrazos extends Command
         $progressBar->setFormat('<bg=blue;fg=white>%current%/%max% </> [%tins%][E: %err% / I: %ins% / U: %upd% / NE: %ne% / D: %dif%] [%bar%] %percent%% %elapsed:6s%/%estimated:-6s%');
         $progressBar->start();
 
-        $count = ['total' => $total, 'ins' => 0, 'upd' => 0, 'err' => 0, 'ne' => 0, 'dif' => 0, 'tins' => 0];
-        $now = now();
+        $count         = ['total' => $total, 'ins' => 0, 'upd' => 0, 'err' => 0, 'ne' => 0, 'dif' => 0, 'tins' => 0];
+        $now           = now();
         $updateColumns = $this->noteUpdateColumns();
 
         $baseQuery->orderBy('id')->chunkById(1000, function ($origens) use ($progressBar, &$count, $now, $updateColumns, $log) {
             $count['tins']++;
             $chunkTotal = $origens->count();
-            $origens = $origens->unique('OV')->values();
+            $origens    = $origens->unique('OV')->values();
 
-            $ovList = $origens->pluck('OV')->filter()->unique()->values();
+            $ovList        = $origens->pluck('OV')->filter()->unique()->values();
             $existingNotes = Note::where('type_note', 2)->whereIn('note', $ovList)->get()->keyBy('note');
 
             $insertRows = [];
             $updateRows = [];
-            $historicRows = [];
 
             foreach ($origens as $origem) {
                 $existing = $existingNotes->get($origem->OV);
-                $data = $this->baseOvToNoteData($origem, $existing?->lexp);
+                $data     = $this->baseOvToNoteData($origem, $existing?->lexp);
 
                 if (!$existing) {
                     $insertRows[] = array_merge(['note' => $origem->OV], $data, [
@@ -118,25 +117,18 @@ class FixPrazos extends Command
                         'created_at' => $now,
                         'updated_at' => $now,
                     ]);
+
                     continue;
                 }
 
                 if (!$this->option('full') && !$this->shouldUpdateExisting($existing, $origem)) {
                     $count['ne']++;
+
                     continue;
                 }
 
                 if ((int) $existing->nstats !== (int) $origem->numStat) {
                     $count['dif']++;
-                    $historicRows[] = [
-                        'note_id'    => $existing->id,
-                        'old_date'   => $existing->dt_status,
-                        'old_stat'   => $existing->nstats,
-                        'new_date'   => $origem->dhStat,
-                        'new_stat'   => $origem->numStat,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
                 }
 
                 $updateRows[] = array_merge(['id' => $existing->id], $data, [
@@ -146,7 +138,7 @@ class FixPrazos extends Command
             }
 
             try {
-                DB::transaction(function () use ($insertRows, $updateRows, $historicRows, $updateColumns, &$count) {
+                DB::transaction(function () use ($insertRows, $updateRows, $updateColumns, &$count) {
                     if ($insertRows) {
                         DB::table('notes')->insert($insertRows);
                         $count['ins'] += count($insertRows);
@@ -155,10 +147,6 @@ class FixPrazos extends Command
                     if ($updateRows) {
                         DB::table('notes')->upsert($updateRows, ['id'], $updateColumns);
                         $count['upd'] += count($updateRows);
-                    }
-
-                    if ($historicRows) {
-                        DB::table((new HistoricNote())->getTable())->insert($historicRows);
                     }
                 });
             } catch (Throwable $e) {
