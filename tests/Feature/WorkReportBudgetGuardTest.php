@@ -24,10 +24,10 @@ function budgetPartner(): User
     ]);
 }
 
-function budgetNote(?string $pep, ?float $available, string $status = 'ABER'): Note
+function budgetNote(?string $pep, ?float $available, string $status = 'ABER', int $type = 1): Note
 {
     static $n = 0;
-    $note     = Note::query()->create(['note' => '70000' . ++$n, 'nstats' => 51, 'type_note' => 2]);
+    $note     = Note::query()->create(['note' => '70000' . ++$n, 'nstats' => 51, 'type_note' => $type]);
 
     if ($pep !== null && $available !== null) {
         Pep::query()->updateOrCreate(['objeto' => $pep], ['disponivel' => $available]);
@@ -59,6 +59,13 @@ it('ignora ordem sem PEP, PEP fora da sincronização e ordem encerrada', functi
     expect($guard->blockedPeps($semPep->Orders))->toBe([])
         ->and($guard->blockedPeps($naoSincroni->Orders))->toBe([])
         ->and($guard->blockedPeps($encerrada->Orders))->toBe([]);
+});
+
+it('nota tipo 2 nunca bloqueia, mesmo com PEP sem saldo', function () {
+    $note = budgetNote('PEP-T2', -50.0, 'ABER', 2);
+
+    expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe([])
+        ->and(app(WorkReportBudgetGuard::class)->exceededPeps($note->Orders, 99999.0))->toBe([]);
 });
 
 it('pode ser desligada pela regra do ruleset', function () {

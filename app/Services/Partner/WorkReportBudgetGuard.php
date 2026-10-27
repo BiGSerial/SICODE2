@@ -2,17 +2,20 @@
 
 namespace App\Services\Partner;
 
-use App\Models\Pep;
+use App\Models\{Note, Pep};
 use App\Support\SicodeRules;
 use Illuminate\Support\Collection;
 
 /**
  * Bloqueio de orçamento do Informe de Obra (parcial e final): consulta o saldo (`peps.disponivel`, sincronizado do SQL Server)
  * dos PEPs das ordens abertas. Saldo zerado ou negativo bloqueia. Ordem sem PEP, ou PEP que não veio na sincronização, não bloqueia
- * (não há saldo para afirmar que acabou). Desligável por ruleset: `work_report.blocks_without_budget`.
+ * (não há saldo para afirmar que acabou). Obras com `notes.type_note` = 2 nunca bloqueiam. Desligável por ruleset: `work_report.blocks_without_budget`.
  */
 class WorkReportBudgetGuard
 {
+    /** Tipo de nota isento do bloqueio de orçamento. */
+    private const EXEMPT_TYPE_NOTE = 2;
+
     /**
      * PEPs sem saldo entre as ordens informadas (ordens fechadas ENT/ENC não contam).
      *
@@ -79,8 +82,17 @@ class WorkReportBudgetGuard
      */
     private function balances(iterable $orders): array
     {
-        $codes = Collection::make($orders)
-            ->filter(fn ($order) => !$this->isClosed((string) $order->statusSist))
+        $orders = Collection::make($orders)
+            ->filter(fn ($order) => !$this->isClosed((string) $order->statusSist));
+
+        $exemptNoteIds = Note::query()
+            ->whereIn('id', $orders->pluck('note_id')->filter()->unique()->all())
+            ->where('type_note', self::EXEMPT_TYPE_NOTE)
+            ->pluck('id')
+            ->all();
+
+        $codes = $orders
+            ->reject(fn ($order) => in_array($order->note_id, $exemptNoteIds, false))
             ->map(fn ($order) => trim((string) $order->pep))
             ->filter()
             ->unique()
