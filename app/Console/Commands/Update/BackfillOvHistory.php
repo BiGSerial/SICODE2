@@ -21,7 +21,7 @@ class BackfillOvHistory extends Command
 
         if ($ov = trim((string) $this->option('ov'))) {
             $result = $this->option('dry-run')
-                ? ['written' => BaseOV::where('OV', $ov)->where('dhStat', '>=', $from)->count(), 'skipped' => 0]
+                ? ['written' => BaseOV::where('OV', $ov)->where('dtStat', '>=', substr($from, 0, 10))->count(), 'skipped' => 0]
                 : $history->syncForOvs([$ov], $from);
 
             $this->info("OV {$ov}: {$result['written']} evento(s), {$result['skipped']} ignorado(s).");
@@ -31,7 +31,7 @@ class BackfillOvHistory extends Command
 
         $query = fn () => BaseOV::query()
             ->select(array_merge(['id'], OvStatusHistoryService::SOURCE_COLUMNS))
-            ->where('dhStat', '>=', $from);
+            ->where('dtStat', '>=', substr($from, 0, 10));
 
         $total = $query()->count();
         $this->info("Eventos na origem desde {$from}: {$total}");

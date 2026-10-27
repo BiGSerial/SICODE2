@@ -57,7 +57,7 @@ it('ignora OV sem nota e linhas inválidas', function () {
     $result = $this->service->upsertFromSource([
         ovRow(['OV' => '7777']),
         ovRow(['idNum' => null]),
-        ovRow(['dhStat' => null]),
+        ovRow(['dtStat' => null, 'dhStat' => null]),
     ], ['9001' => $this->note->id]);
 
     expect($result)->toBe(['written' => 0, 'skipped' => 3])

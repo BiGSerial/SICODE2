@@ -2,7 +2,7 @@
 
 use App\Models\{Company, HistoricNote, Note, OvPhaseDuration, Production, Service};
 use App\Services\Indicators\OvAdherenceService;
-use App\Services\Notes\OvPhaseDurationService;
+use App\Services\Notes\{OvPhaseDurationService, OvStatusHistoryService};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -184,4 +184,85 @@ it('gera o Excel com as abas e recusa quem não é gerente', function () {
 
     $detail = $book->getSheetByName('Fases concluídas')->toArray(null, true, false, false);
     expect($detail[4][0])->toEqual('9400')->and($detail[4][7])->toBe('Sim');
+});
+
+it('mantém a quantidade e a ordem dos datasets mesmo sem dados', function () {
+    $report = app(\App\Services\Indicators\ProjectDeadlineAnalytics::class)->report(['from' => '2026-01-01', 'to' => '2026-01-02'], withDetail: false);
+    $charts = \App\Services\Indicators\ProjectDeadlineCharts::all($report);
+
+    expect(count($charts['survey']['data']['datasets']))->toBe(5)
+        ->and(count($charts['design']['data']['datasets']))->toBe(5)
+        ->and(count($charts['tmep']['data']['datasets']))->toBe(4)
+        ->and(count($charts['companies']['data']['datasets']))->toBe(2)
+        ->and(array_column($charts['survey']['data']['datasets'], 'label'))->toBe(['0 a 8 dias', '9 a 15 dias', '16 a 30 dias', 'Acima de 30 dias', '% aderência']);
+});
+
+it('filtra o relatório inteiro ao clicar numa empresa', function () {
+    $edp     = Company::create(['name' => 'EDP SP', 'email' => 'sp2@example.test']);
+    $pa      = Company::create(['name' => 'Parceira PA', 'email' => 'pa@example.test']);
+    $service = Service::create(['service' => 'LEVANTAMENTO', 'status' => 27]);
+
+    foreach ([['9501', $edp], ['9502', $pa], ['9503', $pa]] as [$ov, $company]) {
+        $note = phaseNote($ov, [[27, '2026-02-01 00:00:00'], [28, '2026-02-05 00:00:00']]);
+        Production::forceCreate(['note_id' => $note->id, 'service_id' => $service->uuid, 'company_id' => $company->id, 'completed' => true, 'completed_at' => '2026-02-05 00:00:00']);
+        app(OvPhaseDurationService::class)->rebuildForNotes([$note->id]);
+    }
+
+    $manager = \App\Models\User::factory()->create(['management' => true, 'superadm' => false]);
+
+    $component = \Livewire\Livewire::actingAs($manager)->test(\App\Http\Livewire\Reports\ProjectDeadlineDashboard::class);
+    expect($component->get('snapshot')['phases'][27]['summary']['total'])->toBe(3);
+
+    $component->call('focusCompany', $pa->id)->assertDispatchedBrowserEvent('my-panel:charts');
+    expect($component->get('snapshot')['phases'][27]['summary']['total'])->toBe(2);
+
+    $component->call('clearFilters');
+    expect($component->get('snapshot')['phases'][27]['summary']['total'])->toBe(3);
+});
+
+it('o término da fase é o próximo id_num e não o último status da OV', function () {
+    // eventos gravados fora de ordem; o último status (id_num 6) está muito depois
+    $note = Note::create(['note' => '9600', 'type_note' => 2]);
+
+    foreach ([[6, 50, '2026-05-30 08:00:00'], [3, 28, '2026-03-10 08:00:00'], [2, 27, '2026-03-04 08:00:00'], [5, 27, '2026-04-02 08:00:00'], [8, 60, '2026-06-30 08:00:00'], [1, 10, '2026-03-01 08:00:00']] as [$idNum, $stat, $at]) {
+        HistoricNote::create(['note_id' => $note->id, 'id_num' => $idNum, 'num_stat' => $stat, 'dt_stats' => $at]);
+    }
+
+    app(OvPhaseDurationService::class)->rebuildForNotes([$note->id]);
+
+    $survey = OvPhaseDuration::where('note_id', $note->id)->where('phase', 27)->sole();
+    $design = OvPhaseDuration::where('note_id', $note->id)->where('phase', 28)->sole();
+
+    // último 27 = id_num 5 (02/04); o próximo acima é o id_num 6 (30/05): 58 dias
+    expect($survey->started_at->toDateTimeString())->toBe('2026-04-02 08:00:00')
+        ->and($survey->ended_at->toDateTimeString())->toBe('2026-05-30 08:00:00')
+        ->and($survey->days)->toBe(58.0)
+        // 28 = id_num 3 (10/03); o próximo acima é o id_num 5 (02/04, o 2º status 27): 23 dias
+        ->and($design->ended_at->toDateTimeString())->toBe('2026-04-02 08:00:00')
+        ->and($design->days)->toBe(23.0);
+});
+
+it('a data do evento é dtStat com a hora de dhStat, mesmo se dhStat vier com outra data', function () {
+    $note = Note::create(['note' => '9700', 'type_note' => 2]);
+
+    app(OvStatusHistoryService::class)->upsertFromSource([
+        // dhStat com a data do último status da OV e a data do evento só em dtStat
+        ovRow(['OV' => '9700', 'dtStat' => '2026-03-05', 'dhStat' => '2026-09-20 14:20:10']),
+        ovRow(['OV' => '9700', 'idNum' => 2, 'numStat' => 28, 'dtStat' => '2026-03-09', 'dhStat' => '1900-01-01 09:00:00']),
+        ovRow(['OV' => '9700', 'idNum' => 3, 'numStat' => 50, 'dtStat' => '2026-03-12', 'dhStat' => '08:15:00']),
+    ], ['9700' => $note->id]);
+
+    expect(HistoricNote::orderBy('id_num')->pluck('dt_stats')->map->format('Y-m-d H:i:s')->all())
+        ->toBe(['2026-03-05 14:20:10', '2026-03-09 09:00:00', '2026-03-12 08:15:00']);
+});
+
+it('o comando recalcula tudo e corrige fases calculadas por regra antiga', function () {
+    $note = phaseNote('9800', [[27, '2026-02-01 08:00:00'], [28, '2026-02-04 08:00:00'], [50, '2026-02-20 08:00:00']]);
+    // linha errada, como as que uma regra antiga deixou (término no último status)
+    OvPhaseDuration::create(['note_id' => $note->id, 'phase' => 27, 'started_at' => '2026-02-01 08:00:00', 'ended_at' => '2026-02-20 08:00:00', 'days' => 19]);
+
+    $this->artisan('sicode:rebuild_ov_phases')->assertSuccessful();
+
+    expect(OvPhaseDuration::where('phase', 27)->sole()->days)->toBe(3.0)
+        ->and(OvPhaseDuration::where('phase', 28)->sole()->days)->toBe(16.0);
 });

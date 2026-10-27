@@ -44,16 +44,17 @@ class OvPhaseDurationService
             $list = ($events->get($noteId) ?? collect())->values();
 
             foreach (self::PHASES as $phase) {
-                $index = $list->keys()->filter(fn ($i) => (int) $list[$i]->num_stat === $phase)->last();
-                $next  = $index === null ? null : $list->get($index + 1);
+                // Última passagem pelo status = a de maior id_num; o término é o evento de menor id_num acima dele.
+                $current = $list->filter(fn ($e) => (int) $e->num_stat === $phase)->sortBy('id_num')->last();
+                $next    = $current === null ? null : $list->filter(fn ($e) => (int) $e->id_num > (int) $current->id_num)->sortBy('id_num')->first();
 
-                if ($index === null || $next === null) {
+                if ($current === null || $next === null) {
                     $stale[] = [$noteId, $phase];
 
                     continue;
                 }
 
-                $start      = $list[$index]->dt_stats;
+                $start      = $current->dt_stats;
                 $production = $producers[$noteId . '|' . $phase] ?? null;
 
                 $rows[] = [
