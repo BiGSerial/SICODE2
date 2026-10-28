@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Services\Desenho\Forms;
 use App\Enum\{QualityEventType, QualityProcessState, QualityStageKind, QualityStageType};
 use App\Helpers\SelectOptions;
 use App\Models\{File, QualityProcess, QualityStage};
-use App\Services\Quality\{BudgetOrderRules, QualityActivities, QualityWorkflowException, QualityWorkflowService, SurveyInformRules};
+use App\Services\Quality\{BudgetOrderRules, QualityActivities, QualityChecklistService, QualityWorkflowException, QualityWorkflowService, SurveyInformRules};
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
@@ -50,6 +50,9 @@ class QualityClosing extends Component
 
     public string $info = '';
 
+    /** Respostas do usuário aos apontamentos do checklist: [entry_id => texto]. */
+    public array $answers = [];
+
     /** 2º ciclo: [['order_number' => '', 'total_cost' => '', 'company_cost' => '', 'client_cost' => ''], ...] */
     public array $orders = [];
 
@@ -89,12 +92,12 @@ class QualityClosing extends Component
             return;
         }
 
-        $this->reset(['observation', 'orders', 'selectedFileIds', 'files', 'awaitingFiles', 'conclusion', 'postes', 'doe', 'ma', 'cadastro', 'postesC', 'info']);
+        $this->reset(['observation', 'orders', 'selectedFileIds', 'files', 'awaitingFiles', 'conclusion', 'postes', 'doe', 'ma', 'cadastro', 'postesC', 'info', 'answers']);
         $this->resetErrorBag();
         $this->productionId = $productionId;
         $this->processId    = $process->id;
         $this->stageId      = $stage->id;
-        $this->orders       = $process->phase === QualityStageType::BUDGET ? [$this->emptyOrder()] : [];
+        $this->orders       = $process->phase === QualityStageType::BUDGET ? $this->previousOrders($process) : [];
         $this->prefillSurvey($process);
         $this->refreshFiles();
         $this->detailsOnly = $detailsOnly;
@@ -124,6 +127,53 @@ class QualityClosing extends Component
         $this->selectedFileIds = collect($this->files)->where('is_new', true)->pluck('id')->map(fn ($id) => (string) $id)->all();
     }
 
+    private function designerEntry(QualityChecklistService $checklists, int $entryId)
+    {
+        $process = $this->process();
+
+        return $process ? $checklists->entriesForDesigner($process)->firstWhere('id', $entryId) : null;
+    }
+
+    /** Marca o apontamento como respondido (usuário designado da rodada). */
+    public function answerEntry(QualityChecklistService $checklists, int $entryId): void
+    {
+        $entry = $this->designerEntry($checklists, $entryId);
+        $text  = trim((string) ($this->answers[$entryId] ?? ''));
+
+        if (!$entry || $this->detailsOnly) {
+            return;
+        }
+
+        if ($text === '') {
+            $this->addError("answers.$entryId", 'Descreva como o apontamento foi tratado.');
+
+            return;
+        }
+
+        try {
+            $checklists->resolve($entry, Auth::user(), $text);
+            $this->resetErrorBag("answers.$entryId");
+        } catch (QualityWorkflowException $e) {
+            $this->addError("answers.$entryId", $e->getMessage());
+        }
+    }
+
+    public function reopenEntry(QualityChecklistService $checklists, int $entryId): void
+    {
+        $entry = $this->designerEntry($checklists, $entryId);
+
+        if (!$entry || $this->detailsOnly) {
+            return;
+        }
+
+        try {
+            $this->answers[$entryId] = (string) $entry->resolution;
+            $checklists->reopenResolution($entry);
+        } catch (QualityWorkflowException $e) {
+            $this->addError("answers.$entryId", $e->getMessage());
+        }
+    }
+
     public function addOrder(): void
     {
         $this->orders[] = $this->emptyOrder();
@@ -136,7 +186,7 @@ class QualityClosing extends Component
     }
 
     /** Passo 1: valida o informe e manda salvar os arquivos (como no encerramento normal). */
-    public function submit(SurveyInformRules $survey, BudgetOrderRules $budget): void
+    public function submit(SurveyInformRules $survey, BudgetOrderRules $budget, QualityChecklistService $checklists): void
     {
         $process = $this->process();
 
@@ -147,6 +197,13 @@ class QualityClosing extends Component
         }
 
         $this->resetErrorBag();
+
+        if ($checklists->entriesForDesigner($process)->where('status', 'ISSUE')->isNotEmpty()) {
+            $this->addError('workflow', 'Responda e marque como respondidos todos os apontamentos do checklist antes de enviar.');
+
+            return;
+        }
+
         $this->validate(['observation' => ['nullable', 'string', 'max:10000'], 'info' => ['nullable', 'string', 'max:10000']], [], ['observation' => 'observações', 'info' => 'informações adicionais']);
 
         try {
@@ -251,6 +308,15 @@ class QualityClosing extends Component
         return $this->stageId ? QualityStage::find($this->stageId) : null;
     }
 
+    /** Nas rodadas seguintes do 2º ciclo as ordens voltam preenchidas com o que o usuário enviou antes. */
+    private function previousOrders(QualityProcess $process): array
+    {
+        $last   = $process->Stages()->where('type', $process->phase->value)->where('kind', QualityStageKind::EXECUTION->value)->where('status', 'COMPLETED')->reorder('id', 'desc')->first();
+        $orders = $last?->submission_data['orders'] ?? [];
+
+        return $orders ? array_values(array_map(fn ($order) => $order + $this->emptyOrder(), $orders)) : [$this->emptyOrder()];
+    }
+
     private function emptyOrder(): array
     {
         return ['order_number' => '', 'total_cost' => '', 'company_cost' => '', 'client_cost' => ''];
@@ -261,16 +327,17 @@ class QualityClosing extends Component
         $process = $this->viewForm ? $this->process() : null;
 
         return view('livewire.services.desenho.forms.quality-closing', [
-            'note'         => $process?->Note,
-            'history'      => $process ? $process->Stages()->where('kind', QualityStageKind::EXECUTION->value)->where('status', 'COMPLETED')->reorder('id', 'desc')->with('Files.File')->get() : collect(),
-            'serviceName'  => $process ? app(QualityActivities::class)->serviceFor($process->phase)?->service : null,
-            'conclusions'  => SelectOptions::getSurveyConclusions(),
-            'process'      => $process,
-            'stage'        => $process ? $this->stage() : null,
-            'rejections'   => $process ? $process->Rejections()->with(['Items.Category', 'Items.Subcategory', 'Author'])->get() : collect(),
-            'comments'     => $process ? $process->Events()->where('type', QualityEventType::COMMENT_ADDED->value)->with('Actor')->get()->filter(fn ($event) => ($event->payload['visibility'] ?? 'INTERNAL') === 'ALL') : collect(),
-            'forwards'     => $process ? $process->Events()->whereIn('type', [QualityEventType::RETURN_FORWARDED->value, QualityEventType::DESIGNER_ASSIGNED->value])->with('Actor')->get() : collect(),
-            'checklistUrl' => $process ? route('quality.process.checklist', $process) : null,
+            'note'             => $process?->Note,
+            'history'          => $process ? $process->Stages()->where('kind', QualityStageKind::EXECUTION->value)->where('status', 'COMPLETED')->reorder('id', 'desc')->with('Files.File')->get() : collect(),
+            'serviceName'      => $process ? app(QualityActivities::class)->serviceFor($process->phase)?->service : null,
+            'conclusions'      => SelectOptions::getSurveyConclusions(),
+            'process'          => $process,
+            'stage'            => $process ? $this->stage() : null,
+            'rejections'       => $process ? $process->Rejections()->with(['Items.Category', 'Items.Subcategory', 'Author'])->get() : collect(),
+            'comments'         => $process ? $process->Events()->where('type', QualityEventType::COMMENT_ADDED->value)->with('Actor')->get()->filter(fn ($event) => ($event->payload['visibility'] ?? 'INTERNAL') === 'ALL') : collect(),
+            'forwards'         => $process ? $process->Events()->whereIn('type', [QualityEventType::RETURN_FORWARDED->value, QualityEventType::DESIGNER_ASSIGNED->value])->with('Actor')->get() : collect(),
+            'checklistEntries' => $process ? app(QualityChecklistService::class)->entriesForDesigner($process) : collect(),
+            'checklistUrl'     => $process ? route('quality.process.checklist', $process) : null,
         ]);
     }
 }

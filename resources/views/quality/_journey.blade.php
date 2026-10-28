@@ -50,7 +50,7 @@
         @endphp
         <div class="jr-phase {{ $phaseNow ? 'is-now' : '' }} {{ $phaseDone ? 'is-done' : '' }}">
             <div class="jr-phase-head">
-                <div><span class="jr-phase-title">{{ $phaseEnum->label() }}</span>@if ($service)<span class="jr-phase-service"> · {{ $service }}</span>@endif</div>
+                <div><span class="jr-phase-title">{{ $phaseEnum->label() }}</span></div>
                 @if ($phaseDone)<span class="badge text-bg-success"><i class="ri-check-line"></i> Concluído</span>
                 @elseif ($phaseNow)<span class="badge text-bg-primary">Rodada {{ $process->round_number }}</span>
                 @else<span class="badge text-bg-light border">Ainda não iniciou</span>@endif

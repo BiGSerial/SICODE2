@@ -44,7 +44,7 @@ O "há X" é `quality_processes.state_changed_at` (desde que o processo entrou n
 | Ciclo | Formulário | Conteúdo |
 |-------|-----------|----------|
 | 1º (Levantamento) | `Forms\QualityClosing` — **informe de encerramento do Levantamento** | Postes, depende de órgão externo, interferência em vegetação, conclusão (mesmas opções do Levantamento), cadastro + postes do cadastro, informações adicionais. Gravado na análise e na atividade (`postes_u`, `cadastro`, `postes_c`, `ma`); a Nota recebe doe/ma/postes quando o N2 aprova |
-| 2º (Desenho) | `Forms\QualityClosing` — **ordens do orçamento** | Ordens (12 dígitos, prefixos 170/190/150/200) com total/empresa/cliente |
+| 2º (Desenho) | `Forms\QualityClosing` — **ordens do orçamento** | Ordens (12 dígitos, prefixos 170/180/190/193/150/200) com total/empresa/cliente |
 
 Nos dois: arquivos da atividade e observações ao N1. As telas **Levantamento** e **Desenho** interceptam a atividade da Qualidade (selo, sem "Transferir", abre o formulário dedicado). Se o serviço de um ciclo for outro, essa tela precisa da mesma integração.
 

@@ -46,7 +46,7 @@
                                 @foreach (['PROJECT', 'BUDGET'] as $phaseKey)
                                     @php $options = $designersByPhase[$company->id][$phaseKey] ?? collect(); @endphp
                                     @continue($options->isEmpty())
-                                    <optgroup label="{{ $activityNames[$phaseKey] ?? $phaseKey }} · {{ $phaseKey === 'PROJECT' ? '1º ciclo' : '2º ciclo' }}">@foreach ($options as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach</optgroup>
+                                    <optgroup label="{{ \App\Enum\QualityStageType::from($phaseKey)->label() }}">@foreach ($options as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach</optgroup>
                                 @endforeach
                             </select>
                             <input name="reason" class="form-control form-control-sm" style="max-width: 220px;" maxlength="500" placeholder="Motivo (opcional)">

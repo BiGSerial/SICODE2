@@ -29,7 +29,7 @@
                             <li class="list-group-item d-flex justify-content-between"><span>Empresa</span><strong>{{ $process->Company?->name }}</strong></li>
                             <li class="list-group-item d-flex justify-content-between"><span>N1 responsável</span><strong>{{ $process->N1User?->name ?? '—' }}</strong></li>
                             <li class="list-group-item d-flex justify-content-between"><span>Despachado por</span><strong>{{ $stage->DispatchedBy?->name ?? '—' }}</strong></li>
-                            <li class="list-group-item d-flex justify-content-between"><span>Ciclo / rodada</span><strong>{{ $process->phase->short() }} · {{ $stage->round_number }}</strong></li>
+                            <li class="list-group-item d-flex justify-content-between"><span>Ciclo / rodada</span><strong>{{ $process->phase->label() }} · rodada {{ $stage->round_number }}</strong></li>
                             <li class="list-group-item">
                                 <span class="text-muted">Ação necessária</span><br>
                                 <strong>
@@ -71,8 +71,39 @@
                         </div>
                     @endif
 
-                    @if ($checklistUrl)
-                        <a class="btn btn-outline-primary btn-sm w-100 mb-3" href="{{ $checklistUrl }}" target="_blank"><i class="ri-list-check-2"></i> Consultar checklist e informar correções</a>
+                    @if ($checklistEntries->isNotEmpty())
+                        @php $pendingEntries = $checklistEntries->where('status', 'ISSUE')->count(); @endphp
+                        <div class="card shadow-sm mb-3 border-{{ $pendingEntries ? 'danger' : 'success' }}">
+                            <div class="card-header fw-bold d-flex justify-content-between">
+                                <span><i class="ri-list-check-2"></i> Apontamentos do checklist</span>
+                                <span class="badge text-bg-{{ $pendingEntries ? 'danger' : 'success' }}">{{ $pendingEntries ? $pendingEntries . ' a responder' : 'Todos respondidos' }}</span>
+                            </div>
+                            <ul class="list-group list-group-flush small">
+                                @foreach ($checklistEntries as $entry)
+                                    <li class="list-group-item" wire:key="chk-entry-{{ $entry->id }}">
+                                        <div class="d-flex justify-content-between gap-2">
+                                            <span><strong>{{ $entry->code }}</strong> · {{ $entry->question }}</span>
+                                            <span class="badge text-bg-{{ $entry->severity === 'Grave' ? 'danger' : 'warning' }} align-self-start">{{ $entry->severity }}</span>
+                                        </div>
+                                        @if ($entry->observation)
+                                            <div class="alert alert-light border py-1 px-2 my-2"><i class="ri-error-warning-line text-danger"></i> <strong>Apontamento:</strong> {{ $entry->observation }}</div>
+                                        @endif
+                                        @if ($entry->status === 'ISSUE')
+                                            @unless ($detailsOnly)
+                                                <textarea class="form-control form-control-sm mb-1 @error('answers.' . $entry->id) is-invalid @enderror" rows="2" wire:model.defer="answers.{{ $entry->id }}" placeholder="Como este apontamento foi tratado?"></textarea>
+                                                @error('answers.' . $entry->id)<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                                                <button type="button" class="btn btn-sm btn-outline-success" wire:click="answerEntry({{ $entry->id }})" wire:loading.attr="disabled"><i class="ri-checkbox-circle-line"></i> Marcar como respondido</button>
+                                            @endunless
+                                        @else
+                                            <div class="text-success"><i class="ri-checkbox-circle-fill"></i> <strong>Respondido:</strong> {{ $entry->resolution }}
+                                                @if ($entry->status === 'VALIDATED')<span class="badge text-bg-success ms-1">Validado</span>
+                                                @elseif (!$detailsOnly)<button type="button" class="btn btn-link btn-sm p-0 ms-2" wire:click="reopenEntry({{ $entry->id }})">Editar resposta</button>@endif
+                                            </div>
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
                     @endif
 
                     @if ($lastForward && $lastForward->observation)
@@ -212,7 +243,7 @@
                                 <button type="button" class="btn btn-sm btn-outline-primary" wire:click="addOrder"><i class="ri-add-line"></i> Adicionar ordem</button>
                             </div>
                             <div class="card-body">
-                                <p class="small text-muted">Cada ordem tem 12 dígitos, com prefixo 170, 190, 150 ou 200 (200 quando a Nota inicia com dígito 3 ou maior).</p>
+                                <p class="small text-muted">Cada ordem tem 12 dígitos, com prefixo 170, 180, 190, 193, 150 ou 200 (200 quando a Nota inicia com dígito 3 ou maior).</p>
                                 @foreach ($orders as $index => $order)
                                     <div class="row g-2 align-items-end mb-2" wire:key="quality-order-{{ $index }}" data-quality-order-calc>
                                         <div class="col-md-4">

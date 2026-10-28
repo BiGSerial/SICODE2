@@ -8,11 +8,12 @@ enum QualityStageType: string
     case PROJECT = 'PROJECT';
     case BUDGET  = 'BUDGET';
 
+    /** Nome exibido ao usuário, fixo no código (não vem do serviço configurado para o ciclo). */
     public function label(): string
     {
         return match ($this) {
-            self::PROJECT => '1º ciclo',
-            self::BUDGET  => '2º ciclo',
+            self::PROJECT => '1º Ciclo – Levantamento/Desenho',
+            self::BUDGET  => '2º Ciclo – Orçamento',
         };
     }
 

@@ -1349,7 +1349,7 @@ class Analise extends Component
             return $prefix === '200';
         }
 
-        return in_array($prefix, ['170', '190', '150', '200'], true);
+        return in_array($prefix, ['170', '180', '190', '193', '150', '200'], true);
     }
 
     private function isValidProjectReviewOrderNumber(?string $orderNumber): bool
@@ -1380,7 +1380,7 @@ class Analise extends Component
                 return 'Número da ordem inválido: para esta Nota/OV o prefixo deve iniciar com 200.';
             }
 
-            return 'Número da ordem inválido: o prefixo deve iniciar com 170, 190, 150 ou 200.';
+            return 'Número da ordem inválido: o prefixo deve iniciar com 170, 180, 190, 193, 150 ou 200.';
         }
 
         return null;

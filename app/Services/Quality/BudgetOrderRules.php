@@ -4,7 +4,7 @@ namespace App\Services\Quality;
 
 /**
  * Regras das ordens de orçamento do 2º ciclo.
- * Espelha as regras do encerramento normal do Desenho (Forms\Analise): 12 dígitos e prefixos 170/190/150/200,
+ * Espelha as regras do encerramento normal do Desenho (Forms\Analise): 12 dígitos e prefixos 170/180/190/193/150/200,
  * exigindo 200 quando a Nota começa com dígito >= 3. Mantido aqui porque as regras originais são métodos
  * privados do componente Livewire (consolidação futura documentada em docs/quality/README.md).
  */
@@ -47,9 +47,9 @@ class BudgetOrderRules
             return $prefix === '200' ? null : 'Número da ordem inválido: para esta Nota/OV o prefixo deve iniciar com 200.';
         }
 
-        return in_array($prefix, ['170', '190', '150', '200'], true)
+        return in_array($prefix, ['170', '180', '190', '193', '150', '200'], true)
             ? null
-            : 'Número da ordem inválido: o prefixo deve iniciar com 170, 190, 150 ou 200.';
+            : 'Número da ordem inválido: o prefixo deve iniciar com 170, 180, 190, 193, 150 ou 200.';
     }
 
     /**

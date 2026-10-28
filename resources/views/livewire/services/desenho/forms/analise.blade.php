@@ -1185,7 +1185,7 @@
                 if (noteRequiresPrefix200(orderGuardNoteReference) && !/^200/.test(value)) {
                     return 'Número da ordem inválido: para esta Nota/OV o prefixo deve iniciar com 200.';
                 }
-                if (!/^(170|190|150|200)/.test(value)) return 'Número da ordem inválido: o prefixo deve iniciar com 170, 190, 150 ou 200.';
+                if (!/^(170|180|190|193|150|200)/.test(value)) return 'Número da ordem inválido: o prefixo deve iniciar com 170, 180, 190, 193, 150 ou 200.';
                 return null;
             }
 
