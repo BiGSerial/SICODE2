@@ -9,12 +9,15 @@ use Illuminate\Support\Collection;
 /**
  * Bloqueio de orçamento do Informe de Obra (parcial e final): consulta o saldo (`peps.disponivel`, sincronizado do SQL Server)
  * dos PEPs das ordens abertas. Saldo zerado ou negativo bloqueia. Ordem sem PEP, ou PEP que não veio na sincronização, não bloqueia
- * (não há saldo para afirmar que acabou). Obras com `notes.type_note` = 2 nunca bloqueiam. Desligável por ruleset: `work_report.blocks_without_budget`.
+ * (não há saldo para afirmar que acabou). Só contam as ordens cujo PEP termina em -2 (o que carrega o orçamento; costumam ser as 170/180); os demais sufixos não entram. Obras com `notes.type_note` = 2 nunca bloqueiam. Desligável por ruleset: `work_report.blocks_without_budget`.
  */
 class WorkReportBudgetGuard
 {
     /** Tipo de nota isento do bloqueio de orçamento. */
     private const EXEMPT_TYPE_NOTE = 2;
+
+    /** Sufixo do PEP que controla o orçamento do informe. */
+    private const BUDGET_PEP_SUFFIX = '-2';
 
     /**
      * PEPs sem saldo entre as ordens informadas (ordens fechadas ENT/ENC não contam).
@@ -83,7 +86,8 @@ class WorkReportBudgetGuard
     private function balances(iterable $orders): array
     {
         $orders = Collection::make($orders)
-            ->filter(fn ($order) => !$this->isClosed((string) $order->statusSist));
+            ->filter(fn ($order) => !$this->isClosed((string) $order->statusSist))
+            ->filter(fn ($order) => $this->carriesBudget((string) $order->pep));
 
         $exemptNoteIds = Note::query()
             ->whereIn('id', $orders->pluck('note_id')->filter()->unique()->all())
@@ -106,6 +110,11 @@ class WorkReportBudgetGuard
         return Pep::query()->whereIn('objeto', $codes)->whereNotNull('disponivel')->pluck('disponivel', 'objeto')
             ->map(fn ($v) => (float) $v)
             ->all();
+    }
+
+    private function carriesBudget(string $pep): bool
+    {
+        return str_ends_with(trim($pep), self::BUDGET_PEP_SUFFIX);
     }
 
     private function isClosed(string $statusSist): bool
