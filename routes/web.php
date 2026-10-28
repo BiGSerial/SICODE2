@@ -265,6 +265,7 @@ Route::prefix('/reports')->controller(ReportsController::class)->name('reports.'
     Route::get('/complaints/mede', 'complaintsMedeReport')->middleware('can:management')->name('complaints_mede');
     Route::get('/five-notes', 'fiveNotesReport')->middleware('can:management')->name('five_notes');
     Route::get('/post-work-process', 'postWorkProcessReport')->middleware('can:management')->name('post_work_process');
+    Route::get('/project-deadlines', 'projectDeadlines')->middleware('can:management')->name('project_deadlines');
     Route::get('/project_review/dashboard', 'projectReviewDashboard')->middleware('can:projectReviewReports')->name('project_review_dashboard');
     Route::get('/project_review/history', 'projectReviewHistory')->middleware('can:projectReviewReports')->name('project_review_history');
 });

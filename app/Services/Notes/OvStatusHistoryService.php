@@ -47,7 +47,7 @@ class OvStatusHistoryService
         $rows = BaseOV::query()
             ->select(self::SOURCE_COLUMNS)
             ->whereIn('OV', $ovs->all())
-            ->where('dhStat', '>=', $from)
+            ->where('dtStat', '>=', substr($from, 0, 10))
             ->get();
 
         return $this->upsertFromSource($rows, $this->noteIdsByOv($ovs));
@@ -99,6 +99,9 @@ class OvStatusHistoryService
             );
         }
 
+        // Fases 27/28 derivam do histórico; só as notas deste lote precisam ser recalculadas.
+        app(OvPhaseDurationService::class)->rebuildForNotes(array_unique(array_column($batch, 'note_id')));
+
         return ['written' => count($batch), 'skipped' => $skipped];
     }
 
@@ -116,23 +119,27 @@ class OvStatusHistoryService
     }
 
     /**
-     * dhStat já costuma vir como datetime; se vier só a hora, concatena com dtStat.
+     * Data do evento = data de dtStat + hora de dhStat (a concatenação definida pelo produto). Se faltar um dos dois, vale o que houver.
+     * Só a parte de hora de dhStat é usada: a data dele pode ser a do último status da OV, não a do evento.
      */
     private function resolveDtStats(object $row): ?string
     {
-        $dh = trim((string) ($row->dhStat ?? ''));
         $dt = trim((string) ($row->dtStat ?? ''));
+        $dh = trim((string) ($row->dhStat ?? ''));
 
-        if ($dh === '') {
+        if ($dt === '' && $dh === '') {
             return null;
         }
 
-        $value = preg_match('/\d{4}-\d{2}-\d{2}/', $dh) || $dt === ''
-            ? $dh
-            : substr($dt, 0, 10) . ' ' . $dh;
-
         try {
-            return Carbon::parse($value)->format('Y-m-d H:i:s');
+            $date = $dt !== '' ? Carbon::parse($dt) : null;
+            $time = $dh !== '' ? Carbon::parse($dh) : null;
+
+            if ($date && $time) {
+                return $date->format('Y-m-d') . ' ' . $time->format('H:i:s');
+            }
+
+            return ($date ?? $time)->format('Y-m-d H:i:s');
         } catch (Throwable) {
             return null;
         }

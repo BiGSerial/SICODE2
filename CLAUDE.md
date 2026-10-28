@@ -105,6 +105,13 @@ Toda operação física de storage (gravação, leitura, download/stream, delete
 - Antes de criar um novo fluxo de upload (avatar, logo, planilha temporária, etc.), avalie se o arquivo deve virar um registro `File`/`EvidenceFile`/`LegalDemandFile` ou se é um caso à parte (ex.: coluna string simples tipo `users.avatar`/`companies.logo`) — nesse caso, ainda assim delegue a operação física ao `FileStorageService` (via model transitório) em vez de chamar `Storage::` direto no componente.
 - Ao adicionar/mexer em fluxo de arquivo, rode busca por `Storage::`, `storeAs(`, `storage_path(` no arquivo tocado antes de considerar terminado.
 
+### Telas analíticas (dashboards e relatórios gerenciais)
+**A Home ("Meu painel") é a referência**, junto com a versão da gerência (Serviços → Relatórios → Painel da equipe). Antes de criar ou mexer em qualquer tela analítica, leia `docs/PADRAO_DASHBOARDS.md` (camadas, anatomia da tela, gráficos, desempenho, Excel e checklist de PR). Em resumo, é obrigatório:
+- Camadas separadas: componente Livewire só com filtros; dados em `*Analytics` (tela e Excel leem o mesmo); configuração de gráficos em `*Charts`; JS e SCSS compartilhados (`.closure-dash`, `my-panel.js`). Sem CSS/JS inline e sem CSS próprio por tela.
+- Layout: hero → filtros na URL → estado vazio → seções `mp-section-title` com `<x-home.hero-card>`, painéis e `<x-home.bar-list>`. Cartões da mesma linha com a mesma coluna e `h-100`; uma tabela por bloco com `colgroup`; ações como botão.
+- Gráficos pelo contrato `data-my-panel-chart` (in-place, aviso de vazio por cima). **Não usar `<x-grafico.apex>` em tela nova.**
+- Toda tela exporta Excel por Job (`Controle Exportacao`), textos e status em PT-BR, regras de cálculo documentadas e conferência no navegador antes de dar como pronta.
+
 ### Menu superior (topbar)
 Definido em `resources/views/layouts/menu_itens.blade.php` via arrays de nós passados ao componente `<x-menu.dynamic-dropdown />`. Para adicionar itens, editar esse arquivo seguindo o padrão `nodes`/`sections` (ver `docs/MenuSuperior.md`).
 

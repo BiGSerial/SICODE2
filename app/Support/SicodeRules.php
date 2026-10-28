@@ -130,6 +130,16 @@ class SicodeRules
         return is_numeric($value) && (int) $value > 0 ? (int) $value : $default;
     }
 
+    /**
+     * Fases 27/28 da OV (ov_phase_durations): o término é o evento seguinte. Por padrão, o de menor id_num acima do id_num do status;
+     * com esta regra ligada, os eventos são ordenados pela data e vale o imediatamente acima. Hoje só no SP, onde a numeração
+     * (idNum) da origem saiu fora de sequência.
+     */
+    public static function ovPhasesOrderByDate(): bool
+    {
+        return self::boolRule('ov_phases.order_by_date', self::ruleset() === 'sp');
+    }
+
     public static function paymentMeasurementDeadlineUsesBusinessDays(): bool
     {
         return self::boolRule('payment.measurement_deadline.business_days', self::ruleset() === 'sp');

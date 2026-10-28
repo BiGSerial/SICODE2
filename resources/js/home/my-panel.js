@@ -2,10 +2,13 @@
 // Regra do CLAUDE.md/PADRAO_UI §7: nunca substituir `chart.data.datasets` — cada dataset é atualizado por índice, novos entram por push
 // e os excedentes saem por splice; o gráfico nunca é recriado nem esvaziado só para "limpar" a tela.
 //
-// Extensões do payload (ver MyPanelCharts.php): `dataset.gradient = [de, para]` vira degradê (vertical; horizontal em indexAxis y)
-// e `options.plugins.mpCenter = {text, sub}` escreve o total no centro das roscas.
+// Extensões do payload (ver MyPanelCharts.php): `dataset.gradient = [de, para]` vira degradê (vertical; horizontal em indexAxis y),
+// `options.plugins.mpCenter = {text, sub}` escreve o total no centro das roscas e `options.plugins.mpBarLabels = {segments, totals, decimals}`
+// escreve o valor dentro de cada faixa das barras empilhadas e o total acima da pilha (dataset.labelColor muda a cor do texto);
+// em datasets de linha, `showValues` escreve o valor sobre cada ponto (`decimals`, `valueSuffix`).
 
-const registry = (window.__myPanelCharts = window.__myPanelCharts || { instances: {}, bound: false, tries: 0, defaults: false });
+const registry = (window.__myPanelCharts = window.__myPanelCharts || { instances: {}, bound: false, tries: 0, defaults: false, plugins: [] });
+registry.plugins = registry.plugins || [];
 
 function readConfig(canvas) {
     try {
@@ -65,7 +68,83 @@ function setDefaults() {
     Chart.defaults.plugins.tooltip.titleFont = { weight: '700' };
     Chart.defaults.plugins.tooltip.boxPadding = 4;
 
-    Chart.register({
+    registry.plugins.push({
+        id: 'mpBarLabels',
+        afterDatasetsDraw(chart) {
+            const config = chart.options.plugins && chart.options.plugins.mpBarLabels;
+
+            if (!config) {
+                return;
+            }
+
+            const { ctx } = chart;
+            const family = Chart.defaults.font.family;
+            const format = (value, decimals = 0, suffix = '') => `${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}${suffix}`;
+            const bars = chart.data.datasets
+                .map((dataset, index) => ({ dataset, index, meta: chart.getDatasetMeta(index) }))
+                .filter(({ meta, index }) => meta.type === 'bar' && chart.isDatasetVisible(index));
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            chart.data.labels.forEach((label, position) => {
+                let total = 0;
+                let top = null;
+                let x = null;
+
+                bars.forEach(({ dataset, meta }) => {
+                    const element = meta.data[position];
+                    const value = Number(dataset.data[position] || 0);
+
+                    if (!element || value <= 0) {
+                        return;
+                    }
+
+                    total += value;
+                    top = top === null ? Math.min(element.y, element.base) : Math.min(top, element.y, element.base);
+                    x = element.x;
+
+                    if (config.segments && Math.abs(element.base - element.y) >= 16) {
+                        ctx.fillStyle = dataset.labelColor || '#ffffff';
+                        ctx.font = `600 11px ${family}`;
+                        ctx.fillText(format(value, config.decimals || 0), element.x, element.y + (element.base - element.y) / 2);
+                    }
+                });
+
+                if (config.totals && total > 0 && top !== null) {
+                    ctx.fillStyle = '#0f172a';
+                    ctx.font = `800 12px ${family}`;
+                    ctx.fillText(format(total, config.decimals || 0), x, top - 11);
+                }
+            });
+
+            chart.data.datasets.forEach((dataset, index) => {
+                const meta = chart.getDatasetMeta(index);
+
+                if (!dataset.showValues || meta.type !== 'line' || !chart.isDatasetVisible(index)) {
+                    return;
+                }
+
+                ctx.fillStyle = dataset.borderColor || '#0f172a';
+                ctx.font = `700 11px ${family}`;
+
+                meta.data.forEach((point, position) => {
+                    const value = dataset.data[position];
+
+                    if (value === null || value === undefined) {
+                        return;
+                    }
+
+                    ctx.fillText(format(value, dataset.decimals || 0, dataset.valueSuffix || ''), point.x, point.y - 12);
+                });
+            });
+
+            ctx.restore();
+        },
+    });
+
+    registry.plugins.push({
         id: 'mpCenter',
         afterDraw(chart) {
             const center = chart.options.plugins && chart.options.plugins.mpCenter;
@@ -112,7 +191,7 @@ function mount(canvas) {
 
     setDefaults();
     applyGradients(config);
-    registry.instances[id] = new window.Chart(canvas, { type: config.type, data: config.data, options: config.options });
+    registry.instances[id] = new window.Chart(canvas, { type: config.type, data: config.data, options: config.options, plugins: registry.plugins });
 }
 
 function syncInPlace(chart, next) {
@@ -197,3 +276,6 @@ if (document.readyState !== 'loading') {
 } else {
     document.addEventListener('DOMContentLoaded', mountAll);
 }
+
+// Depois do último script da página (inclusive o Chart.js do CDN): mount() não recria o que já foi montado.
+window.addEventListener('load', mountAll);

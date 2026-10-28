@@ -49,7 +49,7 @@ class MyPanelSummarySheet implements FromArray, WithEvents, WithTitle
     private function draw(Worksheet $sheet): void
     {
         $r    = $this->report;
-        $s    = $r['summary'];
+        $s    = $r['summary'] ?? [];   // só o desenho do Meu painel usa; com `layout` próprio o relatório pode não ter 'summary'
         $last = Coordinate::stringFromColumnIndex(self::COLUMNS);
         $dec  = fn (?float $v) => $v === null ? '—' : number_format($v, 1, ',', '.');
         $pct  = fn (?float $v) => $v === null ? 'sem período anterior' : ($v > 0 ? '+' : '') . $dec($v) . '% vs. período anterior';
