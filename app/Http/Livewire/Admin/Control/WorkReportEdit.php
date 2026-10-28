@@ -48,6 +48,9 @@ class WorkReportEdit extends Component
 
     public array $splitScopeSelection = [];
 
+    /** Escopo do informe final escolhido no editor: auto (legado, pelas ordens), network, connection ou both. */
+    public string $finalScopeChoice = 'auto';
+
     public string $activeTab = 'details';
 
     public array $workReportFiles = [];
@@ -157,6 +160,7 @@ class WorkReportEdit extends Component
         $this->refreshNoteProductions();
         $this->refreshWorkReportFiles();
         $this->splitScopeSelection    = [];
+        $this->finalScopeChoice       = $this->choiceFromScopes($this->workReport->selectedFinalScopesOrNull());
         $this->selectedFileIds        = [];
         $this->fileTargetByFile       = [];
         $this->fileTargetWorkReportId = $this->workReport->id;
@@ -347,6 +351,117 @@ class WorkReportEdit extends Component
             'html'     => 'Novo informe: #' . implode(', #', $created) . '<br>Data da separação: ' . $now->format('d/m/Y H:i'),
             'timer'    => 3500,
         ]);
+    }
+
+    /**
+     * Opções do seletor de escopo: quais escopos as ordens deste informe permitem. `split` é falso quando a nota/unidade não separa
+     * o informe final (resolvedor devolve só "geral"); nesse caso só "Automático" faz sentido.
+     *
+     * @return array{split:bool,network:bool,connection:bool}
+     */
+    public function getFinalScopeOptionsProperty(): array
+    {
+        $byScope = $this->workReport ? $this->ordersByScope($this->workReport) : [];
+
+        $network    = !empty($byScope[WorkReportFinalScopeResolver::SCOPE_NETWORK]);
+        $connection = !empty($byScope[WorkReportFinalScopeResolver::SCOPE_CONNECTION]);
+
+        return ['split' => $network || $connection, 'network' => $network, 'connection' => $connection];
+    }
+
+    /** Botão "Salvar escopo": grava só o escopo, sincroniza o fluxo consolidado da nota e atualiza a tela. */
+    public function saveFinalScope(): void
+    {
+        if (!$this->workReport) {
+            return;
+        }
+
+        if (!$this->assignFinalScope()) {
+            return;
+        }
+
+        if (!$this->workReport->isDirty('selected_final_scopes')) {
+            $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'info', 'title' => 'O escopo já está assim.', 'timer' => 2000]);
+
+            return;
+        }
+
+        $this->workReport->save();
+        $this->syncNoteInformFlows();
+        $this->refreshWorkReportStatuses([$this->workReport->id]);
+
+        $this->workReport->refresh()->load(['Note', 'Company', 'User', 'Orders', 'Adsform.Files']);
+        $this->finalScopeChoice = $this->choiceFromScopes($this->workReport->selectedFinalScopesOrNull());
+        $this->refreshOrders();
+        $this->refreshRelatedWorkReports();
+        $this->refreshNoteProductions();
+
+        $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'success', 'title' => 'Escopo atualizado!', 'timer' => 2500]);
+        $this->emitUp('refresh_list');
+    }
+
+    /** Valida a escolha contra as ordens do informe e a coloca em `selected_final_scopes` (sem salvar). */
+    private function assignFinalScope(): bool
+    {
+        $options = $this->finalScopeOptions;
+        $choice  = $this->finalScopeChoice;
+
+        $scopes = match ($choice) {
+            'network'    => [WorkReportFinalScopeResolver::SCOPE_NETWORK],
+            'connection' => [WorkReportFinalScopeResolver::SCOPE_CONNECTION],
+            'both'       => [WorkReportFinalScopeResolver::SCOPE_NETWORK, WorkReportFinalScopeResolver::SCOPE_CONNECTION],
+            default      => null,
+        };
+
+        $problem = null;
+
+        if ($scopes !== null && !$options['split']) {
+            $problem = 'Esta nota não separa o informe final por escopo (Rede/Ligação); use "Automático".';
+        } elseif ($scopes && in_array(WorkReportFinalScopeResolver::SCOPE_NETWORK, $scopes, true) && !$options['network']) {
+            $problem = 'Este informe não tem ordens de Rede (150, 170, 190).';
+        } elseif ($scopes && in_array(WorkReportFinalScopeResolver::SCOPE_CONNECTION, $scopes, true) && !$options['connection']) {
+            $problem = 'Este informe não tem ordens de Ligação.';
+        }
+
+        if ($problem) {
+            $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'warning', 'title' => 'Escopo inválido', 'text' => $problem]);
+
+            return false;
+        }
+
+        $this->workReport->selected_final_scopes = $scopes;
+
+        return true;
+    }
+
+    /** Reconstrói o fluxo consolidado (note_inform_flows) da nota; falha aqui não desfaz o escopo, o agendamento refaz. */
+    private function syncNoteInformFlows(): void
+    {
+        try {
+            \Illuminate\Support\Facades\Artisan::call('sicode:sync-note-inform-flows', ['--note_id' => $this->workReport->note_id]);
+        } catch (\Throwable $e) {
+            report($e);
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Escopo salvo, mas o fluxo da nota não foi recalculado agora.',
+                'text'     => 'O agendamento do sistema refaz o cálculo em instantes.',
+            ]);
+        }
+    }
+
+    private function choiceFromScopes(?array $scopes): string
+    {
+        $scopes = collect($scopes ?? []);
+        $net    = $scopes->contains(WorkReportFinalScopeResolver::SCOPE_NETWORK);
+        $conn   = $scopes->contains(WorkReportFinalScopeResolver::SCOPE_CONNECTION);
+
+        return match (true) {
+            $net && $conn => 'both',
+            $net          => 'network',
+            $conn         => 'connection',
+            default       => 'auto',
+        };
     }
 
     private function ordersByScope(WorkReport $workReport): array
@@ -1053,6 +1168,13 @@ class WorkReportEdit extends Component
             }
         }
 
+        // Antes de atribuir: o modelo ainda tem o escopo gravado, então a diferença é a escolha nova.
+        $scopeChanged = $this->finalScopeChoice !== $this->choiceFromScopes($this->workReport->selectedFinalScopesOrNull());
+
+        if ($scopeChanged && !$this->assignFinalScope()) {
+            return;
+        }
+
         $this->workReport->informed_at     = $this->normalizeDateTime($this->informedAt);
         $this->workReport->acceptance_at   = $this->normalizeDateTime($this->acceptanceAt);
         $this->workReport->acceptance_meta = $meta;
@@ -1060,6 +1182,10 @@ class WorkReportEdit extends Component
             $this->workReport->save();
             $this->saveAdsForm();
         });
+
+        if ($scopeChanged) {
+            $this->syncNoteInformFlows();
+        }
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
@@ -1077,6 +1203,7 @@ class WorkReportEdit extends Component
     {
         $this->resetErrorBag();
         $this->workReport                    = null;
+        $this->finalScopeChoice              = 'auto';
         $this->informedAt                    = null;
         $this->acceptanceAt                  = null;
         $this->acceptanceMetaJson            = null;
