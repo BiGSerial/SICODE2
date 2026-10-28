@@ -485,6 +485,85 @@ class QualityWorkflowFeatureTest extends TestCase
         $this->assertSame(QualityProcessState::AWAITING_N2_REVIEW, $process->state);
     }
 
+    public function test_submitting_finishes_the_activity_and_files_are_linked_and_n1_rejection_reopens_it(): void
+    {
+        $process    = $this->workflow->assignDesigner($this->dispatchToN1(), $this->n1, $this->designerA->id);
+        $production = Production::findOrFail($process->production_id);
+        $this->assertFalse((bool) $production->completed);
+        $file = $this->file('croqui.pdf');
+
+        $process = $this->submit($process, $this->designerA, [$file->id]);
+        $fresh   = $production->fresh();
+        $this->assertTrue((bool) $fresh->completed, 'a atividade do usuário é finalizada no envio');
+        $this->assertSame(5, (int) $fresh->status);
+        $this->assertNotNull($fresh->completed_at);
+        $this->assertSame([$file->id], $fresh->morphFiles()->pluck('files.id')->all(), 'arquivo da rodada associado à atividade');
+
+        // N1 rejeita: a mesma atividade volta aberta para o mesmo usuário
+        $process = $this->workflow->reject($process, $this->n1, [$this->reason('Croqui')]);
+        $fresh   = $production->fresh();
+        $this->assertFalse((bool) $fresh->completed);
+        $this->assertSame(2, (int) $fresh->status);
+        $this->assertNull($fresh->completed_at);
+        $this->assertSame($this->designerA->id, $fresh->user_id);
+
+        // novo envio finaliza de novo; a aprovação do N2 mantém a atividade encerrada
+        $process = $this->submit($process, $this->designerA, [$this->file('croqui2.pdf')->id]);
+        $this->assertTrue((bool) $production->fresh()->completed);
+        $process = $this->workflow->approve($process, $this->n1);
+        $process = $this->workflow->approve($process, $this->n2);
+        $this->assertTrue((bool) $production->fresh()->completed);
+        $this->assertSame(2, $production->fresh()->morphFiles()->count());
+    }
+
+    public function test_second_cycle_desenho_uploads_are_saved_linked_to_the_activity_and_the_activity_is_finished_on_submit(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::fake('local');
+
+        // 1º ciclo até a aprovação do N2, que abre o 2º ciclo (Desenho) para o mesmo usuário
+        $process = $this->workflow->assignDesigner($this->dispatchToN1(), $this->n1, $this->designerA->id);
+        $process = $this->submit($process, $this->designerA, [$this->file('lev.pdf')->id]);
+        \Illuminate\Support\Carbon::setTestNow(now()->addSeconds(5)); // o arquivo do 1º ciclo é anterior ao início do 2º
+        $process = $this->workflow->approve($process, $this->n1);
+        $process = $this->workflow->approve($process, $this->n2);
+        $this->assertSame(QualityStageType::BUDGET, $process->phase);
+        $production = Production::findOrFail($process->production_id);
+        $this->assertSame($this->service2->uuid, $production->service_id);
+
+        // usuário anexa DOIS arquivos de uma vez pelo componente padrão (depois do início do 2º ciclo)
+        \Illuminate\Support\Carbon::setTestNow(now()->addSeconds(10));
+        $note = $this->note->note;
+        \Livewire\Livewire::actingAs($this->designerA)->test(\App\Http\Livewire\Files\Manager\CreateProdFiles::class, ['production' => $production, 'needFiles' => false])
+            ->set('uploadType', \App\Helpers\SelectOptions::getProductionFilesType()[0]->value)
+            ->set('files', [
+                \Illuminate\Http\UploadedFile::fake()->create("{$note}_orc1.pdf", 40, 'application/pdf'),
+                \Illuminate\Http\UploadedFile::fake()->create("{$note}_orc2.pdf", 40, 'application/pdf'),
+            ])
+            ->call('saveFiles')->assertEmitted('savedFiles');
+
+        $this->assertSame(2, $production->fresh()->morphFiles()->count(), 'os dois arquivos ficam associados à atividade do Desenho');
+
+        // formulário da Qualidade: arquivos novos já vêm marcados; ao enviar, vão para a etapa e a atividade é finalizada
+        $form = \Livewire\Livewire::actingAs($this->designerA)->test(\App\Http\Livewire\Services\Desenho\Forms\QualityClosing::class)
+            ->call('openQualityClosing', $production->id);
+        $this->assertCount(2, $form->get('selectedFileIds'), 'só os anexados nesta rodada vêm marcados');
+
+        $form->set('orders', [$this->order()])->call('submit')->assertSet('awaitingFiles', true)->call('afterFilesSaved')->assertSet('viewForm', false);
+
+        $process = $process->fresh();
+        $this->assertSame(QualityProcessState::AWAITING_N1_REVIEW, $process->state);
+        $submitted = $process->Stages()->where('type', QualityStageType::BUDGET->value)->where('kind', QualityStageKind::EXECUTION->value)->where('status', 'COMPLETED')->firstOrFail();
+        $this->assertSame(2, $submitted->Files()->count(), 'os arquivos ficam registrados na etapa enviada ao N1');
+
+        $fresh = $production->fresh();
+        $this->assertTrue((bool) $fresh->completed);
+        $this->assertSame(5, (int) $fresh->status);
+        $this->assertNotNull($fresh->completed_at);
+        $this->assertSame(2, $fresh->morphFiles()->count());
+        \Illuminate\Support\Carbon::setTestNow();
+    }
+
     public function test_n1_rejection_requires_a_reason_and_reason_must_apply_to_the_pass(): void
     {
         $process = $this->workflow->assignDesigner($this->dispatchToN1(), $this->n1, $this->designerA->id);
@@ -606,7 +685,8 @@ class QualityWorkflowFeatureTest extends TestCase
     {
         $process    = $this->toFinalN2Review();
         $production = Production::find($process->production_id);
-        $this->assertFalse((bool) $production->completed);
+        $this->assertTrue((bool) $production->completed, 'a atividade já foi finalizada pelo usuário no envio');
+        $this->assertSame(5, (int) $production->status);
 
         $process = $this->workflow->approve($process, $this->n2);
 
