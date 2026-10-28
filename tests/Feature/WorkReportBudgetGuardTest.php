@@ -39,9 +39,9 @@ function budgetNote(?string $pep, ?float $available, string $status = 'ABER', in
 }
 
 it('bloqueia PEP zerado ou negativo e libera com saldo', function (?float $available, bool $blocked) {
-    $note = budgetNote('PEP-X', $available);
+    $note = budgetNote('PEP-X-2', $available);
 
-    expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe($blocked ? ['PEP-X'] : []);
+    expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe($blocked ? ['PEP-X-2'] : []);
 })->with([
     'zerado'    => [0.0, true],
     'negativo'  => [-150.5, true],
@@ -51,8 +51,8 @@ it('bloqueia PEP zerado ou negativo e libera com saldo', function (?float $avail
 
 it('ignora ordem sem PEP, PEP fora da sincronização e ordem encerrada', function () {
     $semPep      = budgetNote(null, null);
-    $naoSincroni = budgetNote('PEP-FANTASMA', null);
-    $encerrada   = budgetNote('PEP-ENC', -10.0, 'ENC');
+    $naoSincroni = budgetNote('PEP-FANTASMA-2', null);
+    $encerrada   = budgetNote('PEP-ENC-2', -10.0, 'ENC');
 
     $guard = app(WorkReportBudgetGuard::class);
 
@@ -62,14 +62,26 @@ it('ignora ordem sem PEP, PEP fora da sincronização e ordem encerrada', functi
 });
 
 it('nota tipo 2 nunca bloqueia, mesmo com PEP sem saldo', function () {
-    $note = budgetNote('PEP-T2', -50.0, 'ABER', 2);
+    $note = budgetNote('PEP-T2-2', -50.0, 'ABER', 2);
 
     expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe([])
         ->and(app(WorkReportBudgetGuard::class)->exceededPeps($note->Orders, 99999.0))->toBe([]);
 });
 
+it('só o PEP com sufixo -2 controla o orçamento; os demais sufixos não bloqueiam', function (string $pep, bool $blocked) {
+    $note = budgetNote($pep, -10.0);
+
+    expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe($blocked ? [$pep] : []);
+})->with([
+    '-2'           => ['X/005051-2', true],
+    '-3'           => ['X/004782-3', false],
+    '-1'           => ['D/449882-1', false],
+    '-7'           => ['B/000207-7', false],
+    '-22 não é -2' => ['X/005051-22', false],
+]);
+
 it('pode ser desligada pela regra do ruleset', function () {
-    $note = budgetNote('PEP-OFF', 0.0);
+    $note = budgetNote('PEP-OFF-2', 0.0);
 
     config(['sicode.rules.' . config('sicode.ruleset', 'es') . '.work_report.blocks_without_budget' => false]);
 
@@ -77,42 +89,42 @@ it('pode ser desligada pela regra do ruleset', function () {
 });
 
 it('por enquanto só o ES bloqueia: no SP o informe segue livre', function () {
-    $note = budgetNote('PEP-SP', -5.0);
+    $note = budgetNote('PEP-SP-2', -5.0);
 
     config(['sicode.ruleset' => 'sp']);
     expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe([])
         ->and(app(WorkReportBudgetGuard::class)->exceededPeps($note->Orders, 99999.0))->toBe([]);
 
     config(['sicode.ruleset' => 'es']);
-    expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe(['PEP-SP']);
+    expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe(['PEP-SP-2']);
 });
 
 it('monta o aviso com a mensagem de bloqueio em destaque', function () {
-    $swal = app(WorkReportBudgetGuard::class)->swal('123', ['PEP-A', 'PEP-B']);
+    $swal = app(WorkReportBudgetGuard::class)->swal('123', ['PEP-A-2', 'PEP-B-2']);
 
     expect($swal['icon'])->toBe('error')
         ->and($swal['html'])->toContain('OBRA NÃO POSSUI ORÇAMENTO DISPONÍVEL')
         ->and($swal['html'])->toContain('FAVOR ENTRAR EM CONTATO COM O ENGENHEIRO OU ESPECIALISTA RESPONSÁVEL PELA SUA REGIÃO.')
-        ->and($swal['html'])->toContain('PEP-A, PEP-B');
+        ->and($swal['html'])->toContain('PEP-A-2, PEP-B-2');
 });
 
 it('no informe final, mostra o bloqueio ao selecionar a obra sem saldo e deixa seguir com saldo', function () {
     $user = budgetPartner();
 
     Livewire::actingAs($user)->test(Workreports::class)
-        ->call('toConfirmWork', budgetNote('PEP-F1', -1.0))
+        ->call('toConfirmWork', budgetNote('PEP-F1-2', -1.0))
         ->assertDispatchedBrowserEvent('swal')
         ->assertNotDispatchedBrowserEvent('alertar');
 
     Livewire::actingAs($user)->test(Workreports::class)
-        ->call('toConfirmWork', budgetNote('PEP-F2', 500.0))
+        ->call('toConfirmWork', budgetNote('PEP-F2-2', 500.0))
         ->assertDispatchedBrowserEvent('alertar')
         ->assertNotDispatchedBrowserEvent('swal');
 });
 
 it('no informe final, não grava quando o saldo zera depois da seleção', function () {
     $user = budgetPartner();
-    $note = budgetNote('PEP-F3', 0.0);
+    $note = budgetNote('PEP-F3-2', 0.0);
 
     Livewire::actingAs($user)->test(Workreports::class)
         ->set('note', $note)
@@ -126,11 +138,11 @@ it('no informe parcial, bloqueia ao carregar a obra sem saldo', function () {
     $user = budgetPartner();
 
     Livewire::actingAs($user)->test(Partialreport::class)
-        ->call('getNote', budgetNote('PEP-P1', 0.0)->id)
+        ->call('getNote', budgetNote('PEP-P1-2', 0.0)->id)
         ->assertDispatchedBrowserEvent('swal')
         ->assertSet('note', null);
 
-    $ok = budgetNote('PEP-P2', 900.0);
+    $ok = budgetNote('PEP-P2-2', 900.0);
 
     Livewire::actingAs($user)->test(Partialreport::class)
         ->call('getNote', $ok->id)
@@ -139,7 +151,7 @@ it('no informe parcial, bloqueia ao carregar a obra sem saldo', function () {
 
 it('na parcial, bloqueia o valor da ADS acima do saldo sem revelar o saldo', function () {
     $user = budgetPartner();
-    $note = budgetNote('PEP-V1', 7351.42);
+    $note = budgetNote('PEP-V1-2', 7351.42);
 
     $test = Livewire::actingAs($user)->test(Partialreport::class)
         ->call('getNote', $note->id)
@@ -155,7 +167,7 @@ it('na parcial, bloqueia o valor da ADS acima do saldo sem revelar o saldo', fun
 
 it('na parcial, deixa seguir quando o valor da ADS cabe no saldo (inclusive igual)', function (string $amount) {
     $user = budgetPartner();
-    $note = budgetNote('PEP-V2', 1000.0);
+    $note = budgetNote('PEP-V2-2', 1000.0);
 
     Livewire::actingAs($user)->test(Partialreport::class)
         ->call('getNote', $note->id)
@@ -167,21 +179,21 @@ it('na parcial, deixa seguir quando o valor da ADS cabe no saldo (inclusive igua
 })->with(['abaixo' => ['999,99'], 'igual' => ['1.000,00']]);
 
 it('na parcial, compara o valor com a soma do saldo dos PEPs das ordens abertas', function () {
-    $note = budgetNote('PEP-S1', 400.0);
-    Pep::query()->create(['objeto' => 'PEP-S2', 'disponivel' => 600.0]);
-    Order::query()->create(['note_id' => $note->id, 'ordem' => '1799999', 'statusSist' => 'ABER', 'pep' => 'PEP-S2']);
+    $note = budgetNote('PEP-S1-2', 400.0);
+    Pep::query()->create(['objeto' => 'PEP-S2-2', 'disponivel' => 600.0]);
+    Order::query()->create(['note_id' => $note->id, 'ordem' => '1799999', 'statusSist' => 'ABER', 'pep' => 'PEP-S2-2']);
 
     $guard  = app(WorkReportBudgetGuard::class);
     $orders = $note->fresh()->Orders;
 
     expect($guard->exceededPeps($orders, 1000.0))->toBe([])
-        ->and($guard->exceededPeps($orders, 1000.01))->toEqualCanonicalizing(['PEP-S1', 'PEP-S2'])
+        ->and($guard->exceededPeps($orders, 1000.01))->toEqualCanonicalizing(['PEP-S1-2', 'PEP-S2-2'])
         ->and($guard->exceededPeps(budgetNote(null, null)->Orders, 999999.0))->toBe([]);
 });
 
 it('na parcial, não grava quando o valor da ADS passa do saldo', function () {
     $user = budgetPartner();
-    $note = budgetNote('PEP-V3', 50.0);
+    $note = budgetNote('PEP-V3-2', 50.0);
 
     Livewire::actingAs($user)->test(Partialreport::class)
         ->call('getNote', $note->id)
