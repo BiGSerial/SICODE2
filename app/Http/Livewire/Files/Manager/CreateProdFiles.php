@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Files\Manager;
 use App\Helpers\SelectOptions;
 use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
 use App\Models\{File, Production};
-use Illuminate\Support\Facades\{DB, Schema};
+use Illuminate\Support\Facades\{DB, Schema, Validator};
 use Livewire\{Component, WithFileUploads};
 
 /**
@@ -86,61 +86,62 @@ class CreateProdFiles extends Component
 
     public function updatedFiles()
     {
-        $this->validate();
+        $rejected = [];
 
-        if (count($this->files)) {
-            foreach ($this->files as $file) {
+        foreach ((array) $this->files as $file) {
+            $name = $file->getClientOriginalName();
 
-                // Bloqueio de arquivos não permitidos e limite de 10MB
-                if (!in_array(strtolower($file->getClientOriginalExtension()), self::ALLOWED_EXTENSIONS)) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
-                        'timer'    => 1500,
-                    ]);
+            if (!in_array(strtolower($file->getClientOriginalExtension()), self::ALLOWED_EXTENSIONS, true)) {
+                $rejected[$name] = 'tipo de arquivo não permitido';
+            } elseif ($file->getSize() > self::MAX_FILE_SIZE_BYTES) {
+                $rejected[$name] = 'tamanho acima de 40MB';
+            } elseif (collect($this->tempFiles)->contains(fn ($temp) => $temp['file']->getClientOriginalName() === $name)) {
+                $rejected[$name] = 'já está na fila de envio';
+            } elseif (Validator::make(['file' => $file], ['file' => 'file|mimes:' . implode(',', self::ALLOWED_EXTENSIONS)])->fails()) {
+                $rejected[$name] = 'conteúdo não corresponde ao tipo do arquivo';
+            } else {
+                $this->tempFiles[] = [
+                    'note_id'       => $this->production->Note->id,
+                    'service_id'    => $this->production->service_id,
+                    'user_id'       => Auth()->User()->id,
+                    'uploadType'    => $this->uploadType,
+                    'ext'           => $file->getClientOriginalExtension(),
+                    'original_name' => $name,
+                    'newName'       => null,
+                    'suspicious'    => false,
+                    'file'          => $file,
+                ];
 
-                    continue;
-                }
+                continue;
+            }
 
-                if ($file->getSize() > self::MAX_FILE_SIZE_BYTES) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Tamanho excede 40MB: ' . $file->getClientOriginalName(),
-                        'timer'    => 1500,
-                    ]);
-
-                    continue;
-                }
-
-                $exists = false;
-
-                if (count($this->tempFiles)) {
-                    foreach ($this->tempFiles as $temp_file) {
-                        if ($temp_file['file']->getClientOriginalName() === $file->getClientOriginalName()) {
-                            $exists = true;
-                        }
-                    }
-                }
-
-                if (!$exists) {
-                    $this->tempFiles[] = [
-                        'note_id'       => $this->production->Note->id,
-                        'service_id'    => $this->production->service_id,
-                        'user_id'       => Auth()->User()->id,
-                        'uploadType'    => $this->uploadType,
-                        'ext'           => $file->getClientOriginalExtension(),
-                        'original_name' => $file->getClientOriginalName(),
-                        'newName'       => null,
-                        'suspicious'    => false,
-                        'file'          => $file,
-                    ];
-                }
+            // O arquivo recusado não fica no armazenamento temporário.
+            if ($file->exists()) {
+                $file->delete();
             }
         }
 
+        $this->files = [];
+
+        if ($rejected) {
+            $this->notifyRejectedFiles($rejected);
+        }
+
         $this->checkFilesExists();
+    }
+
+    /** @param array<string, string> $rejected nome do arquivo => motivo */
+    private function notifyRejectedFiles(array $rejected): void
+    {
+        $items = collect($rejected)->map(fn ($reason, $name) => '<li class="text-start"><strong>' . e($name) . '</strong> — ' . e($reason) . '</li>')->implode('');
+
+        $this->dispatchBrowserEvent('swal', [
+            'position'          => 'center',
+            'icon'              => 'warning',
+            'title'             => count($rejected) === 1 ? 'Arquivo não anexado' : 'Alguns arquivos não foram anexados',
+            'html'              => '<ul class="mb-2 ps-3">' . $items . '</ul><div class="small text-muted">Formatos permitidos: imagem, PDF, Office e CAD (até 40MB por arquivo).</div>',
+            'confirmButtonText' => 'Entendi',
+        ]);
     }
 
     public function checkFilesExists()

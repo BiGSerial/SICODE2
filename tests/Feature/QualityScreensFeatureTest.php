@@ -388,6 +388,32 @@ class QualityScreensFeatureTest extends TestCase
         $this->assertSame(4, File::where('note_id', $this->note->id)->count());
     }
 
+    public function test_invalid_attachments_trigger_a_sweetalert_listing_each_refused_file(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::fake('local');
+        app(QualityWorkflowService::class)->assignDesigner($this->process, $this->n1, $this->designer->id);
+        $production = \App\Models\Production::findOrFail($this->process->fresh()->production_id);
+        $note       = $this->note->note;
+
+        $component = Livewire::actingAs($this->designer)->test(\App\Http\Livewire\Files\Manager\CreateProdFiles::class, ['production' => $production, 'needFiles' => false])
+            ->set('uploadType', \App\Helpers\SelectOptions::getProductionFilesType()[0]->value)
+            ->set('files', [
+                \Illuminate\Http\UploadedFile::fake()->create("{$note}_ok.pdf", 40, 'application/pdf'),
+                \Illuminate\Http\UploadedFile::fake()->create('virus.exe', 40, 'application/octet-stream'),
+                \Illuminate\Http\UploadedFile::fake()->create('notas.txt', 10, 'text/plain'),
+            ]);
+
+        $component->assertDispatchedBrowserEvent('swal', fn ($event, $data) => $data['icon'] === 'warning'
+            && str_contains($data['html'], 'virus.exe') && str_contains($data['html'], 'notas.txt') && !str_contains($data['html'], "{$note}_ok.pdf"));
+        $this->assertCount(1, $component->get('tempFiles'), 'só o arquivo válido entra na fila');
+
+        // o mesmo arquivo de novo também é avisado
+        $component->set('files', [\Illuminate\Http\UploadedFile::fake()->create("{$note}_ok.pdf", 40, 'application/pdf')])
+            ->assertDispatchedBrowserEvent('swal', fn ($event, $data) => str_contains($data['html'], 'já está na fila'));
+        $this->assertCount(1, $component->get('tempFiles'));
+    }
+
     public function test_dedicated_desenho_form_only_opens_for_the_assigned_designer_and_submits_to_n1(): void
     {
         app(QualityWorkflowService::class)->assignDesigner($this->process, $this->n1, $this->designer->id);

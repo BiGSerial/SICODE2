@@ -4,7 +4,8 @@
         use App\Helpers\SelectOptions;
     @endphp
     <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-        x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-error="isUploading = false"
+        x-on:livewire-upload-finish="isUploading = false"
+        x-on:livewire-upload-error="isUploading = false; $dispatch('swal', { position: 'center', icon: 'error', title: 'Falha ao enviar o arquivo', html: 'O arquivo não pôde ser enviado. Verifique o tamanho (até 40MB) e o tipo (imagem, PDF, Office ou CAD) e tente novamente.', confirmButtonText: 'Entendi' })"
         x-on:livewire-upload-progress="progress = $event.detail.progress">
         <x-show-loading />
         @if ($production)
