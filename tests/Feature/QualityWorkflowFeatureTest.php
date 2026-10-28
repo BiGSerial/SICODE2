@@ -443,6 +443,48 @@ class QualityWorkflowFeatureTest extends TestCase
         $rules->validate([['order_number' => '160123456789', 'total_cost' => '100,00', 'company_cost' => '60,00', 'client_cost' => '40,00']], '100200300');
     }
 
+    public function test_n1_approval_is_not_blocked_by_issues_of_an_older_checklist_of_the_same_cycle(): void
+    {
+        $this->withoutVite();
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
+        \App\Models\Bancoupdate::unguarded(fn () => \App\Models\Bancoupdate::create(['inserts' => 0, 'updates' => 0]));
+
+        $process = $this->workflow->assignDesigner($this->dispatchToN1(), $this->n1, $this->designerA->id);
+        $process = $this->submit($process, $this->designerA, [$this->file('a.pdf')->id]);
+
+        // rodada 1: N1 aponta o item A e rejeita; o usuário responde
+        $this->actingAs($this->n1)->get(route('quality.process.checklist', $process))->assertOk();
+        $runA    = \App\Models\QualityChecklistRun::query()->where('quality_process_id', $process->id)->firstOrFail();
+        $items   = $runA->Entries()->orderBy('sort_order')->get();
+        [$a, $b] = [$items[0], $items[1]];
+        $this->actingAs($this->n1)->put(route('quality.process.checklist.save', [$process, $runA]), ['entries' => [$a->id => ['status' => 'ISSUE', 'observation' => 'Item A']]])->assertSessionHasNoErrors();
+        $process = $this->workflow->reject($process, $this->n1, [$this->reason('Croqui')]);
+        $this->actingAs($this->designerA)->post(route('quality.process.checklist.resolve', [$process, $a]), ['resolution' => 'A ajustado'])->assertSessionHasNoErrors();
+        $process = $this->submit($process, $this->designerA, [$this->file('b.pdf')->id]);
+
+        // rodada 2: N1 abre um checklist NOVO (adicionar apontamentos), aponta o item B e rejeita sem validar o A
+        $this->actingAs($this->n1)->get(route('quality.process.checklist', [$process, 'new' => 1]))->assertOk();
+        $runB = \App\Models\QualityChecklistRun::query()->where('quality_process_id', $process->id)->latest('id')->firstOrFail();
+        $this->assertNotSame($runA->id, $runB->id);
+        $bInB = $runB->Entries()->where('code', $b->code)->firstOrFail();
+        $this->actingAs($this->n1)->put(route('quality.process.checklist.save', [$process, $runB]), ['entries' => [$bInB->id => ['status' => 'ISSUE', 'observation' => 'Item B']]])->assertSessionHasNoErrors();
+        $process = $this->workflow->reject($process, $this->n1, [$this->reason('Croqui')]);
+
+        // o usuário vê os dois (o A foi levado para o checklist atual) e responde o B
+        $html = $this->actingAs($this->designerA)->get(route('quality.process.checklist', $process))->assertOk()->getContent();
+        $this->assertStringContainsString('Item B', $html);
+        $this->assertStringContainsString('A ajustado', $html, 'a resposta do item A continua visível');
+        $this->actingAs($this->designerA)->post(route('quality.process.checklist.resolve', [$process, $bInB]), ['resolution' => 'B ajustado'])->assertSessionHasNoErrors();
+        $process = $this->submit($process, $this->designerA, [$this->file('c.pdf')->id]);
+
+        // N1 valida tudo o que está no checklist atual e aprova: não pode ficar preso
+        foreach ($runB->fresh()->Entries()->where('status', 'RESOLVED')->get() as $entry) {
+            $this->actingAs($this->n1)->post(route('quality.process.checklist.validate', [$process, $entry]), ['accepted' => 1])->assertSessionHasNoErrors();
+        }
+        $process = $this->workflow->approve($process, $this->n1);
+        $this->assertSame(QualityProcessState::AWAITING_N2_REVIEW, $process->state);
+    }
+
     public function test_n1_rejection_requires_a_reason_and_reason_must_apply_to_the_pass(): void
     {
         $process = $this->workflow->assignDesigner($this->dispatchToN1(), $this->n1, $this->designerA->id);

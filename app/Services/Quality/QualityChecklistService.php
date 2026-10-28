@@ -28,8 +28,31 @@ class QualityChecklistService
                 }
             }
 
+            $this->carryOverFromPreviousRun($process, $run);
+
             return $run->fresh(['Entries']);
         });
+    }
+
+    /**
+     * Um checklist novo no mesmo ciclo parte do que já foi apontado, respondido e validado no anterior:
+     * o checklist mais recente é o único que usuário e N1 enxergam, então nada pode ficar para trás.
+     */
+    private function carryOverFromPreviousRun(QualityProcess $process, QualityChecklistRun $run): void
+    {
+        $previous = QualityChecklistRun::query()->where('quality_process_id', $process->id)->whereNotNull('sent_at')
+            ->whereIn('quality_stage_id', $this->cycleStageIds($process))->where('id', '<', $run->id)->latest('id')->with('Entries')->first();
+
+        if (!$previous) {
+            return;
+        }
+
+        $carried = $previous->Entries->whereIn('status', ['ISSUE', 'RESOLVED', 'VALIDATED'])->keyBy('code');
+
+        foreach ($run->Entries()->whereIn('code', $carried->keys())->where('status', 'PENDING')->get() as $entry) {
+            $old = $carried[$entry->code];
+            $entry->update($old->only(['status', 'observation', 'resolution', 'resolved_by', 'resolved_at', 'validated_by', 'validated_at']));
+        }
     }
 
     public function save(QualityChecklistRun $run, array $entries): void
@@ -99,15 +122,13 @@ class QualityChecklistService
         $entry->update(['status' => $accepted ? 'VALIDATED' : 'ISSUE', 'validated_by' => $user->id, 'validated_at' => now()]);
     }
 
-    /** Não deixa o N1 aprovar enquanto houver apontamentos enviados sem validação da correção. */
+    /** Não deixa o N1 aprovar enquanto o checklist atual do ciclo (o último enviado ao usuário) tiver apontamentos sem validação. */
     public function assertNoOpenSentIssues(QualityProcess $process): void
     {
-        $open = QualityChecklistEntry::query()
-            ->whereIn('status', ['ISSUE', 'RESOLVED'])
-            ->whereHas('Run', fn ($q) => $q->where('quality_process_id', $process->id)->whereNotNull('sent_at')->whereIn('quality_stage_id', $this->cycleStageIds($process)))
-            ->exists();
+        $run = QualityChecklistRun::query()->where('quality_process_id', $process->id)->whereNotNull('sent_at')
+            ->whereIn('quality_stage_id', $this->cycleStageIds($process))->latest('id')->first();
 
-        if ($open) {
+        if ($run && $run->Entries()->whereIn('status', ['ISSUE', 'RESOLVED'])->exists()) {
             throw new QualityWorkflowException('Existem apontamentos do checklist aguardando correção ou validação.');
         }
     }

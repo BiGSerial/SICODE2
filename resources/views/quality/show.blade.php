@@ -129,7 +129,7 @@
                 @if ($can['review1'] || $can['review2'])
                     @php $isN2Review = $can['review2']; @endphp
                     @if (!$isN2Review)
-                        @php $latestChecklist = $process->ChecklistRuns()->withCount(['Entries as checklist_open_count' => fn ($q) => $q->whereIn('status', ['ISSUE', 'RESOLVED'])])->latest('id')->first(); @endphp
+                        @php $latestChecklist = $process->ChecklistRuns()->withCount(['Entries as checklist_open_count' => fn ($q) => $q->whereIn('status', ['ISSUE', 'RESOLVED'])])->orderByRaw('sent_at is null')->latest('id')->first(); @endphp
                         <div class="table-card p-3 mb-3 border-primary" id="q-checklist-cta">
                             <div class="d-flex align-items-center gap-2 mb-2"><div class="kpi-ico"><i class="ri-list-check-2"></i></div><div><div class="chart-title mb-0">Checklist de Qualidade</div><div class="small text-muted">Faça a conferência antes de decidir.</div></div></div>
                             <a href="{{ route('quality.process.checklist', $process) }}" class="btn btn-primary btn-dash w-100"><i class="ri-list-check-2"></i> Abrir checklist{{ $latestChecklist ? ' · ' . $latestChecklist->checklist_open_count . ' apontamento(s)' : '' }}</a>
