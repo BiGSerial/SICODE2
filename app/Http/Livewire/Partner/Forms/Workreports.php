@@ -403,7 +403,7 @@ class Workreports extends Component
         $budget = app(WorkReportBudgetGuard::class);
 
         if ($peps = $budget->blockedPeps($this->selectableOrdersForNote($this->note))) {
-            $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note, $peps));
+            $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note));
 
             return;
         }
@@ -853,7 +853,7 @@ class Workreports extends Component
         $budget = app(WorkReportBudgetGuard::class);
 
         if ($peps = $budget->blockedPeps($this->selectableOrdersForNote($this->preNote))) {
-            $this->dispatchBrowserEvent('swal', $budget->swal($this->preNote->note, $peps));
+            $this->dispatchBrowserEvent('swal', $budget->swal($this->preNote->note));
 
             return;
         }

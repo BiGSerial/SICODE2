@@ -99,13 +99,15 @@ it('por enquanto só o ES bloqueia: no SP o informe segue livre', function () {
     expect(app(WorkReportBudgetGuard::class)->blockedPeps($note->Orders))->toBe(['PEP-SP-2']);
 });
 
-it('monta o aviso com a mensagem de bloqueio em destaque', function () {
-    $swal = app(WorkReportBudgetGuard::class)->swal('123', ['PEP-A-2', 'PEP-B-2']);
+it('monta o aviso de bloqueio sem revelar o PEP', function () {
+    $swal = app(WorkReportBudgetGuard::class)->swal('123');
 
     expect($swal['icon'])->toBe('error')
-        ->and($swal['html'])->toContain('OBRA NÃO POSSUI ORÇAMENTO DISPONÍVEL')
-        ->and($swal['html'])->toContain('FAVOR ENTRAR EM CONTATO COM O ENGENHEIRO OU ESPECIALISTA RESPONSÁVEL PELA SUA REGIÃO.')
-        ->and($swal['html'])->toContain('PEP-A-2, PEP-B-2');
+        ->and($swal['title'])->toBe('OBRA BLOQUEADA')
+        ->and($swal['html'])->toContain('123')
+        ->and($swal['html'])->toContain('Sem orçamento disponível')
+        ->and($swal['html'])->toContain('engenheiro ou especialista responsável pela sua região')
+        ->and($swal['html'])->not->toContain('PEP');
 });
 
 it('no informe final, mostra o bloqueio ao selecionar a obra sem saldo e deixa seguir com saldo', function () {

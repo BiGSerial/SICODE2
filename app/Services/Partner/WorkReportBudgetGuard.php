@@ -54,25 +54,32 @@ class WorkReportBudgetGuard
         return $balances !== [] && $amount - array_sum($balances) > 0.004 ? array_keys($balances) : [];
     }
 
-    /** Conteúdo do SweetAlert2 de bloqueio (mesmo formato dos demais avisos de bloqueio do informe). */
-    public function swal(string $note, array $peps): array
+    /**
+     * Conteúdo do SweetAlert2 de bloqueio. Não revela o PEP nem o saldo ao parceiro: só a obra e o encaminhamento.
+     */
+    public function swal(string $note): array
     {
         $note = e($note);
-        $list = e(implode(', ', $peps));
 
         return [
             'position' => 'center',
             'icon'     => 'error',
             'title'    => 'OBRA BLOQUEADA',
-            'html'     => "<div class='card'>
-                <div class='card-body'>
-                    <h5 class='card-title'>Obra: <strong>{$note}</strong></h5>
-                    <div class='alert alert-danger'>
-                        <h4 class='alert-heading fw-bold mb-2'>OBRA NÃO POSSUI ORÇAMENTO DISPONÍVEL</h4>
-                        <strong>FAVOR ENTRAR EM CONTATO COM O ENGENHEIRO OU ESPECIALISTA RESPONSÁVEL PELA SUA REGIÃO.</strong>
+            'html'     => "<div class='text-center'>
+                <span class='badge rounded-pill bg-light text-dark border fs-6 px-3 py-2 mb-3'>
+                    <i class='ri-building-line me-1'></i>Obra <strong>{$note}</strong>
+                </span>
+                <div class='alert alert-danger d-flex align-items-start gap-3 text-start mb-3' role='alert'>
+                    <i class='ri-wallet-3-line fs-1 lh-1'></i>
+                    <div>
+                        <h5 class='alert-heading fw-bold mb-1'>Sem orçamento disponível</h5>
+                        <p class='mb-0'>Esta obra não possui orçamento disponível para receber o informe.</p>
                     </div>
-                    <div class='small text-muted'>PEP sem saldo: {$list}</div>
                 </div>
+                <p class='text-muted small mb-0'>
+                    <i class='ri-customer-service-2-line me-1'></i>
+                    Entre em contato com o <strong>engenheiro ou especialista responsável pela sua região</strong>.
+                </p>
             </div>",
         ];
     }
