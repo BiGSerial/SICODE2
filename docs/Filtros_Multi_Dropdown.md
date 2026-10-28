@@ -39,7 +39,7 @@ resources/views/components/filters/multi-dropdown.blade.php
 | `keyPrefix` | string | Prefixo do `wire:key` de cada checkbox. |
 | `emptyText` | string | Texto exibido quando não houver opções. |
 
-Cada item de `options` deve ter este formato:
+Cada item de `options` deve ter este formato (`label` é opcional: texto exibido no lugar do `value`, ex.: `99 · Cancelado`):
 
 ```php
 [

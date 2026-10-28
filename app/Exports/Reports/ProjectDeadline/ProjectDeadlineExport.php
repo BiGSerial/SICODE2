@@ -71,8 +71,21 @@ class ProjectDeadlineExport implements WithMultipleSheets, WithProperties
             'Levantamento'      => 'Status 27 até o evento seguinte; prazo de 8 dias',
             'Desenho'           => 'Status 28 até o evento seguinte; prazo de 6 dias',
             'Cálculo'           => 'Última passagem da OV pelo status; dias corridos; o mês é o do término da fase',
+            'Expurgo'           => $this->exclusionLabel(),
             'Lista completa'    => $this->report['truncated'] ? 'Cortada em ' . number_format(Analytics::DETAIL_LIMIT, 0, ',', '.') . ' linhas (use um período menor)' : 'Completa',
         ];
+    }
+
+    private function exclusionLabel(): string
+    {
+        $x     = $this->report['filters']['exclude'] ?? [];
+        $parts = array_filter([
+            !empty($x['rubrics']) ? 'Rubricas: ' . implode(', ', $x['rubrics']) : null,
+            !empty($x['prefixes']) ? 'OVs que começam com: ' . implode(', ', $x['prefixes']) : null,
+            !empty($x['next_stats']) ? 'Fases seguidas do status: ' . implode(', ', $x['next_stats']) : null,
+        ]);
+
+        return $parts ? implode(' · ', $parts) : 'Nenhum';
     }
 
     /** @return array<string,mixed> */

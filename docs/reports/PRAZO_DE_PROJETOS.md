@@ -18,8 +18,11 @@ Serviços → Relatórios → **RELATÓRIO PRAZO DE PROJETOS** (`/reports/projec
 - **SP ordena por data (regra `ov_phases.order_by_date`, `SicodeRules::ovPhasesOrderByDate()`, ligada por padrão só no ruleset `sp`):** a numeração (`idNum`) do SP saiu fora de sequência. Lá os eventos da OV são ordenados pela data (e `id_num` no empate), o último 27/28 é o mais recente nessa ordem e o término é o evento imediatamente acima. Pode ser ligada ou desligada por `sicode.rules.{ruleset}.ov_phases.order_by_date` (config ou `system_settings`).
 - **Fase:** levantamento = evento de status **27** até o evento seguinte da mesma OV (`id_num` sequencial); desenho = status **28** até o evento seguinte.
 - **Última passagem:** se a OV voltar ao 27 (ou ao 28), vale só a última.
-- **Expurgo:** se o evento imediatamente acima do 27 (ou do 28) for o status **99**, a fase é expurgada e não entra em nenhum indicador (`OvPhaseDurationService::PURGE_STATUSES`). Vale no ES e no SP.
-- **OVs expurgadas** (fora de todos os indicadores, inclusive "OVs em projeto agora"): número da OV que **começa com 800** ou rubrica **Acompanhamento** / **Incoporação** / **Desconsiderar** (grafia gravada na base; "Incorporação" entra junto). Ver `OvPhaseDurationService::PURGE_NOTE_PREFIXES` e `PURGE_RUBRICS`.
+- **Expurgo escolhido na tela (nada é fixo no código):** a tela tem três multiescolhas, aplicadas no botão "Aplicar expurgo" e guardadas na URL (`exrub`, `expre`, `exst`). O que for marcado sai de todos os indicadores, do Excel e da lista. As fases e o histórico continuam completos; o expurgo só filtra a leitura (`OvPhaseExclusions`).
+  - **Rubrica** (`notes.rubrica`): opções vêm da base, com a quantidade de OVs (hoje: Mercado, Incoporação, Remoção, Rec. Tecnica, Acompanhamento, BT Zero, Mercado/Não Regulado, Desconsiderar; "Incoporação" é a grafia gravada). OVs sem rubrica nunca são expurgadas.
+  - **OV começa com:** os 3 primeiros dígitos do número da OV, com a quantidade (ex.: 800).
+  - **Fase seguida do status:** o status do evento imediatamente acima do 27/28 (coluna `ov_phase_durations.next_stat`; ex.: 99). Não vale para "OVs em projeto agora", que ainda não têm um próximo status.
+  - "OVs em projeto agora" respeita só o expurgo de rubrica e de número da OV. As opções ficam em cache de 1 hora.
 - **Fase aberta** (sem evento seguinte) não entra: nem nas faixas, nem na aderência.
 - **Dias corridos**, fracionados (diferença exata entre os eventos). A faixa 0–8 usa `dias <= 8`.
 - **Prazo:** levantamento 8 dias; desenho 6 dias. Faixas: levantamento 0–8 / 9–15 / 16–30 / >30; desenho 0–6 / 7–15 / 16–30 / >30.
@@ -33,7 +36,7 @@ Serviços → Relatórios → **RELATÓRIO PRAZO DE PROJETOS** (`/reports/projec
 
 `historic_notes` guarda um evento por status da BaseOV (`type_note = 2`; chave `note_id + id_num + num_stat`). `OvPhaseDurationService::rebuildForNotes()` deriva `ov_phase_durations` (uma linha por nota e fase) e é chamado ao fim de `OvStatusHistoryService::upsertFromSource`, ou seja, a cada gravação do histórico (`upd_baseov`, `LoteBaseOV`, botão "Carregar" do Search, `sicode:backfill_ov_history`). A empresa é buscada no recálculo; se a produção for concluída depois do fechamento da fase, a empresa só aparece no próximo recálculo da nota.
 
-Para popular um ambiente: rodar a migration `ov_phase_durations` e `sicode:backfill_ov_history` (recalcula as fases a cada lote).
+Para popular um ambiente: rodar as migrations (`ov_phase_durations` e `next_stat`) e `sicode:backfill_ov_history` (recalcula as fases a cada lote). Quem já tinha fases gravadas precisa rodar `sicode:rebuild_ov_phases` para preencher o `next_stat`.
 
 ## Excel
 

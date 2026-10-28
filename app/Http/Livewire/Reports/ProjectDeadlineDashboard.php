@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Reports;
 
 use App\Jobs\Reports\ProjectDeadlineExportJob;
 use App\Models\{Company, OvPhaseDuration};
-use App\Services\Indicators\{ProjectDeadlineAnalytics, ProjectDeadlineCharts};
+use App\Services\Indicators\{OvPhaseExclusions, ProjectDeadlineAnalytics, ProjectDeadlineCharts};
 use App\Services\Notes\OvStatusHistoryService;
 use Carbon\Carbon;
 use Livewire\Component;
@@ -24,6 +24,13 @@ class ProjectDeadlineDashboard extends Component
 
     public ?string $selectedCompany = null;
 
+    /** Expurgo escolhido na tela (aplicado no botão "Aplicar"): rubricas, prefixos do número da OV e status que encerra a fase. */
+    public array $excludeRubrics = [];
+
+    public array $excludePrefixes = [];
+
+    public array $excludeStatuses = [];
+
     public string $preset = 'year';
 
     public ?string $dt_in = null;
@@ -32,6 +39,9 @@ class ProjectDeadlineDashboard extends Component
 
     protected $queryString = [
         'selectedCompany' => ['except' => '', 'as' => 'empresa'],
+        'excludeRubrics'  => ['except' => [], 'as' => 'exrub'],
+        'excludePrefixes' => ['except' => [], 'as' => 'expre'],
+        'excludeStatuses' => ['except' => [], 'as' => 'exst'],
         'preset'          => ['except' => 'year', 'as' => 'periodo'],
         'dt_in'           => ['except' => '', 'as' => 'dtin'],
         'dt_out'          => ['except' => '', 'as' => 'dtout'],
@@ -88,6 +98,18 @@ class ProjectDeadlineDashboard extends Component
     public function clearFilters(): void
     {
         $this->selectedCompany = null;
+        $this->clearExclusions();
+    }
+
+    /** Botão "Aplicar" do expurgo: as caixas usam wire:model.defer, então só aqui o servidor recebe a escolha. */
+    public function applyExclusions(): void
+    {
+        $this->refreshCharts();
+    }
+
+    public function clearExclusions(): void
+    {
+        $this->excludeRubrics = $this->excludePrefixes = $this->excludeStatuses = [];
         $this->refreshCharts();
     }
 
@@ -97,6 +119,7 @@ class ProjectDeadlineDashboard extends Component
             'company' => $this->selectedCompany,
             'dt_init' => $this->dt_in,
             'dt_end'  => $this->dt_out,
+            'exclude' => $this->exclusions(),
         ], auth()->id())
             ->onConnection((string) config('queue.channels.exports.connection', 'database'))
             ->onQueue((string) config('queue.channels.exports.queue', 'exports'));
@@ -132,15 +155,23 @@ class ProjectDeadlineDashboard extends Component
             'snapshot'    => $snapshot,
             'charts'      => ProjectDeadlineCharts::all($snapshot),
             'companyList' => $this->companyList,
-            'hasFilters'  => (bool) $this->selectedCompany,
+            'hasFilters'  => (bool) $this->selectedCompany || !OvPhaseExclusions::isEmpty($this->exclusions()),
+            'exclusion'   => $this->exclusions(),
+            'options'     => OvPhaseExclusions::options(),
             'greeting'    => now()->translatedFormat('l, d \d\e F'),
         ]);
     }
 
-    /** @return array{company: ?string, from: ?string, to: ?string} */
+    /** @return array{company: ?string, from: ?string, to: ?string, exclude: array} */
     private function filters(): array
     {
-        return ['company' => $this->selectedCompany, 'from' => $this->dt_in, 'to' => $this->dt_out];
+        return ['company' => $this->selectedCompany, 'from' => $this->dt_in, 'to' => $this->dt_out, 'exclude' => $this->exclusions()];
+    }
+
+    /** @return array{rubrics: array, prefixes: array, next_stats: array} */
+    private function exclusions(): array
+    {
+        return OvPhaseExclusions::normalize(['rubrics' => $this->excludeRubrics, 'prefixes' => $this->excludePrefixes, 'next_stats' => $this->excludeStatuses]);
     }
 
     private function applyPreset(string $preset): void

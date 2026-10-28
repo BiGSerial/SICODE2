@@ -308,36 +308,23 @@ it('no SP o último 27 é o mais recente por data', function () {
     expect($survey->started_at->toDateString())->toBe('2026-03-20')->and($survey->days)->toBe(5.0);
 });
 
-it('expurga a fase quando o evento imediatamente acima é o status 99', function (string $ruleset) {
-    config(['sicode.ruleset' => $ruleset]);
-    // 27 → 28 → 99: o levantamento fecha normalmente; o desenho é seguido do 99 e é expurgado
-    $note = phaseNote('9920', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [99, '2026-03-10 08:00:00']]);
-    // 27 direto para o 99: expurgado
-    $direct = phaseNote('9921', [[27, '2026-03-01 08:00:00'], [99, '2026-03-02 08:00:00']]);
+it('guarda as fases de todas as OVs, inclusive 800, rubricas e seguidas do 99, com o status que encerra', function () {
+    $events = [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [99, '2026-03-10 08:00:00']];
 
-    app(OvPhaseDurationService::class)->rebuildForNotes([$note->id, $direct->id]);
+    $prefix = phaseNote('8000001', $events);
+    $rubric = phaseNote('7000002', $events);
+    $rubric->update(['rubrica' => 'Acompanhamento']);
 
-    expect(OvPhaseDuration::where('note_id', $note->id)->where('phase', 27)->sole()->days)->toBe(3.0)
-        ->and(OvPhaseDuration::where('note_id', $note->id)->where('phase', 28)->exists())->toBeFalse()
-        ->and(OvPhaseDuration::where('note_id', $direct->id)->exists())->toBeFalse();
-})->with(['es', 'sp']);
+    app(OvPhaseDurationService::class)->rebuildForNotes([$prefix->id, $rubric->id]);
 
-it('remove a fase já calculada quando ela passa a ser seguida do status 99', function () {
-    $note    = phaseNote('9922', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00']]);
-    $service = app(OvPhaseDurationService::class);
-
-    $service->rebuildForNotes([$note->id]);
-    expect(OvPhaseDuration::where('note_id', $note->id)->where('phase', 28)->count())->toBe(0); // 28 aberto
-
-    HistoricNote::create(['note_id' => $note->id, 'id_num' => 3, 'num_stat' => 99, 'dt_stats' => '2026-03-08 08:00:00']);
-    $service->rebuildForNotes([$note->id]);
-
-    expect(OvPhaseDuration::where('note_id', $note->id)->where('phase', 27)->sole()->days)->toBe(3.0)
-        ->and(OvPhaseDuration::where('note_id', $note->id)->where('phase', 28)->exists())->toBeFalse();
+    expect(OvPhaseDuration::count())->toBe(4)
+        ->and(OvPhaseDuration::where('note_id', $prefix->id)->where('phase', 27)->sole()->next_stat)->toBe(28)
+        ->and(OvPhaseDuration::where('note_id', $prefix->id)->where('phase', 28)->sole()->next_stat)->toBe(99);
 });
 
-it('expurga OVs que começam com 800 e as rubricas Acompanhamento, Incoporação e Desconsiderar', function () {
+it('expurga na consulta o que foi escolhido: rubrica, prefixo do número e status que encerra a fase', function () {
     $events = [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [50, '2026-03-09 08:00:00']];
+    $cancel = [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [99, '2026-03-10 08:00:00']];
 
     $kept = phaseNote('7000001', $events);
     $kept->update(['rubrica' => 'Mercado']);
@@ -346,32 +333,85 @@ it('expurga OVs que começam com 800 e as rubricas Acompanhamento, Incoporação
     $follow->update(['rubrica' => 'Acompanhamento']);
     $incorp = phaseNote('7000003', $events);
     $incorp->update(['rubrica' => 'Incoporação']);
-    $noRubric = phaseNote('7000004', $events);
-    $ignored  = phaseNote('7000005', $events);
+    $ignored = phaseNote('7000004', $events);
     $ignored->update(['rubrica' => 'Desconsiderar']);
+    $cancelled = phaseNote('7000005', $cancel);
 
-    app(OvPhaseDurationService::class)->rebuildForNotes([$kept->id, $prefix->id, $follow->id, $incorp->id, $noRubric->id, $ignored->id]);
+    app(OvPhaseDurationService::class)->rebuildForNotes(Note::pluck('id'));
 
-    expect(OvPhaseDuration::pluck('note_id')->unique()->sort()->values()->all())->toBe(collect([$kept->id, $noRubric->id])->sort()->values()->all());
+    $total = fn (array $exclude, int $phase = 27) => app(\App\Services\Indicators\ProjectDeadlineAnalytics::class)
+        ->report(['from' => '2026-01-01', 'to' => '2026-12-31', 'exclude' => $exclude], withDetail: false)['phases'][$phase]['summary']['total'];
+
+    expect($total([]))->toBe(6)                                                         // nada expurgado: todas
+        ->and($total(['rubrics' => ['Acompanhamento']]))->toBe(5)
+        ->and($total(['rubrics' => ['Acompanhamento', 'Incoporação', 'Desconsiderar']]))->toBe(3)  // multiescolha
+        ->and($total(['prefixes' => ['800']]))->toBe(5)
+        ->and($total(['rubrics' => ['Acompanhamento'], 'prefixes' => ['800']]))->toBe(4)
+        ->and($total(['next_stats' => [99]], 28))->toBe(5)                              // só a fase 28 da OV cancelada é seguida do 99
+        ->and($total(['next_stats' => [99]], 27))->toBe(6)                              // o levantamento dela é seguido do 28
+        ->and($total(['rubrics' => ['Mercado']]))->toBe(5);                             // a rubrica vazia (null) nunca é expurgada
 });
 
-it('o expurgo apaga fases que já existiam e sai do retrato de agora', function () {
-    $note    = phaseNote('7100001', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [50, '2026-03-09 08:00:00']]);
-    $service = app(OvPhaseDurationService::class);
-    $service->rebuildForNotes([$note->id]);
-    expect(OvPhaseDuration::where('note_id', $note->id)->count())->toBe(2);
+it('o expurgo escolhido também vale na lista e por empresa, e o retrato de agora respeita rubrica e prefixo', function () {
+    $company = Company::create(['name' => 'EDP SP', 'email' => 'sp@example.test']);
+    $service = Service::create(['service' => 'LEVANTAMENTO', 'status' => 27]);
 
-    $note->update(['rubrica' => 'Acompanhamento']);
-    $service->rebuildForNotes([$note->id]);
-    expect(OvPhaseDuration::where('note_id', $note->id)->count())->toBe(0);
+    foreach ([['7100001', 'Mercado'], ['8100001', 'Mercado'], ['7100002', 'Acompanhamento']] as [$ov, $rubric]) {
+        $note = phaseNote($ov, [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00']]);
+        $note->update(['rubrica' => $rubric]);
+        Production::forceCreate(['note_id' => $note->id, 'service_id' => $service->uuid, 'company_id' => $company->id, 'completed' => true, 'completed_at' => '2026-03-04 08:00:00']);
+        app(OvPhaseDurationService::class)->rebuildForNotes([$note->id]);
+    }
 
-    Note::create(['note' => '7100002', 'type_note' => 2, 'nstats' => '27', 'rubrica' => 'Mercado']);
-    Note::create(['note' => '8000002', 'type_note' => 2, 'nstats' => '27', 'rubrica' => 'Mercado']);
-    Note::create(['note' => '7100003', 'type_note' => 2, 'nstats' => '28', 'rubrica' => 'Incoporação']);
-    Note::create(['note' => '7100004', 'type_note' => 2, 'nstats' => '28']);
+    $analytics = app(\App\Services\Indicators\ProjectDeadlineAnalytics::class);
+    $all       = $analytics->report(['from' => '2026-01-01', 'to' => '2026-12-31']);
+    $some      = $analytics->report(['from' => '2026-01-01', 'to' => '2026-12-31', 'exclude' => ['rubrics' => ['Acompanhamento'], 'prefixes' => ['8']]]);
+
+    expect(count($all['detail']))->toBe(3)
+        ->and(count($some['detail']))->toBe(1)
+        ->and($some['detail'][0]['note'])->toBe('7100001')
+        ->and($some['companies'][0][27]['total'])->toBe(1);
+
+    Note::create(['note' => '7100003', 'type_note' => 2, 'nstats' => '27', 'rubrica' => 'Mercado']);
+    Note::create(['note' => '8100003', 'type_note' => 2, 'nstats' => '27', 'rubrica' => 'Mercado']);
+    Note::create(['note' => '7100004', 'type_note' => 2, 'nstats' => '28', 'rubrica' => 'Incoporação']);
     \Illuminate\Support\Facades\Cache::flush();
 
-    $report = app(\App\Services\Indicators\ProjectDeadlineAnalytics::class)->report(['from' => '2026-01-01', 'to' => '2026-12-31'], withDetail: false);
+    expect($analytics->report([], withDetail: false)['status_now'])->toBe(['s27' => 2, 's28' => 1, 'total' => 3])
+        ->and($analytics->report(['exclude' => ['rubrics' => ['Incoporação'], 'prefixes' => ['8']]], withDetail: false)['status_now'])->toBe(['s27' => 1, 's28' => 0, 'total' => 1]);
+});
 
-    expect($report['status_now'])->toBe(['s27' => 1, 's28' => 1, 'total' => 2]);
+it('a tela guarda o expurgo escolhido, repassa ao Excel e oferece as opções vindas da base', function () {
+    \Illuminate\Support\Facades\Queue::fake();
+    \Illuminate\Support\Facades\Cache::flush();
+
+    Note::create(['note' => '8200001', 'type_note' => 2, 'rubrica' => 'Acompanhamento']);
+    Note::create(['note' => '7200001', 'type_note' => 2, 'rubrica' => 'Incoporação']);
+    $note = phaseNote('7200002', [[27, '2026-03-01 08:00:00'], [28, '2026-03-04 08:00:00'], [99, '2026-03-10 08:00:00']]);
+    app(OvPhaseDurationService::class)->rebuildForNotes([$note->id]);
+
+    $options = \App\Services\Indicators\OvPhaseExclusions::options();
+    expect(array_column($options['rubrics'], 'value'))->toContain('Acompanhamento', 'Incoporação')
+        ->and(array_column($options['prefixes'], 'value'))->toContain('820', '720')
+        ->and(array_column($options['next_stats'], 'value'))->toContain('28', '99');
+
+    $manager = \App\Models\User::factory()->create(['management' => true, 'superadm' => false]);
+
+    \Livewire\Livewire::actingAs($manager)
+        ->test(\App\Http\Livewire\Reports\ProjectDeadlineDashboard::class)
+        ->set('excludeRubrics', ['Acompanhamento', 'Incoporação'])
+        ->set('excludePrefixes', ['800'])
+        ->set('excludeStatuses', ['99'])
+        ->call('applyExclusions')
+        ->assertDispatchedBrowserEvent('my-panel:charts')
+        ->call('exportToExcel');
+
+    \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\Reports\ProjectDeadlineExportJob::class, fn ($job) => $job->params['exclude'] === [
+        'rubrics' => ['Acompanhamento', 'Incoporação'], 'prefixes' => ['800'], 'next_stats' => [99],
+    ]);
+});
+
+it('normaliza o expurgo: tira vazios e repetidos e só aceita status numérico', function () {
+    expect(\App\Services\Indicators\OvPhaseExclusions::normalize(['rubrics' => [' A ', 'A', ''], 'prefixes' => ['800', null], 'next_stats' => ['99', 'x', '99']]))
+        ->toBe(['rubrics' => ['A'], 'prefixes' => ['800'], 'next_stats' => [99]]);
 });

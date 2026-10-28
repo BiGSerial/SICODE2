@@ -15,29 +15,6 @@ class OvPhaseDurationService
 {
     private const PHASES = [OvPhaseDuration::SURVEY, OvPhaseDuration::DESIGN];
 
-    /** Status que expurga a fase: se o evento imediatamente acima for um destes (99), a fase não entra nos indicadores. */
-    public const PURGE_STATUSES = [99];
-
-    /** OVs expurgadas dos indicadores: número que começa com estes prefixos... */
-    public const PURGE_NOTE_PREFIXES = ['800'];
-
-    /** ...ou rubrica (notes.rubrica) nestes valores, como estão na base ("Incoporação" é a grafia gravada; a correta entra junto). */
-    public const PURGE_RUBRICS = ['Acompanhamento', 'Incoporação', 'Incorporação', 'Desconsiderar'];
-
-    /** Expurgada = a nota não gera fases e não aparece nos indicadores. */
-    public static function isPurged(?string $note, ?string $rubric): bool
-    {
-        $note = trim((string) $note);
-
-        foreach (self::PURGE_NOTE_PREFIXES as $prefix) {
-            if ($note !== '' && str_starts_with($note, $prefix)) {
-                return true;
-            }
-        }
-
-        return in_array(mb_strtolower(trim((string) $rubric)), array_map('mb_strtolower', self::PURGE_RUBRICS), true);
-    }
-
     /**
      * @param  iterable<int>  $noteIds
      */
@@ -59,7 +36,6 @@ class OvPhaseDurationService
             ->get(['note_id', 'id_num', 'num_stat', 'dt_stats'])
             ->groupBy('note_id');
 
-        $notes     = \App\Models\Note::query()->whereIn('id', $noteIds)->get(['id', 'note', 'rubrica'])->keyBy('id');
         $producers = $this->lastProductionByNotePhase($noteIds);
         $byDate    = SicodeRules::ovPhasesOrderByDate();
         $now       = now();
@@ -69,19 +45,10 @@ class OvPhaseDurationService
         foreach ($noteIds as $noteId) {
             $list = ($events->get($noteId) ?? collect())->values();
 
-            // OV expurgada (prefixo 800 ou rubrica Acompanhamento/Incorporação): sem fases; apaga as que já existiam.
-            if (self::isPurged($notes[$noteId]->note ?? null, $notes[$noteId]->rubrica ?? null)) {
-                foreach (self::PHASES as $phase) {
-                    $stale[] = [$noteId, $phase];
-                }
-
-                continue;
-            }
-
             foreach (self::PHASES as $phase) {
                 [$current, $next] = $this->phaseEdges($list, $phase, $byDate);
 
-                if ($current === null || $next === null || in_array((int) $next->num_stat, self::PURGE_STATUSES, true)) {
+                if ($current === null || $next === null) {
                     $stale[] = [$noteId, $phase];
 
                     continue;
@@ -95,6 +62,7 @@ class OvPhaseDurationService
                     'phase'         => $phase,
                     'started_at'    => $start,
                     'ended_at'      => $next->dt_stats,
+                    'next_stat'     => (int) $next->num_stat,
                     'days'          => round(max(0, $start->diffInSeconds($next->dt_stats, false)) / 86400, 2),
                     'company_id'    => $production->company_id ?? null,
                     'production_id' => $production->id ?? null,
@@ -110,7 +78,7 @@ class OvPhaseDurationService
                 OvPhaseDuration::upsert(
                     $chunk,
                     ['note_id', 'phase'],
-                    ['started_at', 'ended_at', 'days', 'company_id', 'production_id'],
+                    ['started_at', 'ended_at', 'days', 'next_stat', 'company_id', 'production_id'],
                 );
             }
 

@@ -20,7 +20,7 @@ use Throwable;
  * Excel do "Prazo de Projetos" (gerência): as mesmas séries da tela (levantamento, desenho, por empresa) mais a lista completa.
  * Só gera para quem tem a permissão `management`; o arquivo vai para o solicitante.
  *
- * Params: company (UUID, opcional), dt_init/dt_end ('Y-m-d').
+ * Params: company (UUID, opcional), dt_init/dt_end ('Y-m-d'), exclude (rubrics, prefixes, next_stats: o expurgo escolhido na tela).
  */
 class ProjectDeadlineExportJob implements ShouldQueue
 {
@@ -66,6 +66,7 @@ class ProjectDeadlineExportJob implements ShouldQueue
                 'company' => $company,
                 'from'    => $this->params['dt_init'] ?? null,
                 'to'      => $this->params['dt_end'] ?? null,
+                'exclude' => $this->params['exclude'] ?? [],
             ]);
 
             $companyLabel = $company ? Company::withTrashed()->whereKey($company)->value('name') : null;

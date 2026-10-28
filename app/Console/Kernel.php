@@ -31,7 +31,6 @@ class Kernel extends ConsoleKernel
         'log-hiring-and-hired-status',
         'log-hiring-and-hired-status-night',
         'sync-ads-requests',
-        'sync-peps',
     ];
 
     /**

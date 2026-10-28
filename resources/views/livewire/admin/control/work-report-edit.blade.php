@@ -212,6 +212,37 @@
                                         @endforelse
                                     </div>
                                     @php
+                                        $scopeOptions = $this->finalScopeOptions;
+                                        $scopeChoices = [
+                                            'auto'       => ['label' => 'Automático (pelas ordens)', 'enabled' => true],
+                                            'network'    => ['label' => 'Rede', 'enabled' => $scopeOptions['network']],
+                                            'connection' => ['label' => 'Ligação', 'enabled' => $scopeOptions['connection']],
+                                            'both'       => ['label' => 'Rede + Ligação', 'enabled' => $scopeOptions['network'] && $scopeOptions['connection']],
+                                        ];
+                                    @endphp
+                                    <div class="fivefx-scope-edit mb-4">
+                                        <span class="fivefx-k d-block mb-2">Alterar o escopo do informe</span>
+                                        @if ($scopeOptions['split'])
+                                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                                @foreach ($scopeChoices as $value => $choice)
+                                                    <label class="fivefx-scope-option {{ $choice['enabled'] ? '' : 'opacity-50' }}" title="{{ $choice['enabled'] ? '' : 'Este informe não tem ordens desse escopo' }}">
+                                                        <input class="form-check-input" type="radio" name="final-scope-choice" wire:model.defer="finalScopeChoice" value="{{ $value }}" @disabled(!$choice['enabled'])>
+                                                        <span>{{ $choice['label'] }}</span>
+                                                    </label>
+                                                @endforeach
+                                            </div>
+                                            <div class="small text-muted mb-2">Grava o escopo escolhido para este informe e recalcula o fluxo da nota. "Automático" volta à detecção pelas ordens (Rede: 150, 170, 190).</div>
+                                            <button type="button" class="btn btn-outline-primary w-100 fivefx-btn" wire:click="saveFinalScope" wire:loading.attr="disabled" wire:target="saveFinalScope">
+                                                <i class="ri-save-line me-1"></i> Salvar escopo
+                                            </button>
+                                        @else
+                                            <div class="fivefx-empty">
+                                                <i class="ri-information-line me-1"></i>
+                                                Esta nota não separa o informe final por escopo (Rede/Ligação), então não há escopo para escolher.
+                                            </div>
+                                        @endif
+                                    </div>
+                                    @php
                                         $hasBothScopes = count($workReport->finalScopeBadges()) === 2;
                                     @endphp
                                     @if ($hasBothScopes)
