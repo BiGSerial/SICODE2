@@ -5,7 +5,7 @@ namespace App\Services\Quality;
 use App\Enum\{QualityEventType, QualityProcessState, QualityProcessStatus, QualityStageKind, QualityStageLevel, QualityStageStatus, QualityStageType};
 use App\Models\{Company, File, Note, Notetimeline, Production, QualityEvent, QualityMember, QualityProcess, QualityRejection, QualityRejectionCategory, QualityStage, QualityStageFile, Reclaim, User};
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{DB, Schema};
 
 /**
  * Máquina de estados da Qualidade. Toda regra de fluxo, papel e empresa é validada AQUI (backend);
@@ -269,6 +269,8 @@ class QualityWorkflowService
                 'submission_data' => $submissionData ?: null,
             ]);
 
+            $this->finishProductionOnSubmit($process, $actor, $stage);
+
             $from = $process->state;
             $next = $this->createStage($process, QualityStageLevel::N1, QualityStageKind::REVIEW);
             $this->move($process, QualityProcessState::AWAITING_N1_REVIEW);
@@ -391,6 +393,7 @@ class QualityWorkflowService
 
             if ($isN1) {
                 $execution = $this->createStage($process, QualityStageLevel::DRAWING, QualityStageKind::EXECUTION, assigned: $designer, dispatchedBy: $actor);
+                $this->reopenProductionForRound($process, $actor);
                 $this->move($process, QualityProcessState::AWAITING_DESIGNER);
                 $this->event($process, QualityEventType::RETURNED_TO_DESIGNER, $actor, 'N1', $execution, from: $from, target: $designer, observation: $observation);
             } else {
@@ -659,6 +662,11 @@ class QualityWorkflowService
             QualityStageFile::firstOrCreate(['quality_stage_id' => $stage->id, 'file_id' => $file->id], [
                 'checksum' => (string) ($file->sha256 ?: sha1((string) ($file->path ?: $file->file_name))), 'submitted_by' => $actor->id, 'submitted_at' => now(),
             ]);
+
+            // Os arquivos da rodada também ficam associados à atividade (como no encerramento normal).
+            if ($process->production_id && Schema::hasTable('fileables')) {
+                Production::find($process->production_id)?->morphFiles()->syncWithoutDetaching([$file->id]);
+            }
         }
     }
 
@@ -701,6 +709,25 @@ class QualityWorkflowService
             'stage_type'       => $process->phase, 'stage_level' => $stage?->level, 'round_number' => $stage?->round_number ?? $process->round_number,
             'observation'      => $observation, 'payload' => $payload,
         ]);
+    }
+
+    /**
+     * O usuário concluiu a rodada: a atividade dele é finalizada (sai da fila, entra no histórico, arquivos já associados).
+     * Se o N1 rejeitar, `reopenProductionForRound` a reabre na pilha do mesmo usuário.
+     */
+    private function finishProductionOnSubmit(QualityProcess $process, User $actor, QualityStage $stage): void
+    {
+        $production = Production::query()->lockForUpdate()->findOrFail($process->production_id);
+        $production->update(['status' => 5, 'completed' => true, 'completed_at' => $stage->completed_at ?? now(), 'confirmed' => false, 'priority' => false]);
+        $this->timeline($production, $actor, "Qualidade: execução enviada ao N1 ({$process->phase->short()}, rodada {$process->round_number}); atividade finalizada pelo usuário.");
+    }
+
+    /** Rejeição do N1: a mesma atividade volta para a pilha do usuário, com os status de uma atividade em andamento. */
+    private function reopenProductionForRound(QualityProcess $process, User $actor): void
+    {
+        $production = Production::query()->lockForUpdate()->findOrFail($process->production_id);
+        $production->update(['status' => 2, 'completed' => false, 'completed_at' => null, 'confirmed' => false, 'dispatch_by' => $actor->id, 'dispatch_at' => now()]);
+        $this->timeline($production, $actor, "Qualidade: atividade reaberta na pilha do usuário (rodada {$process->round_number}).");
     }
 
     private function timeline(Production $production, User $actor, string $info): void
