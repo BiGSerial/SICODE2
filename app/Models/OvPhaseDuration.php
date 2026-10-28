@@ -17,6 +17,7 @@ class OvPhaseDuration extends Model
         'started_at',
         'ended_at',
         'days',
+        'next_stat',
         'company_id',
         'production_id',
     ];

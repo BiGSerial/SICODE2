@@ -26,7 +26,7 @@
                     wire:model.defer="{{ $model }}"
                     wire:key="{{ $keyPrefix }}-{{ md5($option['value']) }}"
                     value="{{ $option['value'] }}">
-                <span class="flex-grow-1">{{ $option['value'] }}</span>
+                <span class="flex-grow-1">{{ $option['label'] ?? $option['value'] }}</span>
                 <span class="badge text-bg-light">{{ $option['count'] }}</span>
             </label>
         @empty

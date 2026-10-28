@@ -3,7 +3,7 @@
 namespace App\Services\Indicators;
 
 use App\Models\{Note, OvPhaseDuration};
-use App\Services\Notes\{OvPhaseDurationService, OvStatusHistoryService};
+use App\Services\Notes\OvStatusHistoryService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\{Cache, DB};
 
@@ -29,8 +29,8 @@ class ProjectDeadlineAnalytics
     }
 
     /**
-     * @param  array{from?:?string,to?:?string,company?:?string}  $filters
-     * @return array{from:Carbon,to:Carbon,company:?string}
+     * @param  array{from?:?string,to?:?string,company?:?string,exclude?:array}  $filters
+     * @return array{from:Carbon,to:Carbon,company:?string,exclude:array}
      */
     public function normalize(array $filters, ?Carbon $now = null): array
     {
@@ -43,11 +43,16 @@ class ProjectDeadlineAnalytics
         $from = $from->lt($floor) ? $floor : $from;
         $to   = $to->lt($from) ? $from->copy()->endOfDay() : $to;
 
-        return ['from' => $from, 'to' => $to, 'company' => ($filters['company'] ?? '') !== '' ? $filters['company'] : null];
+        return [
+            'from'    => $from,
+            'to'      => $to,
+            'company' => ($filters['company'] ?? '') !== '' ? $filters['company'] : null,
+            'exclude' => OvPhaseExclusions::normalize((array) ($filters['exclude'] ?? [])),
+        ];
     }
 
     /**
-     * @param  array{from?:?string,to?:?string,company?:?string}  $filters
+     * @param  array{from?:?string,to?:?string,company?:?string,exclude?:array}  $filters
      * @return array<string,mixed>
      */
     public function report(array $filters = [], bool $withDetail = true): array
@@ -58,7 +63,7 @@ class ProjectDeadlineAnalytics
         $phases = [];
 
         foreach (self::PHASE_LABELS as $phase => $label) {
-            $months = $this->adherence->monthly($phase, $companyIds, $f['from']->toDateTimeString(), $f['to']->toDateTimeString());
+            $months = $this->adherence->monthly($phase, $companyIds, $f['from']->toDateTimeString(), $f['to']->toDateTimeString(), $f['exclude']);
             $total  = array_sum(array_column($months, 'total'));
             $bands  = array_map(fn ($i) => array_sum(array_map(fn ($m) => $m['bands'][$i], $months)), [0, 1, 2, 3]);
 
@@ -84,7 +89,7 @@ class ProjectDeadlineAnalytics
             'generated_at' => now(),
             'phases'       => $phases,
             'tmep'         => $this->tmep($phases),
-            'status_now'   => $this->statusNow(),
+            'status_now'   => $this->statusNow($f['exclude']),
             'companies'    => $this->companies($f),
             'detail'       => [],
             'truncated'    => false,
@@ -125,25 +130,21 @@ class ProjectDeadlineAnalytics
     }
 
     /**
-     * Retrato de agora: OVs em levantamento (27) e desenho (28). Não depende dos filtros; fica em cache curto (notes é grande).
+     * Retrato de agora: OVs em levantamento (27) e desenho (28). Só respeita o expurgo de rubrica e de prefixo (não há "próximo status"
+     * em quem ainda está na fase) e não depende de período nem de empresa; fica em cache curto (notes é grande).
      *
+     * @param  array{rubrics:array,prefixes:array,next_stats:array}  $exclude
      * @return array{s27:int,s28:int,total:int}
      */
-    private function statusNow(): array
+    private function statusNow(array $exclude): array
     {
-        $counts = Cache::remember('project_deadline:status_now:v2', 600, fn () => Note::query()
-            ->where('type_note', 2)
-            ->whereIn('nstats', ['27', '28'])
-            ->where(function ($q) {
-                foreach (OvPhaseDurationService::PURGE_NOTE_PREFIXES as $prefix) {
-                    $q->where('note', 'not like', $prefix . '%');
-                }
-            })
-            ->where(fn ($q) => $q->whereNull('rubrica')->orWhereNotIn('rubrica', OvPhaseDurationService::PURGE_RUBRICS))
-            ->selectRaw('nstats, COUNT(*) as total')
-            ->groupBy('nstats')
-            ->pluck('total', 'nstats')
-            ->all());
+        $key    = 'project_deadline:status_now:v3:' . md5(json_encode([$exclude['rubrics'], $exclude['prefixes']]));
+        $counts = Cache::remember($key, 600, function () use ($exclude) {
+            $query = Note::query()->where('type_note', 2)->whereIn('nstats', ['27', '28']);
+            OvPhaseExclusions::applyToNotes($query, $exclude);
+
+            return $query->selectRaw('nstats, COUNT(*) as total')->groupBy('nstats')->pluck('total', 'nstats')->all();
+        });
 
         $s27 = (int) ($counts['27'] ?? 0);
         $s28 = (int) ($counts['28'] ?? 0);
@@ -180,10 +181,12 @@ class ProjectDeadlineAnalytics
      */
     private function companies(array $f): array
     {
-        $rows = DB::table('ov_phase_durations as d')
+        $query = DB::table('ov_phase_durations as d')
             ->leftJoin('companies as c', 'c.id', '=', 'd.company_id')
             ->whereBetween('d.ended_at', [$f['from'], $f['to']])
-            ->when($f['company'], fn ($q) => $q->where('d.company_id', $f['company']))
+            ->when($f['company'], fn ($q) => $q->where('d.company_id', $f['company']));
+
+        $rows = OvPhaseExclusions::applyToPhases($query, $f['exclude'])
             ->groupBy('d.company_id', 'c.name', 'd.phase')
             ->selectRaw('d.company_id, COALESCE(c.name, ?) as company, d.phase, COUNT(*) as total, AVG(d.days) as avg_days', ['Sem empresa'])
             ->selectRaw('SUM(d.days <= CASE WHEN d.phase = ? THEN ? ELSE ? END) as adherent', [
@@ -219,11 +222,13 @@ class ProjectDeadlineAnalytics
      */
     private function detail(array $f): array
     {
-        return DB::table('ov_phase_durations as d')
+        $query = DB::table('ov_phase_durations as d')
             ->join('notes as n', 'n.id', '=', 'd.note_id')
             ->leftJoin('companies as c', 'c.id', '=', 'd.company_id')
             ->whereBetween('d.ended_at', [$f['from'], $f['to']])
-            ->when($f['company'], fn ($q) => $q->where('d.company_id', $f['company']))
+            ->when($f['company'], fn ($q) => $q->where('d.company_id', $f['company']));
+
+        return OvPhaseExclusions::applyToPhases($query, $f['exclude'], joinNotes: false)
             ->orderByDesc('d.ended_at')
             ->orderBy('d.id')
             ->limit(self::DETAIL_LIMIT + 1)

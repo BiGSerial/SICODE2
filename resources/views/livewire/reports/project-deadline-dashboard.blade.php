@@ -87,8 +87,28 @@
                 <input id="pd-to" type="date" class="form-control form-control-sm" wire:model.lazy="dt_out" max="{{ now()->toDateString() }}">
             </div>
         </div>
+        <div class="row g-3 align-items-end mt-1" aria-label="Expurgo">
+            <div class="col-12 col-xl-auto">
+                <span class="form-label small d-block mb-1">Expurgar dos indicadores</span>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <x-filters.multi-dropdown label="Rubrica" model="excludeRubrics" :options="$options['rubrics']" :selected="$excludeRubrics" key-prefix="pd-ex-rubrica" />
+                    <x-filters.multi-dropdown label="OV começa com" model="excludePrefixes" :options="$options['prefixes']" :selected="$excludePrefixes" key-prefix="pd-ex-prefix" />
+                    <x-filters.multi-dropdown label="Fase seguida do status" model="excludeStatuses" :options="$options['next_stats']" :selected="$excludeStatuses" key-prefix="pd-ex-status" empty-text="Sem fases calculadas (rode sicode:rebuild_ov_phases)." />
+                    <button type="button" class="btn btn-primary" wire:click.prevent="applyExclusions"><i class="ri-filter-fill me-1"></i>Aplicar expurgo</button>
+                    <button type="button" class="btn btn-outline-secondary" wire:click.prevent="clearExclusions"><i class="ri-filter-off-line me-1"></i>Limpar expurgo</button>
+                </div>
+            </div>
+        </div>
+        @if (!empty($exclusion['rubrics']) || !empty($exclusion['prefixes']) || !empty($exclusion['next_stats']))
+            <div class="mp-period-note">
+                Expurgado:
+                @if (!empty($exclusion['rubrics'])) <strong>rubrica {{ implode(', ', $exclusion['rubrics']) }}</strong> @endif
+                @if (!empty($exclusion['prefixes'])) · <strong>OVs que começam com {{ implode(', ', $exclusion['prefixes']) }}</strong> @endif
+                @if (!empty($exclusion['next_stats'])) · <strong>fases seguidas do status {{ implode(', ', $exclusion['next_stats']) }}</strong> @endif
+            </div>
+        @endif
         <div class="mp-period-note" wire:loading.class="is-loading-soft">
-            Período exibido: <strong>{{ $period }}</strong>. Só o ano corrente, em dias corridos. "OVs em projeto agora" mostra sempre a situação de agora, sem filtro de empresa.
+            Período exibido: <strong>{{ $period }}</strong>. Só o ano corrente, em dias corridos. "OVs em projeto agora" mostra sempre a situação de agora, sem filtro de empresa e só com o expurgo de rubrica e de número da OV.
         </div>
     </section>
 
@@ -98,7 +118,7 @@
         </section>
     @endif
 
-    <div wire:loading.class="is-loading-soft" wire:target="selectedCompany,setPreset,dt_in,dt_out,focusCompany,clearFilters">
+    <div wire:loading.class="is-loading-soft" wire:target="selectedCompany,setPreset,dt_in,dt_out,focusCompany,clearFilters,applyExclusions,clearExclusions">
 
         <h2 class="mp-section-title">Painel executivo</h2>
 

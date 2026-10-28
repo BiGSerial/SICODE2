@@ -19,25 +19,28 @@ class OvAdherenceService
 
     /**
      * @param  array<int>|null  $companyIds
+     * @param  array{rubrics:array,prefixes:array,next_stats:array}  $exclude  expurgo escolhido na tela (OvPhaseExclusions)
      * @return array<int,array{month:string,total:int,bands:array<int,int>,adherence:float,avg_days:float}>
      */
-    public function monthly(int $phase, ?array $companyIds = null, ?string $from = null, ?string $to = null): array
+    public function monthly(int $phase, ?array $companyIds = null, ?string $from = null, ?string $to = null, array $exclude = []): array
     {
         [$a, $b, $c] = self::BANDS[$phase];
 
-        $rows = OvPhaseDuration::query()
-            ->where('phase', $phase)
-            ->where('ended_at', '>=', $from ?? OvStatusHistoryService::FLOOR)
-            ->when($to, fn ($q) => $q->where('ended_at', '<=', $to))
-            ->when($companyIds, fn ($q) => $q->whereIn('company_id', $companyIds))
-            ->groupBy(DB::raw("DATE_FORMAT(ended_at, '%Y-%m')"))
+        $query = DB::table('ov_phase_durations as d')
+            ->where('d.phase', $phase)
+            ->where('d.ended_at', '>=', $from ?? OvStatusHistoryService::FLOOR)
+            ->when($to, fn ($q) => $q->where('d.ended_at', '<=', $to))
+            ->when($companyIds, fn ($q) => $q->whereIn('d.company_id', $companyIds));
+
+        $rows = OvPhaseExclusions::applyToPhases($query, $exclude + ['rubrics' => [], 'prefixes' => [], 'next_stats' => []])
+            ->groupBy(DB::raw("DATE_FORMAT(d.ended_at, '%Y-%m')"))
             ->orderBy('month')
-            ->selectRaw("DATE_FORMAT(ended_at, '%Y-%m') as month")
-            ->selectRaw('COUNT(*) as total, AVG(days) as avg_days')
-            ->selectRaw('SUM(days <= ?) as b1', [$a])
-            ->selectRaw('SUM(days > ? AND days <= ?) as b2', [$a, $b])
-            ->selectRaw('SUM(days > ? AND days <= ?) as b3', [$b, $c])
-            ->selectRaw('SUM(days > ?) as b4', [$c])
+            ->selectRaw("DATE_FORMAT(d.ended_at, '%Y-%m') as month")
+            ->selectRaw('COUNT(*) as total, AVG(d.days) as avg_days')
+            ->selectRaw('SUM(d.days <= ?) as b1', [$a])
+            ->selectRaw('SUM(d.days > ? AND d.days <= ?) as b2', [$a, $b])
+            ->selectRaw('SUM(d.days > ? AND d.days <= ?) as b3', [$b, $c])
+            ->selectRaw('SUM(d.days > ?) as b4', [$c])
             ->get();
 
         return $rows->map(fn ($r) => [
