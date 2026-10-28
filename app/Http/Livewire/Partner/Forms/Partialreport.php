@@ -132,7 +132,7 @@ class Partialreport extends Component
         $budget = app(WorkReportBudgetGuard::class);
 
         if ($peps = $budget->blockedPeps($scopeData['open_orders'])) {
-            $this->dispatchBrowserEvent('swal', $budget->swal($note->note, $peps));
+            $this->dispatchBrowserEvent('swal', $budget->swal($note->note));
 
             return;
         }
@@ -289,7 +289,7 @@ class Partialreport extends Component
         $budget = app(WorkReportBudgetGuard::class);
 
         if ($peps = $budget->blockedPeps($scopeData['open_orders'])) {
-            $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note, $peps));
+            $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note));
 
             return;
         }
@@ -390,7 +390,7 @@ class Partialreport extends Component
             return false;
         }
 
-        $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note, $peps));
+        $this->dispatchBrowserEvent('swal', $budget->swal($this->note->note));
 
         return true;
     }
