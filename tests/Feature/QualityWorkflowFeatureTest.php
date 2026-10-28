@@ -386,6 +386,63 @@ class QualityWorkflowFeatureTest extends TestCase
 
     // ---------------------------------------------------------------- rejeições
 
+    public function test_second_cycle_checklist_opens_for_the_current_cycle_and_does_not_block_the_round(): void
+    {
+        $this->withoutVite();
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
+        \App\Models\Bancoupdate::unguarded(fn () => \App\Models\Bancoupdate::create(['inserts' => 0, 'updates' => 0]));
+
+        // 1º ciclo com 2 rodadas: no 2º ciclo a rodada recomeça em 1 e o `last()` por rodada apontava para o ciclo antigo
+        $process = $this->workflow->assignDesigner($this->dispatchToN1(), $this->n1, $this->designerA->id);
+        $process = $this->submit($process, $this->designerA, [$this->file('a.pdf')->id]);
+        $process = $this->workflow->reject($process, $this->n1, [$this->reason('Croqui')]);
+        $process = $this->submit($process, $this->designerA, [$this->file('b.pdf')->id]);
+        $process = $this->workflow->approve($process, $this->n1);
+        $process = $this->workflow->approve($process, $this->n2);
+        $this->assertSame(QualityStageType::BUDGET, $process->phase);
+
+        $process        = $this->submit($process, $this->designerA, [], 'Orçamento', ['orders' => [$this->order()]]);
+        $budgetStageIds = $process->Stages()->where('type', QualityStageType::BUDGET->value)->pluck('id')->all();
+
+        // N1 abre o checklist do 2º ciclo, aponta um item e rejeita
+        $this->actingAs($this->n1)->get(route('quality.process.checklist', $process))->assertOk();
+        $run = \App\Models\QualityChecklistRun::query()->where('quality_process_id', $process->id)->latest('id')->firstOrFail();
+        $this->assertContains($run->quality_stage_id, $budgetStageIds, 'a execução do checklist pertence ao ciclo atual');
+
+        $entry = $run->Entries()->orderBy('sort_order')->first();
+        $this->actingAs($this->n1)->put(route('quality.process.checklist.save', [$process, $run]), ['entries' => [$entry->id => ['status' => 'ISSUE', 'observation' => 'Quantidade divergente']]])->assertSessionHasNoErrors();
+        $process = $this->workflow->reject($process, $this->n1, [$this->reason('Orçamento', 'BUDGET')]);
+
+        // o usuário vê só o apontamento, com a observação do N1, e responde
+        $html = $this->actingAs($this->designerA)->get(route('quality.process.checklist', $process))->assertOk()->getContent();
+        $this->assertStringContainsString('Quantidade divergente', $html);
+        $this->assertSame(1, substr_count($html, 'class="qc-item checklist-entry"'), 'só o que compete ao usuário');
+        $this->actingAs($this->designerA)->post(route('quality.process.checklist.resolve', [$process, $entry]), ['resolution' => 'Ajustado'])->assertSessionHasNoErrors();
+        $this->assertSame('RESOLVED', $entry->fresh()->status);
+
+        $process = $this->submit($process, $this->designerA, [], null, ['orders' => [$this->order()]]);
+
+        // N1 valida a correção e aprova: nada de apontamento do ciclo antigo ou da rodada anterior travando
+        $this->actingAs($this->n1)->post(route('quality.process.checklist.validate', [$process, $entry]), ['accepted' => 1])->assertSessionHasNoErrors();
+        $process = $this->workflow->approve($process, $this->n1);
+        $this->assertSame(QualityProcessState::AWAITING_N2_REVIEW, $process->state);
+        $process = $this->workflow->approve($process, $this->n2);
+        $this->assertSame(QualityProcessState::COMPLETED, $process->state);
+    }
+
+    public function test_budget_orders_accept_prefixes_180_and_193_and_still_refuse_others(): void
+    {
+        $rules = app(\App\Services\Quality\BudgetOrderRules::class);
+
+        foreach (['170', '180', '190', '193', '150', '200'] as $prefix) {
+            $orders = $rules->validate([['order_number' => $prefix . '123456789', 'total_cost' => '100,00', 'company_cost' => '60,00', 'client_cost' => '40,00']], '100200300');
+            $this->assertSame($prefix . '123456789', $orders[0]['order_number'], "prefixo {$prefix}");
+        }
+
+        $this->expectException(QualityWorkflowException::class);
+        $rules->validate([['order_number' => '160123456789', 'total_cost' => '100,00', 'company_cost' => '60,00', 'client_cost' => '40,00']], '100200300');
+    }
+
     public function test_n1_rejection_requires_a_reason_and_reason_must_apply_to_the_pass(): void
     {
         $process = $this->workflow->assignDesigner($this->dispatchToN1(), $this->n1, $this->designerA->id);

@@ -63,7 +63,7 @@
                     </div>
                 @endif
                 @if ($tab !== 'despachar')
-                    <div class="col-lg-2"><select name="phase" class="form-select form-select-sm"><option value="">Todos os ciclos</option><option value="PROJECT" @selected(request('phase') === 'PROJECT')>1º ciclo · {{ $activityNames['PROJECT'] ?? '' }}</option><option value="BUDGET" @selected(request('phase') === 'BUDGET')>2º ciclo · {{ $activityNames['BUDGET'] ?? '' }}</option></select></div>
+                    <div class="col-lg-2"><select name="phase" class="form-select form-select-sm"><option value="">Todos os ciclos</option><option value="PROJECT" @selected(request('phase') === 'PROJECT')>{{ \App\Enum\QualityStageType::PROJECT->label() }}</option><option value="BUDGET" @selected(request('phase') === 'BUDGET')>{{ \App\Enum\QualityStageType::BUDGET->label() }}</option></select></div>
                 @endif
                 <div class="col-lg-2"><select name="ordem" class="form-select form-select-sm"><option value="antigas" @selected(request('ordem', 'antigas') === 'antigas')>Mais antigas primeiro</option><option value="recentes" @selected(request('ordem') === 'recentes')>Mais recentes primeiro</option><option value="nota" @selected(request('ordem') === 'nota')>Por Nota</option></select></div>
                 <div class="col-auto d-flex gap-2"><button class="btn btn-sm btn-primary btn-dash">Filtrar</button><a href="{{ route('quality.n1', $tab) }}" class="btn btn-sm btn-outline-secondary">Limpar</a></div>
@@ -122,7 +122,7 @@
                                     @foreach (($tab === 'despachar' ? ['PROJECT'] : (request('phase') ? [request('phase')] : ['PROJECT', 'BUDGET'])) as $phaseKey)
                                         @php $options = $designersByPhase[$company->id][$phaseKey] ?? collect(); @endphp
                                         @continue($options->isEmpty())
-                                        <optgroup label="{{ $activityNames[$phaseKey] ?? $phaseKey }} · {{ $phaseKey === 'PROJECT' ? '1º ciclo' : '2º ciclo' }}{{ $multiCompany ? ' · ' . $company->name : '' }}">
+                                        <optgroup label="{{ \App\Enum\QualityStageType::from($phaseKey)->label() }}{{ $multiCompany ? ' · ' . $company->name : '' }}">
                                             @foreach ($options as $u)<option value="{{ $u->id }}">{{ $u->name }}</option>@endforeach
                                         </optgroup>
                                     @endforeach

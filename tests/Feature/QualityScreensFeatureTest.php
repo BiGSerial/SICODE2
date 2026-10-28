@@ -210,7 +210,7 @@ class QualityScreensFeatureTest extends TestCase
 
         // aguardando despacho: a vez é do N1
         $this->ok($this->actingAs($this->n1)->get(route('quality.process', $this->process)))
-            ->assertSee('É a sua vez')->assertSee('Escolha o usuário desta obra')->assertSee('Jornada da obra')->assertSee('1º ciclo')->assertSee('2º ciclo');
+            ->assertSee('É a sua vez')->assertSee('Escolha o usuário desta obra')->assertSee('Jornada da obra')->assertSee('1º Ciclo – Levantamento/Desenho')->assertSee('2º Ciclo – Orçamento');
         // para o N2 a mesma obra é "aguardando N1"
         $this->ok($this->actingAs($this->n2)->get(route('quality.process', $this->process)))->assertSee('Aguardando N1')->assertDontSee('É a sua vez');
 
@@ -351,6 +351,41 @@ class QualityScreensFeatureTest extends TestCase
 
         $this->assertDatabaseCount('quality_rejection_items', 2);
         $this->assertSame(QualityProcessState::AWAITING_DESIGNER, $this->process->fresh()->state);
+    }
+
+    public function test_cycle_names_are_fixed_in_code_and_not_taken_from_the_configured_service(): void
+    {
+        $this->assertSame('1º Ciclo – Levantamento/Desenho', \App\Enum\QualityStageType::PROJECT->label());
+        $this->assertSame('2º Ciclo – Orçamento', \App\Enum\QualityStageType::BUDGET->label());
+
+        $this->ok($this->actingAs($this->n1)->get(route('quality.process', $this->process)))->assertSee('1º Ciclo – Levantamento/Desenho', false);
+    }
+
+    public function test_attachments_component_accepts_several_files_at_once_in_the_quality_activity(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::fake('local');
+        app(QualityWorkflowService::class)->assignDesigner($this->process, $this->n1, $this->designer->id);
+        $production = \App\Models\Production::findOrFail($this->process->fresh()->production_id);
+        $type       = \App\Helpers\SelectOptions::getProductionFilesType()[0]->value;
+        $note       = $this->note->note;
+
+        $component = Livewire::actingAs($this->designer)->test(\App\Http\Livewire\Files\Manager\CreateProdFiles::class, ['production' => $production, 'needFiles' => false])
+            ->set('uploadType', $type)
+            ->set('files', [
+                \Illuminate\Http\UploadedFile::fake()->create("{$note}_a.pdf", 50, 'application/pdf'),
+                \Illuminate\Http\UploadedFile::fake()->create("{$note}_b.pdf", 50, 'application/pdf'),
+                \Illuminate\Http\UploadedFile::fake()->create("{$note}_c.pdf", 50, 'application/pdf'),
+            ]);
+
+        $this->assertCount(3, $component->get('tempFiles'), 'os três arquivos entram na fila de uma vez');
+
+        // segunda seleção soma à fila (não substitui)
+        $component->set('files', [\Illuminate\Http\UploadedFile::fake()->create("{$note}_d.pdf", 50, 'application/pdf')]);
+        $this->assertCount(4, $component->get('tempFiles'));
+
+        $component->call('saveFiles')->assertEmitted('savedFiles');
+        $this->assertSame(4, File::where('note_id', $this->note->id)->count());
     }
 
     public function test_dedicated_desenho_form_only_opens_for_the_assigned_designer_and_submits_to_n1(): void

@@ -344,7 +344,7 @@ class QualityController extends Controller
         $this->authorize('view', $qualityProcess);
         $process    = $qualityProcess->load(['Note', 'Company', 'CurrentDesigner', 'Stages']);
         $user       = $request->user();
-        $stage      = $process->Stages->last();
+        $stage      = $process->Stages->sortBy('id')->last();
         $canEdit    = $process->state === QualityProcessState::AWAITING_N1_REVIEW && $this->roles->canActAsN1($user, $process);
         $canResolve = $process->state === QualityProcessState::AWAITING_DESIGNER && $stage && (string) $stage->assigned_user_id === (string) $user->id;
         $run        = null;

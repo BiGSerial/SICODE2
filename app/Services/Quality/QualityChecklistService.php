@@ -58,7 +58,14 @@ class QualityChecklistService
 
     public function latestForDesigner(QualityProcess $process): ?QualityChecklistRun
     {
-        return QualityChecklistRun::query()->where('quality_process_id', $process->id)->whereNotNull('sent_at')->with('Entries')->latest('id')->first();
+        return QualityChecklistRun::query()->where('quality_process_id', $process->id)->whereNotNull('sent_at')
+            ->whereIn('quality_stage_id', $this->cycleStageIds($process))->with('Entries')->latest('id')->first();
+    }
+
+    /** Apontamentos de um ciclo não podem vazar para o outro (a numeração de rodadas recomeça por ciclo). */
+    private function cycleStageIds(QualityProcess $process): array
+    {
+        return $process->Stages()->where('type', $process->phase->value)->pluck('id')->all();
     }
 
     public function resolve(QualityChecklistEntry $entry, User $user, string $resolution): void
@@ -67,6 +74,21 @@ class QualityChecklistService
             throw new QualityWorkflowException('Este apontamento não está disponível para resolução.');
         }
         $entry->update(['status' => 'RESOLVED', 'resolution' => trim($resolution), 'resolved_by' => $user->id, 'resolved_at' => now()]);
+    }
+
+    /** O usuário desfaz a resposta enquanto o N1 ainda não validou. */
+    public function reopenResolution(QualityChecklistEntry $entry): void
+    {
+        if ($entry->status !== 'RESOLVED') {
+            throw new QualityWorkflowException('Somente respostas ainda não validadas podem ser refeitas.');
+        }
+        $entry->update(['status' => 'ISSUE', 'resolved_by' => null, 'resolved_at' => null]);
+    }
+
+    /** Apontamentos enviados ao usuário (somente o que compete a ele): abertos, respondidos e validados. */
+    public function entriesForDesigner(QualityProcess $process)
+    {
+        return $this->latestForDesigner($process)?->Entries->whereIn('status', ['ISSUE', 'RESOLVED', 'VALIDATED'])->sortBy('sort_order')->values() ?? collect();
     }
 
     public function validate(QualityChecklistEntry $entry, User $user, bool $accepted): void
@@ -82,7 +104,7 @@ class QualityChecklistService
     {
         $open = QualityChecklistEntry::query()
             ->whereIn('status', ['ISSUE', 'RESOLVED'])
-            ->whereHas('Run', fn ($q) => $q->where('quality_process_id', $process->id)->whereNotNull('sent_at'))
+            ->whereHas('Run', fn ($q) => $q->where('quality_process_id', $process->id)->whereNotNull('sent_at')->whereIn('quality_stage_id', $this->cycleStageIds($process)))
             ->exists();
 
         if ($open) {

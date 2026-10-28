@@ -35,7 +35,7 @@
             </div>
             <div class="text-end">
                 <span class="badge fs-6 text-bg-{{ $process->state->badge() }}"><i class="ri-record-circle-line"></i> {{ $process->state->labelFor($seesN2) }}</span>
-                <div class="small text-muted mt-1">{{ $process->phase->label() }}{{ $svc ? ' · ' . $svc : '' }} · rodada {{ $process->round_number }}</div>
+                <div class="small text-muted mt-1">{{ $process->phase->label() }} · rodada {{ $process->round_number }}</div>
             </div>
         </div>
 
