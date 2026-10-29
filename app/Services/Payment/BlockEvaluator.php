@@ -14,15 +14,19 @@ class BlockEvaluator
 
     public function evaluate(Note $note, Service $service): array
     {
-        $workReport = $note->WorkForm;
-        $fiveNote   = $workReport?->FiveNote ?? $note->FiveNote;
-        $partials   = $note->Partials
+        $partialId = (int) ($note->dispatch_partial_id ?? 0);
+        // Despacho/linha de Parcial: a identidade é o parcial, nunca o Informe Final
+        // que a Nota carrega por relação. Produção de outro informe não bloqueia.
+        $workReport = $partialId > 0 && (int) ($note->dispatch_work_report_id ?? 0) === 0
+            ? null
+            : $note->WorkForm;
+        $fiveNote = $workReport?->FiveNote ?? $note->FiveNote;
+        $partials = $note->Partials
             ?->where('allow', true)
             ->where('supervision', true)
             ->where('deny', false)
             ->sortByDesc('created_at');
-        $partialId = (int) ($note->dispatch_partial_id ?? 0);
-        $partial   = ($partialId > 0 ? $partials?->firstWhere('id', $partialId) : null) ?? $partials?->first();
+        $partial = ($partialId > 0 ? $partials?->firstWhere('id', $partialId) : null) ?? $partials?->first();
 
         // Linha de Informe Parcial: a Production precisa ser a daquele parcial.
         // Uma Medição concluída de outro parcial da mesma Nota não bloqueia este.
@@ -107,6 +111,8 @@ class BlockEvaluator
         return $productions->first(
             fn (Production $production) => (bool) $production->partial
                 && !$production->partialInforms()->exists()
+                && !$production->WorkReportFlowProductions()->exists()
+                && !$production->measurementContext?->work_report_id
                 && (!$partial->supervision_at || $production->created_at >= $partial->supervision_at)
         );
     }
