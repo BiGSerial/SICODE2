@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\{PersistsManagedFileUploads, ScreensAttachedFiles};
 use App\Models\{File, Note, Service};
 use Illuminate\Support\Facades\{DB};
 use Livewire\{Component, WithFileUploads};
@@ -11,6 +11,7 @@ class Createfiles extends Component
 {
     use WithFileUploads;
     use PersistsManagedFileUploads;
+    use ScreensAttachedFiles;
 
     public ?Note $note = null;
 
@@ -35,7 +36,7 @@ class Createfiles extends Component
 
     public function updatedFiles()
     {
-        $this->validate();
+        $this->files = $this->screenAttachments($this->files, $this->tempFiles);
 
         if (count($this->files)) {
             foreach ($this->files as $file) {
@@ -196,11 +197,6 @@ class Createfiles extends Component
 
         $this->closeAll();
     }
-
-    protected $rules = [
-
-        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods|max:10240',
-    ];
 
     public function render()
     {

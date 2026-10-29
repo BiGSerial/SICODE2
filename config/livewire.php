@@ -16,9 +16,9 @@ return [
 
     'temporary_file_upload' => [
         'disk' => null,
-        // Limite global de upload da aplicação. Fluxos específicos podem ser mais restritivos.
+        // Limite global de upload da aplicação: 30 MB por arquivo (ver App\Services\Files\AttachmentPolicy).
         // O padrão do Livewire é 12 MB (12288), insuficiente para arquivos de projeto (DWG, PDF, etc.).
-        'rules'         => ['required', 'file', 'max:40960'], // 40 MB
+        'rules'         => ['required', 'file', 'max:30720'], // 30 MB (AttachmentPolicy::MAX_FILE_MB)
         'directory'     => null,
         'middleware'    => null,
         'preview_mimes' => [

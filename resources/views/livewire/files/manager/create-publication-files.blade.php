@@ -5,7 +5,7 @@
     @endphp
 
     <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-        x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-error="isUploading = false"
+        x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-error="isUploading = false; $dispatch('swal', { position: 'center', icon: 'error', title: 'Falha ao enviar o arquivo', html: 'O arquivo não pôde ser enviado. Verifique o tamanho e o tipo do arquivo e tente novamente.', confirmButtonText: 'Entendi' })"
         x-on:livewire-upload-progress="progress = $event.detail.progress">
         <x-show-loading />
         @if ($production)
@@ -75,13 +75,12 @@
                                     </div>
                                     <h5 class="text-primary fw-bold mb-2">Arraste arquivos aqui ou clique para
                                         selecionar</h5>
-                                    <p class="text-muted mb-3">Formatos aceitos:
-                                        {{ mb_strtoupper(implode(', ', $filesConfig['allowedTypes'])) }}</p>
+                                    <x-files.upload-rules :zip="$this->attachmentAllowsZip()" class="mb-3" />
 
                                     <input type="file"
                                         class="form-control d-none @error('files.*') is-invalid @enderror"
                                         id="fileInput" x-ref="fileInput" multiple
-                                        accept="{{ implode(',', array_map(fn($t) => '.' . $t, $filesConfig['allowedTypes'])) }}"
+                                        accept="{{ \App\Services\Files\AttachmentPolicy::accept($this->attachmentAllowsZip()) }}"
                                         wire:model="files">
 
                                     <button type="button" class="btn btn-primary btn-lg px-4"
@@ -89,11 +88,6 @@
                                         <i class="ri-folder-open-line me-2"></i>
                                         Selecionar Arquivos
                                     </button>
-
-                                    <div class="mt-2">
-                                        <small class="text-muted">Máximo: {{ $filesConfig['maxSize'] / 1024 }}MB por
-                                            arquivo</small>
-                                    </div>
                                 </div>
                             </div>
                             <label for="fileInput" class="text-primary fw-semibold">

@@ -414,6 +414,100 @@ class QualityScreensFeatureTest extends TestCase
         $this->assertCount(1, $component->get('tempFiles'));
     }
 
+    public function test_every_attachment_component_warns_about_refused_files_with_a_sweetalert(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::fake('local');
+        app(QualityWorkflowService::class)->assignDesigner($this->process, $this->n1, $this->designer->id);
+        $production = \App\Models\Production::findOrFail($this->process->fresh()->production_id);
+        $service    = Service::query()->first();
+        $type       = \App\Helpers\SelectOptions::getProductionFilesType()[0]->value;
+
+        $components = [
+            \App\Http\Livewire\Files\Manager\CreateServFiles::class        => ['note' => $this->note, 'service' => $service],
+            \App\Http\Livewire\Files\Manager\CreateAdsFiles::class         => ['note' => $this->note, 'service' => $service->uuid],
+            \App\Http\Livewire\Files\Manager\CreateGenFiles::class         => ['note' => $this->note, 'service' => $service->uuid],
+            \App\Http\Livewire\Files\Manager\CreatePublicationFiles::class => ['production' => $production],
+            \App\Http\Livewire\Files\Manager\Createfiles::class            => [],
+        ];
+
+        foreach ($components as $class => $params) {
+            $component = Livewire::actingAs($this->designer)->test($class, $params)->set('uploadType', $type)
+                ->set('files', [
+                    \Illuminate\Http\UploadedFile::fake()->create('valido.pdf', 30, 'application/pdf'),
+                    \Illuminate\Http\UploadedFile::fake()->create('programa.exe', 30, 'application/octet-stream'),
+                ]);
+
+            $component->assertDispatchedBrowserEvent('swal', fn ($event, $data) => ($data['icon'] ?? null) === 'warning'
+                && str_contains($data['html'] ?? '', 'programa.exe') && !str_contains($data['html'] ?? '', 'valido.pdf'));
+            $this->assertCount(1, $component->get('tempFiles'), class_basename($class) . ': só o arquivo válido entra na fila');
+        }
+    }
+
+    /** PDF de verdade com o tamanho informado (o `fake()->create()` só declara o tamanho; o arquivo gravado é vazio). */
+    private function realPdf(string $name, int $megabytes): \Illuminate\Http\UploadedFile
+    {
+        return \Illuminate\Http\UploadedFile::fake()->createWithContent($name, "%PDF-1.4\n" . str_repeat(' ', $megabytes * 1024 * 1024));
+    }
+
+    public function test_attachment_policy_defines_types_and_limits_and_zip_only_where_allowed(): void
+    {
+        $policy = \App\Services\Files\AttachmentPolicy::class;
+
+        $this->assertSame(30 * 1024 * 1024, $policy::maxFileBytes());
+        $this->assertSame(100 * 1024 * 1024, $policy::maxBatchBytes());
+
+        foreach (['jpg', 'png', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'dwg', 'dxf', 'rvt'] as $ext) {
+            $this->assertContains($ext, $policy::extensions(), $ext);
+        }
+        $this->assertNotContains('zip', $policy::extensions());
+        $this->assertContains('zip', $policy::extensions(true));
+        $this->assertStringContainsString('.dwg', $policy::accept());
+        $this->assertStringNotContainsString('.zip', $policy::accept());
+        $this->assertStringContainsString('Office', $policy::describe());
+
+        // só os fluxos que já aceitavam ZIP continuam aceitando
+        foreach ([\App\Http\Livewire\Files\Manager\CreateAdsFiles::class, \App\Http\Livewire\Files\Manager\CreateGenFiles::class, \App\Http\Livewire\Files\Manager\CreateViabFiles::class, \App\Http\Livewire\Files\Manager\GenericFileUploader::class] as $class) {
+            $this->assertTrue((new $class())->attachmentAllowsZip(), $class);
+        }
+
+        foreach ([\App\Http\Livewire\Files\Manager\CreateProdFiles::class, \App\Http\Livewire\Files\Manager\CreateServFiles::class, \App\Http\Livewire\Files\Manager\CreatePublicationFiles::class, \App\Http\Livewire\Files\Manager\Createfiles::class] as $class) {
+            $this->assertFalse((new $class())->attachmentAllowsZip(), $class);
+        }
+        $this->assertContains('max:30720', config('livewire.temporary_file_upload.rules'), 'o Livewire também limita em 30 MB por arquivo');
+    }
+
+    public function test_upload_screens_show_formats_and_limits_before_sending(): void
+    {
+        app(QualityWorkflowService::class)->assignDesigner($this->process, $this->n1, $this->designer->id);
+        $production = \App\Models\Production::findOrFail($this->process->fresh()->production_id);
+
+        Livewire::actingAs($this->designer)->test(\App\Http\Livewire\Files\Manager\CreateProdFiles::class, ['production' => $production, 'needFiles' => false])
+            ->assertSee('Formatos aceitos')->assertSee('30 MB por arquivo')->assertSee('100 MB por envio')->assertSee('DWG')->assertDontSee('ZIP');
+
+        Livewire::actingAs($this->designer)->test(\App\Http\Livewire\Files\Manager\CreateAdsFiles::class, ['note' => $this->note, 'service' => Service::query()->first()->uuid])
+            ->assertSee('ZIP')->assertSee('30 MB por arquivo');
+    }
+
+    public function test_a_single_upload_over_100mb_keeps_what_fits_and_warns_about_the_rest(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        \Illuminate\Support\Facades\Storage::fake('local');
+        app(QualityWorkflowService::class)->assignDesigner($this->process, $this->n1, $this->designer->id);
+        $production = \App\Models\Production::findOrFail($this->process->fresh()->production_id);
+
+        $component = Livewire::actingAs($this->designer)->test(\App\Http\Livewire\Files\Manager\CreateProdFiles::class, ['production' => $production, 'needFiles' => false])
+            ->set('uploadType', \App\Helpers\SelectOptions::getProductionFilesType()[0]->value)
+            ->set('files', array_map(fn ($n) => $this->realPdf("lote_{$n}.pdf", 28), [1, 2, 3, 4]));
+
+        $this->assertCount(3, $component->get('tempFiles'), '3 x 28MB cabem em 100MB; o 4º não');
+        $component->assertDispatchedBrowserEvent('swal', fn ($event, $data) => str_contains($data['html'], 'lote_4.pdf') && str_contains($data['html'], '100 MB por envio'));
+
+        // arquivo acima de 30MB também é recusado
+        $component->set('files', [$this->realPdf('grande.pdf', 31)]);
+        $this->assertCount(3, $component->get('tempFiles'));
+    }
+
     public function test_dedicated_desenho_form_only_opens_for_the_assigned_designer_and_submits_to_n1(): void
     {
         app(QualityWorkflowService::class)->assignDesigner($this->process, $this->n1, $this->designer->id);

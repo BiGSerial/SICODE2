@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\{PersistsManagedFileUploads, ScreensAttachedFiles};
 use App\Models\{File, Production};
 use Illuminate\Support\Facades\{DB};
 use Livewire\{Component, WithFileUploads};
@@ -44,6 +44,7 @@ class CreatePublicationFiles extends Component
 {
     use WithFileUploads;
     use PersistsManagedFileUploads;
+    use ScreensAttachedFiles;
 
     public ?Production $production = null;
 
@@ -72,10 +73,8 @@ class CreatePublicationFiles extends Component
     }
 
     public $filesConfig = [
-        'disk'         => 'public',
-        'path'         => 'protest_attachments',
-        'maxSize'      => (10 * 1024),
-        'allowedTypes' => ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'jpg', 'jpeg', 'png', 'txt'],
+        'disk' => 'public',
+        'path' => 'protest_attachments',
 
     ];
 
@@ -127,40 +126,10 @@ class CreatePublicationFiles extends Component
 
     public function updatedFiles()
     {
-        $this->validate();
+        $this->files = $this->screenAttachments($this->files, $this->tempFiles);
 
         if (count($this->files)) {
             foreach ($this->files as $file) {
-
-                // Bloqueio de arquivos não permitidos e limite de 10MB
-                $allowedExtensions = [
-                    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
-                    'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
-                    'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp',
-                ];
-                $maxSizeBytes = 40 * 1024 * 1024; // 40MB
-
-                if (!in_array(strtolower($file->getClientOriginalExtension()), $allowedExtensions)) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
-                        'timer'    => 1500,
-                    ]);
-
-                    continue;
-                }
-
-                if ($file->getSize() > $maxSizeBytes) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
-                        'timer'    => 1500,
-                    ]);
-
-                    continue;
-                }
 
                 $exists = false;
 
@@ -357,11 +326,6 @@ class CreatePublicationFiles extends Component
 
         $this->closeAll();
     }
-
-    protected $rules = [
-
-        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp|max:40960', // 40 MB
-    ];
 
     public function render()
     {
