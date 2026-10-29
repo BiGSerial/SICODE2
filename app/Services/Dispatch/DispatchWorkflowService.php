@@ -328,7 +328,8 @@ class DispatchWorkflowService
                 $finalScopes = [];
             }
 
-            if (!$explicitWorkReportId && !$isPassiveD5Dispatch && !$this->isD5Dispatch($note, $serviceKey, $finalScopes)) {
+            // Parcial é atividade isolada: nunca herda o Informe Final da Nota.
+            if (!$partialId && !$explicitWorkReportId && !$isPassiveD5Dispatch && !$this->isD5Dispatch($note, $serviceKey, $finalScopes)) {
                 $targetWorkReportIds = $this->targetWorkReportIdsForDispatch($note, $serviceKey, $finalScopes);
 
                 if (count($targetWorkReportIds) === 1) {

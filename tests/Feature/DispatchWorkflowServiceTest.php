@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Company, Note, Operation, Order, Production, Service, User, WorkReport, WorkReportFlowProduction, Wpa};
+use App\Models\{Company, Note, Operation, Order, Partial, Production, Service, User, WorkReport, WorkReportFlowProduction, Wpa};
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -270,6 +270,46 @@ class DispatchWorkflowServiceTest extends TestCase
             $targetUser,
             $actor
         );
+    }
+
+    public function test_payment_partial_dispatch_is_not_blocked_by_open_production_of_another_work_report(): void
+    {
+        $company    = Company::create(['name' => 'Compel', 'email' => 'compel@example.com']);
+        $actor      = User::factory()->create(['contract' => false, 'company_id' => $company->id]);
+        $targetUser = User::factory()->create(['contract' => false, 'company_id' => $company->id]);
+        $service    = Service::create(['service' => 'Pagamento', 'folder' => 'pagamento']);
+        $note       = Note::create(['note' => '4000004100', 'type_note' => 1, 'dt_status' => '2026-09-10 08:00:00', 'nstats' => 'NEW']);
+        $report     = $this->dispatchWorkReportFor($note, $company, $actor, '1700004100', [WorkReportFlowProduction::SCOPE_NETWORK]);
+
+        $finalProduction = Production::create([
+            'note_id' => $note->id, 'service_id' => $service->uuid, 'company_id' => $company->id,
+            'user_id' => $targetUser->id, 'dt_note' => '2026-09-10 08:00:00', 'status_note' => 'NEW', 'status' => 2,
+        ]);
+        WorkReportFlowProduction::create([
+            'work_report_id' => $report->id, 'production_id' => $finalProduction->id,
+            'stage'          => WorkReportFlowProduction::STAGE_PAYMENT, 'is_current' => true, 'linked_at' => now(),
+        ]);
+
+        $partial = Partial::create([
+            'note_id' => $note->id, 'company_id' => $company->id, 'user_id' => $actor->id,
+            'allow'   => true, 'deny' => false, 'supervision' => true, 'payment' => false,
+        ]);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $targetUser,
+            $actor,
+            null,
+            [],
+            null,
+            $partial->id
+        );
+
+        $this->assertNotSame($finalProduction->id, $production->id);
+        $this->assertTrue((bool) $production->partial);
+        $this->assertTrue($production->partialInforms()->whereKey($partial->id)->exists());
     }
 
     private function twoWorkReportsForDispatch(): array
