@@ -33,5 +33,26 @@ class AppServiceProvider extends ServiceProvider
         Form::observe(FormObserver::class);
         ProtestJob::observe(ProtestJobObserver::class);
         Reclaim::observe(ClosureReclaimObserver::class);
+
+        $this->configureLivewireBaseUrl();
+    }
+
+    /**
+     * Quando o app roda em subpasta (ex.: /es_qa, /sp), o Livewire precisa da raiz real da requisição
+     * para achar livewire.js e para enviar as atualizações; sem isso ele usa a raiz do domínio (404).
+     * Valores explícitos em config/livewire.php têm prioridade.
+     */
+    private function configureLivewireBaseUrl(): void
+    {
+        if ($this->app->runningInConsole()) {
+            return;
+        }
+
+        $root = rtrim($this->app['request']->root(), '/');
+
+        config([
+            'livewire.asset_url' => config('livewire.asset_url') ?: $root,
+            'livewire.app_url'   => config('livewire.app_url') ?: $root,
+        ]);
     }
 }
