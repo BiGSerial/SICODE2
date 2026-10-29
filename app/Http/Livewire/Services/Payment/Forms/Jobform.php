@@ -25,7 +25,8 @@ class Jobform extends Component
     protected $listeners = [
         'refresh' => '$refresh',
         'showProduction',
-        'confirmFinish' => 'save',
+        'confirmFinish'         => 'save',
+        'confirmProductionIsD5' => 'markProductionAsD5',
     ];
 
     protected $rules = [
@@ -190,7 +191,100 @@ class Jobform extends Component
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'formProductionModal',
             ]);
+
+            $this->promptPendingD5();
         }
+    }
+
+    /**
+     * D5 aberta no informe desta produção, quando a produção ainda não foi marcada como D5
+     * (ex.: o status mudou no SAP e a atividade chegou à Medição sem a solicitação de D5).
+     */
+    private function pendingD5ForProduction(): ?FiveNote
+    {
+        if (!$this->production || $this->production->partial || $this->five) {
+            return null;
+        }
+
+        $workReportId = $this->currentWorkReportIdForPayment();
+
+        if (!$workReportId) {
+            return null;
+        }
+
+        $fiveNote = FiveNote::query()
+            ->where('note_id', $this->production->note_id)
+            ->where('work_report_id', $workReportId)
+            ->where('is_archived', false)
+            ->latest('id')
+            ->first();
+
+        if (!$fiveNote) {
+            return null;
+        }
+
+        // D5 que já tem outra atividade em aberto não é puxada para esta.
+        $hasOtherOpenProduction = $fiveNote->productions()
+            ->where('productions.id', '!=', $this->production->id)
+            ->where('productions.dfive', true)
+            ->where('productions.completed', false)
+            ->exists();
+
+        return $hasOtherOpenProduction ? null : $fiveNote;
+    }
+
+    private function promptPendingD5(): void
+    {
+        if (!$this->pendingD5ForProduction()) {
+            return;
+        }
+
+        $this->dispatchBrowserEvent('swalcustom', [
+            'title'         => 'Existe uma D5 neste informe',
+            'msg'           => 'Este informe possui uma D5 associada. A atividade que você está encerrando é sobre essa D5?',
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, é sobre a D5',
+            'btnCanceltxt'  => 'Não',
+            'action'        => 'confirmProductionIsD5',
+            'chave'         => $this->production->id,
+            'cancel_titulo' => 'Mantido',
+            'cancel_msg'    => 'A atividade segue como medição normal.',
+        ]);
+    }
+
+    public function markProductionAsD5($productionId = null): void
+    {
+        if (!$this->production || (int) $productionId !== (int) $this->production->id) {
+            return;
+        }
+
+        $fiveNote = $this->pendingD5ForProduction();
+
+        if (!$fiveNote) {
+            return;
+        }
+
+        DB::transaction(function () use ($fiveNote) {
+            $this->production->update(['dfive' => true]);
+            $fiveNote->productions()->syncWithoutDetaching([$this->production->id]);
+
+            // Ciclo 1 sem D5 passa a apontar a D5 do informe; o ciclo não muda.
+            $this->production->measurementContext()
+                ->where('cycle', \App\Models\MeasurementProductionContext::CYCLE_ONE)
+                ->whereNull('five_note_id')
+                ->where('work_report_id', $fiveNote->work_report_id)
+                ->update(['five_note_id' => $fiveNote->id]);
+
+            Notetimeline::create([
+                'note_id'    => $this->production->note_id,
+                'service_id' => $this->production->service_id,
+                'user_id'    => auth()->id(),
+                'info'       => 'Usuário ' . auth()->user()->name . ' marcou a atividade como D5 ao encerrar (D5 do informe).',
+                'status'     => $this->production->status,
+            ]);
+        });
+
+        $this->showProduction($this->production->fresh());
     }
 
     private function currentWorkReportIdForPayment(): ?int

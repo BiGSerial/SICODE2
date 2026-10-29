@@ -521,7 +521,14 @@ class DispatchWorkflowService
             ? [$explicitWorkReportId]
             : $this->targetWorkReportIdsForDispatch($note, $serviceKey, $finalScopes);
 
-        if ($partialId) {
+        $d5Id = (int) ($note->dispatch_five_note_id ?? 0);
+
+        if ($serviceKey === 'supervision' && $d5Id > 0) {
+            // D5 devolvida e reconcluída volta à pilha da Fiscalização e pode ganhar nova
+            // produção no mesmo informe. Só outra atividade aberta da MESMA D5 bloqueia
+            // (evita atribuição concorrente).
+            $query->whereHas('fiveNotes', fn ($q) => $q->whereKey($d5Id));
+        } elseif ($partialId) {
             $query->whereHas('partialInforms', fn ($q) => $q->whereKey($partialId));
         } elseif ($stage && !empty($workReportIds)) {
             $query->whereHas('WorkReportFlowProductions', function ($q) use ($stage, $workReportIds) {
