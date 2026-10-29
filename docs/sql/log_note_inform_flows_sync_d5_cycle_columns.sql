@@ -21,3 +21,6 @@ IF COL_LENGTH('dbo.log_note_inform_flows_sync', 'd5_measurement_exited_at') IS N
 IF COL_LENGTH('dbo.log_note_inform_flows_sync', 'regulatory_deadline_applies') IS NULL
     ALTER TABLE dbo.log_note_inform_flows_sync ADD regulatory_deadline_applies BIT NOT NULL
         CONSTRAINT DF_log_note_inform_flows_sync_regulatory_deadline_applies DEFAULT 1;
+
+-- Informe final rejeitado continua no log, identificado por current_stage = 'Informe Rejeitado'
+-- (regulatory_deadline_applies = 0). Os relatorios devem excluir essa etapa.

@@ -308,6 +308,7 @@ class SyncNoteInformFlows extends Command
                 'wr.acceptance_accepted',
                 'wr.acceptance_at',
                 'wr.selected_final_scopes',
+                'wr.rejected',
                 'wr.created_at',
                 'wr.updated_at',
                 'af.id as ads_form_id',
@@ -373,7 +374,8 @@ class SyncNoteInformFlows extends Command
                     $linkedFiscalProds  = $this->eligibleLinkedProductions($this->linksForScope($linkedFiscalByWorkReport[$row->id] ?? [], $scope, count($scopePayloads) === 1), $row, $nextCycleEnd);
                     $linkedPaymentProds = $this->eligibleLinkedProductions($this->linksForScope($linkedPaymentByWorkReport[$row->id] ?? [], $scope, count($scopePayloads) === 1), $row, $nextCycleEnd);
                     $d5State            = $d5States[$row->five_note_id] ?? [];
-                    $hasD5 = $row->five_note_id !== null;
+                    $hasD5      = $row->five_note_id !== null;
+                    $isRejected = (bool) ($row->rejected ?? false);
                     // Pool de cada etapa e sempre do proprio informe: vinculo explicito, ou
                     // (so escopo geral) inferencia legada. Com D5 associada vale a ultima
                     // Fiscalizacao sem D5 marcado e a primeira Medicao com D5 marcado (a
@@ -498,11 +500,11 @@ class SyncNoteInformFlows extends Command
                         'd5_measurement_entered_at'      => $d5PaymentProd->att_at ?? null,
                         'd5_measurement_completed_at'    => $d5PaymentProd->completed_at ?? null,
                         'd5_measurement_exited_at'       => $d5PaymentProd->confirmed_at ?? null,
-                        'regulatory_deadline_applies'    => true,
+                        'regulatory_deadline_applies'    => !$isRejected,
                         'final_cycle_started_at'         => $informedAt,
                         'final_cycle_ended_at'           => $nextCycleEnd[$row->id] ?? null,
-                        'current_stage'                  => $resolvedStatus['label'],
-                        'blocking_reason'                => $this->blockingReasonFromStage($resolvedStatus['key']),
+                        'current_stage'                  => $isRejected ? 'Informe Rejeitado' : $resolvedStatus['label'],
+                        'blocking_reason'                => $this->blockingReasonFromStage($isRejected ? 'rejected' : $resolvedStatus['key']),
                         'active'                         => true,
                         'source_created_at'              => $row->created_at,
                         'source_updated_at'              => $row->updated_at,
@@ -854,6 +856,8 @@ class SyncNoteInformFlows extends Command
         $rows = DB::table('work_reports')
             ->whereIn('note_id', $noteIds)
             ->where('canceled', false)
+            // Informe rejeitado nao inicia novo ciclo: nao pode cortar as producoes do informe anterior.
+            ->where(fn ($q) => $q->whereNull('rejected')->orWhere('rejected', false))
             ->select(['id', 'note_id', 'informed_at', 'created_at'])
             ->orderBy('note_id')
             ->orderByRaw('COALESCE(informed_at, created_at)')
@@ -1335,6 +1339,7 @@ class SyncNoteInformFlows extends Command
             'waiting_ads'                 => 'ADS ainda nao registrada.',
             'waiting_fiscalization_entry' => 'Fluxo ainda nao entrou em fiscalizacao.',
             'rejected_fiscalization'      => 'Fiscalizacao rejeitada.',
+            'rejected'                    => 'Informe rejeitado: nao compoe o relatorio.',
             'waiting_measurement_entry'   => 'Fluxo ainda nao entrou em medicao/pagamento.',
             'waiting_measurement_exit'    => 'Fluxo entrou em medicao, mas ainda nao foi finalizado.',
             'waiting_d5'                  => 'D5/FiveNote ainda nao vinculada.',

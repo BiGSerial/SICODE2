@@ -358,6 +358,30 @@ class SyncNoteInformFlowsD5AssociationTest extends TestCase
         ]);
     }
 
+    public function test_rejected_report_stays_in_the_flow_as_rejected_stage_and_does_not_cut_the_previous_cycle(): void
+    {
+        $company = Company::create(['name' => 'Empresa Teste', 'email' => 'teste@example.com']);
+        $user    = User::factory()->create(['company_id' => $company->id]);
+        $note    = Note::create(['note' => '4000009927']);
+        $report  = $this->workReport($note, $company, $user, '2026-10-01 08:00:00');
+        $reject  = $this->workReport($note, $company, $user, '2026-10-05 08:00:00');
+        $reject->update(['rejected' => true]);
+
+        $this->artisan('sicode:sync-note-inform-flows', ['--note_id' => $note->id])->assertSuccessful();
+
+        $this->assertDatabaseHas('note_inform_flows', [
+            'flow_key'                    => "work_report:{$reject->id}",
+            'active'                      => 1,
+            'regulatory_deadline_applies' => 0,
+            'current_stage'               => 'Informe Rejeitado',
+        ]);
+        $this->assertDatabaseHas('note_inform_flows', [
+            'flow_key'                    => "work_report:{$report->id}",
+            'regulatory_deadline_applies' => 1,
+            'final_cycle_ended_at'        => null,
+        ]);
+    }
+
     private function workReport(Note $note, Company $company, User $user, string $informedAt): WorkReport
     {
         return WorkReport::create([
