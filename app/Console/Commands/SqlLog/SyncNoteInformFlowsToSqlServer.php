@@ -22,6 +22,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
         {--hours=2 : Janela de horas olhando updated_at}
         {--all : Sincroniza todos os registros}
         {--rebase : Limpa o log de destino e o republica integralmente}
+        {--prune : Remove do log as linhas que não existem mais (ou estão inativas) na origem; automático com --all/--if-empty}
         {--yesterday-only : Sincroniza somente updated_at do dia anterior completo}
         {--chunk=500 : Tamanho do lote lido do MySQL}
         {--if-empty : Faz sync completo se a tabela destino estiver vazia}
@@ -113,6 +114,7 @@ class SyncNoteInformFlowsToSqlServer extends Command
 
         if ($total === 0) {
             $this->info('Nada para sincronizar.');
+            $this->pruneDestination($full || (bool) $this->option('prune'), $dryRun);
 
             return self::SUCCESS;
         }
@@ -126,15 +128,29 @@ class SyncNoteInformFlowsToSqlServer extends Command
 
         $sent    = 0;
         $written = 0;
+        $removed = 0;
 
         try {
             DB::disableQueryLog();
 
-            $query->chunkById($chunk, function (Collection $rows) use (&$sent, &$written, $bar, $dryRun) {
+            $query->chunkById($chunk, function (Collection $rows) use (&$sent, &$written, &$removed, $bar, $dryRun) {
                 $payload       = [];
                 $columnsPerRow = 0;
 
+                $inactiveIds = [];
+
                 foreach ($rows as $row) {
+                    // Informe excluído/cancelado fica inativo na origem: não pertence ao log, que só
+                    // publica fluxos ativos (e remove o que já tinha sido publicado).
+                    if (!$row->active) {
+                        $inactiveIds[] = (int) $row->id;
+                        $sent++;
+                        $bar->setMessage("id_local={$row->id} (inativo)");
+                        $bar->advance();
+
+                        continue;
+                    }
+
                     $mapped        = $this->mapRow($row);
                     $columnsPerRow = $columnsPerRow ?: count($mapped);
                     $payload[]     = $mapped;
@@ -144,7 +160,13 @@ class SyncNoteInformFlowsToSqlServer extends Command
                     $bar->advance();
                 }
 
-                if ($dryRun || empty($payload)) {
+                if ($dryRun) {
+                    return;
+                }
+
+                $removed += $this->deleteFromDestination($inactiveIds);
+
+                if (empty($payload)) {
                     return;
                 }
 
@@ -164,6 +186,9 @@ class SyncNoteInformFlowsToSqlServer extends Command
             $this->info('Sync finalizado.');
             $this->line("Preparados: {$sent}" . ($dryRun ? ' (dry-run)' : ''));
             $this->line("Gravados (upsert): {$written}");
+            $this->line("Removidos (inativos na origem): {$removed}");
+
+            $this->pruneDestination($full || (bool) $this->option('prune'), $dryRun);
 
             return self::SUCCESS;
         } catch (\Throwable $e) {
@@ -174,6 +199,45 @@ class SyncNoteInformFlowsToSqlServer extends Command
 
             return self::FAILURE;
         }
+    }
+
+    /**
+     * Remove do destino as linhas que não existem mais entre os fluxos ativos da origem
+     * (informe excluído, cancelado ou fluxo substituído) — o upsert sozinho nunca apaga nada.
+     */
+    private function pruneDestination(bool $enabled, bool $dryRun): void
+    {
+        if (!$enabled) {
+            return;
+        }
+
+        $sourceIds = array_flip(DB::table('note_inform_flows')->where('active', true)->pluck('id')->map(fn ($id) => (int) $id)->all());
+        $orphans   = LogNoteInformFlows::query()
+            ->pluck('id_local')
+            ->map(fn ($id) => (int) $id)
+            ->reject(fn (int $id) => isset($sourceIds[$id]))
+            ->values()
+            ->all();
+
+        if ($dryRun) {
+            $this->line('Órfãos no destino: ' . count($orphans) . ' (dry-run, nada removido)');
+
+            return;
+        }
+
+        $this->line('Órfãos removidos do destino: ' . $this->deleteFromDestination($orphans));
+    }
+
+    /** @param array<int, int> $ids */
+    private function deleteFromDestination(array $ids): int
+    {
+        $deleted = 0;
+
+        foreach (array_chunk($ids, 1000) as $chunk) {
+            $deleted += LogNoteInformFlows::query()->whereIn('id_local', $chunk)->delete();
+        }
+
+        return $deleted;
     }
 
     private function mapRow(object $row): array
