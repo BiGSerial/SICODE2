@@ -138,7 +138,7 @@ class SyncNoteInformFlowsD5AssociationTest extends TestCase
         ]);
     }
 
-    public function test_it_exports_dates_from_all_active_fiscalization_and_measurement_productions(): void
+    public function test_it_uses_the_latest_fiscalization_and_measurement_when_there_is_no_d5(): void
     {
         $company        = Company::create(['name' => 'Empresa Teste', 'email' => 'teste@example.com']);
         $user           = User::factory()->create(['company_id' => $company->id]);
@@ -181,13 +181,16 @@ class SyncNoteInformFlowsD5AssociationTest extends TestCase
         $this->artisan('sicode:sync-note-inform-flows', ['--note_id' => $note->id])
             ->assertSuccessful();
 
+        // Sem D5: vale sempre a ultima Fiscalizacao e a ultima Medicao do informe.
         $this->assertDatabaseHas('note_inform_flows', [
-            'flow_key'                   => "work_report:{$report->id}",
-            'fiscalization_entered_at'   => '2026-10-04 08:00:00',
-            'fiscalization_completed_at' => '2026-10-03 08:00:00',
-            'measurement_entered_at'     => '2026-10-07 08:00:00',
-            'measurement_completed_at'   => '2026-10-06 08:00:00',
-            'measurement_exited_at'      => '2026-10-08 08:00:00',
+            'flow_key'                    => "work_report:{$report->id}",
+            'fiscalization_production_id' => $fiscalNewer->id,
+            'fiscalization_entered_at'    => '2026-10-04 08:00:00',
+            'fiscalization_completed_at'  => null,
+            'measurement_production_id'   => $paymentNewer->id,
+            'measurement_entered_at'      => '2026-10-07 08:00:00',
+            'measurement_completed_at'    => null,
+            'measurement_exited_at'       => '2026-10-08 08:00:00',
         ]);
     }
 
@@ -255,6 +258,71 @@ class SyncNoteInformFlowsD5AssociationTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_with_d5_uses_last_fiscalization_without_d5_and_first_measurement_with_d5(): void
+    {
+        $company        = Company::create(['name' => 'Empresa Teste', 'email' => 'teste@example.com']);
+        $user           = User::factory()->create(['company_id' => $company->id]);
+        $note           = Note::create(['note' => '4000009925']);
+        $report         = $this->workReport($note, $company, $user, '2026-10-01 08:00:00');
+        $fiveNote       = FiveNote::create(['note_id' => $note->id, 'work_report_id' => $report->id, 'company_id' => $company->id, 'note_d5' => '17500003']);
+        $fiscalService  = Service::create(['service' => 'Fiscalizacao', 'folder' => 'fiscalizacao']);
+        $paymentService = Service::create(['service' => 'Pagamento', 'folder' => 'pagamento']);
+
+        $cycleOneFiscal = Production::create([
+            'note_id'    => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $fiscalService->uuid, 'att_at' => '2026-10-02 08:00:00',
+            'completed'  => true, 'completed_at' => '2026-10-03 08:00:00',
+        ]);
+        $cycleOnePayment = Production::create([
+            'note_id'    => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $paymentService->uuid, 'att_at' => '2026-10-04 08:00:00',
+            'completed'  => true, 'completed_at' => '2026-10-05 08:00:00',
+            // A medicao do ciclo 1 e marcada como D5 (solicitacao) e continua sendo do ciclo 1.
+            'dfive' => true, 'partial' => true,
+        ]);
+        // D5 atribuida pela atividade: mesmo com a flag partial, precisa aparecer.
+        $d5Fiscal = Production::create([
+            'note_id'    => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $fiscalService->uuid, 'att_at' => '2026-10-20 08:00:00',
+            'completed'  => true, 'completed_at' => '2026-10-21 08:00:00', 'dfive' => true, 'partial' => true,
+        ]);
+        $d5Payment = Production::create([
+            'note_id'    => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $paymentService->uuid, 'att_at' => '2026-10-22 08:00:00',
+            'completed'  => true, 'completed_at' => '2026-10-23 08:00:00', 'dfive' => true, 'partial' => true,
+        ]);
+
+        foreach ([[$cycleOneFiscal, 'fiscalization'], [$d5Fiscal, 'fiscalization'], [$cycleOnePayment, 'payment'], [$d5Payment, 'payment']] as [$production, $stage]) {
+            WorkReportFlowProduction::create([
+                'work_report_id' => $report->id,
+                'production_id'  => $production->id,
+                'stage'          => $stage,
+                'final_scope'    => WorkReportFlowProduction::SCOPE_GENERAL,
+                'is_current'     => true,
+                'linked_at'      => now(),
+            ]);
+        }
+
+        $fiveNote->productions()->attach([$d5Fiscal->id, $d5Payment->id]);
+
+        $this->artisan('sicode:sync-note-inform-flows', ['--note_id' => $note->id])
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('note_inform_flows', [
+            'flow_key'                       => "work_report:{$report->id}",
+            'has_d5'                         => 1,
+            'regulatory_deadline_applies'    => 1,
+            'fiscalization_production_id'    => $cycleOneFiscal->id,
+            'fiscalization_completed_at'     => '2026-10-03 08:00:00',
+            'measurement_production_id'      => $cycleOnePayment->id,
+            'measurement_completed_at'       => '2026-10-05 08:00:00',
+            'd5_fiscalization_production_id' => $d5Fiscal->id,
+            'd5_fiscalization_completed_at'  => '2026-10-21 08:00:00',
+            'd5_measurement_production_id'   => $d5Payment->id,
+            'd5_measurement_completed_at'    => '2026-10-23 08:00:00',
+        ]);
     }
 
     private function workReport(Note $note, Company $company, User $user, string $informedAt): WorkReport

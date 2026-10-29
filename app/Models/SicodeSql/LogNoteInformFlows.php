@@ -73,6 +73,15 @@ class LogNoteInformFlows extends Model
         'payment_user_name',
         'payment_user_company_name',
 
+        'd5_fiscal_user_name',
+        'd5_fiscalization_entered_at',
+        'd5_fiscalization_completed_at',
+        'd5_payment_user_name',
+        'd5_measurement_entered_at',
+        'd5_measurement_completed_at',
+        'd5_measurement_exited_at',
+        'regulatory_deadline_applies',
+
         'final_cycle_started_at',
         'final_cycle_ended_at',
 
@@ -110,6 +119,12 @@ class LogNoteInformFlows extends Model
         'measurement_exited_at'    => 'datetime',
         'measurement_closed_in_sap_at' => 'datetime',
 
+        'd5_fiscalization_entered_at'   => 'datetime',
+        'd5_fiscalization_completed_at' => 'datetime',
+        'd5_measurement_entered_at'     => 'datetime',
+        'd5_measurement_completed_at'   => 'datetime',
+        'd5_measurement_exited_at'      => 'datetime',
+
         'final_cycle_started_at' => 'datetime',
         'final_cycle_ended_at'   => 'datetime',
 
@@ -125,6 +140,7 @@ class LogNoteInformFlows extends Model
         'fiscalization_closed_in_sap'    => 'boolean',
         'measurement_closed_in_sap'      => 'boolean',
         'has_d5'                         => 'boolean',
+        'regulatory_deadline_applies'    => 'boolean',
         'active'                         => 'boolean',
     ];
 }

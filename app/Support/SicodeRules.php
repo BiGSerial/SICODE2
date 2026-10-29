@@ -108,6 +108,28 @@ class SicodeRules
         return is_numeric($value) && (int) $value > 0 ? (int) $value : $default;
     }
 
+    public const POST_WORK_PROCESS_START_INFORM = 'inform';
+
+    public const POST_WORK_PROCESS_START_ADS = 'ads_delivery';
+
+    /**
+     * Início da contagem do Processo de Medição Pós Obra: data do informe (padrão) ou data de
+     * entrega da ADS (tácita ou não, ou seja, a data em que a ADS foi entregue).
+     */
+    public static function postWorkProcessStartBasis(): string
+    {
+        $value = self::databaseRule('post_work_process.start_basis')
+            ?? config('sicode.rules.' . self::ruleset() . '.post_work_process.start_basis');
+
+        return $value === self::POST_WORK_PROCESS_START_ADS ? self::POST_WORK_PROCESS_START_ADS : self::POST_WORK_PROCESS_START_INFORM;
+    }
+
+    /** Chave em system_settings que sobrescreve uma regra da região atual (ver databaseRule). */
+    public static function databaseRuleKey(string $key): string
+    {
+        return 'sicode.rules.' . self::ruleset() . '.' . $key;
+    }
+
     /** Nome da última etapa: "Medição/Pagamento" (padrão) ou o termo usado pela região. */
     public static function postWorkProcessMeasurementLabel(): string
     {

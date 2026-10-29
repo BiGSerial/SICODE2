@@ -3,8 +3,9 @@
 namespace App\Http\Livewire\Reports;
 
 use App\Jobs\Reports\ExportPostWorkProcessReportJob;
-use App\Models\Company;
+use App\Models\{Company, SystemSetting};
 use App\Services\Reports\PostWorkProcessReportService;
+use App\Support\SicodeRules;
 use Livewire\{Component, WithPagination};
 
 class PostWorkProcessReport extends Component
@@ -35,10 +36,54 @@ class PostWorkProcessReport extends Component
 
     public ?int $cell_day = null;
 
+    public bool $showParams = false;
+
+    /** @var array<string, int|string> */
+    public array $params = [];
+
     public function mount(): void
     {
+        $this->loadParams();
+
         $this->from = $this->from ?: now()->startOfMonth()->format('Y-m-d');
         $this->to   = $this->to ?: now()->format('Y-m-d');
+    }
+
+    private function loadParams(): void
+    {
+        $this->params = [
+            ...app(PostWorkProcessReportService::class)->limits(),
+            'start_basis' => SicodeRules::postWorkProcessStartBasis(),
+        ];
+    }
+
+    /** Prazos (dias úteis) e início da contagem; cada deployment (SP/ES) guarda os seus. */
+    public function saveParams(): void
+    {
+        abort_unless(auth()->user()?->can('management'), 403);
+
+        $this->validate([
+            'params.fiscal_dispatch' => 'required|integer|min:1|max:60',
+            'params.fiscalization'   => 'required|integer|min:1|max:60',
+            'params.measurement'     => 'required|integer|min:1|max:60',
+            'params.total'           => 'required|integer|min:1|max:120',
+            'params.start_basis'     => 'required|in:' . SicodeRules::POST_WORK_PROCESS_START_INFORM . ',' . SicodeRules::POST_WORK_PROCESS_START_ADS,
+        ]);
+
+        foreach (['fiscal_dispatch', 'fiscalization', 'measurement', 'total'] as $stage) {
+            SystemSetting::setValue(SicodeRules::databaseRuleKey("post_work_process.limits.{$stage}"), (string) (int) $this->params[$stage]);
+        }
+
+        SystemSetting::setValue(SicodeRules::databaseRuleKey('post_work_process.start_basis'), (string) $this->params['start_basis']);
+
+        $this->resetPage();
+        $this->showParams = false;
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Parâmetros salvos',
+            'timer'    => 2500,
+        ]);
     }
 
     public function updating($name): void
@@ -119,6 +164,7 @@ class PostWorkProcessReport extends Component
         );
 
         return view('livewire.reports.post-work-process-report', [
+            'startBasis'  => $service->startBasis(),
             'rows'        => $rows,
             'summary'     => $service->summarize($all),
             'syncedAt'    => $service->lastSyncedAt(),

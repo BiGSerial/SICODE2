@@ -95,17 +95,54 @@
                     Prazos por etapa em dias úteis · {{ collect($stageDefs)->map(fn ($d) => $d[0] . ' ' . $d[1])->implode(' · ') }}
                 </div>
                 <div class="text-light opacity-75 small">
+                    Contagem inicia na {{ $startBasis === 'ads_delivery' ? 'data de entrega da ADS (Informe Final)' : 'data do informe' }}.
+                    Somente o Informe Final segue o prazo regulatório (encerra na medição do ciclo 1); Parcial e D5 são só acompanhamento.
+                </div>
+                <div class="text-light opacity-75 small">
                     O Total inclui o despacho da medição (entre o fim da fiscalização e o despacho da medição), que não tem prazo próprio.
                     @if ($syncedAt)
                         · Informes finais: dados sincronizados em {{ $syncedAt->format('d/m/Y H:i') }}
                     @endif
                 </div>
             </div>
+            <div class="d-flex gap-2">
+            @can('management')
+                <button type="button" class="btn btn-outline-light btn-sm" wire:click="$toggle('showParams')">
+                    <i class="ri-settings-3-line me-1"></i> Parâmetros
+                </button>
+            @endcan
             <button class="btn btn-light btn-sm text-dark" wire:click="exportReport" wire:loading.attr="disabled" wire:target="exportReport">
                 <span wire:loading.remove wire:target="exportReport"><i class="ri-file-excel-2-line me-1"></i> Exportar Excel</span>
                 <span wire:loading wire:target="exportReport">Gerando...</span>
             </button>
+            </div>
         </div>
+
+        @if ($showParams)
+            <div class="ppr-card p-3 mb-3">
+                <h6 class="mb-1">Parâmetros do relatório</h6>
+                <p class="small text-muted mb-3">Valem para este ambiente (cada região tem seus prazos) e também para a exportação.</p>
+                <div class="row g-2 align-items-end">
+                    @foreach (['fiscal_dispatch', 'fiscalization', 'measurement', 'total'] as $stageKey)
+                        <div class="col-6 col-md-2">
+                            <label class="form-label small mb-1">{{ $stageLabels[$stageKey] }} (dias úteis)</label>
+                            <input type="number" min="1" class="form-control form-control-sm @error('params.' . $stageKey) is-invalid @enderror" wire:model.defer="params.{{ $stageKey }}">
+                        </div>
+                    @endforeach
+                    <div class="col-12 col-md-3">
+                        <label class="form-label small mb-1">Início da contagem</label>
+                        <select class="form-select form-select-sm" wire:model.defer="params.start_basis">
+                            <option value="inform">Data do informe</option>
+                            <option value="ads_delivery">Data de entrega da ADS (tácita ou não)</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-md-1">
+                        <button type="button" class="btn btn-success btn-sm w-100" wire:click="saveParams">Salvar</button>
+                    </div>
+                </div>
+                <div class="small text-muted mt-2">O início pela ADS vale para o Informe Final; Parcial e D5 seguem a data do próprio informe.</div>
+            </div>
+        @endif
 
         {{-- Filtros --}}
         <div class="ppr-card p-3 mb-3">

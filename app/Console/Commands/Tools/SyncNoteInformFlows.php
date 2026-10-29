@@ -225,6 +225,16 @@ class SyncNoteInformFlows extends Command
                     'ads_production_id'                 => null,
                     'fiscalization_production_id'       => null,
                     'measurement_production_id'         => null,
+                    'd5_fiscalization_production_id'    => null,
+                    'd5_fiscal_user_name'               => null,
+                    'd5_fiscalization_entered_at'       => null,
+                    'd5_fiscalization_completed_at'     => null,
+                    'd5_measurement_production_id'      => null,
+                    'd5_payment_user_name'              => null,
+                    'd5_measurement_entered_at'         => null,
+                    'd5_measurement_completed_at'       => null,
+                    'd5_measurement_exited_at'          => null,
+                    'regulatory_deadline_applies'       => false,
                     'final_cycle_started_at'            => null,
                     'final_cycle_ended_at'              => null,
                     'current_stage'                     => $stage,
@@ -362,21 +372,33 @@ class SyncNoteInformFlows extends Command
                     $useLegacyInference = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL;
                     $linkedFiscalProds  = $this->eligibleLinkedProductions($linkedFiscalByWorkReport[$row->id][$scope] ?? $linkedFiscalByWorkReport[$row->id][WorkReportFinalScopeResolver::SCOPE_GENERAL] ?? collect(), $row, $nextCycleEnd);
                     $linkedPaymentProds = $this->eligibleLinkedProductions($linkedPaymentByWorkReport[$row->id][$scope] ?? $linkedPaymentByWorkReport[$row->id][WorkReportFinalScopeResolver::SCOPE_GENERAL] ?? collect(), $row, $nextCycleEnd);
-                    $linkedFiscalProd   = $this->summarizeLinkedProductions($linkedFiscalProds);
-                    $linkedPaymentProd  = $this->summarizeLinkedProductions($linkedPaymentProds);
                     $d5State            = $d5States[$row->five_note_id] ?? [];
-                    // Producao D5 nao pode "ocupar" o lugar da producao normal: pega a
-                    // primeira candidata que nao seja D5.
-                    $legacyFiscalProd = $useLegacyInference
-                        ? ($legacyFiscalByWorkReport[$row->id] ?? collect())->first(fn ($p) => !$this->isD5ProductionRow($p, $d5State))
-                        : null;
-                    $legacyPaymentProd = $useLegacyInference
-                        ? ($legacyPaymentByWorkReport[$row->id] ?? collect())->first(fn ($p) => !$this->isD5ProductionRow($p, $d5State))
-                        : null;
-                    $fiscalProd        = $linkedFiscalProd ?? $legacyFiscalProd;
-                    $paymentProd       = $linkedPaymentProd ?? $legacyPaymentProd;
-                    $normalFiscalProd  = $this->isD5ProductionRow($fiscalProd, $d5State) ? null : $fiscalProd;
-                    $normalPaymentProd = $this->isD5ProductionRow($paymentProd, $d5State) ? null : $paymentProd;
+                    $hasD5 = $row->five_note_id !== null;
+                    // Pool de cada etapa e sempre do proprio informe: vinculo explicito, ou
+                    // (so escopo geral) inferencia legada. Com D5 associada vale a ultima
+                    // Fiscalizacao sem D5 marcado e a primeira Medicao com D5 marcado (a
+                    // solicitacao); sem D5, a ultima Fiscalizacao e a ultima Medicao.
+                    $fiscalPool = $linkedFiscalProds->isNotEmpty()
+                        ? $linkedFiscalProds
+                        : ($useLegacyInference ? ($legacyFiscalByWorkReport[$row->id] ?? collect()) : collect());
+                    $paymentPool = $linkedPaymentProds->isNotEmpty()
+                        ? $linkedPaymentProds
+                        : ($useLegacyInference ? ($legacyPaymentByWorkReport[$row->id] ?? collect()) : collect());
+                    $isD5Flagged = fn (object $production) => (bool) ($production->dfive ?? false);
+                    $fiscalProd  = $hasD5
+                        ? $this->pickProduction($fiscalPool->reject($isD5Flagged), true)
+                        : $this->pickProduction($fiscalPool, true);
+                    $paymentProd = $hasD5
+                        ? $this->pickProduction($paymentPool->filter($isD5Flagged), false)
+                        : $this->pickProduction($paymentPool, true);
+                    $linkedFiscalProd  = $linkedFiscalProds->isNotEmpty() ? $fiscalProd : null;
+                    $linkedPaymentProd = $linkedPaymentProds->isNotEmpty() ? $paymentProd : null;
+                    // Colunas d5_*: ultimo marco do ciclo D5 propriamente dito (productions
+                    // vinculadas a D5 do informe), separado do ciclo 1.
+                    $d5FiscalProd  = $d5State['latest_fiscal'] ?? null;
+                    $d5PaymentProd = $d5State['latest_payment'] ?? null;
+                    $normalFiscalProd  = $fiscalProd;
+                    $normalPaymentProd = $paymentProd;
                     $resolvedStatus    = $statusResolver->resolveState([
                         'has_ads'                     => $row->ads_form_id !== null && $scopeResolver->publicationRequired($scope),
                         'normal_fiscal_associated'    => $normalFiscalProd !== null,
@@ -392,14 +414,8 @@ class SyncNoteInformFlows extends Command
                         'd5_payment_finished'         => (bool) ($d5State['payment_finished'] ?? false) || (bool) ($row->five_note_archived ?? false),
                         'letter_released'             => (bool) ($row->five_note_payed ?? false) || (bool) ($row->five_note_archived ?? false),
                     ]);
-                    // Caso D5: os marcos exibidos sao sempre os da ultima fiscalizacao e
-                    // da ultima medicao/pagamento D5 (o status acima usa so as normais).
-                    $d5FiscalProd    = $d5State['latest_fiscal'] ?? null;
-                    $d5PaymentProd   = $d5State['latest_payment'] ?? null;
-                    $fiscalProd      = $d5FiscalProd ?? $fiscalProd;
-                    $paymentProd     = $d5PaymentProd ?? $paymentProd;
-                    $fiscalResolver  = $d5FiscalProd ? 'd5_latest' : ($linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none'));
-                    $paymentResolver = $d5PaymentProd ? 'd5_latest' : ($linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none'));
+                    $fiscalResolver  = $linkedFiscalProd ? 'explicit_link' : ($fiscalProd ? 'legacy_inference' : 'none');
+                    $paymentResolver = $linkedPaymentProd ? 'explicit_link' : ($paymentProd ? 'legacy_inference' : 'none');
                     $sap             = $sapByWorkReport[$row->id] ?? [
                         'op30_all_conf'    => false,
                         'op30_finished_at' => null,
@@ -473,6 +489,16 @@ class SyncNoteInformFlows extends Command
                         'ads_production_id'              => $scopeResolver->publicationRequired($scope) ? ($paymentProd->id ?? null) : null,
                         'fiscalization_production_id'    => $fiscalProd->id ?? null,
                         'measurement_production_id'      => $paymentProd->id ?? null,
+                        'd5_fiscalization_production_id' => $d5FiscalProd->id ?? null,
+                        'd5_fiscal_user_name'            => $d5FiscalProd->user_name ?? null,
+                        'd5_fiscalization_entered_at'    => $d5FiscalProd->att_at ?? null,
+                        'd5_fiscalization_completed_at'  => $d5FiscalProd->completed_at ?? null,
+                        'd5_measurement_production_id'   => $d5PaymentProd->id ?? null,
+                        'd5_payment_user_name'           => $d5PaymentProd->user_name ?? null,
+                        'd5_measurement_entered_at'      => $d5PaymentProd->att_at ?? null,
+                        'd5_measurement_completed_at'    => $d5PaymentProd->completed_at ?? null,
+                        'd5_measurement_exited_at'       => $d5PaymentProd->confirmed_at ?? null,
+                        'regulatory_deadline_applies'    => true,
                         'final_cycle_started_at'         => $informedAt,
                         'final_cycle_ended_at'           => $nextCycleEnd[$row->id] ?? null,
                         'current_stage'                  => $resolvedStatus['label'],
@@ -483,7 +509,7 @@ class SyncNoteInformFlows extends Command
                         'calculated_at'                  => $now,
                         'resolver_payload'               => json_encode([
                             'source'                 => 'work_reports',
-                            'rule_version'           => 4,
+                            'rule_version'           => 5,
                             'final_scope'            => $scope,
                             'final_scope_resolution' => $scopePayload['resolution'],
                             'publication_policy'     => $scopeResolver->publicationPolicy($scope),
@@ -498,6 +524,7 @@ class SyncNoteInformFlows extends Command
                                 'payment_origin_work_report_id'       => $paymentProd->linked_work_report_id ?? null,
                             ],
                             'd5_resolver'  => $row->five_note_id ? 'explicit_work_report_link' : 'none',
+                            'cycle_rule'   => 'main_columns_cycle1_only; d5_columns_separate',
                             'operation_20' => [
                                 'order_number' => $op20->order_number ?? null,
                                 'finished_at'  => $op20->finished_at ?? null,
@@ -556,37 +583,17 @@ class SyncNoteInformFlows extends Command
     }
 
     /**
-     * O log possui uma coluna por marco, mas um informe pode ter varias
-     * Productions ativas na mesma etapa. Cada data deve considerar todas elas,
-     * em vez de depender da primeira associacao encontrada.
+     * Escolhe uma unica production da etapa: a ultima (maior att_at, depois id) ou a primeira.
      */
-    private function summarizeLinkedProductions(Collection $productions): ?object
+    private function pickProduction(Collection $productions, bool $latest): ?object
     {
         if ($productions->isEmpty()) {
             return null;
         }
 
-        $reference = $productions
-            ->sortByDesc(fn (object $production) => $production->linked_at ?? $production->att_at ?? $production->id)
-            ->first();
+        $sorted = $productions->sortBy(fn (object $production) => [(string) ($production->att_at ?? ''), (int) $production->id])->values();
 
-        return (object) [
-            'id'           => $reference->id,
-            'user_id'      => $reference->user_id,
-            'user_name'    => $reference->user_name,
-            'att_at'       => $this->latestValue($productions, 'att_at'),
-            'completed'    => $productions->contains(fn (object $production) => (bool) $production->completed),
-            'completed_at' => $this->latestValue($productions, 'completed_at'),
-            'confirmed'    => $productions->contains(fn (object $production) => (bool) $production->confirmed),
-            'confirmed_at' => $this->latestValue($productions, 'confirmed_at'),
-            'd5'           => $productions->contains(fn (object $production) => (bool) $production->d5),
-            'dfive'        => $productions->contains(fn (object $production) => (bool) $production->dfive),
-        ];
-    }
-
-    private function latestValue(Collection $productions, string $attribute): mixed
-    {
-        return $productions->pluck($attribute)->filter()->sort()->last();
+        return $latest ? $sorted->last() : $sorted->first();
     }
 
     private function filterScopePayloadsByPartnerSelection(array $payloads, mixed $selectedFinalScopes): array
@@ -1023,9 +1030,8 @@ class SyncNoteInformFlows extends Command
             ->leftJoin('users as usr', 'usr.id', '=', 'prod.user_id')
             ->whereIn('pa.productionable_id', $fiveNoteIds)
             ->where('pa.productionable_type', 'App\\Models\\FiveNote')
-            ->where(function ($query) {
-                $query->whereNull('prod.partial')->orWhere('prod.partial', false);
-            })
+            // O vinculo explicito Production -> D5 -> Informe basta: a flag `partial` da
+            // production nao pode esconder uma D5 atribuida.
             ->whereIn('srv.service', ['Fiscalizacao', 'Fiscalização', 'Pagamento'])
             ->select([
                 'pa.productionable_id as five_note_id',
@@ -1103,17 +1109,6 @@ class SyncNoteInformFlows extends Command
             'd5'           => true,
             'dfive'        => true,
         ] : null;
-    }
-
-    private function isD5ProductionRow(?object $production, array $d5State): bool
-    {
-        if (!$production) {
-            return false;
-        }
-
-        return (bool) ($production->d5 ?? false)
-            || (bool) ($production->dfive ?? false)
-            || in_array((int) ($production->id ?? 0), $d5State['production_ids'] ?? [], true);
     }
 
     private function normalizeServiceName(string $service): string
@@ -1257,6 +1252,16 @@ class SyncNoteInformFlows extends Command
             'ads_production_id',
             'fiscalization_production_id',
             'measurement_production_id',
+            'd5_fiscalization_production_id',
+            'd5_fiscal_user_name',
+            'd5_fiscalization_entered_at',
+            'd5_fiscalization_completed_at',
+            'd5_measurement_production_id',
+            'd5_payment_user_name',
+            'd5_measurement_entered_at',
+            'd5_measurement_completed_at',
+            'd5_measurement_exited_at',
+            'regulatory_deadline_applies',
             'final_cycle_started_at',
             'final_cycle_ended_at',
             'current_stage',

@@ -133,6 +133,7 @@ class PostWorkProcessReportService
                 'User:id,name',
                 'Orders:id,ordem',
                 'Adsform:id,work_report_id,amount,created_at',
+                'FiveNote:id,work_report_id',
                 'FlowProductions' => fn ($q) => $q->where('is_current', true)
                     ->with(['Production' => fn ($p) => $p->with($this->productionRelations())]),
             ])
@@ -149,34 +150,19 @@ class PostWorkProcessReportService
         $flows   = $this->loadFinalFlowMilestones($reports->pluck('id')->all());
 
         return $reports->map(function (WorkReport $report) use ($flows) {
-            $links         = $report->FlowProductions;
-            $linkedFiscal  = $this->pickLatest($links->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)->pluck('Production')->filter());
-            $linkedPayment = $this->pickLatest($links->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)->pluck('Production')->filter());
-            $syncIssues    = [];
+            $hasD5 = $report->FiveNote !== null;
 
-            if ($flows->has($report->id)) {
-                $fiscal  = $flows[$report->id]['fiscal'];
-                $payment = $flows[$report->id]['payment'];
-                $source  = 'note_inform_flows';
+            ['fiscal' => $fiscal, 'payment' => $payment, 'source' => $source, 'issues' => $syncIssues] = $this->informeMilestones($report, $flows, $hasD5);
 
-                // Consolidado defasado: o vínculo do informe existe, mas o consolidado ainda não o refletiu.
-                if (!$fiscal && $linkedFiscal) {
-                    $syncIssues[] = 'Consolidado sem fiscalização, mas há vínculo no informe (aguardando sincronização)';
-                }
+            $start = $this->finalStart($report);
 
-                if (!$payment && $linkedPayment) {
-                    $syncIssues[] = 'Consolidado sem medição/pagamento, mas há vínculo no informe (aguardando sincronização)';
-                }
-            } else {
-                // Informe ainda não sincronizado no consolidado: usa o vínculo do próprio informe.
-                $fiscal  = $this->productionInfo($linkedFiscal);
-                $payment = $this->productionInfo($linkedPayment);
-                $source  = 'work_report_flow_productions';
+            if ($start === null) {
+                $syncIssues[] = 'Sem entrega de ADS: início da contagem pela ADS indisponível';
             }
 
             $scopes = $report->finalScopeBadges();
 
-            return $this->buildRow(self::TYPE_FINAL, $report->informed_at, $fiscal, $payment, [
+            return $this->buildRow(self::TYPE_FINAL, $start, $fiscal, $payment, [
                 'id'          => $report->id,
                 'scopes'      => collect($scopes)->map(fn ($b) => ['label' => $b['label'], 'class' => $b['class']])->all(),
                 'orders'      => $report->Orders->pluck('ordem')->filter()->values()->all(),
@@ -189,8 +175,66 @@ class PostWorkProcessReportService
                 'informed_at' => $report->informed_at,
                 'data_source' => $source,
                 'sync_issues' => $syncIssues,
+                'has_d5'      => $hasD5,
             ]);
         });
+    }
+
+    /**
+     * Fiscalização e Medição/Pagamento do informe: consolidado `note_inform_flows` (ou, enquanto o informe
+     * não foi sincronizado, os vínculos do próprio informe). Com D5 vale a última fiscalização sem D5 marcado
+     * e a primeira medição com D5 marcado (a solicitação); sem D5, a última de cada etapa.
+     *
+     * @param Collection<int, array{fiscal: ?array<string, mixed>, payment: ?array<string, mixed>}> $flows
+     * @return array{fiscal: ?array<string, mixed>, payment: ?array<string, mixed>, source: string, issues: array<int, string>}
+     */
+    private function informeMilestones(WorkReport $report, Collection $flows, bool $hasD5): array
+    {
+        $links         = $report->FlowProductions;
+        $fLinks        = $links->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)->pluck('Production')->filter();
+        $pLinks        = $links->where('stage', WorkReportFlowProduction::STAGE_PAYMENT)->pluck('Production')->filter();
+        $linkedFiscal  = $hasD5 ? $this->pickLatest($fLinks->reject(fn (Production $p) => (bool) $p->dfive)) : $this->pickLatest($fLinks);
+        $linkedPayment = $hasD5 ? $this->pickFirst($pLinks->filter(fn (Production $p) => (bool) $p->dfive)) : $this->pickLatest($pLinks);
+        $issues        = [];
+
+        if ($flows->has($report->id)) {
+            $fiscal  = $flows[$report->id]['fiscal'];
+            $payment = $flows[$report->id]['payment'];
+            $source  = 'note_inform_flows';
+
+            // Consolidado defasado: o vínculo do informe existe, mas o consolidado ainda não o refletiu.
+            if (!$fiscal && $linkedFiscal) {
+                $issues[] = 'Consolidado sem fiscalização, mas há vínculo no informe (aguardando sincronização)';
+            }
+
+            if (!$payment && $linkedPayment) {
+                $issues[] = 'Consolidado sem medição/pagamento, mas há vínculo no informe (aguardando sincronização)';
+            }
+        } else {
+            $fiscal  = $this->productionInfo($linkedFiscal);
+            $payment = $this->productionInfo($linkedPayment);
+            $source  = 'work_report_flow_productions';
+        }
+
+        return compact('fiscal', 'payment', 'source', 'issues');
+    }
+
+    /**
+     * Início da contagem do informe final: data do informe ou data de entrega da ADS (tácita ou não,
+     * sempre a data em que a ADS foi entregue, nunca tacit_delivered_at).
+     */
+    private function finalStart(WorkReport $report): ?Carbon
+    {
+        if ($this->startBasis() === SicodeRules::POST_WORK_PROCESS_START_ADS) {
+            return $report->Adsform?->created_at;
+        }
+
+        return $report->informed_at;
+    }
+
+    public function startBasis(): string
+    {
+        return SicodeRules::postWorkProcessStartBasis();
     }
 
     /**
@@ -301,7 +345,7 @@ class PostWorkProcessReportService
                 'payer'            => $partial->payer?->name,
                 'value'            => $partial->value,
                 'data_source'      => 'partials',
-            ]);
+            ], false);
         });
     }
 
@@ -317,7 +361,9 @@ class PostWorkProcessReportService
                 'company:id,name',
                 'productions' => fn ($q) => $q->with($this->productionRelations()),
             ])
-            ->whereNotNull('completed_at');
+            ->whereNotNull('completed_at')
+            // D5 sem vínculo com um informe não entra no relatório.
+            ->whereNotNull('work_report_id');
 
         $this->applyRange($query, 'completed_at', $filters);
         $this->applyCompany($query, $filters);
@@ -328,7 +374,8 @@ class PostWorkProcessReportService
         }
 
         return $query->get()->map(function (FiveNote $five) {
-            // completed_at pode mudar se o D5 for rejeitado e refeito: só valem as productions posteriores.
+            // Somente o que é da D5: productions vinculadas a ela (posteriores à conclusão, que muda se a D5
+            // for rejeitada e refeita) e os marcos da própria D5. Nada do informe de origem.
             [$fiscal, $payment] = $this->pickStages($five->productions, $five->completed_at);
 
             // Supervisão/pagamento marcados na própria D5 completam o que a produção não registrou.
@@ -346,7 +393,7 @@ class PostWorkProcessReportService
                 'payment_flag'     => (bool) $five->is_payed,
                 'payment_at'       => $five->payed_at,
                 'data_source'      => 'productions',
-            ]);
+            ], false);
         });
     }
 
@@ -485,7 +532,7 @@ class PostWorkProcessReportService
      * @param array<string, mixed> $extra
      * @return array<string, mixed>
      */
-    private function buildRow(string $type, ?Carbon $start, ?array $fiscal, ?array $payment, array $extra): array
+    private function buildRow(string $type, ?Carbon $start, ?array $fiscal, ?array $payment, array $extra, bool $deadlineApplies = true): array
     {
         $limits      = $this->limits();
         $extraIssues = $extra['sync_issues'] ?? [];
@@ -505,6 +552,12 @@ class PostWorkProcessReportService
             'measurement'   => $this->stage($paymentDispatch, $paymentCompleted, $limits['measurement']),
             'total'         => $this->stage($start, $paymentCompleted, $limits['total']),
         ];
+
+        // Só o Informe Final segue o prazo regulatório (que encerra na medição do ciclo 1). Parcial e D5
+        // (nota à parte para resolver pendência) são acompanhados, mas nunca dados como vencidos.
+        if (!$deadlineApplies) {
+            $stages = array_map(fn (array $s) => $this->withoutDeadline($s), $stages);
+        }
 
         $labels     = $this->stageLabels();
         $lateStages = collect($labels)
@@ -539,8 +592,19 @@ class PostWorkProcessReportService
             'current_stage' => $currentStage,
             'age_days'      => $stages['total']['days'] ?? 0,
             'gantt'         => $start ? $this->gantt($start, $fiscal, $payment, $limits) : [],
-            'issues'        => array_merge($this->detectIssues($type, $start, $fiscal, $payment, $limits), $extraIssues),
+            'issues'        => array_merge($this->detectIssues($type, $start, $fiscal, $payment, $limits, $deadlineApplies), $extraIssues),
+            'deadline_applies' => $deadlineApplies,
         ], $extra);
+    }
+
+    /** @param array<string, mixed> $stage */
+    private function withoutDeadline(array $stage): array
+    {
+        $stage['late']      = false;
+        $stage['late_days'] = 0;
+        $stage['status']    = $stage['to'] ? 'on_time' : ($stage['from'] ? 'open' : 'pending');
+
+        return $stage;
     }
 
     /**
@@ -552,7 +616,7 @@ class PostWorkProcessReportService
      * @param array<string, int> $limits
      * @return array<int, string>
      */
-    private function detectIssues(string $type, ?Carbon $start, ?array $fiscal, ?array $payment, array $limits): array
+    private function detectIssues(string $type, ?Carbon $start, ?array $fiscal, ?array $payment, array $limits, bool $deadlineApplies = true): array
     {
         $issues = [];
 
@@ -582,7 +646,7 @@ class PostWorkProcessReportService
             $issues[] = 'Medição/Pagamento concluído com fiscalização em aberto';
         }
 
-        if (!$fiscal && $type !== self::TYPE_PARTIAL && $start && $this->businessDaysBetween($start, now()) > $limits['total']) {
+        if ($deadlineApplies && !$fiscal && $type !== self::TYPE_PARTIAL && $start && $this->businessDaysBetween($start, now()) > $limits['total']) {
             $issues[] = 'Sem fiscalização vinculada além do prazo total';
         }
 
@@ -722,6 +786,14 @@ class PostWorkProcessReportService
             Str::contains($name, ['pagamento', 'medicao']) => 'payment',
             default                                        => null,
         };
+    }
+
+    /** Primeira production (menor dispatch_at/created_at). */
+    private function pickFirst(Collection $productions): ?Production
+    {
+        return $productions
+            ->sortBy(fn (Production $p) => ($p->dispatch_at ?? $p->created_at)?->timestamp . str_pad((string) $p->id, 12, '0', STR_PAD_LEFT))
+            ->first();
     }
 
     /** Em caso de rejeição/redespacho vale a production mais recente. */
