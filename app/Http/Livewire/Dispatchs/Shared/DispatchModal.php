@@ -457,6 +457,28 @@ class DispatchModal extends Component
             return;
         }
 
+        // Cada atividade atende a um único informe: não deixa marcar escopos de informes diferentes.
+        $workflow = app(DispatchWorkflowService::class);
+
+        foreach ($this->notes as $note) {
+            if ($this->scopeIsLocked($note) || $note->dispatch_partial_id) {
+                continue;
+            }
+
+            try {
+                $workflow->assertScopesBelongToSingleInforme((int) $note->id, $this->selectedFinalScopesForNote($note));
+            } catch (DispatchException $e) {
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => "Nota {$note->note}: " . $e->getMessage(),
+                    'timer'    => 6000,
+                ]);
+
+                return;
+            }
+        }
+
         $company    = Company::find($this->company_s);
         $targetUser = $this->type === '2' ? User::find($this->user_s) : null;
         $para       = $targetUser

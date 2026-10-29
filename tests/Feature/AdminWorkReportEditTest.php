@@ -57,6 +57,48 @@ class AdminWorkReportEditTest extends TestCase
         $this->assertDatabaseMissing('work_report_flow_productions', ['id' => $link->id]);
     }
 
+    public function test_associate_leaves_only_the_chosen_link_for_the_production_and_stage(): void
+    {
+        $company = Company::create(['name' => 'Empresa de teste', 'email' => 'empresa@example.test']);
+        $user    = User::factory()->create(['company_id' => $company->id]);
+        $note    = Note::create(['note' => '500000' . random_int(1000, 9999), 'dt_status' => now(), 'nstats' => 'NEW']);
+        $service = Service::create(['uuid' => (string) Str::uuid(), 'service' => 'Fiscalizacao', 'folder' => 'fiscalizacao']);
+        $make    = fn (string $informedAt) => WorkReport::create([
+            'note_id' => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'date'    => now()->toDateString(), 'informed_at' => $informedAt, 'canceled' => false,
+        ]);
+        $other  = $make('2026-10-21 08:00:00');
+        $target = $make('2026-10-28 08:00:00');
+
+        $production = Production::create([
+            'note_id' => $note->id, 'company_id' => $company->id, 'service_id' => $service->uuid,
+            'completed' => false, 'confirmed' => false, 'status' => 2,
+        ]);
+
+        // Vinculos antigos: dois escopos no informe destino e um em outro informe.
+        foreach ([[$target, 'network'], [$target, 'connection'], [$other, 'general']] as [$report, $scope]) {
+            WorkReportFlowProduction::create([
+                'work_report_id' => $report->id, 'production_id' => $production->id,
+                'stage'          => WorkReportFlowProduction::STAGE_FISCALIZATION,
+                'final_scope'    => $scope, 'is_current' => true, 'source' => 'test',
+            ]);
+        }
+
+        Livewire::test(WorkReportEdit::class)
+            ->call('getInfoResponse', $target)
+            ->set("productionTargetWorkReportIds.{$production->id}", $target->id)
+            ->call('requestAssociateProduction', $production->id)
+            ->call('associateProduction');
+
+        $current = WorkReportFlowProduction::query()
+            ->where('production_id', $production->id)
+            ->where('is_current', true)
+            ->get();
+
+        $this->assertCount(1, $current);
+        $this->assertSame($target->id, (int) $current->first()->work_report_id);
+    }
+
     /** @return array{0: WorkReport, 1: Note} informe final EP no SP (split ligado) com uma ordem de Rede (150) e uma de Ligação */
     private function scopedWorkReport(string $note = '600000', array $orders = ['1500001', '9000001']): array
     {

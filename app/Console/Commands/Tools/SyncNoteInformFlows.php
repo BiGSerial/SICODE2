@@ -370,8 +370,8 @@ class SyncNoteInformFlows extends Command
                     $scope              = $scopePayload['scope'];
                     $op20               = $this->resolveOperation20($op20ByWorkReport[$row->id] ?? collect());
                     $useLegacyInference = $scope === WorkReportFinalScopeResolver::SCOPE_GENERAL;
-                    $linkedFiscalProds  = $this->eligibleLinkedProductions($linkedFiscalByWorkReport[$row->id][$scope] ?? $linkedFiscalByWorkReport[$row->id][WorkReportFinalScopeResolver::SCOPE_GENERAL] ?? collect(), $row, $nextCycleEnd);
-                    $linkedPaymentProds = $this->eligibleLinkedProductions($linkedPaymentByWorkReport[$row->id][$scope] ?? $linkedPaymentByWorkReport[$row->id][WorkReportFinalScopeResolver::SCOPE_GENERAL] ?? collect(), $row, $nextCycleEnd);
+                    $linkedFiscalProds  = $this->eligibleLinkedProductions($this->linksForScope($linkedFiscalByWorkReport[$row->id] ?? [], $scope, count($scopePayloads) === 1), $row, $nextCycleEnd);
+                    $linkedPaymentProds = $this->eligibleLinkedProductions($this->linksForScope($linkedPaymentByWorkReport[$row->id] ?? [], $scope, count($scopePayloads) === 1), $row, $nextCycleEnd);
                     $d5State            = $d5States[$row->five_note_id] ?? [];
                     $hasD5 = $row->five_note_id !== null;
                     // Pool de cada etapa e sempre do proprio informe: vinculo explicito, ou
@@ -563,6 +563,24 @@ class SyncNoteInformFlows extends Command
         }, 'wr.id', 'id');
 
         return $processed;
+    }
+
+    /**
+     * Vinculos da etapa para o escopo da linha: o proprio escopo, senao o geral. Informe com um unico
+     * escopo nao tem outra linha para "disputar" a production, entao um vinculo gravado em outro escopo
+     * (ex.: Fiscalizacao vinculada como Ligacao num informe so de Rede) ainda e dele e deve aparecer.
+     *
+     * @param array<string, Collection> $linksByScope
+     */
+    private function linksForScope(array $linksByScope, string $scope, bool $singleScope): Collection
+    {
+        $links = $linksByScope[$scope] ?? $linksByScope[WorkReportFinalScopeResolver::SCOPE_GENERAL] ?? null;
+
+        if ($links !== null) {
+            return $links;
+        }
+
+        return $singleScope ? collect($linksByScope)->flatten(1)->values() : collect();
     }
 
     private function eligibleLinkedProductions(Collection $productions, object $workReport, array $nextCycleEnd): Collection

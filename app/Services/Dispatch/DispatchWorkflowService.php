@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 class DispatchWorkflowService
 {
+    public const MULTIPLE_INFORMES_MESSAGE = 'Os escopos selecionados pertencem a informes diferentes. Despache um informe por vez: cada informe tem sua própria atividade.';
+
     public function __construct(
         private DispatchContextResolver $contextResolver,
         private DdAssignmentService $ddAssignment,
@@ -362,23 +364,10 @@ class DispatchWorkflowService
                 throw new DispatchException('Pagamento exige Informe Final ou Informe Parcial explícito.');
             }
 
+            // Uma atividade atende a um unico informe: escopos que resolvem para informes diferentes
+            // precisam ser despachados um por vez (informe explicito).
             if (!$explicitWorkReportId && count($targetWorkReportIds) > 1 && !$this->isD5Dispatch($note, $serviceKey, $finalScopes)) {
-                $productions = collect($targetWorkReportIds)
-                    ->map(function (int $targetWorkReportId) use ($note, $service, $company, $targetUser, $actor, $dd, $finalScopes, $partialId) {
-                        return $this->dispatch(
-                            $note,
-                            $service,
-                            $company,
-                            $targetUser,
-                            $actor,
-                            $dd,
-                            $this->finalScopesForWorkReport($note, $targetWorkReportId, $finalScopes),
-                            $targetWorkReportId,
-                            $partialId
-                        );
-                    });
-
-                return $productions->first();
+                throw new DispatchException(self::MULTIPLE_INFORMES_MESSAGE);
             }
 
             // D5s novas já nascem vinculadas na Fiscalização. Para a base legada,
@@ -785,6 +774,29 @@ class DispatchWorkflowService
         $this->ddAssignment->assign($note, $production, $dd);
     }
 
+    /**
+     * Uma production nunca pode ficar vinculada a dois informes. Sem informe explicito, cada escopo e
+     * resolvido para o informe vigente da nota; se isso der mais de um informe, recusa.
+     *
+     * @param array<int, string> $finalScopes
+     */
+    public function assertScopesBelongToSingleInforme(int $noteId, array $finalScopes, ?int $workReportId = null): void
+    {
+        if ($workReportId || count($finalScopes) < 2) {
+            return;
+        }
+
+        $linker    = app(WorkReportFlowProductionLinker::class);
+        $informeIds = collect($finalScopes)
+            ->map(fn ($scope) => $linker->resolveCurrentFinalWorkReport($noteId, (string) $scope)?->id)
+            ->filter()
+            ->unique();
+
+        if ($informeIds->count() > 1) {
+            throw new DispatchException(self::MULTIPLE_INFORMES_MESSAGE);
+        }
+    }
+
     private function linkWorkReportFlow(Production $production, string $serviceKey, array $finalScopes = [], ?int $workReportId = null): void
     {
         // D5 só tem tratamento especial no vínculo de Fiscalização. Em Pagamento,
@@ -808,6 +820,8 @@ class DispatchWorkflowService
 
             return;
         }
+
+        $this->assertScopesBelongToSingleInforme((int) $production->note_id, $finalScopes, $workReportId);
 
         if ($serviceKey === 'supervision') {
             if (empty($finalScopes)) {

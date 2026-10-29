@@ -54,6 +54,34 @@ class DispatchWorkflowServiceTest extends TestCase
         ]);
     }
 
+    public function test_one_dispatch_cannot_send_scopes_of_two_work_reports_to_the_same_production(): void
+    {
+        config(['sicode.ruleset' => 'sp']);
+
+        [$networkReport, , $company, $actor, $targetUser, $service] = $this->twoWorkReportsForDispatch();
+        $note   = Note::findOrFail($networkReport->note_id);
+        $before = Production::count();
+
+        try {
+            app(DispatchWorkflowService::class)->dispatchToUser(
+                $note,
+                $service,
+                $company,
+                $targetUser,
+                $actor,
+                null,
+                [WorkReportFlowProduction::SCOPE_NETWORK, WorkReportFlowProduction::SCOPE_CONNECTION]
+            );
+
+            $this->fail('Esperava DispatchException para escopos de informes diferentes.');
+        } catch (DispatchException $e) {
+            $this->assertSame(DispatchWorkflowService::MULTIPLE_INFORMES_MESSAGE, $e->getMessage());
+        }
+
+        $this->assertSame($before, Production::count());
+        $this->assertDatabaseCount('work_report_flow_productions', 0);
+    }
+
     public function test_supervision_dispatch_blocks_duplicate_for_the_same_work_report_scope(): void
     {
         config(['sicode.ruleset' => 'sp']);

@@ -325,6 +325,39 @@ class SyncNoteInformFlowsD5AssociationTest extends TestCase
         ]);
     }
 
+    public function test_single_scope_report_uses_fiscalization_linked_in_another_scope(): void
+    {
+        $company = Company::create(['name' => 'Empresa Teste', 'email' => 'teste@example.com']);
+        $user    = User::factory()->create(['company_id' => $company->id]);
+        $note    = Note::create(['note' => '4000009926', 'type_note' => 1]);
+        $order   = Order::create(['note_id' => $note->id, 'ordem' => '1700000005']);
+        $report  = $this->workReport($note, $company, $user, '2026-10-01 08:00:00');
+        $report->selected_final_scopes = ['network'];
+        $report->save();
+        $report->Orders()->attach($order->id);
+        $fiscalService = Service::create(['service' => 'Fiscalizacao', 'folder' => 'fiscalizacao']);
+
+        $fiscal = Production::create([
+            'note_id'    => $note->id, 'company_id' => $company->id, 'user_id' => $user->id,
+            'service_id' => $fiscalService->uuid, 'att_at' => '2026-10-02 09:00:00',
+            'completed'  => true, 'completed_at' => '2026-10-03 09:00:00',
+        ]);
+        WorkReportFlowProduction::create([
+            'work_report_id' => $report->id, 'production_id' => $fiscal->id,
+            'stage'          => WorkReportFlowProduction::STAGE_FISCALIZATION,
+            'final_scope'    => WorkReportFlowProduction::SCOPE_CONNECTION,
+            'is_current'     => true, 'linked_at' => now(),
+        ]);
+
+        $this->artisan('sicode:sync-note-inform-flows', ['--note_id' => $note->id])->assertSuccessful();
+
+        $this->assertDatabaseHas('note_inform_flows', [
+            'flow_key'                    => "work_report:{$report->id}:network",
+            'fiscalization_production_id' => $fiscal->id,
+            'fiscalization_completed_at'  => '2026-10-03 09:00:00',
+        ]);
+    }
+
     private function workReport(Note $note, Company $company, User $user, string $informedAt): WorkReport
     {
         return WorkReport::create([

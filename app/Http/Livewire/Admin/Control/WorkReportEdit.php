@@ -956,7 +956,11 @@ class WorkReportEdit extends Component
         $stage                 = $this->stageForProduction($production);
         $previousWorkReportIds = [];
 
-        DB::transaction(function () use ($production, $stage, $target, &$previousWorkReportIds): void {
+        // O informe destino com um unico escopo (Rede ou Ligacao) recebe o vinculo nesse escopo; nos demais, geral.
+        $targetScopes = collect($target->finalScopePayloads())->pluck('scope')->filter()->values();
+        $targetScope  = $targetScopes->count() === 1 ? (string) $targetScopes->first() : WorkReportFlowProduction::SCOPE_GENERAL;
+
+        DB::transaction(function () use ($production, $stage, $target, $targetScope, &$previousWorkReportIds): void {
             $previousWorkReportIds = WorkReportFlowProduction::query()
                 ->where('production_id', $production->id)
                 ->where('stage', $stage)
@@ -964,12 +968,18 @@ class WorkReportEdit extends Component
                 ->pluck('work_report_id')
                 ->all();
 
+            // Associar define o unico vinculo da Production nesta etapa: limpa qualquer outra
+            // associacao ativa (outros informes e outros escopos do proprio informe).
             WorkReportFlowProduction::query()
                 ->where('production_id', $production->id)
                 ->where('stage', $stage)
                 ->where('is_current', true)
-                ->where('work_report_id', '!=', $target->id)
-                ->update(['is_current' => false]);
+                ->update([
+                    'is_current'     => false,
+                    'reversed_at'    => now(),
+                    'reversed_by'    => auth()->id(),
+                    'reverse_reason' => 'Substituido ao associar pelo controle administrativo do informe.',
+                ]);
 
             // Um informe pode ter varias Productions ativas da mesma etapa.
             // Ao vincular esta Production, nao desative as demais do informe.
@@ -978,14 +988,17 @@ class WorkReportEdit extends Component
                     'work_report_id' => $target->id,
                     'production_id'  => $production->id,
                     'stage'          => $stage,
-                    'final_scope'    => WorkReportFlowProduction::SCOPE_GENERAL,
+                    'final_scope'    => $targetScope,
                 ],
                 [
-                    'is_current' => true,
-                    'linked_at'  => now(),
-                    'linked_by'  => auth()->id(),
-                    'source'     => 'admin_work_report_control',
-                    'metadata'   => ['note_id' => $production->note_id],
+                    'is_current'     => true,
+                    'linked_at'      => now(),
+                    'linked_by'      => auth()->id(),
+                    'reversed_at'    => null,
+                    'reversed_by'    => null,
+                    'reverse_reason' => null,
+                    'source'         => 'admin_work_report_control',
+                    'metadata'       => ['note_id' => $production->note_id],
                 ],
             );
         });
