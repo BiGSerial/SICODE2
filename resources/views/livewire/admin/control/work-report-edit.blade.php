@@ -330,7 +330,13 @@
                                             <span class="fivefx-step">C</span>
                                             <span>Produções da nota</span>
                                         </div>
-                                        <span class="fivefx-hint">Vínculo ativo por etapa</span>
+                                        <span class="d-flex align-items-center gap-2">
+                                            <span class="fivefx-hint">Vínculo ativo por etapa</span>
+                                            <button type="button" class="btn btn-outline-info btn-sm fivefx-btn"
+                                                wire:click="syncNoteNow" wire:loading.attr="disabled" wire:target="syncNoteNow">
+                                                <i class="ri-refresh-line me-1"></i>Sincronizar agora
+                                            </button>
+                                        </span>
                                     </div>
                                     @if (!empty($noteProductions))
                                         <div class="table-responsive">

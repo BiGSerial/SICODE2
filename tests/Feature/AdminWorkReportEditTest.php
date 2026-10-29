@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Http\Livewire\Admin\Control\WorkReportEdit;
+use App\Jobs\ResyncNoteInformFlowsJob;
 use App\Models\{Company, Note, Order, Production, Service, User, WorkReport, WorkReportFlowProduction};
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -84,11 +86,15 @@ class AdminWorkReportEditTest extends TestCase
             ]);
         }
 
-        Livewire::test(WorkReportEdit::class)
+        Bus::fake([ResyncNoteInformFlowsJob::class]);
+
+        $component = Livewire::test(WorkReportEdit::class)
             ->call('getInfoResponse', $target)
             ->set("productionTargetWorkReportIds.{$production->id}", $target->id)
             ->call('requestAssociateProduction', $production->id)
             ->call('associateProduction');
+
+        Bus::assertDispatchedTimes(ResyncNoteInformFlowsJob::class, 1);
 
         $current = WorkReportFlowProduction::query()
             ->where('production_id', $production->id)
@@ -97,6 +103,14 @@ class AdminWorkReportEditTest extends TestCase
 
         $this->assertCount(1, $current);
         $this->assertSame($target->id, (int) $current->first()->work_report_id);
+
+        $component->call('requestDetachProduction', $production->id)->call('detachProduction');
+        Bus::assertDispatchedTimes(ResyncNoteInformFlowsJob::class, 2);
+
+        $component->call('syncNoteNow');
+        Bus::assertDispatchedTimes(ResyncNoteInformFlowsJob::class, 3);
+
+        $this->assertSame(0, WorkReportFlowProduction::query()->where('production_id', $production->id)->where('is_current', true)->count());
     }
 
     /** @return array{0: WorkReport, 1: Note} informe final EP no SP (split ligado) com uma ordem de Rede (150) e uma de Ligação */

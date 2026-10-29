@@ -3,6 +3,7 @@
 namespace App\Http\Livewire\Admin\Control;
 
 use App\Enum\AdsRequestStatus;
+use App\Jobs\ResyncNoteInformFlowsJob;
 use App\Models\{AdsRequest, Company, File, Order, Production, User, WorkReport, WorkReportFlowProduction};
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Illuminate\Support\Facades\DB;
@@ -1007,12 +1008,31 @@ class WorkReportEdit extends Component
         $this->pendingProductionId       = null;
         $this->pendingTargetWorkReportId = null;
         $this->refreshNoteProductions();
+        ResyncNoteInformFlowsJob::dispatchForNotes([$this->workReport->note_id]);
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
             'title'    => "Production #{$production->id} associada ao informe #{$target->id}",
             'timer'    => 2400,
+        ]);
+    }
+
+    /** Recalcula agora o consolidado (note_inform_flows) da nota deste informe, sem esperar o agendamento. */
+    public function syncNoteNow(): void
+    {
+        if (!$this->workReport?->note_id) {
+            return;
+        }
+
+        ResyncNoteInformFlowsJob::dispatchForNotes([$this->workReport->note_id]);
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'Sincronização da nota enfileirada',
+            'html'     => '<p class="mb-0">O consolidado dos informes será recalculado em instantes. O log do SQL Server segue no próximo ciclo agendado.</p>',
+            'timer'    => 4000,
         ]);
     }
 
@@ -1073,6 +1093,7 @@ class WorkReportEdit extends Component
         $this->refreshWorkReportStatuses([$this->workReport->id]);
         $this->pendingProductionId = null;
         $this->refreshNoteProductions();
+        ResyncNoteInformFlowsJob::dispatchForNotes([$this->workReport->note_id]);
 
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
