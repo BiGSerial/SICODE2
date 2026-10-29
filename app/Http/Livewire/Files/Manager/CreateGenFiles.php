@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\{PersistsManagedFileUploads, ScreensAttachedFiles};
 use App\Models\{File, Note, Viability as ViabilityModel, WorkReport};
 use App\Services\Files\FileUploadService;
 use Illuminate\Database\Eloquent\Model;
@@ -46,6 +46,12 @@ class CreateGenFiles extends Component
 {
     use WithFileUploads;
     use PersistsManagedFileUploads;
+    use ScreensAttachedFiles;
+
+    public function attachmentAllowsZip(): bool
+    {
+        return true;
+    }
 
     public ?Note $note = null;
 
@@ -99,7 +105,7 @@ class CreateGenFiles extends Component
     public function setWorkReportId(int $workReportId): void
     {
         $this->workReportIds = [];
-        $this->workReport = $this->persistedWorkReport(WorkReport::find($workReportId));
+        $this->workReport    = $this->persistedWorkReport(WorkReport::find($workReportId));
     }
 
     public function setWorkReportIds(array $workReportIds): void
@@ -131,7 +137,6 @@ class CreateGenFiles extends Component
 
     public function updatedFiles()
     {
-        $this->validate();
 
         if (!$this->uploadType) {
             $this->dispatchBrowserEvent('swal', [
@@ -145,37 +150,10 @@ class CreateGenFiles extends Component
             return;
         }
 
+        $this->files = $this->screenAttachments($this->files, $this->tempFiles);
+
         if (count($this->files)) {
             foreach ($this->files as $file) {
-
-                $allowedExtensions = [
-                    'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'tiff', 'webp',
-                    'pdf', 'doc', 'docx', 'odt', 'xls', 'xlsx', 'xlsm', 'ods',
-                    'dwg', 'dxf', 'dws', 'dwt', 'dgn', 'rvt', 'rfa', 'skp', 'zip',
-                ];
-                $maxSizeBytes = 10 * 1024 * 1024;
-
-                if (!in_array(strtolower($file->getClientOriginalExtension()), $allowedExtensions)) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Arquivo não permitido: ' . $file->getClientOriginalName(),
-                        'timer'    => 1500,
-                    ]);
-
-                    continue;
-                }
-
-                if ($file->getSize() > $maxSizeBytes) {
-                    $this->dispatchBrowserEvent('swal', [
-                        'position' => 'center',
-                        'icon'     => 'warning',
-                        'title'    => 'Tamanho excede 10MB: ' . $file->getClientOriginalName(),
-                        'timer'    => 1500,
-                    ]);
-
-                    continue;
-                }
 
                 $exists = false;
 
@@ -525,11 +503,6 @@ class CreateGenFiles extends Component
 
         return $this->fileableType::find($this->fileableId);
     }
-
-    protected $rules = [
-
-        'files.*' => 'nullable|file|mimes:jpg,jpeg,png,webp,pdf,doc,docx,odt,xls,xlsx,xlsm,ods,dwg,dxf,dws,dwt,dgn,rvt,rfa,skp,zip|max:10240',
-    ];
 
     public function render()
     {

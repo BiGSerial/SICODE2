@@ -1,5 +1,5 @@
 <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-    x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-error="isUploading = false"
+    x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-error="isUploading = false; $dispatch('swal', { position: 'center', icon: 'error', title: 'Falha ao enviar o arquivo', html: 'O arquivo não pôde ser enviado. Verifique o tamanho e o tipo do arquivo e tente novamente.', confirmButtonText: 'Entendi' })"
     x-on:livewire-upload-progress="progress = $event.detail.progress">
     <x-show-loading />
     <div wire:ignore.self class="modal fade" id="modal_mass_upload" tabindex="-1" aria-labelledby="massUploadLabel"
@@ -53,8 +53,9 @@
                             <!-- Upload de Arquivos Múltiplos -->
                             <div class="mb-3">
                                 <label for="files" class="form-label">Selecionar Arquivos</label>
+                                <x-files.upload-rules :zip="$this->attachmentAllowsZip()" class="mb-2" />
                                 <input type="file" class="form-control @error('files') is-invalid @enderror"
-                                    id="files" wire:model="files" multiple>
+                                    id="files" wire:model="files" multiple accept="{{ \App\Services\Files\AttachmentPolicy::accept($this->attachmentAllowsZip()) }}">
                                 @error('files')
                                     @foreach ($errors->get('files.*') as $fileErrors)
                                         @foreach ($fileErrors as $error)

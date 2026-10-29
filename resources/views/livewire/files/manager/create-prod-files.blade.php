@@ -5,7 +5,7 @@
     @endphp
     <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
         x-on:livewire-upload-finish="isUploading = false"
-        x-on:livewire-upload-error="isUploading = false; $dispatch('swal', { position: 'center', icon: 'error', title: 'Falha ao enviar o arquivo', html: 'O arquivo não pôde ser enviado. Verifique o tamanho (até 40MB) e o tipo (imagem, PDF, Office ou CAD) e tente novamente.', confirmButtonText: 'Entendi' })"
+        x-on:livewire-upload-error="isUploading = false; $dispatch('swal', { position: 'center', icon: 'error', title: 'Falha ao enviar o arquivo', html: 'O arquivo não pôde ser enviado. Verifique o tamanho e o tipo do arquivo e tente novamente.', confirmButtonText: 'Entendi' })"
         x-on:livewire-upload-progress="progress = $event.detail.progress">
         <x-show-loading />
         @if ($production)
@@ -65,12 +65,10 @@
                                 <i class="ri-add-circle-line text-primary"></i>
                                 Selecionar arquivos
                             </label>
-                            <div class="small text-muted mb-2">
-                                Formatos permitidos: imagem, PDF, Office e CAD. Tamanho máximo por arquivo: 40MB.
-                            </div>
+                            <x-files.upload-rules :zip="$this->attachmentAllowsZip()" class="mb-2" />
                             <input type="file" class="form-control border-secondary @error('files') is-invalid @enderror"
                                 id="files_{{ $this->id }}" wire:model="files" multiple @disabled(!$uploadType)
-                                accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx,.dwg,.dxf,.rvt,.rfa,.dgn"
+                                accept="{{ \App\Services\Files\AttachmentPolicy::accept($this->attachmentAllowsZip()) }}"
                                 placeholder="escolha primeiro o tipo de arquivo">
                             @if (!$uploadType)
                                 <div class="small mt-2 text-danger">Selecione o tipo de envio para habilitar o upload.</div>

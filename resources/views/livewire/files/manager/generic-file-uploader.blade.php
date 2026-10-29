@@ -2,7 +2,8 @@
     use App\Helpers\SelectOptions;
 @endphp
 <div x-data="{ isUploading: false, progress: 0 }" x-on:livewire-upload-start="isUploading = true"
-    x-on:livewire-upload-finish="isUploading = false" x-on:livewire-upload-progress="progress = $event.detail.progress">
+    x-on:livewire-upload-finish="isUploading = false"
+    x-on:livewire-upload-error="isUploading = false; $dispatch('swal', { position: 'center', icon: 'error', title: 'Falha ao enviar o arquivo', html: 'O arquivo não pôde ser enviado. Verifique o tamanho e o tipo do arquivo e tente novamente.', confirmButtonText: 'Entendi' })" x-on:livewire-upload-progress="progress = $event.detail.progress">
 
     <div class="mb-3">
         <div class="form-floating">
@@ -24,7 +25,8 @@
     </div>
 
     <div class="mb-3">
-        <input type="file" wire:model="files" multiple class="form-control @error('files.*') is-invalid @enderror"
+        <x-files.upload-rules :zip="$this->attachmentAllowsZip()" class="mb-2" />
+        <input type="file" wire:model="files" multiple accept="{{ \App\Services\Files\AttachmentPolicy::accept($this->attachmentAllowsZip()) }}" class="form-control @error('files.*') is-invalid @enderror"
             @disabled(!$selectedType) />
         @error('files.*')
             <div class="invalid-feedback">

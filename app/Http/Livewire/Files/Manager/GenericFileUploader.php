@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Files\Manager;
 
-use App\Http\Livewire\Files\Manager\Concerns\PersistsManagedFileUploads;
+use App\Http\Livewire\Files\Manager\Concerns\{PersistsManagedFileUploads, ScreensAttachedFiles};
 use App\Models\{File, Note, Service};
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -12,6 +12,12 @@ class GenericFileUploader extends Component
 {
     use WithFileUploads;
     use PersistsManagedFileUploads;
+    use ScreensAttachedFiles;
+
+    public function attachmentAllowsZip(): bool
+    {
+        return true;
+    }
 
     public ?Note  $note = null;
 
@@ -42,7 +48,7 @@ class GenericFileUploader extends Component
 
     protected $messages = [
         'files.*.file' => 'O arquivo deve ser um arquivo válido.',
-        'files.*.max'  => 'O arquivo não pode ser maior que 20MB.',
+        'files.*.max'  => 'O arquivo não pode ser maior que 30MB.',
     ];
 
     public function mount(
@@ -76,7 +82,7 @@ class GenericFileUploader extends Component
 
     public function updatedFiles()
     {
-        $this->validate(['files.*' => 'file|max:20480']);
+        $this->files = $this->screenAttachments($this->files, $this->tempFiles);
 
         foreach ($this->files as $file) {
             $this->tempFiles[] = [
