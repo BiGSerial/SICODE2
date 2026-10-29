@@ -2,7 +2,7 @@
 
 namespace App\Services\Payment;
 
-use App\Models\{MeasurementProductionContext, Note, Production, Service, WorkReportFlowProduction};
+use App\Models\{FiveNote, MeasurementProductionContext, Note, Production, Service, WorkReportFlowProduction};
 
 class BlockEvaluator
 {
@@ -14,6 +14,29 @@ class BlockEvaluator
 
     public function evaluate(Note $note, Service $service): array
     {
+        // Ciclo 1 com D5 pendente selecionada: cada atividade é isolada. Produção anterior
+        // do informe (concluída ou de outra atividade) não bloqueia; só uma atividade
+        // aberta ligada a ESSA D5 evita atribuição concorrente.
+        $d5Id = (int) ($note->dispatch_five_note_id ?? 0);
+
+        if ($d5Id > 0 && FiveNote::query()->whereKey($d5Id)->pendingPaymentCreationState()->exists()) {
+            $open = Production::query()
+                ->where('note_id', $note->id)
+                ->where('service_id', $service->uuid)
+                ->where('completed', false)
+                ->whereHas('fiveNotes', fn ($d5) => $d5->whereKey($d5Id))
+                ->latest()
+                ->first();
+
+            if ($open) {
+                return empty($open->user_id)
+                    ? $this->res(self::HOLD_YELLOW, false, 'd5_production_in_company_stack', $open)
+                    : $this->res(self::HOLD_BLUE, false, 'd5_production_assigned_to_user', $open);
+            }
+
+            return $this->res(self::FREE, true, 'd5_without_open_production');
+        }
+
         $partialId = (int) ($note->dispatch_partial_id ?? 0);
         // Despacho/linha de Parcial: a identidade é o parcial, nunca o Informe Final
         // que a Nota carrega por relação. Produção de outro informe não bloqueia.

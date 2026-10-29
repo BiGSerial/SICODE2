@@ -235,7 +235,10 @@ class DispatchWorkflowService
             return $query
                 ->where(fn ($q) => $q->whereNull('work_report_id')->when($workReportId, fn ($q2) => $q2->orWhere('work_report_id', $workReportId)))
                 ->where(fn ($q) => $q
-                    ->where(fn ($r) => $r->awaitingPaymentCreation())
+                    ->where(fn ($r) => $r->pendingPaymentCreationState()
+                        ->whereDoesntHave('productions', fn ($p) => $p
+                            ->where('completed', false)
+                            ->whereHas('Service', fn ($sv) => $sv->where('service', 'Pagamento'))))
                     ->orWhere(fn ($r) => $r->eligibleForPaymentReturn()))
                 ->first();
         }

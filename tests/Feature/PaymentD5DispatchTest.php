@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Company, Contract, FiveNote, Note, Operation, Order, Service, User, WorkReport, WorkReportFlowProduction};
+use App\Models\{Company, Contract, FiveNote, Note, Operation, Order, Production, Service, User, WorkReport, WorkReportFlowProduction};
 use App\Services\Dispatch\DispatchWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -129,6 +129,67 @@ class PaymentD5DispatchTest extends TestCase
 
         $this->assertTrue((bool) $production->fresh()->dfive);
         $this->assertSame([$five->id], $production->fresh()->fiveNotes()->pluck('five_notes.id')->all());
+    }
+
+    public function test_cycle_one_pending_d5_accepts_new_activity_when_previous_production_is_finished(): void
+    {
+        [$note, $report, $service, $company, $actor] = $this->fixture();
+        $five                                        = FiveNote::create(['note_id' => $note->id, 'work_report_id' => $report->id, 'note_d5' => '']);
+        $previous                                    = $this->paymentProductionFor($note, $service, $company, $actor, $five, true);
+        WorkReportFlowProduction::create([
+            'work_report_id' => $report->id, 'production_id' => $previous->id,
+            'stage'          => WorkReportFlowProduction::STAGE_PAYMENT, 'is_current' => true, 'linked_at' => now(),
+        ]);
+
+        $production = app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $actor,
+            $actor,
+            null,
+            [WorkReportFlowProduction::SCOPE_NETWORK],
+            $report->id,
+            null,
+            $five->id
+        );
+
+        $this->assertNotSame($previous->id, $production->id);
+        $this->assertTrue((bool) $production->fresh()->dfive);
+        $this->assertSame([$five->id], $production->fresh()->fiveNotes()->pluck('five_notes.id')->all());
+    }
+
+    public function test_cycle_one_pending_d5_is_blocked_by_open_production_of_the_same_d5(): void
+    {
+        [$note, $report, $service, $company, $actor] = $this->fixture();
+        $five                                        = FiveNote::create(['note_id' => $note->id, 'work_report_id' => $report->id, 'note_d5' => '']);
+        $this->paymentProductionFor($note, $service, $company, $actor, $five, false);
+
+        $this->expectException(\App\Services\Dispatch\DispatchException::class);
+
+        app(DispatchWorkflowService::class)->dispatchToUser(
+            $note,
+            $service,
+            $company,
+            $actor,
+            $actor,
+            null,
+            [WorkReportFlowProduction::SCOPE_NETWORK],
+            $report->id,
+            null,
+            $five->id
+        );
+    }
+
+    private function paymentProductionFor(Note $note, Service $service, Company $company, User $user, FiveNote $five, bool $completed): Production
+    {
+        $production = Production::create([
+            'note_id' => $note->id, 'service_id' => $service->uuid, 'company_id' => $company->id, 'user_id' => $user->id,
+            'dt_note' => '2026-09-10 08:00:00', 'status_note' => 'NEW', 'status' => $completed ? 5 : 2, 'completed' => $completed, 'dfive' => true,
+        ]);
+        $five->productions()->syncWithoutDetaching([$production->id]);
+
+        return $production;
     }
 
     private function fixture(): array

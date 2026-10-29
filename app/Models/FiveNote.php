@@ -122,6 +122,30 @@ class FiveNote extends Model
             ->whereDoesntHave('productions', fn ($p) => $p->whereHas('Service', fn ($s) => $s->where('service', 'Pagamento')));
     }
 
+    /**
+     * Ciclo 1 pelo estado da D5, sem considerar produções de Pagamento já vinculadas:
+     * cada atividade é isolada, então uma produção anterior (concluída) não impede nova
+     * atribuição. A concorrência é tratada por {@see hasOpenPaymentProduction()}.
+     */
+    public function scopePendingPaymentCreationState($query)
+    {
+        return $query->where('is_archived', false)
+            ->where('is_supervisioned', false)
+            ->where('is_completed', false)
+            ->where('returned', false)
+            ->where('visible_partner', false)
+            ->where('is_payed', false)
+            ->whereNull('dispatch_at');
+    }
+
+    public function hasOpenPaymentProduction(): bool
+    {
+        return $this->productions()
+            ->where('completed', false)
+            ->whereHas('Service', fn ($s) => $s->where('service', 'Pagamento'))
+            ->exists();
+    }
+
     public function isAwaitingPaymentCreation(): bool
     {
         return !$this->is_archived
