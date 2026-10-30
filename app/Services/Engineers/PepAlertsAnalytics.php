@@ -188,6 +188,7 @@ class PepAlertsAnalytics
 
             return [
                 'id'            => $a->id,
+                'informe_id'    => (int) $a->informe_id,
                 'note'          => (string) ($a->Note?->note ?? '—'),
                 'type'          => $partial ? 'partial' : 'final',
                 'type_label'    => $partial ? 'Parcial' : 'Final',

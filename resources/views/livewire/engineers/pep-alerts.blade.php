@@ -157,7 +157,7 @@
                     <table class="table table-sm align-middle mb-0 mp-table">
                         <colgroup>
                             <col class="col-pct-8"><col class="col-pct-8"><col class="col-pct-7"><col class="col-pct-9"><col class="col-pct-16">
-                            <col class="col-pct-10"><col class="col-pct-12"><col class="col-pct-12"><col>
+                            <col class="col-pct-10"><col class="col-pct-12"><col class="col-pct-12"><col><col class="col-pct-9">
                         </colgroup>
                         <thead>
                             <tr>
@@ -170,6 +170,7 @@
                                 <th scope="col">Status do informe</th>
                                 <th scope="col">{{ $isOpen ? 'Tempo na lista' : 'Tratado' }}</th>
                                 <th scope="col">{{ $isOpen ? 'Motivo e ação' : 'Por quem' }}</th>
+                                <th scope="col" class="text-end">Detalhes</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -209,6 +210,12 @@
                                                 <div class="small text-muted">{{ $row['notes'] }}</div>
                                             @endif
                                         @endif
+                                    </td>
+                                    <td class="text-end">
+                                        <button type="button" class="row-action border-0"
+                                            wire:click.prevent="$emitTo('{{ $row['type'] === 'partial' ? 'partner.show.show-partial-info' : 'partner.show.show-work-form' }}', 'show_form', {{ $row['informe_id'] }})">
+                                            <i class="ri-eye-line"></i> Ver informe
+                                        </button>
                                     </td>
                                 </tr>
                             @endforeach
@@ -320,6 +327,8 @@
             </div>
         </div>
     </div>
+    @livewire('partner.show.show-work-form', key('pep-show-work-form'))
+    @livewire('partner.show.show-partial-info', key('pep-show-partial-info'))
 </div>
 
 @once
