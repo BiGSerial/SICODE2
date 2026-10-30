@@ -43,6 +43,9 @@ class WaitingFiveNotes extends Component
 
     public $showDetails = false;
 
+    /** Tela "Aguardando resolução" do engenheiro: D5 finalizadas ficam fora da lista, dos números e do Excel. */
+    public bool $hideFinalized = false;
+
     // Filters
     public $filtersState = [];
 
@@ -65,6 +68,15 @@ class WaitingFiveNotes extends Component
         // MD5 of SICODE
     ];
 
+    public function mount(bool $hideFinalized = false): void
+    {
+        $this->hideFinalized = $hideFinalized;
+
+        if ($hideFinalized && $this->statusFilter === D5StageResolver::FINALIZED) {
+            $this->statusFilter = '';
+        }
+    }
+
     public function updatedSearch()
     {
         $this->resetPage();
@@ -81,7 +93,7 @@ class WaitingFiveNotes extends Component
     /** Etapa escolhida na lista (vazio = todas). Não muda os cartões: eles sempre mostram todas as etapas. */
     public function setStage(string $stage): void
     {
-        $this->statusFilter = array_key_exists($stage, D5ConsultAnalytics::STAGE_LABELS) ? $stage : '';
+        $this->statusFilter = array_key_exists($stage, D5ConsultAnalytics::STAGE_LABELS) && !($this->hideFinalized && $stage === D5StageResolver::FINALIZED) ? $stage : '';
         $this->resetPage();
     }
 
@@ -217,6 +229,10 @@ class WaitingFiveNotes extends Component
                     });
             });
 
+        if ($this->hideFinalized) {
+            $base->whereNot(fn ($finalized) => D5StageResolver::applyFilter($finalized, D5StageResolver::FINALIZED));
+        }
+
         if ($this->search) {
 
             $search = $this->formatWithWildcard($this->search);
@@ -350,8 +366,9 @@ class WaitingFiveNotes extends Component
             'search'       => $this->search,
             'multiD5'      => $this->multiD5,
             'multiNote'    => $this->multiNote,
-            'statusFilter' => $this->statusFilter,
-            'filtersState' => $this->filtersState,
+            'statusFilter'  => $this->statusFilter,
+            'hideFinalized' => $this->hideFinalized,
+            'filtersState'  => $this->filtersState,
         ];
     }
 
@@ -653,7 +670,7 @@ class WaitingFiveNotes extends Component
     /** Envia os gráficos novos; o JS atualiza cada dataset in-place (sem recriar o gráfico). */
     private function refreshCharts(): void
     {
-        $this->dispatchBrowserEvent('my-panel:charts', ['charts' => D5ConsultCharts::all($this->snapshot)]);
+        $this->dispatchBrowserEvent('my-panel:charts', ['charts' => D5ConsultCharts::all($this->snapshot, !$this->hideFinalized)]);
     }
 
     public function render()
@@ -663,7 +680,7 @@ class WaitingFiveNotes extends Component
         return view('livewire.engineers.waiting-five-notes', [
             'lists'    => $this->lists,
             'snapshot' => $snapshot,
-            'charts'   => D5ConsultCharts::all($snapshot),
+            'charts'   => D5ConsultCharts::all($snapshot, !$this->hideFinalized),
         ]);
     }
 

@@ -2,17 +2,20 @@
 
 namespace App\Jobs\Engineers;
 
-use App\Exports\Partner\FiveNotesExport;
-use App\Models\{FiveNote, Service, User};
+use App\Exports\Engineers\{D5ConsultExport, D5ConsultListSheet};
+use App\Models\{Company, FiveNote, Service, User};
 use App\Notifications\SystemNotification;
 use App\Services\D5\D5StageResolver;
+use App\Services\Engineers\D5ConsultAnalytics;
+use App\Services\Files\ExportStorage;
+use App\Support\Notifications\UserNotificationData;
 use App\Traits\WildcardFormmater;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Database\Eloquent\Builder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
-use Illuminate\Support\Facades\{DB, Log, Storage};
+use Illuminate\Support\Facades\{DB, Log, URL};
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -41,7 +44,7 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
         $this->userId = $userId;
     }
 
-    public function handle(): void
+    public function handle(ExportStorage $exports, D5ConsultAnalytics $analytics): void
     {
         $user = User::with(['Companies', 'Company'])->find($this->userId);
 
@@ -49,14 +52,24 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             return;
         }
 
-        $disk     = Storage::disk('local');
+        $disk     = $exports->disk();
         $filePath = null;
 
         try {
-            $query = FiveNote::query();
+            // Mesma base da lista, sem a etapa: dela saem os números do resumo e das abas (iguais aos da tela).
+            $scoped = FiveNote::query();
 
-            $this->applyUserScope($query, $user);
-            $this->applyBaseConstraints($query);
+            $this->applyUserScope($scoped, $user);
+            $this->applyBaseConstraints($scoped);
+
+            if ($this->hideFinalized()) {
+                $scoped->whereNot(fn ($finalized) => D5StageResolver::applyFilter($finalized, D5StageResolver::FINALIZED));
+            }
+
+            $filtered = clone $scoped;
+            $this->applyFilters($filtered, false);
+
+            $query = clone $scoped;
             $this->applyFilters($query);
 
             $query->with([
@@ -68,26 +81,31 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
                 'WorkReport:id,current_status_key,current_status_label,current_status_class',
             ]);
 
-            $filePath = 'exports/' . now()->format('YmdHis') . '-five-notes-general.xlsx';
+            $fileName = now()->format('YmdHis') . "_{$this->userId}_consulta_geral_d5.xlsx";
+            $filePath = 'exports/' . $fileName;
 
-            $disk->makeDirectory('exports');
-            Excel::store(
-                new FiveNotesExport(clone $query, $this->shouldUseHistoricExport(), $this->exportOptions()),
-                $filePath,
-                'local'
+            $exports->ensureDirectory();
+
+            $export = new D5ConsultExport(
+                $analytics->snapshot($filtered),
+                new D5ConsultListSheet(clone $query, $this->shouldUseHistoricExport(), $this->exportOptions()),
+                (string) $user->name,
+                $this->filterLabels(),
+                $this->auditRows($user),
+                now(),
+                !$this->hideFinalized(),
             );
 
-            if (!$disk->exists($filePath)) {
+            if (!Excel::store($export, $filePath, $exports->diskName())) {
                 throw new \RuntimeException('Arquivo nao foi gerado.');
             }
 
-            $user->notify(new SystemNotification(
-                'Exportacao concluida!',
-                'Sua consulta geral de D5 esta pronta para download.',
-                Storage::url($filePath),
-                4,
-                []
-            ));
+            $user->notify(new SystemNotification(new UserNotificationData(
+                title: 'Exportação concluída!',
+                message: 'A consulta geral de D5 está pronta para download em Excel.',
+                link: URL::temporarySignedRoute('exports.download', now()->addDays(7), ['user' => (string) $this->userId, 'file' => $fileName]),
+                status: 'download',
+            )));
         } catch (Throwable $e) {
             Log::error('ExportWaitingFiveNotesJob falhou', [
                 'user_id' => $this->userId,
@@ -107,13 +125,11 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
     public function failed(Throwable $exception): void
     {
         if ($user = User::find($this->userId)) {
-            $user->notify(new SystemNotification(
-                'Erro na exportacao',
-                'Nao foi possivel gerar o relatorio solicitado.',
-                null,
-                5,
-                []
-            ));
+            $user->notify(new SystemNotification(new UserNotificationData(
+                title: 'Erro na exportação',
+                message: 'Não foi possível gerar o Excel da consulta geral de D5. Tente novamente mais tarde.',
+                status: 'error',
+            )));
         }
     }
 
@@ -165,11 +181,11 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
         });
     }
 
-    protected function applyFilters(Builder $query): void
+    protected function applyFilters(Builder $query, bool $withStage = true): void
     {
         $statusFilter = $this->params['statusFilter'] ?? '';
 
-        if ($statusFilter !== '') {
+        if ($withStage && $statusFilter !== '') {
             D5StageResolver::applyFilter($query, $statusFilter);
         }
 
@@ -306,6 +322,12 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
         return (string) $value;
     }
 
+    /** Exportação da tela "Aguardando resolução": sem as D5 finalizadas. */
+    protected function hideFinalized(): bool
+    {
+        return (bool) ($this->params['hideFinalized'] ?? false);
+    }
+
     protected function shouldUseHistoricExport(): bool
     {
         return ($this->params['statusFilter'] ?? '') === 'finalizado';
@@ -319,5 +341,56 @@ class ExportWaitingFiveNotesJob implements ShouldQueue
             'fiscalization_service_id' => Service::whereIn('service', ['Fiscalizacao', 'Fiscalização'])->value('uuid'),
             'payment_service_id'       => Service::where('service', 'Pagamento')->value('uuid'),
         ];
+    }
+
+    /** Filtros em texto, para o resumo do Excel. @return array<string, string> */
+    protected function filterLabels(): array
+    {
+        $state = $this->params['filtersState'] ?? [];
+        $none  = 'Todos';
+
+        $names = fn (string $model, array $ids, string $column = 'name') => $ids ? $model::query()->whereIn('id', $ids)->pluck($column)->implode(', ') : $none;
+
+        $stage = (string) ($this->params['statusFilter'] ?? '');
+        $multi = array_merge($this->params['multiNote'] ?? [], $this->params['multiD5'] ?? []);
+        $range = $state['desired_between'] ?? null;
+
+        return [
+            'D5 finalizadas'    => $this->hideFinalized() ? 'Fora desta consulta' : 'Incluídas',
+            'Etapa da lista'    => $stage !== '' ? (D5ConsultAnalytics::STAGE_LABELS[$stage] ?? $stage) : 'Todas (os números do resumo sempre incluem todas)',
+            'Busca'             => !empty($this->params['search']) ? (string) $this->params['search'] : '—',
+            'Busca múltipla'    => $multi ? count(array_unique($multi)) . ' termo(s)' : '—',
+            'Empreiteiras'      => $names(Company::class, (array) ($state['company'] ?? [])),
+            'Tipo'              => match ((string) $this->filterScalar($state, 'type')) {
+                '2'     => 'OV',
+                '1'     => 'NOTA',
+                default => $none,
+            },
+            'Meta / Passivo'    => match ($this->filterScalar($state, 'passive_mode', 'both')) {
+                'passive' => 'Passivo',
+                'meta'    => 'Meta',
+                default   => 'Meta + Passivo',
+            },
+            'Municípios'        => !empty($state['city']) ? count((array) $state['city']) . ' selecionado(s)' : $none,
+            'Rubricas'          => !empty($state['rubrica']) ? implode(', ', (array) $state['rubrica']) : $none,
+            'Período por'       => match ($this->filterScalar($state, 'period_column', 'dispatch')) {
+                'completed' => 'Conclusão',
+                'both'      => 'Despacho ou conclusão',
+                default     => 'Despacho',
+            },
+            'Período'           => is_array($range) && isset($range['start'], $range['end']) ? $range['start'] . ' a ' . $range['end'] : 'Sem período',
+            'Dias parada'       => 'Dias desde a entrada da D5 na etapa atual; atrasada = mais de ' . D5ConsultAnalytics::LATE_DAYS . ' dias',
+        ];
+    }
+
+    /** Aba "Controle Exportacao": quem pediu, quando e os filtros em texto. @return array<string, string> */
+    protected function auditRows(User $user): array
+    {
+        return [
+            'Usuário'   => (string) $user->name,
+            'E-mail'    => (string) $user->email,
+            'Data/hora' => now()->format('d/m/Y H:i:s'),
+            'Tipo'      => 'Consulta geral D5',
+        ] + $this->filterLabels();
     }
 }

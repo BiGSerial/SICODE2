@@ -17,7 +17,7 @@
 @endsection
 
 @section('content')
-    @livewire('engineers.waiting-five-notes', key('waiting-five-notes'))
+    @livewire('engineers.waiting-five-notes', ['hideFinalized' => true], key('waiting-five-notes'))
 @endsection
 
 @push('script')

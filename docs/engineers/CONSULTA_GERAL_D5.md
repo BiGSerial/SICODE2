@@ -1,6 +1,6 @@
 # Consulta geral D5 (Engenharia)
 
-Tela em **Relatórios → Consulta D5** (`/reports/consulta_d5`, rota `reports.consulta_d5`) e **Engenharia → D5 Aguardando Resolução**, as duas com o componente `Engineers\WaitingFiveNotes`. Segue o padrão de [PADRAO_DASHBOARDS.md](../PADRAO_DASHBOARDS.md): hero, filtros, cartões `<x-home.hero-card>`, painéis, `<x-home.bar-list>` e gráficos `data-my-panel-chart` (mesmo `my-panel.js`). Sobre a seleção das D5 e a relação com o relatório gerencial, ver [D5_Consulta_vs_Relatorio_Padronizacao.md](../D5_Consulta_vs_Relatorio_Padronizacao.md).
+Tela em **Relatórios → Consulta D5** (`/reports/consulta_d5`, rota `reports.consulta_d5`) e **Engenharia → D5 Aguardando Resolução** (`/engineers/waitingDfive`), as duas com o componente `Engineers\WaitingFiveNotes`. A da Engenharia é montada com `hideFinalized` (ver abaixo). Segue o padrão de [PADRAO_DASHBOARDS.md](../PADRAO_DASHBOARDS.md): hero, filtros, cartões `<x-home.hero-card>`, painéis, `<x-home.bar-list>` e gráficos `data-my-panel-chart` (mesmo `my-panel.js`). Sobre a seleção das D5 e a relação com o relatório gerencial, ver [D5_Consulta_vs_Relatorio_Padronizacao.md](../D5_Consulta_vs_Relatorio_Padronizacao.md).
 
 ## Camadas
 
@@ -28,11 +28,28 @@ Tela em **Relatórios → Consulta D5** (`/reports/consulta_d5`, rota `reports.c
 - **Rankings** (empreiteira e motivo): D5 em andamento, top 10 na tela; "atrasadas" e "mais antiga" no detalhe. Motivo vazio aparece como "Sem motivo informado".
 - **Cache:** 2 minutos por consulta (`D5ConsultAnalytics::CACHE_SECONDS`), chave com versão e hash do SQL e dos parâmetros.
 
+## Duas telas, um componente
+
+- **Consulta de relatórios** (`reports.consulta_d5`): todas as etapas, inclusive Finalizado.
+- **Aguardando resolução** (Engenharia): `@livewire('engineers.waiting-five-notes', ['hideFinalized' => true])`. As D5 finalizadas ficam **fora de tudo**: lista, cartões, gráficos (a rosca não tem a fatia Finalizado), botão de etapa e Excel. Decisão de 30/10/2026. Forçar `status=finalizado` na URL é ignorado.
+
 ## Lista
 
 - Ordenada pelo retorno da empreiteira (mais antigo primeiro; sem retorno por último), depois pelo despacho.
-- Tela e Excel seguem as mesmas regras de elegibilidade (`visible_partner` ou D5 criada na fiscalização). O Excel continua sendo o da lista (`ExportWaitingFiveNotesJob`).
+- Tela e Excel seguem as mesmas regras de elegibilidade (`visible_partner` ou D5 criada na fiscalização). O Excel é gerado por `ExportWaitingFiveNotesJob` (ver abaixo).
 
-## Pendências
+## Excel (Job `ExportWaitingFiveNotesJob`, fila `exports`)
 
-- Excel com as abas dos blocos analíticos (resumo, etapas, empreiteiras, motivos, fluxo) e a aba `Controle Exportacao`, como em `PepAlertsExport`.
+Workbook `D5ConsultExport`, com link assinado em `SystemNotification`:
+
+| Aba | Conteúdo |
+|---|---|
+| Resumo | Os mesmos cartões da tela e os filtros em texto |
+| Por etapa | D5, em atenção, atrasadas, % atrasadas, mais antiga e média por etapa |
+| Por empreiteira / Por motivo | Todas as linhas (a tela mostra o top 10), com atrasadas e mais antiga |
+| Faixas de idade | D5 em andamento por faixa de dias, com gráfico |
+| Fluxo mensal | Despachadas x retornadas por mês, com gráfico |
+| Lista D5 | A lista da tela, na etapa escolhida (`FiveNotesExport`) |
+| Controle Exportacao | Usuário, e-mail, data/hora, tipo e filtros |
+
+As abas analíticas usam a query **sem a etapa**; só a "Lista D5" respeita a etapa escolhida. O job aplica o escopo de empresas do usuário (superadm vê tudo); a tela ainda não aplica esse escopo, então os números podem divergir para quem tem empresas restritas.

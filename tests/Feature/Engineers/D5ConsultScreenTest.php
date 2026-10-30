@@ -74,4 +74,20 @@ class D5ConsultScreenTest extends TestCase
         $this->assertSame(0, $component->get('snapshot')['summary']['total']);
         $component->assertSee('Nenhuma D5 nos filtros atuais');
     }
+
+    public function test_awaiting_resolution_screen_hides_finalized_everywhere(): void
+    {
+        $component = Livewire::test(WaitingFiveNotes::class, ['hideFinalized' => true]);
+
+        $this->assertSame(2, $component->get('lists')->total());
+        $this->assertSame(0, $component->get('snapshot')['summary']['finalized']);
+        $component->assertDontSee('Finalizado ·');
+
+        // Mesmo forçando a etapa (URL ou chamada direta), a lista não mostra finalizadas.
+        $component->call('setStage', 'finalizado')->assertSet('statusFilter', '');
+        $this->assertSame(2, $component->get('lists')->total());
+
+        $labels = \App\Services\Engineers\D5ConsultCharts::all($component->get('snapshot'), false)['stage']['data']['labels'];
+        $this->assertSame(['Fornecedor', 'Fiscalização', 'Medição'], $labels);
+    }
 }

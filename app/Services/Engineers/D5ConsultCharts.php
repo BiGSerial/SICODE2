@@ -28,21 +28,21 @@ final class D5ConsultCharts
      *
      * @return array<string, array<string, mixed>>
      */
-    public static function all(array $snapshot): array
+    public static function all(array $snapshot, bool $withFinalized = true): array
     {
         return [
-            'stage' => self::stage($snapshot['stages'], $snapshot['summary']['finalized'], $snapshot['summary']['open']),
+            'stage' => self::stage($snapshot['stages'], $snapshot['summary']['finalized'], $snapshot['summary']['open'], $withFinalized),
             'flow'  => self::flow($snapshot['flow']),
             'age'   => self::age($snapshot['age_buckets']),
         ];
     }
 
     /**
-     * Rosca por etapa, com o total em andamento no centro. As quatro etapas sempre aparecem, nesta ordem.
+     * Rosca por etapa, com o total em andamento no centro. As etapas sempre aparecem, nesta ordem (Finalizado só quando a tela o mostra).
      *
      * @param array<string, array{label: string, total: int}> $stages
      */
-    public static function stage(array $stages, int $finalized, int $open): array
+    public static function stage(array $stages, int $finalized, int $open, bool $withFinalized = true): array
     {
         $rows = [];
 
@@ -50,7 +50,9 @@ final class D5ConsultCharts
             $rows[$key] = ['label' => $stages[$key]['label'], 'total' => $stages[$key]['total']];
         }
 
-        $rows[D5StageResolver::FINALIZED] = ['label' => D5ConsultAnalytics::STAGE_LABELS[D5StageResolver::FINALIZED], 'total' => $finalized];
+        if ($withFinalized) {
+            $rows[D5StageResolver::FINALIZED] = ['label' => D5ConsultAnalytics::STAGE_LABELS[D5StageResolver::FINALIZED], 'total' => $finalized];
+        }
 
         return [
             'type' => 'doughnut',

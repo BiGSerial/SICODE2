@@ -40,6 +40,10 @@
         $R::FINALIZED      => ['Finalizado', $s['finalized']],
     ];
 
+    if ($hideFinalized) {
+        unset($chips[$R::FINALIZED]);
+    }
+
     $filters = [
         [
             'key' => 'company',
@@ -206,7 +210,7 @@
             </div>
             <div class="col-12 col-md-6 col-xl-3">
                 <x-home.hero-card tone="green" icon="ri-reply-line" label="Retorno da empreiteira" :value="$decimal($s['return_days'])"
-                    :note="'Tempo médio do despacho ao retorno · ' . $s['finalized'] . ' ' . ($s['finalized'] === 1 ? 'finalizada' : 'finalizadas')"
+                    :note="'Tempo médio do despacho ao retorno' . ($hideFinalized ? '' : ' · ' . $s['finalized'] . ' ' . ($s['finalized'] === 1 ? 'finalizada' : 'finalizadas'))"
                     :values="$flow['returned']" :labels="$flow['labels']" />
             </div>
         </div>
@@ -219,7 +223,7 @@
                     <div class="mp-panel-head"><div><h3 class="mp-panel-title">Por etapa</h3><div class="mp-panel-sub">Distribuição das D5 nos filtros atuais</div></div></div>
                     <div class="mp-chart-wrap">
                         <div class="mp-chart mp-chart-donut" wire:ignore>
-                            <canvas data-my-panel-chart="stage" data-config="{{ json_encode($charts['stage']) }}" role="img" aria-label="Rosca: D5 por etapa (fornecedor, fiscalização, medição e finalizado)"></canvas>
+                            <canvas data-my-panel-chart="stage" data-config="{{ json_encode($charts['stage']) }}" role="img" aria-label="Rosca: D5 por etapa"></canvas>
                         </div>
                         @if ($s['total'] === 0)
                             <div class="mp-chart-empty">Nenhuma D5 nos filtros</div>
