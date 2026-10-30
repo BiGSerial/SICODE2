@@ -155,6 +155,7 @@
                                         ['key' => 'can_dispatch', 'label' => 'Pode despachar'],
                                         ['key' => 'analyst', 'label' => 'Analista'],
                                         ['key' => 'contract', 'label' => 'Contratado'],
+                                        ['key' => 'bypassprod', 'label' => 'Despacha como interno (bypass)'],
                                     ];
                                     $legalPermissions = [
                                         ['key' => 'legal_controller', 'label' => 'Jurídico — Controlador'],
