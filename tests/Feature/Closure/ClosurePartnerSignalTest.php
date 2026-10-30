@@ -172,9 +172,9 @@ it('lists the deposit calendar under "Gestão do ciclo", not under "Acompanhamen
 
     $html = view('dispatchs.encerramento.menu')->render();
 
-    expect($html)->toContain('CALENDÁRIO DE DEPÓSITOS')
-        ->and(strpos($html, 'CALENDÁRIO DE DEPÓSITOS'))->toBeGreaterThan(strpos($html, 'GESTÃO DO CICLO'))
-        ->and(substr_count($html, 'CALENDÁRIO DE DEPÓSITOS'))->toBe(1);
+    expect($html)->toContain('Calendário de depósitos')
+        ->and(strpos($html, 'Calendário de depósitos'))->toBeGreaterThan(strpos($html, 'Gestão do ciclo'))
+        ->and(substr_count($html, 'Calendário de depósitos'))->toBe(1);
 });
 
 it('blocks, releases and skips calendar deposits in bulk, refusing the ones without a work center', function () {

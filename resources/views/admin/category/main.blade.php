@@ -13,7 +13,7 @@
 @endsection
 
 @section('menu')
-    {{-- @include('admin.Company.menu') --}}
+    @include('admin.menu')
 @endsection
 
 @section('content')

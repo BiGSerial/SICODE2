@@ -2,7 +2,8 @@
 
 namespace App\Http\Livewire\Engineers\Actions;
 
-use App\Models\Partial;
+use App\Models\{Partial, PepBalanceAlert};
+use App\Services\Partner\WorkReportBudgetGuard;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -15,7 +16,7 @@ class CheckPartial extends Component
     protected $listeners = [
         'show_form',
         'confirm_approved',
-        'confirm_reject'
+        'confirm_reject',
     ];
 
     public function show_form(Partial $form)
@@ -35,8 +36,6 @@ class CheckPartial extends Component
         // dd($this->form);
 
         if ($this->form) {
-
-
 
             $this->dispatchBrowserEvent('showModal', [
                 'id' => 'modal_partial_info',
@@ -119,11 +118,11 @@ class CheckPartial extends Component
 
         try {
             $this->form->update([
-                'engineer_id' => auth()->id(),
+                'engineer_id'   => auth()->id(),
                 'engineer_info' => $this->engineer_feedback,
-                'decision_at' => date('Y-m-d H:i:s'),
-                'allow' => true,
-                'deny' => false,
+                'decision_at'   => date('Y-m-d H:i:s'),
+                'allow'         => true,
+                'deny'          => false,
             ]);
 
             DB::commit();
@@ -145,28 +144,26 @@ class CheckPartial extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'ERRO AO APROVAR',
-                'html'     => 'A solicitação não foi Aprovada'.$th->getMessage(),
+                'html'     => 'A solicitação não foi Aprovada' . $th->getMessage(),
                 'timer'    => 5000,
             ]);
         }
 
     }
 
-
     public function confirm_reject()
     {
-
 
         DB::beginTransaction();
 
         try {
 
             $this->form->update([
-                'engineer_id' => auth()->id(),
+                'engineer_id'   => auth()->id(),
                 'engineer_info' => $this->engineer_feedback,
-                'decision_at' => date('Y-m-d H:i:s'),
-                'allow' => false,
-                'deny' => true,
+                'decision_at'   => date('Y-m-d H:i:s'),
+                'allow'         => false,
+                'deny'          => true,
             ]);
 
             $this->dispatchBrowserEvent('swal', [
@@ -188,7 +185,7 @@ class CheckPartial extends Component
                 'position' => 'center',
                 'icon'     => 'error',
                 'title'    => 'ERRO AO REJEITAR',
-                'html'     => 'A solicitação não foi rejeitada. <br>'.$th->getMessage(),
+                'html'     => 'A solicitação não foi rejeitada. <br>' . $th->getMessage(),
                 'timer'    => 5000,
             ]);
         }
@@ -204,6 +201,27 @@ class CheckPartial extends Component
 
     public function render()
     {
-        return view('livewire.engineers.actions.check-partial');
+        // Saldo lido aqui, no servidor, só para o modal do engenheiro (nunca vai para o estado nem para o parceiro).
+        $pep = ['balances' => [], 'total' => null, 'state' => 'none', 'reason' => null, 'alert' => null];
+
+        if ($this->form) {
+            $guard    = app(WorkReportBudgetGuard::class);
+            $orders   = $this->form->Orders;
+            $balances = $guard->balancesFor($orders);
+            $short    = $guard->shortfall($orders, (float) $this->form->value);
+
+            $pep = [
+                'balances' => $balances,
+                'total'    => $balances === [] ? null : array_sum($balances),
+                'state'    => $short ? 'short' : ($balances === [] ? 'none' : 'ok'),
+                'reason'   => $short['reason'] ?? null,
+                'alert'    => PepBalanceAlert::query()
+                    ->where('informe_type', PepBalanceAlert::TYPE_PARTIAL)
+                    ->where('informe_id', $this->form->id)
+                    ->first(),
+            ];
+        }
+
+        return view('livewire.engineers.actions.check-partial', ['pep' => $pep]);
     }
 }

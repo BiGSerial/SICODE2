@@ -106,6 +106,9 @@ class Kernel extends ConsoleKernel
         $this->scheduleCommand($schedule, 'sicode:sync-peps', 'sync-peps')
             ->cron('0 6,12 * * *');
 
+        $this->scheduleCommand($schedule, 'sicode:pep-alerts-reconcile', 'pep-alerts-reconcile')
+            ->cron('30 6,12 * * *');
+
         $this->scheduleCommand($schedule, 'sicode:upd_baseEP', 'upd-base-ep')
             ->cron('20 9-21 * * *');
 
@@ -369,6 +372,7 @@ class Kernel extends ConsoleKernel
             'closure-sync-status-user'                 => 'Encerramento: data do status usuário',
             'closure-sync-internal-returns'            => 'Encerramento: sincronizar RI com o Desenho',
             'sync-peps'                                => 'Sincronizar PEPs',
+            'pep-alerts-reconcile'                     => 'Lista de observação de PEP',
             'upd-base-ep'                              => 'Base EP',
             'sync-protests'                            => 'Sincronizar reclamações',
             'prune-protest-and-check-sla'              => 'Limpar MED e SLA',

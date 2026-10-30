@@ -88,3 +88,64 @@
     justify-content: center;
     width: 30px;
 }
+
+// Data em destaque nas tabelas (.date-tile): dia grande, mês e ano em faixa, hora abaixo.
+.closure-dash .date-tile {
+    align-items: center;
+    background: #fff;
+    border: 1px solid #c7d7f5;
+    border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(38, 60, 200, .12);
+    display: inline-grid;
+    grid-template-areas:
+        'day month'
+        'day year';
+    grid-template-columns: auto auto;
+    column-gap: 8px;
+    overflow: hidden;
+    padding: 4px 10px 4px 0;
+}
+
+.closure-dash .date-tile-day {
+    align-self: stretch;
+    align-items: center;
+    background: linear-gradient(135deg, #1d4ed8, #0ea5e9);
+    color: #fff;
+    display: flex;
+    font-size: 1.25rem;
+    font-weight: 850;
+    grid-area: day;
+    justify-content: center;
+    line-height: 1;
+    margin: -4px 0;
+    min-width: 40px;
+    padding: 0 6px;
+}
+
+.closure-dash .date-tile-month {
+    color: #1d4ed8;
+    font-size: .74rem;
+    font-weight: 850;
+    grid-area: month;
+    letter-spacing: .08em;
+    line-height: 1.1;
+}
+
+.closure-dash .date-tile-year {
+    color: var(--dash-muted, #64748b);
+    font-size: .7rem;
+    font-weight: 700;
+    grid-area: year;
+    line-height: 1.1;
+}
+
+.closure-dash .date-tile-time {
+    color: var(--dash-muted, #64748b);
+    font-size: .72rem;
+    font-weight: 700;
+    margin-top: 4px;
+
+    i {
+        margin-right: 2px;
+    }
+}

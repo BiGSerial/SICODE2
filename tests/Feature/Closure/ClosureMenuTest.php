@@ -94,9 +94,9 @@ class ClosureMenuTest extends TestCase
             $this->assertStringContainsString(route($name), $html);
         }
 
-        $this->assertStringContainsString('LISTA PARA', $html);
-        $this->assertStringContainsString('CONTROLE DE', $html);
-        $this->assertStringContainsString('TRANSFERÊNCIA', $html);
+        $this->assertStringContainsString('Lista para', $html);
+        $this->assertStringContainsString('Controle de', $html);
+        $this->assertStringContainsString('Transferência', $html);
 
         // Operador: sem itens de despacho nem de gestão.
         $this->actingAs($this->user(operator: true, manager: false));

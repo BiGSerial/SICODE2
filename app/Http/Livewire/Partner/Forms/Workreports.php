@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Partner\Forms;
 
 use App\Models\{Company, Note, Order, WorkReport};
-use App\Services\Partner\{BlockEvaluator, WorkReportBudgetGuard};
+use App\Services\Partner\{BlockEvaluator, PepBudgetWatchService, WorkReportBudgetGuard};
 use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Services\WorkReports\{FinalWorkReportCreationGuard, WorkReportAcceptanceSignature, WorkReportFinalScopeResolver};
 use App\Support\SicodeRules;
@@ -606,6 +606,11 @@ class Workreports extends Component
             app(FinalWorkReportCreationGuard::class)->cancelPendingPartialsFor($this->note, $creationScopes);
 
             DB::commit();
+
+            // Sem saldo no PEP não bloqueia: o informe entra na lista de observação da Engenharia.
+            foreach ($createdReports as $createdReport) {
+                app(PepBudgetWatchService::class)->registerWorkReport($createdReport);
+            }
 
             $createdIds  = collect($createdReports)->pluck('id')->values()->all();
             $scopeLabels = collect($creationScopes)

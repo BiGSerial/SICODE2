@@ -4,6 +4,7 @@ namespace App\Console\Commands\Fix;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
+use App\Helpers\DaysLeft;
 use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV;
 use Carbon\Carbon;
@@ -196,6 +197,7 @@ class FixPrazos extends Command
                 if (
                     $origem
                     && $chk->days_left == $origem->diasPVencimento
+                    && ($chk->dt_vencimento?->format('Y-m-d')) === DaysLeft::parseDueDate($origem->dtVencimento ?? null)
                     && $chk->pze_parecer == $origem->parecerPrazo
                 ) {
                     $count['ne']++;
@@ -226,6 +228,7 @@ class FixPrazos extends Command
             || (int) $note->nstats !== (int) $baseOv->numStat
             || !$this->sameDateTime($note->dt_status, $baseOv->dhStat)
             || (string) $note->days_left !== (string) $baseOv->diasPVencimento
+            || ($note->dt_vencimento?->format('Y-m-d')) !== DaysLeft::parseDueDate($baseOv->dtVencimento ?? null)
             || (string) $note->pze_parecer !== (string) $baseOv->parecerPrazo;
     }
 
@@ -271,6 +274,7 @@ class FixPrazos extends Command
             'days_stat'     => $baseOv->diasNoStatus,
             'pze_parecer'   => $baseOv->parecerPrazo,
             'days_left'     => $baseOv->diasPVencimento,
+            'dt_vencimento' => DaysLeft::parseDueDate($baseOv->dtVencimento ?? null),
         ];
     }
 
@@ -307,6 +311,7 @@ class FixPrazos extends Command
             'days_stat',
             'pze_parecer',
             'days_left',
+            'dt_vencimento',
             'type_note',
             'updated_at',
         ];

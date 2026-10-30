@@ -1,0 +1,724 @@
+// Menu lateral padrão (.snav), usado por todas as áreas via <x-nav.sidebar>. Regras: docs/PADRAO_MENU_LATERAL.md.
+// Fica sobre o fundo `edp-bg-sprucegreen-100` do <aside id="sidebar">; a abertura/fechamento (toggle-sidebar) continua do template.
+
+.snav {
+    --snav-ink: #eaf4f3;
+    --snav-muted: rgba(234, 244, 243, .62);
+    --snav-line: rgba(255, 255, 255, .1);
+    --snav-surface: rgba(255, 255, 255, .06);
+    --snav-surface-hover: rgba(255, 255, 255, .12);
+    --snav-accent: #34d399;
+    --snav-accent-2: #38bdf8;
+    --snav-danger: #ef4444;
+}
+
+.snav .snav-aside {
+    color: var(--snav-ink);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 16px 14px 12px;
+}
+
+// ---------- Seletor de módulos ----------
+.snav .snav-modules {
+    background: rgba(0, 0, 0, .22);
+    border-radius: 14px;
+    display: grid;
+    gap: 4px;
+    grid-template-columns: repeat(3, 1fr);
+    padding: 4px;
+
+    &.snav-modules-2 {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    &.snav-modules-4 {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.snav .snav-module {
+    align-items: center;
+    border-radius: 11px;
+    color: var(--snav-muted);
+    display: flex;
+    flex-direction: column;
+    font-size: .64rem;
+    font-weight: 700;
+    gap: 3px;
+    letter-spacing: .02em;
+    padding: 8px 2px 7px;
+    text-align: center;
+    text-decoration: none;
+    transition: background .18s ease, color .18s ease, transform .18s ease;
+
+    i {
+        font-size: 1.3rem;
+        line-height: 1;
+    }
+
+    &:hover {
+        background: var(--snav-surface-hover);
+        color: #fff;
+    }
+
+    &.is-active {
+        background: linear-gradient(135deg, #0f8a77, #0891b2);
+        box-shadow: 0 6px 14px rgba(8, 145, 178, .35);
+        color: #fff;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--snav-accent);
+        outline-offset: 2px;
+    }
+}
+
+// ---------- Título do módulo ----------
+.snav .snav-title {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    padding: 2px 6px;
+
+    strong {
+        display: block;
+        font-size: 1.05rem;
+        font-weight: 850;
+        letter-spacing: .01em;
+        line-height: 1.15;
+    }
+
+    small {
+        color: var(--snav-muted);
+        display: block;
+        font-size: .72rem;
+    }
+}
+
+.snav .snav-title-ico {
+    align-items: center;
+    background: linear-gradient(135deg, rgba(52, 211, 153, .25), rgba(56, 189, 248, .25));
+    border: 1px solid rgba(255, 255, 255, .14);
+    border-radius: 12px;
+    color: var(--snav-accent);
+    display: inline-flex;
+    flex: none;
+    font-size: 1.3rem;
+    height: 42px;
+    justify-content: center;
+    width: 42px;
+}
+
+// ---------- Filtro ----------
+.snav .snav-search {
+    position: relative;
+
+    > i {
+        color: var(--snav-muted);
+        left: 11px;
+        pointer-events: none;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+}
+
+.snav .snav-search-input {
+    background: var(--snav-surface);
+    border: 1px solid var(--snav-line);
+    border-radius: 10px;
+    color: var(--snav-ink);
+    font-size: .84rem;
+    padding: 8px 10px 8px 34px;
+    transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+    width: 100%;
+
+    &::placeholder {
+        color: var(--snav-muted);
+    }
+
+    &:focus {
+        background: rgba(255, 255, 255, .1);
+        border-color: var(--snav-accent);
+        box-shadow: 0 0 0 3px rgba(52, 211, 153, .2);
+        outline: 0;
+    }
+}
+
+// ---------- Lista ----------
+.snav .snav-scroll {
+    flex: none;
+    margin: 0 -6px;
+    padding: 0 6px;
+}
+
+.snav .snav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.snav .snav-list-flat {
+    margin-bottom: 10px;
+}
+
+.snav .snav-li[hidden],
+.snav details[hidden] {
+    display: none;
+}
+
+// Grupos (dropdowns): mesmo desenho de sempre, só que num tom azul próprio (diferente do verde dos itens e do módulo).
+.snav {
+    --snav-group: #38bdf8;
+    --snav-group-ink: #7dd3fc;
+}
+
+.snav .snav-group {
+    border-top: 1px solid var(--snav-line);
+    padding: 6px 0;
+}
+
+.snav .snav-group-head {
+    align-items: center;
+    background: rgba(56, 189, 248, .08);
+    border-radius: 10px;
+    color: var(--snav-group-ink);
+    cursor: pointer;
+    display: flex;
+    font-size: .7rem;
+    font-weight: 800;
+    gap: 9px;
+    letter-spacing: .09em;
+    list-style: none;
+    padding: 8px 8px;
+    text-transform: uppercase;
+    transition: background .18s ease, color .18s ease;
+    user-select: none;
+
+    &::-webkit-details-marker {
+        display: none;
+    }
+
+    &:hover {
+        background: rgba(56, 189, 248, .18);
+        color: #fff;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--snav-group);
+        outline-offset: 1px;
+    }
+}
+
+.snav .snav-group-ico {
+    color: var(--snav-group);
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.snav .snav-group-label {
+    flex: 1;
+}
+
+.snav .snav-chev {
+    color: var(--snav-group);
+    font-size: 1.1rem;
+    transition: transform .2s ease;
+}
+
+.snav .snav-group[open] > .snav-group-head .snav-chev {
+    transform: rotate(180deg);
+}
+
+// Grupo fechado com pendência dentro: ponto vermelho no cabeçalho.
+.snav .snav-group:not([open]):has(.snav-count .badge) > .snav-group-head::after {
+    background: var(--snav-danger);
+    border-radius: 50%;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, .25);
+    content: '';
+    height: 8px;
+    width: 8px;
+}
+
+// ---------- Item ----------
+.snav .snav-item {
+    align-items: center;
+    border-radius: 11px;
+    color: var(--snav-ink);
+    display: flex;
+    font-size: .86rem;
+    font-weight: 600;
+    gap: 11px;
+    margin: 2px 0;
+    padding: 8px 10px;
+    position: relative;
+    text-decoration: none;
+    transition: background .18s ease, transform .18s ease;
+
+    &:hover {
+        background: var(--snav-surface-hover);
+        color: #fff;
+        transform: translateX(3px);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--snav-accent);
+        outline-offset: 1px;
+    }
+
+    &.is-active {
+        background: linear-gradient(90deg, rgba(52, 211, 153, .26), rgba(56, 189, 248, .1));
+        box-shadow: inset 0 0 0 1px rgba(52, 211, 153, .35);
+        color: #fff;
+        font-weight: 800;
+
+        &::before {
+            background: var(--snav-accent);
+            border-radius: 0 4px 4px 0;
+            content: '';
+            height: 60%;
+            left: -6px;
+            position: absolute;
+            top: 20%;
+            width: 4px;
+        }
+    }
+}
+
+.snav .snav-ico {
+    align-items: center;
+    background: var(--snav-surface);
+    border-radius: 9px;
+    color: var(--snav-muted);
+    display: inline-flex;
+    flex: none;
+    font-size: 1.05rem;
+    height: 30px;
+    justify-content: center;
+    transition: background .18s ease, color .18s ease;
+    width: 30px;
+}
+
+.snav .snav-item:hover .snav-ico,
+.snav .snav-item.is-active .snav-ico {
+    background: rgba(52, 211, 153, .22);
+    color: var(--snav-accent);
+}
+
+.snav .snav-label {
+    flex: 1;
+    line-height: 1.2;
+    min-width: 0;
+}
+
+// Contadores: os componentes Livewire existentes entregam um <span class="badge">; aqui viram pílulas do menu.
+.snav .snav-count {
+    align-items: center;
+    display: inline-flex;
+    flex: none;
+    gap: 4px;
+
+    div {
+        display: inline-flex;
+    }
+
+    .badge {
+        border-radius: 99px;
+        font-size: .68rem;
+        font-weight: 800;
+        margin: 0 !important;
+        min-width: 22px;
+        padding: 3px 7px;
+    }
+
+    .badge.text-bg-danger,
+    .badge.bg-danger {
+        background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, .45);
+        color: #fff !important;
+    }
+}
+
+.snav .snav-empty {
+    color: var(--snav-muted);
+    font-size: .82rem;
+    padding: 12px 8px;
+    text-align: center;
+}
+
+// ---------- Rodapé ----------
+.snav .snav-foot {
+    border-top: 1px solid var(--snav-line);
+    margin-top: auto;
+    padding-top: 10px;
+}
+
+.snav .snav-foot-link {
+    align-items: center;
+    border-radius: 10px;
+    color: var(--snav-muted);
+    display: flex;
+    font-size: .8rem;
+    font-weight: 700;
+    gap: 8px;
+    padding: 7px 10px;
+    text-decoration: none;
+
+    &:hover {
+        background: var(--snav-surface);
+        color: #fff;
+    }
+}
+
+// ---------- Celular: gaveta sobre o conteúdo, com fundo escurecido ----------
+@media (max-width: 1199px) {
+    body.toggle-sidebar::after {
+        background: rgba(15, 23, 42, .5);
+        content: '';
+        inset: 60px 0 0 0;
+        position: fixed;
+        z-index: 995;
+    }
+
+    .snav .snav-aside {
+        box-shadow: 8px 0 30px rgba(0, 0, 0, .35);
+        z-index: 996;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .snav * {
+        transition: none !important;
+    }
+
+    .snav .snav-item:hover {
+        transform: none;
+    }
+}
+
+// Painel extra do rodapé (ex.: ocupação da atividade), entregue pelo slot de <x-nav.sidebar>.
+.snav .snav-extra {
+    border-top: 1px solid var(--snav-line);
+    color: var(--snav-ink);
+    padding-top: 10px;
+}
+
+// ---------- Ocupação (<x-nav.occupation>) ----------
+.snav .snav-occ {
+    background: rgba(0, 0, 0, .2);
+    border: 1px solid var(--snav-line);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.snav .snav-occ-head {
+    align-items: center;
+    background: linear-gradient(90deg, rgba(52, 211, 153, .22), rgba(56, 189, 248, .1));
+    cursor: pointer;
+    display: flex;
+    gap: 10px;
+    list-style: none;
+    padding: 10px 12px;
+    user-select: none;
+
+    &::-webkit-details-marker {
+        display: none;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--snav-accent);
+        outline-offset: -2px;
+    }
+}
+
+.snav .snav-occ-ico {
+    align-items: center;
+    background: rgba(52, 211, 153, .22);
+    border-radius: 9px;
+    color: var(--snav-accent);
+    display: inline-flex;
+    font-size: 1.1rem;
+    height: 28px;
+    justify-content: center;
+    width: 28px;
+}
+
+.snav .snav-occ-title {
+    flex: 1;
+    font-size: .8rem;
+    font-weight: 850;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.snav .snav-occ-total {
+    background: rgba(255, 255, 255, .16);
+    border-radius: 99px;
+    font-size: .72rem;
+    font-weight: 800;
+    padding: 2px 9px;
+}
+
+.snav .snav-occ-chev {
+    color: var(--snav-muted);
+    transition: transform .2s ease;
+}
+
+.snav .snav-occ[open] .snav-occ-chev {
+    transform: rotate(180deg);
+}
+
+.snav .snav-occ-body {
+    padding: 10px 10px 8px;
+}
+
+.snav .snav-occ-meta {
+    color: var(--snav-muted);
+    display: flex;
+    font-size: .72rem;
+    font-weight: 700;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    padding: 0 2px;
+}
+
+.snav .snav-occ-select {
+    background: var(--snav-surface);
+    border: 1px solid var(--snav-line);
+    border-radius: 9px;
+    color: var(--snav-ink);
+    font-size: .78rem;
+    margin-bottom: 8px;
+    padding: 6px 8px;
+    width: 100%;
+
+    option {
+        color: #102033;
+    }
+
+    &:focus {
+        border-color: var(--snav-accent);
+        outline: 0;
+    }
+}
+
+.snav .snav-occ-list {
+    list-style: none;
+    margin: 0;
+    max-height: 46vh;
+    overflow-y: auto;
+    padding: 0;
+    scrollbar-color: rgba(255, 255, 255, .25) transparent;
+    scrollbar-width: thin;
+}
+
+.snav .snav-occ-row {
+    border-radius: 10px;
+    margin-bottom: 2px;
+
+    &.is-top .snav-occ-rank {
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        color: #102033;
+    }
+
+    &.is-inactive {
+        opacity: .6;
+    }
+}
+
+.snav .snav-occ-btn {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    color: inherit;
+    display: flex;
+    gap: 8px;
+    padding: 6px 6px;
+    text-align: left;
+    transition: background .18s ease;
+    width: 100%;
+
+    &:hover {
+        background: var(--snav-surface-hover);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--snav-accent);
+        outline-offset: 1px;
+    }
+}
+
+.snav .snav-occ-rank {
+    align-items: center;
+    background: rgba(255, 255, 255, .14);
+    border-radius: 7px;
+    display: inline-flex;
+    flex: none;
+    font-size: .68rem;
+    font-weight: 850;
+    height: 20px;
+    justify-content: center;
+    min-width: 20px;
+}
+
+.snav .snav-occ-avatar {
+    align-items: center;
+    background: linear-gradient(145deg, #0f766e, #0891b2);
+    border-radius: 50%;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+    display: inline-flex;
+    flex: none;
+    font-size: .68rem;
+    font-weight: 800;
+    height: 30px;
+    justify-content: center;
+    position: relative;
+    width: 30px;
+}
+
+// Foto (a mesma do topo do sistema) por cima das iniciais; se não carregar, as iniciais continuam visíveis.
+.snav .snav-occ-img {
+    border-radius: 50%;
+    height: 100%;
+    inset: 0;
+    object-fit: cover;
+    position: absolute;
+    width: 100%;
+}
+
+.snav .snav-occ-initials {
+    position: relative;
+    z-index: 0;
+}
+
+.snav .snav-occ-dot {
+    border: 2px solid #0e3a3d;
+    border-radius: 50%;
+    bottom: -2px;
+    height: 10px;
+    position: absolute;
+    right: -2px;
+    width: 10px;
+    z-index: 2;
+
+    &.is-on {
+        background: #34d399;
+        animation: snav-pulse 1.8s infinite;
+    }
+
+    &.is-off {
+        background: #64748b;
+    }
+}
+
+// O ponto da linha "online" do cabeçalho não é posicionado em cima de um avatar.
+.snav .snav-occ-online .snav-occ-dot {
+    border: 0;
+    display: inline-block;
+    margin-right: 4px;
+    position: static;
+}
+
+.snav .snav-occ-main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.snav .snav-occ-line {
+    align-items: baseline;
+    display: flex;
+    gap: 6px;
+    justify-content: space-between;
+}
+
+.snav .snav-occ-name {
+    font-size: .8rem;
+    font-weight: 700;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    em {
+        background: rgba(255, 255, 255, .15);
+        border-radius: 99px;
+        font-size: .6rem;
+        font-style: normal;
+        margin-left: 4px;
+        padding: 1px 6px;
+    }
+}
+
+.snav .snav-occ-share {
+    color: var(--snav-muted);
+    font-size: .72rem;
+    font-weight: 800;
+}
+
+.snav .snav-occ-bar {
+    background: rgba(255, 255, 255, .12);
+    border-radius: 4px;
+    display: block;
+    height: 5px;
+    overflow: hidden;
+}
+
+.snav .snav-occ-fill {
+    background: linear-gradient(90deg, #34d399, #38bdf8);
+    border-radius: 4px;
+    display: block;
+    height: 100%;
+}
+
+.snav .snav-occ-row.is-top .snav-occ-fill {
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+// Larguras da barra (0 a 100%), sem estilo inline.
+@for $i from 0 through 100 {
+    .snav .snav-occ-w-#{$i} {
+        width: #{$i * 1%};
+    }
+}
+
+.snav .snav-occ-sub {
+    color: var(--snav-muted);
+    font-size: .68rem;
+
+    strong {
+        color: var(--snav-ink);
+        font-size: .76rem;
+    }
+
+    b {
+        color: var(--snav-ink);
+        font-weight: 800;
+    }
+}
+
+@keyframes snav-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, .55);
+    }
+
+    70% {
+        box-shadow: 0 0 0 6px rgba(52, 211, 153, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+    }
+}
+
+// Ícone de link externo (item que abre em outra aba).
+.snav .snav-ext {
+    color: var(--snav-muted);
+    flex: none;
+    font-size: .9rem;
+}

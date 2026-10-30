@@ -44,6 +44,7 @@ class Note extends Model
         'days_stat',
         'pze_parecer',
         'days_left',
+        'dt_vencimento',
         'mmgd',
         'type_note',
         'centerjob',
@@ -61,13 +62,14 @@ class Note extends Model
     ];
 
     protected $casts = [
-        'dt_created'  => 'datetime',
-        'dt_status'   => 'datetime',
-        'mmgd'        => 'boolean',
-        'doe'         => 'boolean',
-        'is45'        => 'boolean',
-        'canceled'    => 'boolean',
-        'canceled_at' => 'datetime',
+        'dt_created'    => 'datetime',
+        'dt_status'     => 'datetime',
+        'dt_vencimento' => 'date:Y-m-d',
+        'mmgd'          => 'boolean',
+        'doe'           => 'boolean',
+        'is45'          => 'boolean',
+        'canceled'      => 'boolean',
+        'canceled_at'   => 'datetime',
 
     ];
 

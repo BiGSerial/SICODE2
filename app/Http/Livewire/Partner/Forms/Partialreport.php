@@ -5,7 +5,7 @@ namespace App\Http\Livewire\Partner\Forms;
 use App\Custom\Partial\{Ads};
 use App\Models\{File, Note, Partial};
 use App\Services\Files\FileUploadService;
-use App\Services\Partner\{PartialScopeAvailabilityService, WorkReportBudgetGuard};
+use App\Services\Partner\{PartialScopeAvailabilityService, PepBudgetWatchService, WorkReportBudgetGuard};
 use Illuminate\Support\Facades\{DB};
 use Livewire\{Component, WithFileUploads};
 
@@ -353,6 +353,9 @@ class Partialreport extends Component
             }
 
             DB::commit();
+
+            // Sem saldo no PEP (ou ADS acima do saldo) não bloqueia: entra na lista de observação da Engenharia.
+            app(PepBudgetWatchService::class)->registerPartial($partial);
 
             if ($this->hasFiles) {
                 $this->emitTo('files.manager.create-gen-files', 'saveFiles', Partial::class, $partial->id);

@@ -115,6 +115,14 @@ Toda operação física de storage (gravação, leitura, download/stream, delete
 ### Menu superior (topbar)
 Definido em `resources/views/layouts/menu_itens.blade.php` via arrays de nós passados ao componente `<x-menu.dynamic-dropdown />`. Para adicionar itens, editar esse arquivo seguindo o padrão `nodes`/`sections` (ver `docs/MenuSuperior.md`).
 
+### Menu lateral (padrão obrigatório)
+Todo menu lateral, em qualquer área, segue `docs/PADRAO_MENU_LATERAL.md` (leia antes de criar ou mexer em menu). Em resumo, é obrigatório:
+- Uma única definição por área, `App\Support\Menu\<Area>Nav extends SidebarNav` (módulos → grupos → itens, com ícone `ri-*`, `match` de rotas e `counts`). O menu lateral **e** o dropdown do topo leem dela; nunca duas listas.
+- Markup só pelo componente `<x-nav.sidebar :nav="<Area>Nav::class" :route="$route" label="…" />`; o Livewire `<Area>\Menu` é fino (só entrega a rota). Proibido HTML de sidebar à mão, `onlySection`, listas de rotas em componente, CSS/JS inline ou estilo de menu por tela (estilo em `resources/sass/nav/_sidebar.scss`, comportamento em `resources/js/nav/sidebar.js`).
+- Grupos são dropdowns com cabeçalho de **cor própria** (azul), distinto dos itens. Todos os itens do módulo ficam visíveis; textos em PT-BR; item ativo pela rota.
+- Já no padrão: Engenharia (`EngineerNav`, referência), Responsável (`ResponsibleNav`) e as atividades de despacho (`DispatchNav`) e de serviço (`ServiceNav`, com `service` + `variant` no contexto) Reclamações (`ProtestNav`, com `variant`) e Administração (`AdminNav`; o topo sai de `AdminNav::topNodes()`). Os `menu.blade.php` de atividade são só uma chamada ao componente; não escreva HTML de sidebar neles.
+- Menu novo ou migrado precisa de testes (`locate()`, rotas existentes, item ativo; o teste genérico varre todo `*Nav`) e de conferência no navegador.
+
 ### Wall V2 (monitoramento em tela cheia)
 Arquitetura em camadas dentro de `app/Services/Wall/`:
 - `WallDataOrchestrator` — ponto de entrada único para todas as telas

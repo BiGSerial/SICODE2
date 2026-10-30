@@ -61,11 +61,15 @@ class EngineerController extends Controller
         return view('engineers.parcial_inform_waiting');
     }
 
+    public function pep_alerts()
+    {
+        return view('engineers.pep_alerts');
+    }
+
     public function hist_parc()
     {
         return view('engineers.parcial_hist');
     }
-
 
     // Analises
     public function analises_dashboard()

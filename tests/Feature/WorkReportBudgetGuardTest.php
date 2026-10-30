@@ -10,8 +10,11 @@ use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
-// O bloqueio vale só no ES por enquanto; o ambiente de teste pode estar em outro ruleset.
-beforeEach(fn () => config(['sicode.ruleset' => 'es']));
+// O bloqueio está desligado por padrão (hoje só monitora); estes testes ligam a regra no ES para exercitar o guard.
+beforeEach(fn () => config([
+    'sicode.ruleset'                                    => 'es',
+    'sicode.rules.es.work_report.blocks_without_budget' => true,
+]));
 
 function budgetPartner(): User
 {

@@ -5,41 +5,48 @@ namespace App\Http\Livewire\Engineers;
 use App\Jobs\Engineers\ExportPartialHistoryJob;
 use App\Services\Engineers\PartialHistoryService;
 use Carbon\Carbon;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class PartialHist extends Component
 {
     use WithPagination;
+
     protected $paginationTheme = 'bootstrap';
 
     public $search;
+
     public $bulk_search;
+
     public $company_id;
+
     public $status;
+
     public $perPage = 100;
+
     public $selectedRow;
 
-
     public $dt_in;
+
     public $dt_out;
+
     public $month;
 
     // Filters
     private $filter_group = 'partial';
+
     private $filters;
 
     protected $queryString = [
-        'search' => ['except' => ''],
+        'search'     => ['except' => ''],
         'company_id' => ['except' => '', 'as' => 'company'],
-        'status' => ['except' => ''],
-        'dt_in' => ['except' => '', 'as' => 'in'],
-        'dt_out' => ['except' => '', 'as' => 'out'],
+        'status'     => ['except' => ''],
+        'dt_in'      => ['except' => '', 'as' => 'in'],
+        'dt_out'     => ['except' => '', 'as' => 'out'],
     ];
 
     protected $listeners = [
-        'refresh' => '$refresh',
-        'refresh_list' => '$refresh'
+        'refresh'      => '$refresh',
+        'refresh_list' => '$refresh',
     ];
 
     public function pesquisar()
@@ -78,12 +85,11 @@ class PartialHist extends Component
 
     public function updatedMonth()
     {
-        $this->dt_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
+        $this->dt_in  = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
         $this->dt_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
 
         $this->resetPage();
     }
-
 
     public function getListsProperty()
     {
@@ -99,7 +105,9 @@ class PartialHist extends Component
     {
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+            if (!session()->isStarted()) {
+                session()->start();
+            }
         }
 
         if (isset($_SESSION['filter'][$this->filter_group])) {
@@ -107,13 +115,13 @@ class PartialHist extends Component
         }
 
         return [
-            'search' => $this->search,
+            'search'      => $this->search,
             'bulk_search' => $this->bulk_search,
-            'company_id' => $this->company_id,
-            'status' => $this->status,
-            'dt_in' => $this->dt_in,
-            'dt_out' => $this->dt_out,
-            'rubrica' => $this->filters['rubrica'] ?? '',
+            'company_id'  => $this->company_id,
+            'status'      => $this->status,
+            'dt_in'       => $this->dt_in,
+            'dt_out'      => $this->dt_out,
+            'rubrica'     => $this->filters['rubrica'] ?? '',
         ];
     }
 
@@ -122,7 +130,7 @@ class PartialHist extends Component
         ExportPartialHistoryJob::dispatch($this->currentFilters(), auth()->id());
 
         $this->dispatchBrowserEvent('notify', [
-            'type' => 'success',
+            'type'    => 'success',
             'message' => 'Exportação enviada para a fila. Você receberá uma notificação quando o arquivo estiver pronto.',
         ]);
     }
@@ -131,34 +139,34 @@ class PartialHist extends Component
     {
         $status = [
             'status' => '',
-            'color' => '',
+            'color'  => '',
         ];
 
         if ($partial) {
             if ($partial->deny) {
                 $status = [
                     'status' => 'REJEITADO',
-                    'color' => 'text-bg-danger',
+                    'color'  => 'text-bg-danger',
                 ];
             } elseif ($partial->payment && $partial->allow) {
                 $status = [
                     'status' => 'PAGO',
-                    'color' => 'text-bg-success',
+                    'color'  => 'text-bg-success',
                 ];
             } elseif ($partial->supervision && !$partial->payment) {
                 $status = [
                     'status' => 'EM MEDIÇÃO',
-                    'color' => 'text-bg-info',
+                    'color'  => 'text-bg-info',
                 ];
             } elseif ($partial->allow && !$partial->supervision) {
                 $status = [
                     'status' => 'EM FISCALIZAÇÃO',
-                    'color' => 'text-bg-info',
+                    'color'  => 'text-bg-info',
                 ];
             } else {
                 $status = [
                     'status' => 'AVALIAÇÃO',
-                    'color' => 'text-bg-warning',
+                    'color'  => 'text-bg-warning',
                 ];
             }
         }
@@ -188,36 +196,36 @@ class PartialHist extends Component
         if ($this->rejectedStage($partial) !== $stage) {
             return [
                 'active' => false,
-                'date' => null,
-                'user' => null,
+                'date'   => null,
+                'user'   => null,
             ];
         }
 
         $date = match ($stage) {
-            'approval' => $partial->decision_at,
+            'approval'    => $partial->decision_at,
             'supervision' => $partial->supervision_at,
-            'payment' => $partial->payment_at ?: $partial->supervision_at,
-            default => null,
+            'payment'     => $partial->payment_at ?: $partial->supervision_at,
+            default       => null,
         } ?: ($partial->complete ? $partial->updated_at : null) ?: $partial->updated_at;
 
         $user = match ($stage) {
-            'approval' => $partial->engineer,
+            'approval'    => $partial->engineer,
             'supervision' => $partial->supervisor,
-            'payment' => $partial->payer,
-            default => null,
+            'payment'     => $partial->payer,
+            default       => null,
         };
 
         return [
             'active' => true,
-            'date' => $date,
-            'user' => $user?->name,
+            'date'   => $date,
+            'user'   => $user?->name,
         ];
     }
 
     private function normalizeBulkSearch(?string $value): string
     {
         return collect(preg_split('/[\s,;]+/', (string) $value) ?: [])
-            ->map(fn($item) => trim((string) $item))
+            ->map(fn ($item) => trim((string) $item))
             ->filter()
             ->unique()
             ->implode(PHP_EOL);
@@ -235,13 +243,14 @@ class PartialHist extends Component
         $service = app(PartialHistoryService::class);
 
         return view('livewire.engineers.partial-hist', [
-            'lists' => $this->lists,
+            'lists'     => $this->lists,
+            'summary'   => $service->summary($service->query($this->currentFilters())),
             'companies' => $service->companyOptions(),
-            'statuses' => [
+            'statuses'  => [
                 PartialHistoryService::STATUS_SUPERVISION => 'EM FISCALIZAÇÃO',
-                PartialHistoryService::STATUS_PAYMENT => 'EM MEDIÇÃO',
-                PartialHistoryService::STATUS_PAID => 'PAGO',
-                PartialHistoryService::STATUS_REJECTED => 'REJEITADO',
+                PartialHistoryService::STATUS_PAYMENT     => 'EM MEDIÇÃO',
+                PartialHistoryService::STATUS_PAID        => 'PAGO',
+                PartialHistoryService::STATUS_REJECTED    => 'REJEITADO',
             ],
             'bulkSearchCount' => $this->bulkSearchCount,
         ]);

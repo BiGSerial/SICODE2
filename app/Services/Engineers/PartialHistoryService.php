@@ -2,19 +2,17 @@
 
 namespace App\Services\Engineers;
 
-use App\Models\Company;
-use App\Models\Partial;
-use App\Models\User;
+use App\Models\{Company, Partial, User};
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class PartialHistoryService
 {
-    public const STATUS_REJECTED = 'rejected';
-    public const STATUS_PAID = 'paid';
-    public const STATUS_PAYMENT = 'payment';
+    public const STATUS_REJECTED    = 'rejected';
+    public const STATUS_PAID        = 'paid';
+    public const STATUS_PAYMENT     = 'payment';
     public const STATUS_SUPERVISION = 'supervision';
-    public const STATUS_EVALUATION = 'evaluation';
+    public const STATUS_EVALUATION  = 'evaluation';
 
     /**
      * @param array<string,mixed> $filters
@@ -70,9 +68,73 @@ class PartialHistoryService
                     }
                 });
             })
-            ->orderBy('payment_at', 'desc')
-            ->orderBy('supervision_at', 'desc')
-            ->orderBy('created_at', 'desc');
+            // Do mais recente para o mais antigo, pela data de envio (a que a coluna "Enviada em" mostra).
+            ->orderByDesc('created_at')
+            ->orderByDesc('id');
+    }
+
+    /**
+     * Indicadores do topo do histórico (todo o recorte filtrado, não só a página).
+     *
+     * @return array<string, mixed>
+     */
+    public function summary(Builder $query): array
+    {
+        $base = fn () => (clone $query)->reorder()->toBase();
+
+        $agg = $base()->selectRaw(
+            'COUNT(*) as total, COALESCE(SUM(value), 0) as value, '
+            . 'COALESCE(SUM(deny = 1), 0) as rejected, '
+            . 'COALESCE(SUM(allow = 1 AND deny = 0 AND supervision = 0), 0) as supervision, '
+            . 'COALESCE(SUM(allow = 1 AND deny = 0 AND supervision = 1 AND payment = 0), 0) as payment, '
+            . 'COALESCE(SUM(allow = 1 AND deny = 0 AND payment = 1), 0) as paid, '
+            . 'COUNT(DISTINCT company_id) as companies, '
+            . 'AVG(CASE WHEN decision_at IS NOT NULL AND allow = 1 THEN TIMESTAMPDIFF(HOUR, created_at, decision_at) END) as approval_hours'
+        )->first();
+
+        $months = $base()
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as ym, COUNT(*) as n, COALESCE(SUM(deny = 1), 0) as rejected, COALESCE(SUM(value), 0) as value")
+            ->groupBy('ym')
+            ->orderByDesc('ym')
+            ->limit(12)
+            ->get()
+            ->reverse()
+            ->values();
+
+        $byCompany = $base()
+            ->selectRaw('company_id, COUNT(*) as total, COALESCE(SUM(value), 0) as value, COALESCE(SUM(deny = 1), 0) as rejected')
+            ->groupBy('company_id')
+            ->orderByDesc('total')
+            ->limit(8)
+            ->get();
+
+        $names = Company::withTrashed()->whereIn('id', $byCompany->pluck('company_id'))->pluck('name', 'id');
+
+        $total = (int) $agg->total;
+
+        return [
+            'total'          => $total,
+            'value'          => (float) $agg->value,
+            'average_value'  => $total > 0 ? (float) $agg->value / $total : 0.0,
+            'companies'      => (int) $agg->companies,
+            'rejected'       => (int) $agg->rejected,
+            'rejected_rate'  => $total > 0 ? round((int) $agg->rejected / $total * 100, 1) : 0.0,
+            'supervision'    => (int) $agg->supervision,
+            'payment'        => (int) $agg->payment,
+            'paid'           => (int) $agg->paid,
+            'in_progress'    => (int) $agg->supervision + (int) $agg->payment,
+            'approval_days'  => $agg->approval_hours === null ? null : round((float) $agg->approval_hours / 24, 1),
+            'month_labels'   => $months->map(fn ($m) => substr($m->ym, 5, 2) . '/' . substr($m->ym, 2, 2))->all(),
+            'month_totals'   => $months->pluck('n')->map(fn ($n) => (int) $n)->all(),
+            'month_rejected' => $months->pluck('rejected')->map(fn ($n) => (int) $n)->all(),
+            'month_values'   => $months->pluck('value')->map(fn ($n) => (float) $n)->all(),
+            'by_company'     => $byCompany->map(fn ($r) => [
+                'label'    => $names[$r->company_id] ?? 'Desconhecida',
+                'total'    => (int) $r->total,
+                'value'    => (float) $r->value,
+                'rejected' => (int) $r->rejected,
+            ])->all(),
+        ];
     }
 
     public function statusLabel(Partial $partial): string
@@ -135,8 +197,8 @@ class PartialHistoryService
         }
 
         return collect($raw)
-            ->flatMap(fn(string $value) => preg_split('/[\s,;]+/', $value) ?: [])
-            ->map(fn($value) => trim((string) $value))
+            ->flatMap(fn (string $value) => preg_split('/[\s,;]+/', $value) ?: [])
+            ->map(fn ($value) => trim((string) $value))
             ->filter()
             ->unique()
             ->values();
@@ -145,12 +207,12 @@ class PartialHistoryService
     private function applyStatus(Builder $query, string $status): void
     {
         match ($status) {
-            self::STATUS_REJECTED => $query->where('deny', true),
-            self::STATUS_PAID => $query->where('payment', true)->where('allow', true),
-            self::STATUS_PAYMENT => $query->where('supervision', true)->where('payment', false),
+            self::STATUS_REJECTED    => $query->where('deny', true),
+            self::STATUS_PAID        => $query->where('payment', true)->where('allow', true),
+            self::STATUS_PAYMENT     => $query->where('supervision', true)->where('payment', false),
             self::STATUS_SUPERVISION => $query->where('allow', true)->where('supervision', false),
-            self::STATUS_EVALUATION => $query->where('allow', false)->where('deny', false),
-            default => null,
+            self::STATUS_EVALUATION  => $query->where('allow', false)->where('deny', false),
+            default                  => null,
         };
     }
 

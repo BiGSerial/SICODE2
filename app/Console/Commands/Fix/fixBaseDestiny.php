@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands\Fix;
 
+use App\Helpers\DaysLeft;
 use App\Models\Edp_depc\BaseOV;
 use App\Models\Note;
 use Illuminate\Console\Command;
@@ -199,6 +200,7 @@ class fixBaseDestiny extends Command
             'days_stat'     => $origin->diasNoStatus,
             'pze_parecer'   => $origin->parecerPrazo,
             'days_left'     => $origin->diasPVencimento,
+            'dt_vencimento' => DaysLeft::parseDueDate($origin->dtVencimento ?? null),
             'type_note'     => 2,
         ];
     }

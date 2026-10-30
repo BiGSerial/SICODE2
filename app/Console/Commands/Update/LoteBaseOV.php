@@ -4,6 +4,7 @@ namespace App\Console\Commands\Update;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
+use App\Helpers\DaysLeft;
 use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV;
 use App\Services\Notes\OvStatusHistoryService;
@@ -73,11 +74,15 @@ class LoteBaseOV extends Command
                     $daysLeftDiverged = $existingRecord
                         && $this->hasSourceValue($record->diasPVencimento)
                         && (string) $existingRecord->days_left !== (string) $record->diasPVencimento;
+                    $sourceDueDate   = DaysLeft::parseDueDate($record->dtVencimento ?? null);
+                    $dueDateDiverged = $existingRecord
+                        && $sourceDueDate !== null
+                        && $existingRecord->dt_vencimento?->format('Y-m-d') !== $sourceDueDate;
                     $statusDateIsNewer = $existingRecord
                         && $this->hasSourceValue($record->dhStat)
                         && strtotime((string) $existingRecord->dt_status) < strtotime((string) $record->dhStat);
 
-                    if ($existingRecord && ($statusDateIsNewer || $nstatsDiverged || $daysLeftDiverged)) {
+                    if ($existingRecord && ($statusDateIsNewer || $nstatsDiverged || $daysLeftDiverged || $dueDateDiverged)) {
                         if ($nstatsDiverged || $statusDateIsNewer) {
                             $historyOvs[] = $record->OV;
                         }
@@ -121,8 +126,13 @@ class LoteBaseOV extends Command
                         $noteId = $recordToUpdate['note_id'];
                         unset($recordToUpdate['note_id']);
                         // Não substitui valor existente quando a origem vier vazia.
-                        $recordToUpdate = array_filter($recordToUpdate, fn ($value) => $this->hasSourceValue($value));
-                        $chk            = Note::where('id', $noteId)->update($recordToUpdate);
+                        // dt_vencimento fica de fora do filtro: origem vazia zera o valor calculado.
+                        $recordToUpdate = array_filter(
+                            $recordToUpdate,
+                            fn ($value, $key) => $key === 'dt_vencimento' || $this->hasSourceValue($value),
+                            ARRAY_FILTER_USE_BOTH
+                        );
+                        $chk = Note::where('id', $noteId)->update($recordToUpdate);
 
                         if (!$chk) {
                             $count['errors']++;
@@ -208,6 +218,7 @@ class LoteBaseOV extends Command
             'days_stat'     => $record->diasNoStatus,
             'pze_parecer'   => $record->parecerPrazo,
             'days_left'     => $record->diasPVencimento,
+            'dt_vencimento' => DaysLeft::parseDueDate($record->dtVencimento ?? null),
         ];
     }
 
@@ -245,6 +256,7 @@ class LoteBaseOV extends Command
             'days_stat'     => $record->diasNoStatus,
             'pze_parecer'   => $record->parecerPrazo,
             'days_left'     => $record->diasPVencimento,
+            'dt_vencimento' => DaysLeft::parseDueDate($record->dtVencimento ?? null),
         ];
     }
 }

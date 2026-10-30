@@ -72,6 +72,12 @@ class SicodeRules
         return self::boolRule('work_report.blocks_without_budget', false);
     }
 
+    /** Informe sem saldo no PEP (ou ADS acima do saldo) entra na lista de observação da Engenharia, sem bloquear o parceiro. Hoje só no ES. */
+    public static function workReportMonitorsBudget(): bool
+    {
+        return self::boolRule('work_report.monitors_budget', false);
+    }
+
     public static function workReportSplitsBtzeroEpFinalFlows(): bool
     {
         return self::boolRule('work_report.split_btzero_ep_final_flows', false);

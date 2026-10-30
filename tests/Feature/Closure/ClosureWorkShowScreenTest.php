@@ -268,8 +268,8 @@ it('keeps the sidebar and breadcrumb on the side the user came from', function (
         ->and($nav::resolve('service'))->toBe('service')
         ->and($nav::resolve('invalido'))->toBe('dispatch');
 
-    expect(view('closure.closure-menu', ['ctx' => 'service'])->render())->not->toContain('CONTROLE DE')
-        ->and(view('closure.closure-menu', ['ctx' => 'dispatch'])->render())->toContain('CONTROLE DE');
+    expect(view('closure.closure-menu', ['ctx' => 'service'])->render())->not->toContain('Controle de')
+        ->and(view('closure.closure-menu', ['ctx' => 'dispatch'])->render())->toContain('Controle de');
 });
 
 it('offers actions only on Orders that can actually be closed: not-apt and SAP-closed Orders show none', function () {

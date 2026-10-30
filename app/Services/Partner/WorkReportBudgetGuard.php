@@ -55,6 +55,46 @@ class WorkReportBudgetGuard
     }
 
     /**
+     * Situação de saldo para a lista de observação (independe da regra de bloqueio).
+     * `no_balance`: algum PEP -2 com saldo ≤ 0. `ads_exceeds`: ADS maior que o saldo somado dos PEPs.
+     * Sem saldo sincronizado para afirmar, não há achado.
+     *
+     * @param iterable<\App\Models\Order> $orders
+     *
+     * @return array{reason: string, balances: array<string, float>}|null
+     */
+    public function shortfall(iterable $orders, float $amount = 0.0): ?array
+    {
+        $balances = $this->balances($orders);
+
+        if ($balances === []) {
+            return null;
+        }
+
+        if (array_filter($balances, fn (float $available) => $available <= 0) !== []) {
+            return ['reason' => 'no_balance', 'balances' => $balances];
+        }
+
+        if ($amount - array_sum($balances) > 0.004) {
+            return ['reason' => 'ads_exceeds', 'balances' => $balances];
+        }
+
+        return null;
+    }
+
+    /**
+     * Saldo por PEP das ordens abertas, para telas internas (engenharia). Nunca expor ao parceiro.
+     *
+     * @param iterable<\App\Models\Order> $orders
+     *
+     * @return array<string, float>
+     */
+    public function balancesFor(iterable $orders): array
+    {
+        return $this->balances($orders);
+    }
+
+    /**
      * Conteúdo do SweetAlert2 de bloqueio. Não revela o PEP nem o saldo ao parceiro: só a obra e o encaminhamento.
      */
     public function swal(string $note): array

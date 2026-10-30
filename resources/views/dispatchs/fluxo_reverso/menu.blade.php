@@ -1,32 +1,4 @@
-<aside id="sidebar" class="sidebar edp-bg-sprucegreen-100">
-
-    <ul class="sidebar-nav" id="sidebar-nav">
-        <li class="nav-item">
-            <a class="nav-link collapsed" data-bs-target="#despachos-nav" data-bs-toggle="collapse" href="#">
-                <i class="bi bi-menu-button-wide"></i><span>ACOMPANHAMENTO</span><i
-                    class="bi bi-chevron-down ms-auto"></i>
-            </a>
-            <ul id="despachos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
-                <div class="border-start border-3 mb-1 py-0">
-                    <li>
-                        <a href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-files fs-5 edp-text-verde-dark fw-normal"></i><span>PILHA
-                                LEVANTAMENTO</span>
-                        </a>
-                    </li>
-                    <li>
-                        <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-circle edp-text-verde-dark"></i><span>ACOMPANHAMENTO</span>
-                        </a>
-                    </li>
-
-
-                                    
-</div>
-            </ul>
-        </li>
-    </ul>
-
-</aside>
+{{-- Menu lateral padrão: a estrutura vive em App\Support\Menu\DispatchNav (docs/PADRAO_MENU_LATERAL.md). Não escreva HTML de sidebar aqui. --}}
+<x-nav.sidebar :nav="\App\Support\Menu\DispatchNav::class" :route="request()->route()?->getName()" label="Menu de despacho"
+    :context="['service' => $service ?? null, 'variant' => 'fluxo_reverso']">
+</x-nav.sidebar>

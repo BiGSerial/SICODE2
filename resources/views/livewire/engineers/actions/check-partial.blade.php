@@ -44,130 +44,178 @@
 
     <div wire:ignore.self class="modal fade" id="modal_partial_info" tabindex="-1" aria-labelledby="modalPartialInfoLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50 work-show-modal">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <div>
-                        <h4 class="my-0 fw-bold" id="modalPartialInfoLabel">OBRA INFORMADA PARCIALMENTE</h4>
-                        @if ($form)
-                            <small class="d-block mt-1 text-white-50">
-                                Nota/OV {{ $form->Note->note }} - {{ mb_strtoupper($form->Note->lexp ?? '') }}
-                            </small>
-                        @endif
-                    </div>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Fechar"></button>
-                </div>
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content cpop cpop-review">
+                @if ($form)
+                    @php
+                        $note         = $form->Note;
+                        $files        = $form->Files ?? collect();
+                        $groupedFiles = $files
+                            ->groupBy(fn ($file) => mb_strtoupper($file->service->service ?? 'OUTROS'))
+                            ->sortKeys();
+                        $previewFiles = $files
+                            ->filter(fn ($f) => in_array(mb_strtolower($f->ext), $imageExtensions, true))
+                            ->sortBy('file_name')
+                            ->values();
+                        $modalScope = 'partial-' . $form->id;
 
-                <div class="modal-body">
-                    @if ($form)
-                        @php
-                            $files = $form->Files ?? collect();
-                            $groupedFiles = $files
-                                ->groupBy(fn ($file) => mb_strtoupper($file->service->service ?? 'OUTROS'))
-                                ->sortKeys();
-                            $previewFiles = $files
-                                ->filter(fn ($f) => in_array(mb_strtolower($f->ext), $imageExtensions, true))
-                                ->sortBy('file_name')
-                                ->values();
-                            $modalScope = 'partial-' . $form->id;
-                        @endphp
+                        $money     = fn (?float $v) => $v === null ? '—' : 'R$ ' . number_format($v, 2, ',', '.');
+                        $planned   = (float) ($form->Orders?->sum('custPlanejado') ?? 0);
+                        $value     = (float) $form->value;
+                        $age       = (int) $form->created_at->copy()->startOfDay()->diffInDays(now()->startOfDay());
+                        $due       = (new DaysLeft($note))->getLastDate();
+                        $dueDays   = (new DaysLeft($note))->getDaysLeft();
+                        $pepTone   = match ($pep['state']) { 'short' => 'red', 'ok' => 'green', default => 'muted' };
+                        $pepLabel  = match ($pep['state']) { 'short' => $pep['reason'] === 'ads_exceeds' ? 'ADS acima do saldo' : 'Sem saldo disponível', 'ok' => 'Cobre o pedido', default => 'Sem saldo sincronizado' };
+                        $coverage  = $pep['total'] !== null && $value > 0 ? min(100, max(0, $pep['total'] / $value * 100)) : null;
+                        $statusNote = $note->type_note == 2 ? ($note->nstats ?? '-') : ($note->centerjob ?? '-');
+                    @endphp
 
-                        <div class="work-summary-grid mb-3">
-                            <div class="work-summary-item">
-                                <span>NOTA/OV</span>
-                                <strong>{{ $form->Note->note }}</strong>
+                    <header class="cpop-hero">
+                        <div class="cpop-hero-main">
+                            <div class="cpop-hero-eyebrow">Informe parcial · aguardando aprovação</div>
+                            <h2 class="cpop-hero-title" id="modalPartialInfoLabel">Nota/OV {{ $note->note }}</h2>
+                            <div class="cpop-hero-meta">
+                                <span><i class="ri-map-pin-2-line"></i> {{ mb_strtoupper($note->lexp ?? '—') }}</span>
+                                <span><i class="ri-building-2-line"></i> {{ mb_strtoupper($form->Company->name ?? '—') }}</span>
+                                <span><i class="ri-time-line"></i> enviada {{ $form->created_at?->format('d/m/Y H:i') }} · há {{ $age }} {{ $age === 1 ? 'dia' : 'dias' }}</span>
                             </div>
-                            <div class="work-summary-item">
-                                <span>EMPREITEIRA</span>
-                                <strong>{{ mb_strtoupper($form->Company->name ?? '-') }}</strong>
-                            </div>
-                            <div class="work-summary-item">
-                                <span>DATA DE ENVIO</span>
-                                <strong>{{ $form->created_at?->format('d/m/Y H:i:s') }}</strong>
-                            </div>
-                            <div class="work-summary-item">
-                                <span>ARQUIVOS</span>
-                                <strong>{{ $files->count() }}</strong>
-                            </div>
-                        </div>
-
-                        <div class="card work-card">
-                            <h5 class="card-header py-2 my-0 edp-bg-sprucegreen-70 text-edp-verde">
-                                INFORMAÇÕES DA NOTA
-                            </h5>
-                            <div class="card-body">
-                                <div class="work-info-grid">
-                                    <div class="work-info-row">
-                                        <span>CLIENTE</span>
-                                        <strong>{{ mb_strtoupper($form->Note->client ?? '-') }}</strong>
-                                    </div>
-                                    <div class="work-info-row">
-                                        <span>RUBRICA</span>
-                                        <strong>{{ mb_strtoupper($form->Note->rubrica ?? '-') }}</strong>
-                                    </div>
-                                    <div class="work-info-row">
-                                        <span>MUNICÍPIO</span>
-                                        <strong>{{ mb_strtoupper($form->Note->lexp ?? '-') }}</strong>
-                                    </div>
-                                    <div class="work-info-row">
-                                        <span>MATERIAL</span>
-                                        <strong>{{ mb_strtoupper($form->Note->material ?? '-') }}</strong>
-                                    </div>
-                                    <div class="work-info-row">
-                                        <span>STATUS</span>
-                                        <strong>{{ $form->Note->type_note == 2 ? ($form->Note->nstats ?? '-') : ($form->Note->centerjob ?? '-') }}</strong>
-                                    </div>
-                                    <div class="work-info-row">
-                                        <span>PRAZO</span>
-                                        <strong class="text-primary">{{ (new DaysLeft($form->Note))->getLastDate() }}</strong>
-                                    </div>
-                                    <div class="work-info-row">
-                                        <span>VALOR DA PARCIAL</span>
-                                        <strong>R$ {{ number_format((float) $form->value, 2, ',', '.') }}</strong>
-                                    </div>
-                                    <div class="work-info-row">
-                                        <span>VALOR PLANEJADO (OBRA)</span>
-                                        <strong>
-                                            R$ {{ number_format((float) ($form->Orders?->sum('custPlanejado') ?? 0), 2, ',', '.') }}
-                                        </strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card work-card mt-3">
-                            <h5 class="card-header py-2 my-0 edp-bg-sprucegreen-70 text-edp-verde">
-                                INFORMAÇÕES DO PEDIDO PARCIAL
-                            </h5>
-                            <div class="card-body">
-                                <div class="work-info-grid">
-                                    <div class="work-info-row">
-                                        <span>RESPONSÁVEL PELO ENVIO</span>
-                                        <strong>{{ $form->User->name ?? '-' }}</strong>
-                                    </div>
-                                    <div class="work-info-row">
-                                        <span>DECISÃO EM</span>
-                                        <strong>{{ $form->decision_at?->format('d/m/Y H:i:s') ?? '-' }}</strong>
-                                    </div>
-                                    <div class="work-info-row work-info-row-full">
-                                        <span>OBSERVAÇÃO</span>
-                                        <strong>{{ trim((string) $form->observation) ?: 'SEM OBSERVAÇÃO' }}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card work-card mt-3">
-                            <div
-                                class="card-header py-2 my-0 edp-bg-sprucegreen-70 text-edp-verde d-flex align-items-center justify-content-between gap-2 flex-wrap">
-                                <h5 class="my-0 fw-bold">ARQUIVOS ANEXADOS</h5>
-                                @if ($files->isNotEmpty())
-                                    <span class="badge text-bg-light">{{ $files->count() }} arquivo(s)</span>
+                            <x-engineers.partial-steps :partial="$form" dark class="cpop-hero-steps" />
+                            <div class="cpop-hero-chips">
+                                <span class="cpop-chip">{{ $form->scopeLabel() }}</span>
+                                @if ($note->rubrica)
+                                    <span class="cpop-chip">{{ mb_strtoupper($note->rubrica) }}</span>
                                 @endif
+                                <span class="cpop-chip">{{ $files->count() }} {{ $files->count() === 1 ? 'anexo' : 'anexos' }}</span>
                             </div>
-                            <div class="card-body">
-                                @if ($files->isNotEmpty())
+                        </div>
+                        <button type="button" class="cpop-close cpop-close-light" data-bs-dismiss="modal" aria-label="Fechar"><i class="ri-close-line"></i></button>
+                    </header>
+
+                    <div class="cpop-body">
+                        {{-- Indicadores --}}
+                        <div class="cpop-kpis">
+                            <div class="cpop-kpi tone-blue">
+                                <i class="ri-money-dollar-circle-line"></i>
+                                <div>
+                                    <small>Valor da parcial (ADS)</small>
+                                    <strong>{{ $money($value) }}</strong>
+                                    <span>{{ $planned > 0 ? round($value / $planned * 100) . '% do planejado' : 'sem planejado' }}</span>
+                                </div>
+                            </div>
+                            <div class="cpop-kpi tone-teal">
+                                <i class="ri-hammer-line"></i>
+                                <div>
+                                    <small>Planejado da obra</small>
+                                    <strong>{{ $money($planned) }}</strong>
+                                    <span>{{ $form->Orders->count() }} {{ $form->Orders->count() === 1 ? 'ordem' : 'ordens' }}</span>
+                                </div>
+                            </div>
+                            <div class="cpop-kpi tone-{{ $pepTone }}">
+                                <i class="ri-wallet-3-line"></i>
+                                <div>
+                                    <small>Saldo do PEP</small>
+                                    <strong>{{ $money($pep['total']) }}</strong>
+                                    <span>{{ $pepLabel }}</span>
+                                </div>
+                            </div>
+                            <div class="cpop-kpi tone-{{ $dueDays < 0 ? 'red' : ($dueDays <= 3 ? 'amber' : 'green') }}">
+                                <i class="ri-calendar-check-line"></i>
+                                <div>
+                                    <small>Prazo da nota</small>
+                                    <strong>{{ $due }}</strong>
+                                    <span>{{ $dueDays < 0 ? abs($dueDays) . ' dia(s) em atraso' : ($dueDays === 0 ? 'vence hoje' : $dueDays . ' dia(s) restantes') }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        @if ($pep['state'] === 'short')
+                            <div class="cpop-alert tone-red" role="alert">
+                                <i class="ri-error-warning-line"></i>
+                                <div>
+                                    <strong>{{ $pep['reason'] === 'ads_exceeds' ? 'O valor da parcial passa do saldo do PEP.' : 'O PEP desta obra está sem saldo disponível.' }}</strong>
+                                    <span>
+                                        {{ $pep['alert'] ? 'Este informe já está na lista de observação' . ($pep['alert']->status === 'open' ? ' e aguarda tratamento.' : ' (tratado).') : 'Avalie com a gestão do orçamento antes de aprovar.' }}
+                                        <a href="{{ route('engineers.pep_alerts') }}" class="ms-1">Ver informes sem saldo</a>
+                                    </span>
+                                </div>
+                            </div>
+                        @endif
+
+                        <div class="row g-3">
+                            <div class="col-12 col-lg-7">
+                                {{-- Obra e pedido --}}
+                                <section class="cpop-section">
+                                    <h3 class="cpop-section-title"><i class="ri-building-line"></i> Obra e pedido</h3>
+                                    <dl class="cpop-facts">
+                                        <div><dt>Cliente</dt><dd>{{ mb_strtoupper($note->client ?? '—') }}</dd></div>
+                                        <div><dt>Município</dt><dd>{{ mb_strtoupper($note->lexp ?? '—') }}</dd></div>
+                                        <div><dt>Material</dt><dd>{{ mb_strtoupper($note->material ?? '—') }}</dd></div>
+                                        <div><dt>Status da nota</dt><dd>{{ $statusNote }}</dd></div>
+                                        <div><dt>Responsável pelo envio</dt><dd>{{ $form->User->name ?? '—' }}</dd></div>
+                                        <div><dt>Responsável informado</dt><dd>{{ $form->responsible ?: '—' }}</dd></div>
+                                    </dl>
+
+                                    @php $contractorNote = trim((string) $form->observation); @endphp
+                                    <div class="cpop-callout {{ $contractorNote ? 'tone-amber' : 'tone-muted' }}">
+                                        <div class="cpop-callout-head">
+                                            <i class="ri-chat-quote-line"></i>
+                                            <span>Observação da empreiteira</span>
+                                            <em>{{ mb_strtoupper($form->Company->name ?? '—') }}</em>
+                                        </div>
+                                        <p class="cpop-callout-text">{{ $contractorNote ?: 'A empreiteira não registrou observação neste envio.' }}</p>
+                                        @if ($form->responsible)
+                                            <div class="cpop-callout-by"><i class="ri-user-3-line"></i> {{ $form->responsible }} · {{ $form->created_at?->format('d/m/Y H:i') }}</div>
+                                        @endif
+                                    </div>
+                                </section>
+
+                                {{-- Ordens e PEP --}}
+                                <section class="cpop-section">
+                                    <h3 class="cpop-section-title"><i class="ri-list-check-2"></i> Ordens e PEP</h3>
+                                    @if ($form->Orders->isEmpty())
+                                        <div class="cpop-muted">Nenhuma ordem vinculada a esta parcial.</div>
+                                    @else
+                                        <div class="table-responsive">
+                                            <table class="table table-sm align-middle mb-0 cpop-table">
+                                                <colgroup><col class="col-pct-24"><col class="col-pct-30"><col class="col-pct-23"><col></colgroup>
+                                                <thead>
+                                                    <tr>
+                                                        <th scope="col">Ordem</th>
+                                                        <th scope="col">PEP</th>
+                                                        <th scope="col" class="text-end">Saldo</th>
+                                                        <th scope="col" class="text-end">Planejado</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach ($form->Orders as $order)
+                                                        @php $available = $pep['balances'][trim((string) $order->pep)] ?? null; @endphp
+                                                        <tr wire:key="po-{{ $order->id }}">
+                                                            <td class="fw-bold">{{ $order->ordem }}</td>
+                                                            <td class="text-truncate" title="{{ $order->pep }}">{{ $order->pep ?: '—' }}</td>
+                                                            <td class="text-end {{ $available !== null && $available <= 0 ? 'text-danger fw-bold' : '' }}">{{ $money($available) }}</td>
+                                                            <td class="text-end">{{ $money((float) $order->custPlanejado) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                        <div class="cpop-muted mt-2">Só o PEP terminado em -2 carrega o orçamento; os demais aparecem sem saldo.</div>
+                                        @if ($coverage !== null)
+                                            <div class="cpop-cover mt-2" title="Quanto do valor da parcial o saldo do PEP cobre">
+                                                <span class="cpop-cover-bar"><span class="tone-{{ $pepTone }}" style="--pct: {{ $coverage }}"></span></span>
+                                                <small>Saldo cobre {{ round($coverage) }}% do valor da parcial</small>
+                                            </div>
+                                        @endif
+                                    @endif
+                                </section>
+                            </div>
+
+                            <div class="col-12 col-lg-5">
+                                {{-- Anexos --}}
+                                <section class="cpop-section h-100">
+                                    <h3 class="cpop-section-title"><i class="ri-attachment-2"></i> Anexos <span class="cpop-count">{{ $files->count() }}</span></h3>
+                                    @if ($files->isNotEmpty())
                                     <div class="work-files" data-work-files="{{ $modalScope }}" wire:ignore.self>
                                         <ul class="nav nav-pills work-file-tabs" id="{{ $modalScope }}-tabs" role="tablist">
                                             @foreach ($groupedFiles as $serviceName => $group)
@@ -270,26 +318,29 @@
                                         <strong>NENHUM ARQUIVO ANEXADO</strong>
                                     </div>
                                 @endif
+                                </section>
                             </div>
                         </div>
+                    </div>
 
-                        <div class="card work-card mt-3">
-                            <div class="card-header edp-bg-sprucegreen-70 text-edp-verde fw-bold py-2">
-                                PARECER DA ENGENHARIA *
-                            </div>
-                            <div class="card-body">
-                                <div class="form-group mb-3">
-                                    <textarea class="form-control border border-1 border-secondary" wire:model.defer="engineer_feedback" rows="4"
-                                        placeholder="Digite seu parecer aqui..."></textarea>
-                                </div>
-                                <div class="d-flex justify-content-center gap-2 flex-wrap">
-                                    <button class="btn btn-success" wire:click="toApprove">Aprovar</button>
-                                    <button class="btn btn-danger" wire:click="toReject">Rejeitar</button>
-                                </div>
+                    <footer class="cpop-decision">
+                        <div class="cpop-decision-head">
+                            <span class="cpop-decision-icon"><i class="ri-draft-line"></i></span>
+                            <div>
+                                <h3 class="cpop-decision-title">Parecer da Engenharia <span class="cpop-required">obrigatório</span></h3>
+                                <p class="cpop-decision-hint">Registre a análise: ela fica no histórico da parcial. <strong>Aprovar</strong> libera a obra para Fiscalização e Medição; <strong>rejeitar</strong> devolve para novo envio da empreiteira.</p>
                             </div>
                         </div>
-                    @endif
-                </div>
+                        <div class="cpop-decision-body">
+                            <textarea id="engineerFeedback" class="form-control cpop-decision-text" wire:model.defer="engineer_feedback" rows="3"
+                                aria-label="Parecer da Engenharia" placeholder="Escreva o parecer aqui…"></textarea>
+                            <div class="cpop-decision-actions">
+                                <button type="button" class="btn btn-danger btn-dash cpop-btn-reject" wire:click="toReject"><i class="ri-close-circle-line"></i> Rejeitar</button>
+                                <button type="button" class="btn btn-success btn-dash cpop-btn-approve" wire:click="toApprove"><i class="ri-check-double-line"></i> Aprovar parcial</button>
+                            </div>
+                        </div>
+                    </footer>
+                @endif
             </div>
         </div>
     </div>

@@ -1,0 +1,144 @@
+// Checkpoints de progresso (.pstep): Atividade → Aprovação → Fiscalização → Medição → Finalizado.
+// Usado pelo componente <x-engineers.partial-steps> (lista, histórico e modal da Engenharia).
+
+.closure-dash .pstep {
+    --ps-done: #0f8a77;
+    --ps-current: #2563eb;
+    --ps-rejected: #e32c2c;
+    --ps-todo: #cbd5e1;
+    --ps-text: #475569;
+
+    align-items: flex-start;
+    display: flex;
+    list-style: none;
+    margin: 0;
+    min-width: 260px;
+    padding: 0;
+
+    &.is-dark {
+        --ps-done: #34d399;
+        --ps-current: #7dd3fc;
+        --ps-rejected: #fca5a5;
+        --ps-todo: rgba(255, 255, 255, .28);
+        --ps-text: rgba(248, 250, 252, .85);
+    }
+}
+
+.closure-dash .pstep-item {
+    align-items: center;
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    position: relative;
+
+    // Linha ligando ao checkpoint anterior: colorida quando o anterior foi concluído.
+    &::before {
+        background: var(--ps-todo);
+        content: '';
+        height: 3px;
+        left: -50%;
+        position: absolute;
+        top: 10px;
+        width: 100%;
+    }
+
+    &:first-child::before {
+        display: none;
+    }
+
+    &.is-done::before,
+    &.is-current::before {
+        background: var(--ps-done);
+    }
+
+    &.is-rejected::before {
+        background: var(--ps-done);
+    }
+}
+
+.closure-dash .pstep-dot {
+    align-items: center;
+    background: #fff;
+    border: 3px solid var(--ps-todo);
+    border-radius: 50%;
+    color: #fff;
+    display: inline-flex;
+    font-size: .7rem;
+    height: 22px;
+    justify-content: center;
+    position: relative;
+    width: 22px;
+    z-index: 1;
+}
+
+.closure-dash .pstep.is-dark .pstep-dot {
+    background: transparent;
+}
+
+.closure-dash .pstep-item.is-done .pstep-dot {
+    background: var(--ps-done);
+    border-color: var(--ps-done);
+}
+
+.closure-dash .pstep-item.is-current .pstep-dot {
+    background: #fff;
+    border-color: var(--ps-current);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--ps-current) 22%, transparent);
+    color: var(--ps-current);
+}
+
+.closure-dash .pstep-item.is-current .pstep-dot i {
+    animation: pstep-spin 1.6s linear infinite;
+}
+
+.closure-dash .pstep-item.is-rejected .pstep-dot {
+    background: var(--ps-rejected);
+    border-color: var(--ps-rejected);
+}
+
+.closure-dash .pstep-label {
+    color: var(--ps-text);
+    font-size: .62rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    line-height: 1.2;
+    margin-top: 5px;
+    text-align: center;
+}
+
+.closure-dash .pstep-item.is-current .pstep-label {
+    color: var(--ps-current);
+    font-weight: 850;
+}
+
+.closure-dash .pstep-item.is-rejected .pstep-label {
+    color: var(--ps-rejected);
+    font-weight: 850;
+}
+
+.closure-dash .pstep-item.is-todo .pstep-label {
+    opacity: .65;
+}
+
+.closure-dash .pstep-date {
+    color: var(--dash-muted, #64748b);
+    font-size: .6rem;
+    line-height: 1.1;
+}
+
+.closure-dash .pstep.is-dark .pstep-date {
+    color: rgba(248, 250, 252, .65);
+}
+
+@keyframes pstep-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .closure-dash .is-current .pstep-dot i {
+        animation: none;
+    }
+}

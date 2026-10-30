@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Production\Users;
 
-use App\Models\{Company, Production, Service, User};
+use App\Models\{Activeuser, Company, Production, Service, User};
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -53,7 +53,7 @@ class Occupation extends Component
             $q->where('productions.status', '!=', 29)
             ->orWhere('productions.confirmed', null);
         })
-        ->select('users.id', 'users.name', 'users.deleted_at')
+        ->select('users.id as user_id', 'users.name', 'users.deleted_at')
         ->selectRaw('count(productions.id) as registros')
         ->selectRaw('SUM(CASE WHEN notes.type_note = 2 THEN 1 ELSE 0 END) as ov')
         ->selectRaw('SUM(CASE WHEN notes.type_note = 1 THEN 1 ELSE 0 END) as notes')
@@ -96,8 +96,6 @@ class Occupation extends Component
         //     ->OrderBy('notes', 'desc')
         //     ->get();
 
-
-
         // dd($query);
 
         return $query;
@@ -110,8 +108,16 @@ class Occupation extends Component
             ->orderBy('name')
             ->get();
 
+        $lists = $this->lists;
+        // O model da consulta é Production (id inteiro): o id do usuário (uuid) vem no alias `user_id`.
+        $ids = $lists->pluck('user_id');
+
         return view('livewire.production.users.occupation', [
-            'lists' => $this->lists,
+            'lists' => $lists,
+            // Quem está com o watchdog ativo (a relação não existe na linha da consulta, então o ponto ficava sempre vermelho).
+            'online' => Activeuser::query()->where('watchdog', true)->whereIn('user_id', $ids)->pluck('user_id')->all(),
+            // Mesma foto do topo do sistema (User::avatar_url); a linha da consulta só tem id e nome.
+            'avatars' => User::withTrashed()->whereIn('id', $ids)->get(['id', 'avatar', 'email'])->mapWithKeys(fn (User $u) => [$u->id => $u->avatar_url])->all(),
         ]);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Console\Commands\Update;
 
 use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
+use App\Helpers\DaysLeft;
 use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV as Edp_depcBaseOV;
 use App\Services\Notes\OvStatusHistoryService;
@@ -126,6 +127,13 @@ class BaseOV extends Command
                         && $this->hasSourceValue($record->diasPVencimento)
                         && $this->valuesDiffer($existing->days_left, $record->diasPVencimento);
 
+                    // Data de vencimento da origem; sem data válida, o destino é zerado
+                    // para o DaysLeft recalcular a partir do days_left atualizado.
+                    $sourceDueDate   = DaysLeft::parseDueDate($record->dtVencimento ?? null);
+                    $dueDateDiverged = $existing
+                        && $sourceDueDate !== null
+                        && $existing->dt_vencimento?->format('Y-m-d') !== $sourceDueDate;
+
                     $statusDateIsNewer = $existing
                         && $this->sourceDateIsNewer($record->dhStat, $existing->dt_status);
 
@@ -133,6 +141,7 @@ class BaseOV extends Command
                         || $statusDateIsNewer
                         || $nstatsDiverged
                         || $daysLeftDiverged
+                        || $dueDateDiverged
                         || $this->option('full')
                         || $this->option('force');
 
@@ -185,9 +194,16 @@ class BaseOV extends Command
                         'type_note'     => 2,
                     ];
 
+                    $data['dt_vencimento'] = $sourceDueDate;
+
                     if ($existing) {
                         // Não substitui um valor existente quando a origem vier vazia.
-                        $data = array_filter($data, fn ($value) => $this->hasSourceValue($value));
+                        // dt_vencimento fica de fora do filtro: origem vazia zera o valor calculado.
+                        $data = array_filter(
+                            $data,
+                            fn ($value, $key) => $key === 'dt_vencimento' || $this->hasSourceValue($value),
+                            ARRAY_FILTER_USE_BOTH
+                        );
                         $existing->update($data);
                         $count['upd']++;
                     } else {

@@ -1,65 +1,7 @@
-<aside id="sidebar" class="sidebar edp-bg-sprucegreen-100">
-
-    <ul class="sidebar-nav" id="sidebar-nav">
-        <li class="nav-item">
-            <a class="nav-link collapsed" data-bs-target="#despachos-nav" data-bs-toggle="collapse" href="#">
-                <i class="bi bi-menu-button-wide"></i><span>ACOMPANHAMENTO</span><i
-                    class="bi bi-chevron-down ms-auto"></i>
-            </a>
-            <ul id="despachos-nav" class="nav-content collapse show" data-bs-parent="#sidebar-nav">
-                <div class="border-start border-3 mb-1 py-0">
-                    <li>
-                        <a href="{{ route('dispatch.dashboard', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-speedometer2 fs-5 edp-text-verde-dark fw-normal"></i><span>DASHBOARD PARA
-                                {{ mb_strtoupper($service->service) }}</span>
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('dispatch.main', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-list-ul fs-5 edp-text-Verde-dark fw-normal"></i><span>LISTA PARA
-                                {{ mb_strtoupper($service->service) }}</span>
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('dispatch.stack', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-eye fs-5 edp-text-verde-dark fw-normal"></i><span>CONTROLE DE
-                                {{ mb_strtoupper($service->service) }}</span>
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('dispatch.transprod', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-arrow-left-right fs-5 edp-text-verde-dark fw-normal"></i><span>TRANSFERÊNCIA
-                                DE
-                                {{ mb_strtoupper($service->service) }}</span>
-                                @livewire('components.count.counttransferdispatch', ['service' => $service->uuid], key('countTransfer' . $service->uuid))
-                        </a>
-                    </li>
-
-                    <li>
-                        <a href="{{ route('dispatch.d5', ['service' => $service->uuid]) }}"
-                            class="nav-item text-white fw-normal">
-                            <i class="bi bi-arrow-return-left fs-5 edp-text-verde-dark fw-normal"></i><span>RETORNO
-                                INTERNO (RI)
-                                DE
-                                {{ mb_strtoupper($service->service) }}</span>
-                                @livewire('components.count.count-return', ['service' => $service->uuid], key('count-return'))
-                        </a>
-                    </li>
-
-                                    
-</div>
-            </ul>
-        </li>
-    </ul>
-
-    <div class="col-12">
+{{-- Menu lateral padrão: a estrutura vive em App\Support\Menu\DispatchNav (docs/PADRAO_MENU_LATERAL.md). Não escreva HTML de sidebar aqui. --}}
+<x-nav.sidebar :nav="\App\Support\Menu\DispatchNav::class" :route="request()->route()?->getName()" label="Menu de despacho"
+    :context="['service' => $service ?? null, 'variant' => 'levantamento']">
+    @if (!empty($service))
         @livewire('production.users.occupation', ['service_id' => $service->uuid], key('production-' . $service->uuid))
-    </div>
-</aside>
+    @endif
+</x-nav.sidebar>

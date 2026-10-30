@@ -36,6 +36,9 @@ h6,
 // Home do usuário (Meu painel)
 @import 'home/home';
 
+// Menu lateral padrão (todas as áreas): docs/PADRAO_MENU_LATERAL.md
+@import 'nav/sidebar';
+
 .dispatch-scroll-area,
 .dispatch-modal__table-wrap,
 #add_mass_notes .modal-body > .table-responsive {

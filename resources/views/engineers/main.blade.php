@@ -13,7 +13,7 @@
 @endsection
 
 @section('content')
-    @livewire('engineers.main', key('engineers-main'))
+    @livewire('engineers.viability-dashboard', key('engineers-viability-dashboard'))
 @endsection
 
 

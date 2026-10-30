@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Production\Users;
 
-use App\Models\{Company, Production, Service, User};
+use App\Models\{Activeuser, Company, Production, Service, User};
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -109,8 +109,6 @@ class OccupationConstruction extends Component
         //     ->OrderBy('notes', 'desc')
         //     ->get();
 
-
-
         // dd($query);
 
         return $query;
@@ -123,8 +121,15 @@ class OccupationConstruction extends Component
             ->orderBy('name')
             ->get();
 
+        $lists = $this->lists;
+        $ids   = $lists->pluck('id');
+
         return view('livewire.production.users.occupation-construction', [
-            'lists' => $this->lists,
+            'lists' => $lists,
+            // Quem está com o watchdog ativo (a relação não existe na linha da consulta, então o ponto ficava sempre vermelho).
+            'online' => Activeuser::query()->where('watchdog', true)->whereIn('user_id', $ids)->pluck('user_id')->all(),
+            // Mesma foto do topo do sistema (User::avatar_url); a linha da consulta só tem id e nome.
+            'avatars' => User::withTrashed()->whereIn('id', $ids)->get(['id', 'avatar', 'email'])->mapWithKeys(fn (User $u) => [$u->id => $u->avatar_url])->all(),
         ]);
     }
 }

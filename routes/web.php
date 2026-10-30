@@ -357,6 +357,7 @@ Route::prefix('/engineers')->controller(EngineerController::class)->middleware([
     Route::get('/viability_reports', 'viability_reports')->name('viabilityreports');
     Route::get('/waiting_inform_parc', 'waiting_parc')->name('info.parcial');
     Route::get('/hist_inform_parc', 'hist_parc')->name('hist.parcial');
+    Route::get('/informes_sem_saldo_pep', 'pep_alerts')->name('pep_alerts');
     Route::get('/waitingDfive', 'waiting_dfive')->name('dfive.waiting');
     Route::get('/ads_requests', 'adsRequests')->name('ads.requests');
     Route::get('/ads_situation', 'adsSituation')->name('ads.situation');
