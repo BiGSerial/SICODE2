@@ -1,551 +1,537 @@
-﻿
-<div class="d5-page">
-    @php
-        $filters = [
-            [
-                'key' => 'company',
-                'label' => 'Empreiteira',
-                'type' => 'multi',
-                'provider' => [
-                    'type' => 'eloquent',
-                    'model' => \App\Models\Company::class,
-                    'value' => 'id',
-                    'label' => 'name',
-                    'distinct' => true,
-                    'orderBy' => ['name' => 'asc'],
-                    'limit' => 300,
+@php
+    $A = \App\Services\Engineers\D5ConsultAnalytics::class;
+    $R = \App\Services\D5\D5StageResolver::class;
+
+    $s       = $snapshot['summary'];
+    $stages  = $snapshot['stages'];
+    $flow    = $snapshot['flow'];
+    $buckets = $snapshot['age_buckets'];
+    $hasOpen = $s['open'] > 0;
+    $days    = fn (?float $d) => $d === null ? '—' : ($d < 1 ? 'hoje' : (int) round($d) . ' ' . ((int) round($d) === 1 ? 'dia' : 'dias'));
+    $decimal = fn (?float $d) => $d === null ? '—' : number_format($d, 1, ',', '.') . ' dias';
+    $pct     = fn (int $part, int $whole) => $whole > 0 ? number_format($part / $whole * 100, 0) . '%' : '0%';
+
+    $stageValues = array_values(array_map(fn ($x) => $x['total'], $stages));
+    $stageLabels = array_values(array_map(fn ($x) => $x['label'], $stages));
+    $oldestByStage = array_values(array_map(fn ($x) => $x['oldest'] ?? 0, $stages));
+
+    $tone = fn (int $late, int $total) => $late === 0 ? 'blue' : ($total > 0 && $late / $total >= 0.5 ? 'red' : 'amber');
+
+    $rank = function (array $rows) use ($tone) {
+        $max = max(1, collect($rows)->max('total'));
+
+        return collect($rows)->take(10)->map(fn ($r) => [
+            'label' => $r['label'],
+            'text'  => (string) $r['total'],
+            'pct'   => $r['total'] / $max * 100,
+            'tone'  => $tone($r['late'], $r['total']),
+            'sub'   => $r['late'] . ' atrasada(s) · mais antiga há ' . ($r['oldest'] ?? 0) . ' d',
+        ])->all();
+    };
+
+    $companyRows = $rank($snapshot['by_company']);
+    $reasonRows  = $rank($snapshot['by_reason']);
+
+    $chips = [
+        ''                              => ['Todas', $s['total']],
+        $R::SUPPLIER       => ['Fornecedor', $stages[$R::SUPPLIER]['total']],
+        $R::FISCALIZATION  => ['Fiscalização', $stages[$R::FISCALIZATION]['total']],
+        $R::PAYMENT        => ['Medição', $stages[$R::PAYMENT]['total']],
+        $R::FINALIZED      => ['Finalizado', $s['finalized']],
+    ];
+
+    $filters = [
+        [
+            'key' => 'company',
+            'label' => 'Empreiteira',
+            'type' => 'multi',
+            'provider' => [
+                'type' => 'eloquent',
+                'model' => \App\Models\Company::class,
+                'value' => 'id',
+                'label' => 'name',
+                'distinct' => true,
+                'orderBy' => ['name' => 'asc'],
+                'limit' => 300,
+            ],
+        ],
+        [
+            'key' => 'type',
+            'label' => 'Tipo',
+            'type' => 'single',
+            'provider' => [
+                'type' => 'static',
+                'options' => [['value' => 2, 'label' => 'OV'], ['value' => 1, 'label' => 'NOTA']],
+            ],
+        ],
+        [
+            'key' => 'passive_mode',
+            'label' => 'Meta / Passivo',
+            'type' => 'single',
+            'provider' => [
+                'type' => 'static',
+                'options' => [
+                    ['value' => 'both', 'label' => 'Meta + Passivo'],
+                    ['value' => 'meta', 'label' => 'Meta'],
+                    ['value' => 'passive', 'label' => 'Passivo'],
                 ],
             ],
-            [
-                'key' => 'type',
-                'label' => 'Tipo',
-                'type' => 'single',
-                'provider' => [
-                    'type' => 'static',
-                    'options' => [['value' => 2, 'label' => 'OV'], ['value' => 1, 'label' => 'NOTA']],
+        ],
+        [
+            'key' => 'city',
+            'label' => 'Municipio',
+            'type' => 'multi',
+            'provider' => [
+                'type' => 'eloquent',
+                'model' => \App\Models\City::class,
+                'value' => 'rdMunicipio',
+                'label' => 'cidade',
+                'distinct' => true,
+                'orderBy' => ['cidade' => 'asc'],
+                'limit' => 300,
+            ],
+        ],
+        [
+            'key' => 'rubrica',
+            'label' => 'Rubrica',
+            'type' => 'multi',
+            'provider' => [
+                'type' => 'eloquent',
+                'model' => \App\Models\Note::class,
+                'value' => 'rubrica',
+                'label' => 'rubrica',
+                'distinct' => true,
+                'orderBy' => ['rubrica' => 'asc'],
+                'limit' => 300,
+            ],
+        ],
+        [
+            'key' => 'period_column',
+            'label' => 'Período por',
+            'type' => 'single',
+            'provider' => [
+                'type' => 'static',
+                'options' => [
+                    ['value' => 'dispatch', 'label' => 'Despacho'],
+                    ['value' => 'completed', 'label' => 'Conclusão'],
+                    ['value' => 'both', 'label' => 'Despacho ou Conclusão'],
                 ],
             ],
-            [
-                'key' => 'passive_mode',
-                'label' => 'Meta / Passivo',
-                'type' => 'single',
-                'provider' => [
-                    'type' => 'static',
-                    'options' => [
-                        ['value' => 'both', 'label' => 'Meta + Passivo'],
-                        ['value' => 'meta', 'label' => 'Meta'],
-                        ['value' => 'passive', 'label' => 'Passivo'],
-                    ],
-                ],
-            ],
-            [
-                'key' => 'city',
-                'label' => 'Municipio',
-                'type' => 'multi',
-                'provider' => [
-                    'type' => 'eloquent',
-                    'model' => \App\Models\City::class,
-                    'value' => 'rdMunicipio',
-                    'label' => 'cidade',
-                    'distinct' => true,
-                    'orderBy' => ['cidade' => 'asc'],
-                    'limit' => 300,
-                ],
-            ],
-            [
-                'key' => 'rubrica',
-                'label' => 'Rubrica',
-                'type' => 'multi',
-                'provider' => [
-                    'type' => 'eloquent',
-                    'model' => \App\Models\Note::class,
-                    'value' => 'rubrica',
-                    'label' => 'rubrica',
-                    'distinct' => true,
-                    'orderBy' => ['rubrica' => 'asc'],
-                    'limit' => 300,
-                ],
-            ],
-            [
-                'key' => 'period_column',
-                'label' => 'Período por',
-                'type' => 'single',
-                'provider' => [
-                    'type' => 'static',
-                    'options' => [
-                        ['value' => 'dispatch', 'label' => 'Despacho'],
-                        ['value' => 'completed', 'label' => 'Conclusão'],
-                        ['value' => 'both', 'label' => 'Despacho ou Conclusão'],
-                    ],
-                ],
-            ],
-            [
-                'key' => 'desired_between',
-                'label' => 'Período (de/ate)',
-                'type' => 'daterange',
-                'include_nulls' => false,
-                'treat_zero_date_as_null' => false,
-            ],
-        ];
-    @endphp
+        ],
+        [
+            'key' => 'desired_between',
+            'label' => 'Período (de/ate)',
+            'type' => 'daterange',
+            'include_nulls' => false,
+            'treat_zero_date_as_null' => false,
+        ],
+    ];
+@endphp
 
-    {{-- Loading --}}
-    <x-show-loading />
+<div class="closure-dash my-panel">
 
-    <style>
-        .d5-page {
-            --d5-bg: #f6f7fb;
-            --d5-surface: #ffffff;
-            --d5-ink: #1f2933;
-            --d5-muted: #6b7280;
-            --d5-accent: #0f766e;
-            --d5-border: #e5e7eb;
-            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
-                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
-                var(--d5-bg);
-            padding: 1.5rem 0;
-        }
+    {{-- Hero --}}
+    <header class="mp-hero">
+        <div class="mp-hero-text">
+            <div class="mp-eyebrow">Engenharia · Acompanhamento de D5</div>
+            <h1 class="mp-hero-title">Consulta geral D5</h1>
+            <p class="mp-hero-sub">Onde cada D5 está (fornecedor, fiscalização ou medição), há quantos dias espera e quem a está segurando.</p>
+        </div>
+        <div class="mp-hero-actions">
+            <a href="#d5-lista" class="btn btn-light btn-sm btn-dash"><i class="ri-list-check-2"></i> Ir para a lista</a>
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel" title="Excel da lista, nos filtros atuais">
+                <i class="ri-file-excel-2-line"></i> Exportar Excel
+            </button>
+        </div>
+    </header>
 
-        .d5-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
-            color: #f8fafc;
-            border-radius: 1rem;
-            padding: 1.5rem 2rem;
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
-            margin-bottom: 1.5rem;
-        }
-
-        .d5-header h2 {
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            margin: 0;
-        }
-
-        .d5-header .meta {
-            color: rgba(248, 250, 252, 0.75);
-            font-size: 0.95rem;
-        }
-
-        .filters-grid .filter-card {
-            background-color: var(--d5-surface);
-            border: 1px solid var(--d5-border);
-            border-radius: 0.9rem;
-            padding: 1rem 1.25rem;
-            height: 100%;
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-        }
-
-        .filters-grid .filter-card h6 {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 600;
-            color: var(--d5-muted);
-        }
-
-        .filters-grid .btn-group .btn {
-            min-width: 88px;
-        }
-
-        .summary-bar {
-            background: var(--d5-surface);
-            border: 1px solid var(--d5-border);
-            border-radius: 0.9rem;
-            padding: 0.75rem 1.25rem;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-        }
-
-        .summary-bar .summary-item {
-            font-size: 0.92rem;
-            color: var(--d5-muted);
-        }
-
-        .summary-bar .summary-item strong {
-            color: var(--d5-ink);
-        }
-
-        .table-card {
-            background: var(--d5-surface);
-            border: 1px solid var(--d5-border);
-            border-radius: 1rem;
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-            overflow: hidden;
-        }
-
-        .table-card .table thead th {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            white-space: nowrap;
-        }
-
-        .table-card .table tbody td {
-            font-size: 0.92rem;
-        }
-
-        @media (max-width: 991px) {
-            .d5-header {
-                padding: 1.25rem;
-            }
-        }
-    </style>
-
-    <div class="container-fluid">
-        <div class="d5-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
-            <div>
-                <h2>CONSULTA GERAL D5</h2>
-                <div class="meta">Acompanhamento completo das notas D5</div>
+    {{-- Filtros --}}
+    <section class="mp-filters filter-bar" aria-label="Filtros da consulta">
+        <div class="row g-3 align-items-end">
+            <div class="col-12 col-md-8 col-xl-5">
+                <label class="form-label small mb-1" for="d5-search">Buscar D5, nota, motivo ou empreiteira</label>
+                <div class="input-group input-group-sm">
+                    <input id="d5-search" type="text" class="form-control" wire:model.debounce.600ms="search" placeholder="Digite parte do número ou do nome">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscarMultiModal" title="Busca múltipla: cole vários números de D5 ou de nota">
+                        <i class="ri-checkbox-multiple-blank-line"></i> Busca múltipla
+                    </button>
+                </div>
             </div>
-            <div class="text-lg-end">
-                <div class="meta">Filtros rapidos e busca em massa</div>
+            <div class="col-6 col-md-2 col-xl-2">
+                <label class="form-label small mb-1" for="d5-per-page">Linhas por página</label>
+                <select id="d5-per-page" class="form-select form-select-sm" wire:model="perPage">
+                    @foreach ([25, 50, 100, 200, 500] as $n)
+                        <option value="{{ $n }}">{{ $n }}</option>
+                    @endforeach
+                </select>
             </div>
         </div>
-
-        {{-- START SearchBar and Filters --}}
-        <div class="card mb-3 border-0 bg-transparent">
-            <div class="card-body px-0">
-                <div class="row g-3 filters-grid">
-                    <div class="col-12 col-lg-5 col-xl-4">
-                        <div class="filter-card">
-                            <h6>Pesquisa</h6>
-                            <div class="row g-2">
-                                <div class="col-12 col-sm-5">
-                                    <div class="form-floating w-100">
-                                        <select class="form-select border border-secondary" wire:model="perPage"
-                                            id="perPageSelect">
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                            <option value="200">200</option>
-                                            <option value="500">500</option>
-                                        </select>
-                                        <label for="perPageSelect">Registros por pagina</label>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-sm-7">
-                                    <div class="form-floating w-100 position-relative">
-                                        <input wire:model.debounce.600ms="search" type="text"
-                                            class="form-control border border-secondary" id="search"
-                                            placeholder="Buscar">
-                                        <label for="search">Buscar D5, nota, empreiteira</label>
-                                        <button
-                                            class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
-                                            data-bs-toggle="modal" data-bs-target="#buscarMultiModal">
-                                            <i class="ri-checkbox-multiple-blank-line"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <small class="text-muted d-block mt-2">Use busca multipla para D5 ou numero da nota.</small>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-lg-4 col-xl-4">
-                        <div class="filter-card">
-                            <h6>Etapa</h6>
-                            <small class="text-muted d-block mb-2">Selecione uma etapa ou veja todas</small>
-                            <div class="btn-group w-100 flex-wrap" role="group" aria-label="Status">
-                                <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
-                                    value="" id="statusAll">
-                                <label class="btn btn-outline-secondary" for="statusAll">Todas</label>
-
-                                <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
-                                    value="aguardando_fornecedor" id="statusFornecedor">
-                                <label class="btn btn-outline-secondary" for="statusFornecedor">Fornecedor</label>
-
-                                <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
-                                    value="aguardando_fiscalizacao" id="statusFiscalizacao">
-                                <label class="btn btn-outline-secondary" for="statusFiscalizacao">Fiscalizacao</label>
-
-                                <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
-                                    value="aguardando_pagamento" id="statusPagamento">
-                                <label class="btn btn-outline-secondary" for="statusPagamento">Medição</label>
-
-                                <input type="radio" class="btn-check" name="statusFilter" wire:model="statusFilter"
-                                    value="finalizado" id="statusFinalizado">
-                                <label class="btn btn-outline-secondary" for="statusFinalizado">Finalizado</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-xl-4">
-                        <div class="filter-card h-100">
-                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                <h6 class="mb-0">Filtros adicionais</h6>
-                            </div>
-                            @livewire('components.filters.bar', ['config' => $filters, 'group' => 'payments', 'manualApply' => true], key('filters-bar'))
-                        </div>
-                    </div>
-                </div>
-            </div>
+        <div class="mt-3">
+            @livewire('components.filters.bar', ['config' => $filters, 'group' => 'payments', 'manualApply' => true], key('filters-bar'))
         </div>
-        {{-- END SearchBar and Filters --}}
-
-        <div class="summary-bar mb-3">
-            <div class="row align-items-center">
-                <div class="col-12 col-lg-6">
-                    @if ($lists?->count())
-                        {{ $lists?->links() }}
-                    @endif
-                </div>
-                <div class="col-12 col-lg-6 text-lg-end">
-                    <div class="d-flex flex-column flex-lg-row justify-content-lg-end align-items-lg-center gap-2">
-                        <button class="btn btn-success btn-sm" wire:click="exportToExcel">
-                            <i class="ri-file-excel-2-line me-1"></i>Exportar
-                        </button>
-                        <div class="summary-item">
-                            Exibindo <strong>{{ $lists->firstItem() ?? 0 }}</strong> ate
-                            <strong>{{ $lists->lastItem() ?? 0 }}</strong> de
-                            <strong>{{ $lists->total() ?? 0 }}</strong> registros.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="table-card">
-            @if (!$lists || !$lists->count())
-                <div class="card-body">
-                    <h4 class="text-center text-muted">SEM DADOS PARA EXIBIR</h4>
-                </div>
-            @else
-                <div class="table-responsive">
-                    <table class="table table-sm table-hover table-striped mb-0 align-middle">
-                        <thead class="table-dark">
-                            <tr class="align-middle text-center">
-                                <th style="width:15px;"> <input class="form-check-input" type="checkbox" wire:model="selectall"
-                                        wire:click="setSelectAll" @checked($this->checkAllSelect($lists))></th>
-                                <th>Nota D5</th>
-                                <th>Informe</th>
-                                <th>Escopo</th>
-                                <th>Nota</th>
-                                <th>Rubrica</th>
-                                <th>Empreiteira</th>
-                                <th>Motivo</th>
-                                <th>Cod</th>
-                                <th>Data Despacho</th>
-                                <th>Retorno Empreiteira</th>
-                                <th>Tempo</th>
-                                <th>Etapa</th>
-                                <th>Status</th>
-                                <th>Responsável</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($lists as $list)
-                                @php
-                                    $meta = $list->tracking_meta ?? [];
-                                    $activity = $meta['activity'] ?? [];
-                                    $assignee = $meta['assignee'] ?? [];
-
-                                    $activityStart = null;
-                                    if (($activity['key'] ?? null) === 'aguardando_pagamento') {
-                                        $activityStart = $list->supervisioned_at;
-                                    } elseif (($activity['key'] ?? null) === 'aguardando_fiscalizacao') {
-                                        $activityStart = $list->completed_at;
-                                    } elseif (($activity['key'] ?? null) === 'aguardando_geracao_d5') {
-                                        $activityStart = $list->created_at;
-                                    } elseif (($activity['key'] ?? null) === 'aguardando_fornecedor') {
-                                        $activityStart = $list->dispatch_at;
-                                    }
-
-                                    // Etapa vinda do status do informe pode não ter a data própria preenchida na D5.
-                                    if (!$activityStart && ($activity['key'] ?? null) !== 'finalizado') {
-                                        $activityStart = $list->supervisioned_at ?? $list->completed_at ?? $list->dispatch_at;
-                                    }
-
-                                    $daysOverdue = $activityStart?->diffInDays();
-                                    $badgeClass = 'bg-success';
-                                    $badgeText = 'No prazo';
-                                    $phaseLabel = match ($activity['key'] ?? '') {
-                                        'aguardando_geracao_d5', 'aguardando_pagamento' => 'Medição',
-                                        'aguardando_fiscalizacao' => 'Fiscalizacao',
-                                        'aguardando_fornecedor' => 'Fornecedor',
-                                        'finalizado' => 'Finalizado',
-                                        default => '---',
-                                    };
-
-                                    if ($daysOverdue > 3 && $daysOverdue <= 5) {
-                                        $badgeClass = 'bg-warning';
-                                        $badgeText = 'Atencao';
-                                    } elseif ($daysOverdue > 5) {
-                                        $badgeClass = 'bg-danger';
-                                        $badgeText = 'Atrasado';
-                                    }
-                                @endphp
-                                <tr class="text-center {{ $list->is_supervisioned ? 'table-success' : '' }}">
-                                    <td><input class="form-check-input border border-1 border-primary " type="checkbox"
-                                            value="{{ $list->id }}" wire:model.defer="selected">
-                                    </td>
-                                    <td>
-                                        {{ $list->note_d5 }}
-                                        @if ($list->isPassive)
-                                            <span class="badge text-bg-info ms-2">Passiva</span>
-                                        @endif
-                                    </td>
-                                    @php
-                                        $d5Associations = collect();
-                                        if ($list->work_report_id) {
-                                            foreach (collect($list->WorkReport?->selected_final_scopes ?? ["general"])->filter() as $scope) {
-                                                $d5Associations->push(["report" => $list->work_report_id, "scope" => $scope]);
-                                            }
-                                        }
-                                        if (!$list->work_report_id) {
-                                        foreach (($list->productions ?? collect()) as $production) {
-                                            foreach (($production->WorkReportFlowProductions ?? collect())->where("is_current", true)->whereNotNull("work_report_id") as $flow) {
-                                                $d5Associations->push(["report" => $flow->work_report_id, "scope" => $flow->final_scope ?: "general"]);
-                                            }
-                                        }
-                                        }
-                                        $d5Associations = $d5Associations->unique(fn ($item) => $item["report"] . "|" . $item["scope"])->values();
-                                    @endphp
-                                    <td>
-                                        @forelse ($d5Associations as $association)
-                                            <span class="badge bg-light text-dark">#{{ $association["report"] }}</span>
-                                        @empty
-                                            <span class="text-muted">---</span>
-                                        @endforelse
-                                    </td>
-                                    <td>
-                                        @forelse ($d5Associations as $association)
-                                            @php
-                                                $scopeLabel = match ($association["scope"]) {
-                                                    "connection" => "Ligação",
-                                                    "network" => "Rede",
-                                                    default => "Geral",
-                                                };
-                                                $scopeClass = $association["scope"] === "connection" ? "text-bg-warning" : "text-bg-success";
-                                            @endphp
-                                            <span class="badge {{ $scopeClass }}">{{ $scopeLabel }}</span>
-                                        @empty
-                                            <span class="text-muted">---</span>
-                                        @endforelse
-                                    </td>
-                                    <td>{{ $list->note->note }}</td>
-                                    <td>{{ $list->note->rubrica }}</td>
-                                    <td class="fw-bold">{{ $list->company?->name }}</td>
-                                    <td>{{ $list->reason }}</td>
-                                    <td>{{ $list->codify }}</td>
-                                    <td>{{ $list->dispatch_at?->format('d/m/Y H:i') }}</td>
-                                    <td>
-                                        @if ($list->completed_at)
-                                            {{ $list->completed_at->format('d/m/Y H:i') }}
-                                        @else
-                                            <span class="badge text-bg-secondary">Sem retorno</span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        @if ($activityStart)
-                                            <span class="badge {{ $badgeClass }}">
-                                                <i class="ri-time-line me-1"></i> {{ $daysOverdue }} dias
-                                            </span>
-                                            <div class="small text-muted mt-1">{{ $badgeText }}</div>
-                                        @else
-                                            <span class="badge text-bg-secondary">
-                                                <i class="ri-check-line me-1"></i> Finalizado
-                                            </span>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <span class="badge text-bg-primary">
-                                            {{ $phaseLabel }}
-                                        </span>
-                                        @if (($meta['cycle'] ?? 1) === 2)
-                                            <div><span class="badge text-bg-info mt-1">Ciclo 2 · Retorno D5</span></div>
-                                        @else
-                                            <div><span class="badge text-bg-light text-dark border mt-1">Ciclo 1</span></div>
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <span class="badge {{ $activity['color'] ?? 'text-bg-secondary' }}">
-                                            {{ $activity['label'] ?? 'Sem status' }}
-                                        </span>
-                                    </td>
-                                    <td class="text-start">
-                                        @if ($assignee['has_assignee'] ?? false)
-                                            <div class="fw-semibold">{{ $assignee['name'] }}</div>
-                                            <div class="small text-muted">{{ $assignee['company'] ?? 'Sem empresa' }}</div>
-                                        @else
-                                            <div class="small text-muted">Sem responsável</div>
-                                        @endif
-                                        <span class="badge {{ $assignee['assignment_badge'] ?? 'text-bg-secondary' }} mt-1">
-                                            {{ $assignee['assignment_status'] ?? 'Nao Atribuido' }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <button class="btn btn-sm btn-primary p-1"
-                                            wire:click="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->note_id }})">
-                                            Visualizar
-                                        </button>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="14" class="text-center py-5">
-                                        <i class="ri-inbox-line fs-1 d-block mb-2"></i>
-                                        Nenhum registro encontrado.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+        <div class="mp-period-note" wire:loading.class="is-loading-soft">
+            Os cartões e gráficos mostram <strong>todas as etapas</strong> nos filtros acima; a etapa escolhida na lista só filtra a tabela.
+            Dias parada = dias desde a entrada da D5 na etapa atual.
+            @if ($search || count($multiD5))
+                <button type="button" class="btn btn-link btn-sm p-0 ms-2" wire:click="clearSearch">limpar busca</button>
             @endif
         </div>
+    </section>
 
-        <div class="summary-bar mt-3">
-            <div class="row align-items-center">
-                <div class="col-12 col-lg-6">
-                    {{ $lists?->links() }}
-                </div>
-                <div class="col-12 col-lg-6 text-lg-end">
-                    <div class="summary-item">
-                        Exibindo <strong>{{ $lists->firstItem() ?? 0 }}</strong> ate
-                        <strong>{{ $lists->lastItem() ?? 0 }}</strong> de
-                        <strong>{{ $lists->total() ?? 0 }}</strong> registros.
-                    </div>
-                </div>
+    @if ($s['total'] === 0)
+        <section class="mp-panel mb-3">
+            <x-closure.empty-state icon="ri-file-search-line" title="Nenhuma D5 nos filtros atuais" text="Ajuste a busca, o período ou os filtros adicionais para ver as D5." />
+        </section>
+    @endif
+
+    <div wire:loading.class="is-loading-soft" wire:target="search,perPage,buscarMulti,clearSearch">
+
+        <h2 class="mp-section-title">Painel executivo</h2>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="blue" icon="ri-file-list-3-line" label="D5 em andamento" :value="$s['open']"
+                    :note="$stages[$R::SUPPLIER]['total'] . ' fornecedor · ' . $stages[$R::FISCALIZATION]['total'] . ' fiscalização · ' . $stages[$R::PAYMENT]['total'] . ' medição'"
+                    :values="$stageValues" :labels="$stageLabels" />
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="red" icon="ri-alarm-warning-line" label="Atrasadas" :value="$s['late']"
+                    :note="$pct($s['late'], $s['open']) . ' das em andamento · mais de ' . $A::LATE_DAYS . ' dias na etapa · ' . $s['warn'] . ' em atenção'"
+                    :values="$buckets['values']" :labels="$buckets['labels']" :ticks="4" />
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="amber" icon="ri-timer-line" label="Mais antiga parada" :value="$days($s['oldest'])"
+                    :note="'Média de ' . $decimal($s['average']) . ' na etapa atual'"
+                    :values="$oldestByStage" :labels="$stageLabels" />
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="green" icon="ri-reply-line" label="Retorno da empreiteira" :value="$decimal($s['return_days'])"
+                    :note="'Tempo médio do despacho ao retorno · ' . $s['finalized'] . ' ' . ($s['finalized'] === 1 ? 'finalizada' : 'finalizadas')"
+                    :values="$flow['returned']" :labels="$flow['labels']" />
             </div>
         </div>
 
-        {{-- Modal: Busca Multipla --}}
-        <div wire:ignore.self class="modal fade" id="buscarMultiModal" tabindex="-1" aria-labelledby="buscarMultiLabel"
-            aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content shadow">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="buscarMultiLabel">
-                            <i class="ri-search-2-line me-2"></i>
-                            Busca multipla
-                        </h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="form-floating">
-                            <textarea class="form-control" id="advanceSearch" style="height: 200px;"
-                                placeholder="Cole aqui varios D5 ou notas (virgula ou quebra de linha)"
-                                wire:model.defer="advanceSearch"></textarea>
-                            <label for="advanceSearch">Numeros D5 ou Nota</label>
+        <h2 class="mp-section-title">Onde estão as D5</h2>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-xl-4">
+                <section class="mp-panel h-100">
+                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Por etapa</h3><div class="mp-panel-sub">Distribuição das D5 nos filtros atuais</div></div></div>
+                    <div class="mp-chart-wrap">
+                        <div class="mp-chart mp-chart-donut" wire:ignore>
+                            <canvas data-my-panel-chart="stage" data-config="{{ json_encode($charts['stage']) }}" role="img" aria-label="Rosca: D5 por etapa (fornecedor, fiscalização, medição e finalizado)"></canvas>
                         </div>
-                        <div class="form-text">
-                            Separe por virgula <strong>,</strong> ou por quebra de linha.
-                        </div>
+                        @if ($s['total'] === 0)
+                            <div class="mp-chart-empty">Nenhuma D5 nos filtros</div>
+                        @endif
                     </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button class="btn btn-primary" wire:click="buscarMulti" data-bs-dismiss="modal">
-                            <i class="ri-check-line me-1"></i>Aplicar Filtro
-                        </button>
+                </section>
+            </div>
+            <div class="col-12 col-xl-8">
+                <section class="mp-panel h-100">
+                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Tempo parado em cada etapa</h3><div class="mp-panel-sub">Dias desde a entrada da D5 na etapa; atrasada = mais de {{ $A::LATE_DAYS }} dias</div></div></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0 mp-table">
+                            <caption class="visually-hidden">D5 em andamento por etapa, com atrasadas, mais antiga e tempo médio</caption>
+                            <colgroup>
+                                <col class="col-pct-20"><col class="col-pct-10"><col class="col-pct-12"><col class="col-pct-12"><col class="col-pct-12"><col class="col-pct-12"><col>
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th scope="col">Etapa</th>
+                                    <th scope="col" class="text-end">D5</th>
+                                    <th scope="col" class="text-end">Em atenção</th>
+                                    <th scope="col" class="text-end">Atrasadas</th>
+                                    <th scope="col" class="text-end">% atrasadas</th>
+                                    <th scope="col" class="text-end">Mais antiga</th>
+                                    <th scope="col" class="text-end">Média</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($stages as $x)
+                                    <tr>
+                                        <th scope="row" class="fw-semibold">{{ $x['label'] }}</th>
+                                        <td class="text-end fw-bold">{{ $x['total'] }}</td>
+                                        <td class="text-end">{{ $x['warn'] }}</td>
+                                        <td class="text-end">@if ($x['late'] > 0)<span class="badge text-bg-danger">{{ $x['late'] }}</span>@else 0 @endif</td>
+                                        <td class="text-end">{{ $pct($x['late'], $x['total']) }}</td>
+                                        <td class="text-end">{{ $days($x['oldest']) }}</td>
+                                        <td class="text-end">{{ $decimal($x['average']) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
-                </div>
+                </section>
             </div>
         </div>
 
-        {{-- Modals --}}
-        @livewire('components.d5.d5details', key('five-note-details'))
-        @livewire('components.five-note.manual-create', key('manual-create-five'))
-        @livewire('components.five-note.edit-d5', key('edit-five-note'))
+        <h2 class="mp-section-title">Quem está segurando</h2>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-xl-6">
+                <section class="mp-panel h-100">
+                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Por empreiteira</h3><div class="mp-panel-sub">Top 10 com D5 em andamento; o detalhe traz as atrasadas e a mais antiga</div></div></div>
+                    <div class="mp-panel-body">
+                        <x-home.bar-list :rows="$companyRows" caption="D5 em andamento por empreiteira" :headers="['Empreiteira', 'D5', 'Detalhe']" empty="Nenhuma D5 em andamento" />
+                    </div>
+                </section>
+            </div>
+            <div class="col-12 col-xl-6">
+                <section class="mp-panel h-100">
+                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Por motivo</h3><div class="mp-panel-sub">Top 10 motivos das D5 em andamento</div></div></div>
+                    <div class="mp-panel-body">
+                        <x-home.bar-list :rows="$reasonRows" caption="D5 em andamento por motivo" :headers="['Motivo', 'D5', 'Detalhe']" empty="Nenhuma D5 em andamento" />
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <h2 class="mp-section-title">Fluxo e envelhecimento</h2>
+
+        <div class="row g-3 mb-3">
+            <div class="col-12 col-xl-8">
+                <section class="mp-panel h-100">
+                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Despachadas x retornadas por mês</h3><div class="mp-panel-sub">Últimos {{ $A::FLOW_MONTHS }} meses, nos filtros atuais</div></div><span class="mp-pill">{{ array_sum($flow['sent']) }} despachadas · {{ array_sum($flow['returned']) }} retornadas</span></div>
+                    <div class="mp-chart-wrap">
+                        <div class="mp-chart" wire:ignore>
+                            <canvas data-my-panel-chart="flow" data-config="{{ json_encode($charts['flow']) }}" role="img" aria-label="Gráfico de linhas: D5 despachadas e retornadas pela empreiteira por mês"></canvas>
+                        </div>
+                        @if (array_sum($flow['sent']) === 0 && array_sum($flow['returned']) === 0)
+                            <div class="mp-chart-empty">Nada despachado nem retornado neste período</div>
+                        @endif
+                    </div>
+                </section>
+            </div>
+            <div class="col-12 col-xl-4">
+                <section class="mp-panel h-100">
+                    <div class="mp-panel-head"><div><h3 class="mp-panel-title">Há quantos dias estão paradas?</h3><div class="mp-panel-sub">D5 em andamento por faixa de dias na etapa atual</div></div></div>
+                    <div class="mp-chart-wrap">
+                        <div class="mp-chart" wire:ignore>
+                            <canvas data-my-panel-chart="age" data-config="{{ json_encode($charts['age']) }}" role="img" aria-label="Gráfico de barras: D5 em andamento por faixa de dias parada na etapa"></canvas>
+                        </div>
+                        @if (!$hasOpen)
+                            <div class="mp-chart-empty">Nenhuma D5 em andamento</div>
+                        @endif
+                    </div>
+                </section>
+            </div>
+        </div>
     </div>
 
+    <h2 class="mp-section-title" id="d5-lista">Lista de D5</h2>
+
+    <section class="mp-panel mb-3" aria-labelledby="d5-list-title" wire:loading.class="is-loading-soft" wire:target="setStage,search,perPage,buscarMulti,clearSearch,gotoPage,nextPage,previousPage">
+        <div class="mp-panel-head">
+            <div>
+                <h3 id="d5-list-title" class="mp-panel-title">Exibindo {{ $lists->firstItem() ?? 0 }} a {{ $lists->lastItem() ?? 0 }} de {{ $lists->total() }} D5</h3>
+                <div class="mp-panel-sub">Ordenada pelo retorno da empreiteira (mais antigo primeiro; sem retorno por último). “Tempo” conta os dias na etapa atual: até {{ $A::WARN_DAYS }} no prazo, até {{ $A::LATE_DAYS }} atenção, acima disso atrasada.</div>
+            </div>
+            <div class="mp-presets" role="group" aria-label="Etapa">
+                @foreach ($chips as $key => [$label, $count])
+                    <button type="button" class="mp-preset {{ $statusFilter === (string) $key ? 'is-active' : '' }}" wire:click="setStage('{{ $key }}')" aria-pressed="{{ $statusFilter === (string) $key ? 'true' : 'false' }}">{{ $label }} · {{ $count }}</button>
+                @endforeach
+            </div>
+        </div>
+
+        @if (!$lists->count())
+            <x-closure.empty-state icon="ri-inbox-line" title="Nenhuma D5 nesta etapa" text="Troque a etapa ou ajuste os filtros." />
+        @else
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 mp-table">
+                    <colgroup>
+                        <col class="col-pct-7"><col class="col-pct-8"><col class="col-pct-9"><col class="col-pct-11"><col class="col-pct-11"><col class="col-pct-7">
+                        <col class="col-pct-7"><col class="col-pct-7"><col class="col-pct-9"><col class="col-pct-7"><col class="col-pct-9"><col>
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th scope="col">Nota D5</th>
+                            <th scope="col">Informe</th>
+                            <th scope="col">Nota</th>
+                            <th scope="col">Empreiteira</th>
+                            <th scope="col">Motivo</th>
+                            <th scope="col">Despacho</th>
+                            <th scope="col">Retorno</th>
+                            <th scope="col">Tempo</th>
+                            <th scope="col">Etapa</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Responsável</th>
+                            <th scope="col" class="text-end">Detalhes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($lists as $list)
+                            @php
+                                $meta     = $list->tracking_meta ?? [];
+                                $activity = $meta['activity'] ?? [];
+                                $assignee = $meta['assignee'] ?? [];
+                                $stageKey = $activity['key'] ?? null;
+
+                                $activityStart = match ($stageKey) {
+                                    'aguardando_pagamento'    => $list->supervisioned_at,
+                                    'aguardando_fiscalizacao' => $list->completed_at,
+                                    'aguardando_geracao_d5'   => $list->created_at,
+                                    'aguardando_fornecedor'   => $list->dispatch_at,
+                                    default                   => null,
+                                };
+
+                                // Etapa vinda do status do informe pode não ter a data própria preenchida na D5.
+                                if (!$activityStart && $stageKey !== 'finalizado') {
+                                    $activityStart = $list->supervisioned_at ?? $list->completed_at ?? $list->dispatch_at;
+                                }
+
+                                $waiting = $activityStart?->diffInDays();
+                                [$ageTone, $ageText] = match (true) {
+                                    $waiting > $A::LATE_DAYS => ['danger', 'Atrasada'],
+                                    $waiting > $A::WARN_DAYS => ['warning', 'Atenção'],
+                                    default                 => ['success', 'No prazo'],
+                                };
+
+                                $phaseLabel = match ($stageKey ?? '') {
+                                    'aguardando_geracao_d5', 'aguardando_pagamento' => 'Medição',
+                                    'aguardando_fiscalizacao'                       => 'Fiscalização',
+                                    'aguardando_fornecedor'                         => 'Fornecedor',
+                                    'finalizado'                                    => 'Finalizado',
+                                    default                                         => '—',
+                                };
+
+                                $d5Associations = collect();
+                                if ($list->work_report_id) {
+                                    foreach (collect($list->WorkReport?->selected_final_scopes ?? ['general'])->filter() as $scope) {
+                                        $d5Associations->push(['report' => $list->work_report_id, 'scope' => $scope]);
+                                    }
+                                } else {
+                                    foreach (($list->productions ?? collect()) as $production) {
+                                        foreach (($production->WorkReportFlowProductions ?? collect())->where('is_current', true)->whereNotNull('work_report_id') as $link) {
+                                            $d5Associations->push(['report' => $link->work_report_id, 'scope' => $link->final_scope ?: 'general']);
+                                        }
+                                    }
+                                }
+                                $d5Associations = $d5Associations->unique(fn ($item) => $item['report'] . '|' . $item['scope'])->values();
+                            @endphp
+                            <tr wire:key="d5-{{ $list->id }}">
+                                <td class="fw-bold">
+                                    {{ $list->note_d5 }}
+                                    @if ($list->isPassive)
+                                        <div><span class="badge text-bg-info">Passiva</span></div>
+                                    @endif
+                                </td>
+                                <td>
+                                    @forelse ($d5Associations as $association)
+                                        @php
+                                            $scopeLabel = match ($association['scope']) {
+                                                'connection' => 'Ligação',
+                                                'network'    => 'Rede',
+                                                default      => 'Geral',
+                                            };
+                                        @endphp
+                                        <div>
+                                            <span class="badge bg-light text-dark border">#{{ $association['report'] }}</span>
+                                            <span class="badge text-bg-{{ $association['scope'] === 'connection' ? 'warning' : 'success' }}">{{ $scopeLabel }}</span>
+                                        </div>
+                                    @empty
+                                        <span class="text-muted">—</span>
+                                    @endforelse
+                                </td>
+                                <td>
+                                    {{ $list->note?->note }}
+                                    <div class="small text-muted text-truncate" title="{{ $list->note?->rubrica }}">{{ $list->note?->rubrica }}</div>
+                                </td>
+                                <td class="fw-semibold text-truncate" title="{{ $list->company?->name }}">{{ $list->company?->name ?? '—' }}</td>
+                                <td>
+                                    <div class="text-truncate" title="{{ $list->reason }}">{{ $list->reason }}</div>
+                                    <div class="small text-muted text-truncate" title="{{ $list->codify }}">{{ $list->codify }}</div>
+                                </td>
+                                <td>
+                                    @if ($list->dispatch_at)
+                                        {{ $list->dispatch_at->format('d/m/Y') }}
+                                        <div class="small text-muted">{{ $list->dispatch_at->format('H:i') }}</div>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($list->completed_at)
+                                        {{ $list->completed_at->format('d/m/Y') }}
+                                        <div class="small text-muted">{{ $list->completed_at->format('H:i') }}</div>
+                                    @else
+                                        <span class="badge text-bg-secondary">Sem retorno</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($activityStart)
+                                        <span class="badge text-bg-{{ $ageTone }}"><i class="ri-time-line me-1"></i>{{ $waiting }} {{ $waiting === 1 ? 'dia' : 'dias' }}</span>
+                                        <div class="small text-muted mt-1">{{ $ageText }}</div>
+                                    @else
+                                        <span class="badge text-bg-secondary"><i class="ri-check-line me-1"></i>Finalizado</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <span class="badge text-bg-primary">{{ $phaseLabel }}</span>
+                                    <div>
+                                        @if (($meta['cycle'] ?? 1) === 2)
+                                            <span class="badge text-bg-info mt-1">Ciclo 2 · Retorno D5</span>
+                                        @else
+                                            <span class="badge bg-light text-dark border mt-1">Ciclo 1</span>
+                                        @endif
+                                    </div>
+                                </td>
+                                <td><span class="badge {{ $activity['color'] ?? 'text-bg-secondary' }}">{{ $activity['label'] ?? 'Sem status' }}</span></td>
+                                <td>
+                                    @if ($assignee['has_assignee'] ?? false)
+                                        <div class="fw-semibold">{{ $assignee['name'] }}</div>
+                                        <div class="small text-muted">{{ $assignee['company'] ?? 'Sem empresa' }}</div>
+                                    @else
+                                        <div class="small text-muted">Sem responsável</div>
+                                    @endif
+                                    <span class="badge {{ $assignee['assignment_badge'] ?? 'text-bg-secondary' }} mt-1">{{ $assignee['assignment_status'] ?? 'Não atribuído' }}</span>
+                                </td>
+                                <td class="text-end">
+                                    <button type="button" class="row-action border-0" wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->note_id }})">
+                                        <i class="ri-eye-line"></i> Visualizar
+                                    </button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <div class="mp-panel-foot d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <div>{{ $lists->links() }}</div>
+                <span class="small text-muted">{{ $lists->total() }} {{ $lists->total() === 1 ? 'registro' : 'registros' }}</span>
+            </div>
+        @endif
+    </section>
+
+    {{-- Modal: Busca múltipla --}}
+    <div wire:ignore.self class="modal fade" id="buscarMultiModal" tabindex="-1" aria-labelledby="buscarMultiLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="buscarMultiLabel"><i class="ri-search-2-line me-2"></i>Busca múltipla</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label" for="advanceSearch">Números de D5 ou de nota</label>
+                    <textarea class="form-control" id="advanceSearch" rows="8" placeholder="Cole aqui vários números (vírgula ou quebra de linha)" wire:model.defer="advanceSearch"></textarea>
+                    <div class="form-text">Separe por vírgula <strong>,</strong> ou por quebra de linha.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" wire:click="buscarMulti" data-bs-dismiss="modal"><i class="ri-check-line me-1"></i>Aplicar busca</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- Modais --}}
+    @livewire('components.d5.d5details', key('five-note-details'))
+    @livewire('components.five-note.manual-create', key('manual-create-five'))
+    @livewire('components.five-note.edit-d5', key('edit-five-note'))
 </div>
+
+@once
+    @push('script')
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    @endpush
+@endonce

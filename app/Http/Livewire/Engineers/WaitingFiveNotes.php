@@ -7,6 +7,7 @@ use App\Helpers\TextFormatter;
 use App\Jobs\Engineers\ExportWaitingFiveNotesJob;
 use App\Models\{FiveNote, MeasurementProductionContext, Production, Service};
 use App\Services\D5\D5StageResolver;
+use App\Services\Engineers\{D5ConsultAnalytics, D5ConsultCharts};
 use App\Traits\{AppliesQueryFilters, WildcardFormmater};
 use Carbon\Carbon;
 use Illuminate\Contracts\Database\Eloquent\Builder;
@@ -42,10 +43,6 @@ class WaitingFiveNotes extends Component
 
     public $showDetails = false;
 
-    public $selectall = false;
-
-    public $selected = [];
-
     // Filters
     public $filtersState = [];
 
@@ -77,6 +74,25 @@ class WaitingFiveNotes extends Component
             $this->multiNote     = [];
             $this->advanceSearch = '';
         }
+
+        $this->refreshCharts();
+    }
+
+    /** Etapa escolhida na lista (vazio = todas). Não muda os cartões: eles sempre mostram todas as etapas. */
+    public function setStage(string $stage): void
+    {
+        $this->statusFilter = array_key_exists($stage, D5ConsultAnalytics::STAGE_LABELS) ? $stage : '';
+        $this->resetPage();
+    }
+
+    public function clearSearch(): void
+    {
+        $this->search        = '';
+        $this->advanceSearch = '';
+        $this->multiD5       = [];
+        $this->multiNote     = [];
+        $this->resetPage();
+        $this->refreshCharts();
     }
 
     public function updatedStatusFilter()
@@ -91,6 +107,7 @@ class WaitingFiveNotes extends Component
         $values          = $this->formatTextToArray((string) $this->advanceSearch);
         $this->multiD5   = $values;
         $this->multiNote = $values;
+        $this->refreshCharts();
     }
 
     public function onFiltersUpdated($payload = [])
@@ -98,96 +115,7 @@ class WaitingFiveNotes extends Component
 
         $this->filtersState = $payload ?: [];
         $this->resetPage();
-
-    }
-
-    public function setSelectAll()
-    {
-        if (!$this->lists) {
-            return;
-        }
-
-        $visibleItems = $this->lists->items();
-
-        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
-
-        if ($this->selectall) {
-
-            foreach ($visibleItems as $note) {
-
-                $id = (int) $note->id;
-
-                if (isset($selectedSet[$id])) {
-                    continue;
-                }
-
-                $selectedSet[$id] = true;
-            }
-        } else {
-            foreach ($visibleItems as $note) {
-                unset($selectedSet[(int) $note->id]);
-            }
-        }
-
-        $this->selected = array_map('intval', array_keys($selectedSet));
-
-    }
-
-    /**
-     * Marca/desmarca o checkbox "selecionar todos" de acordo com os itens visíveis
-     */
-    public function checkAllSelect($items)
-    {
-
-        $eligiblePage = [];
-
-        foreach ($items as $note) {
-            $eligiblePage[] = (int) $note->id;
-        }
-
-        // selectall fica true quando TODOS os elegíveis da página estão selecionados
-        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
-
-        foreach ($eligiblePage as $id) {
-            if (!isset($selectedSet[$id])) {
-                $this->selectall = false;
-
-                return false;
-            }
-        }
-
-        $this->selectall = true;
-
-        return true;
-    }
-
-    protected function recomputeSelectAllFor(array $items): void
-    {
-
-        $eligiblePage = [];
-
-        foreach ($items as $note) {
-            $eligiblePage[] = (int) $note->id;
-        }
-
-        // se não há elegíveis na página, não marcar o master
-        if (empty($eligiblePage)) {
-            $this->selectall = false;
-
-            return;
-        }
-
-        $selectedSet = array_fill_keys(array_map('intval', $this->selected), true);
-
-        foreach ($eligiblePage as $id) {
-            if (!isset($selectedSet[$id])) {
-                $this->selectall = false;
-
-                return;
-            }
-        }
-
-        $this->selectall = true;
+        $this->refreshCharts();
     }
 
     private function returnFilterArray($key)
@@ -269,9 +197,9 @@ class WaitingFiveNotes extends Component
     }
 
     /**
-     * QUERY BASE (reutilizável)
+     * Lista com todos os filtros, menos a etapa. É daqui que saem os cartões e gráficos (todas as etapas lado a lado).
      */
-    private function baseQuery(): Builder
+    private function filteredQuery(): Builder
     {
         $base = FiveNote::query()
             ->where(function ($query) {
@@ -288,8 +216,6 @@ class WaitingFiveNotes extends Component
                         });
                     });
             });
-
-        $this->applyStatusFilter($base);
 
         if ($this->search) {
 
@@ -353,6 +279,18 @@ class WaitingFiveNotes extends Component
                 }
             });
         }
+
+        return $base;
+    }
+
+    /**
+     * QUERY DA LISTA: filtros + etapa escolhida + ordenação (reutilizável)
+     */
+    private function baseQuery(): Builder
+    {
+        $base = $this->filteredQuery();
+
+        $this->applyStatusFilter($base);
 
         return $base
             ->orderByRaw('CASE WHEN completed_at IS NULL THEN 1 ELSE 0 END')
@@ -706,10 +644,26 @@ class WaitingFiveNotes extends Component
         return $this->paymentServiceId;
     }
 
+    /** @return array<string, mixed> resultado do D5ConsultAnalytics, calculado uma vez por requisição */
+    public function getSnapshotProperty(): array
+    {
+        return app(D5ConsultAnalytics::class)->snapshot($this->filteredQuery());
+    }
+
+    /** Envia os gráficos novos; o JS atualiza cada dataset in-place (sem recriar o gráfico). */
+    private function refreshCharts(): void
+    {
+        $this->dispatchBrowserEvent('my-panel:charts', ['charts' => D5ConsultCharts::all($this->snapshot)]);
+    }
+
     public function render()
     {
+        $snapshot = $this->snapshot;
+
         return view('livewire.engineers.waiting-five-notes', [
-            'lists' => $this->lists,
+            'lists'    => $this->lists,
+            'snapshot' => $snapshot,
+            'charts'   => D5ConsultCharts::all($snapshot),
         ]);
     }
 
