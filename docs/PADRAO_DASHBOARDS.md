@@ -35,6 +35,7 @@ Detalhes de cada referência: [home/MEU_PAINEL.md](home/MEU_PAINEL.md) e [report
 - **Uma** tabela contínua com `colgroup` de larguras fixas (`table-layout: fixed`) e linhas de cabeçalho de grupo. Nunca uma tabela por grupo.
 - Ação de linha é **botão/pill** com ícone (`.row-action`), nunca link de texto.
 - Todo status/tipo exibido tem **label em PT-BR** vindo de enum (`label()`/`badgeClass()`), nunca a constante crua.
+- **Respiro:** texto nunca encosta na borda de card, painel ou tabela. O respiro lateral é o token `--mp-edge` (18px), usado no cabeçalho (`.mp-panel-head`), no corpo (`.mp-panel-body`), nos gráficos e na primeira/última coluna de `.mp-table`. Conteúdo solto num painel (`<x-home.bar-list>`, lista, texto) vai dentro de `<div class="mp-panel-body">`; tabela dentro do painel usa `.mp-table` (não zere o padding das células). Não use `px-0`/`p-0` em contêiner que tenha texto direto.
 
 ## 4. Gráficos (Chart.js)
 
@@ -70,6 +71,7 @@ Detalhes de cada referência: [home/MEU_PAINEL.md](home/MEU_PAINEL.md) e [report
 - [ ] Hero, filtros na URL, estado vazio, seções com `mp-section-title`.
 - [ ] Cartões `<x-home.hero-card>` com mesma coluna e `h-100`.
 - [ ] Uma tabela por bloco, com `colgroup`; ações como botão.
+- [ ] Nenhum texto colado na borda de card ou tabela (conteúdo em `.mp-panel-body`; tabelas com `.mp-table`).
 - [ ] Gráficos pelo contrato `data-my-panel-chart`, in-place, aviso de vazio por cima.
 - [ ] Sem CSS/JS inline, sem `<x-grafico.apex>`.
 - [ ] Textos e status em PT-BR.
@@ -82,6 +84,7 @@ Detalhes de cada referência: [home/MEU_PAINEL.md](home/MEU_PAINEL.md) e [report
 ## 9. Anti-padrões
 
 - Card Bootstrap genérico sem cor, hero ou gráfico ("visual pobre").
+- Texto colado na borda do card ou da tabela: `<x-home.bar-list>` direto no painel sem `.mp-panel-body`, `table-sm` sem `.mp-table`, padding zerado em contêiner com texto.
 - CSS próprio por tela (`pd-*`, `cxl-*`) repetindo o que `.closure-dash` já tem.
 - Montar dados ou gráfico dentro do componente Livewire ou da view.
 - Gráfico recriado ou limpo a cada atualização.

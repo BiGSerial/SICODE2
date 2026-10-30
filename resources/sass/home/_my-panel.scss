@@ -8,6 +8,7 @@
     --mp-line: #dbe2ea;
     --mp-track: #e8eef3;
     --mp-shadow: 0 16px 34px rgba(15, 23, 42, .08);
+    --mp-edge: 18px; // respiro entre o texto e a borda do card/tabela (cabeçalho, corpo, tabelas e gráficos)
 
     background:
         radial-gradient(circle at 8% 0, #e0f2fe 0, transparent 34%),
@@ -236,7 +237,7 @@
         display: flex;
         gap: 12px;
         justify-content: space-between;
-        padding: 14px 18px;
+        padding: 14px var(--mp-edge);
     }
 
     .mp-panel-title {
@@ -252,7 +253,18 @@
     }
 
     .mp-panel-body {
-        padding: 16px 18px;
+        padding: 16px var(--mp-edge);
+    }
+
+    // Rede de segurança: lista de barras ou "Ver como tabela" soltas direto no painel não podem encostar na borda.
+    // O certo é envolver em `.mp-panel-body`; isto só evita que o erro vire texto colado no card.
+    .mp-panel > .mp-bars {
+        padding: 16px var(--mp-edge) 0;
+    }
+
+    .mp-panel > .mp-table-toggle {
+        margin: 0;
+        padding: 8px var(--mp-edge) 14px;
     }
 
     .mp-panel-foot {
@@ -275,6 +287,17 @@
 
     // ---------- Tabelas ----------
     .mp-table {
+        // Primeira e última coluna respeitam o mesmo respiro do card (o `table-sm` do Bootstrap deixa só 4px).
+        td:first-child,
+        th:first-child {
+            padding-left: var(--mp-edge);
+        }
+
+        td:last-child,
+        th:last-child {
+            padding-right: var(--mp-edge);
+        }
+
         thead th {
             background: #f1f5f9;
             border-bottom: 2px solid var(--mp-line);
@@ -481,7 +504,7 @@
 
     .mp-chart {
         height: 310px;
-        padding: 14px 18px;
+        padding: 14px var(--mp-edge);
         position: relative;
     }
 

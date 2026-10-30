@@ -279,7 +279,9 @@
             <div class="col-12 col-xl-5">
                 <section class="mp-panel h-100">
                     <div class="mp-panel-head"><div><h3 class="mp-panel-title">Onde os informes estão hoje</h3><div class="mp-panel-sub">Situação atual no fluxo de encerramento</div></div></div>
-                    <x-home.bar-list :rows="$statusBars" caption="Informes por situação atual" :headers="['Situação', 'Informes', 'Detalhe']" empty="Sem informes no recorte" />
+                    <div class="mp-panel-body">
+                        <x-home.bar-list :rows="$statusBars" caption="Informes por situação atual" :headers="['Situação', 'Informes', 'Detalhe']" empty="Sem informes no recorte" />
+                    </div>
                 </section>
             </div>
         </div>

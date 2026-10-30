@@ -110,6 +110,7 @@ Toda operação física de storage (gravação, leitura, download/stream, delete
 - Camadas separadas: componente Livewire só com filtros; dados em `*Analytics` (tela e Excel leem o mesmo); configuração de gráficos em `*Charts`; JS e SCSS compartilhados (`.closure-dash`, `my-panel.js`). Sem CSS/JS inline e sem CSS próprio por tela.
 - Layout: hero → filtros na URL → estado vazio → seções `mp-section-title` com `<x-home.hero-card>`, painéis e `<x-home.bar-list>`. Cartões da mesma linha com a mesma coluna e `h-100`; uma tabela por bloco com `colgroup`; ações como botão.
 - Gráficos pelo contrato `data-my-panel-chart` (in-place, aviso de vazio por cima). **Não usar `<x-grafico.apex>` em tela nova.**
+- **Respiro:** texto nunca fica colado na borda de card, painel ou tabela. Conteúdo solto dentro de `.mp-panel` (ex.: `<x-home.bar-list>`) vai em `<div class="mp-panel-body">`; tabelas usam `.mp-table` (primeira/última coluna já respeitam `--mp-edge`). Vale para qualquer tela nova ou alterada, não só dashboards.
 - Toda tela exporta Excel por Job (`Controle Exportacao`), textos e status em PT-BR, regras de cálculo documentadas e conferência no navegador antes de dar como pronta.
 
 ### Menu superior (topbar)
