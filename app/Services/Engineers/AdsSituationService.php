@@ -238,7 +238,15 @@ class AdsSituationService
         }
     }
 
-    private function enrichRow(object $row): array
+    /** Carrega de uma vez os abonos de dias não úteis dos informes, para o cálculo de prazo não fazer uma consulta por linha. */
+    public function preloadAdjustments(Collection $workReportIds): void
+    {
+        foreach ($workReportIds->filter()->unique()->chunk(1000) as $chunk) {
+            $this->deadlinePolicy->preloadAdjustments($chunk->values());
+        }
+    }
+
+    public function enrichRow(object $row): array
     {
         $informedAt  = $this->asCarbon($row->informed_at ?? null);
         $dueAt       = $this->resolveDueAt($row);

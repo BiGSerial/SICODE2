@@ -21,10 +21,15 @@ class AdsDeadlinePolicy
     /** @var array<int, array<string, bool>> */
     private array $adjustmentCache = [];
 
+    /** Regras do prazo lidas uma vez por instância (cada leitura consulta system_settings; em lote seria uma por informe). */
+    private ?int $deadlineDays = null;
+
+    private ?bool $businessDays = null;
+
     public function dueAt(Carbon $informedAt, ?string $state = null, ?int $workReportId = null): Carbon
     {
         $date      = $informedAt->copy()->startOfDay();
-        $remaining = SicodeRules::adsDeliveryDeadlineDays();
+        $remaining = $this->deadlineDays ??= SicodeRules::adsDeliveryDeadlineDays();
 
         while ($remaining > 0) {
             $date->addDay();
@@ -92,7 +97,7 @@ class AdsDeadlinePolicy
     /** Dia que conta para o prazo: útil ou corrido, conforme SicodeRules (ads.delivery_deadline). */
     public function countsAsDeadlineDay(Carbon $date, ?string $state = null, ?int $workReportId = null): bool
     {
-        return !SicodeRules::adsDeliveryDeadlineUsesBusinessDays()
+        return !($this->businessDays ??= SicodeRules::adsDeliveryDeadlineUsesBusinessDays())
             || $this->isBusinessDay($date, $state, $workReportId);
     }
 
@@ -155,7 +160,7 @@ class AdsDeadlinePolicy
             return 0;
         }
 
-        if (!SicodeRules::adsDeliveryDeadlineUsesBusinessDays()) {
+        if (!($this->businessDays ??= SicodeRules::adsDeliveryDeadlineUsesBusinessDays())) {
             return $cursor->diffInDays($end) + 1;
         }
 

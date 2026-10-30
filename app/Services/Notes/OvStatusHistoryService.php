@@ -10,7 +10,8 @@ use Throwable;
 
 /**
  * Histórico de status da base OV (type_note = 2) em historic_notes.
- * Chave do upsert: note_id + id_num + num_stat.
+ * Chave do upsert (idempotência): note_id + num_stat + dt_stats, ou seja, a mesma transição na mesma data/hora é um evento só,
+ * mesmo que a origem a renumere (id_num é só o sequencial na origem e não faz parte da chave).
  */
 class OvStatusHistoryService
 {
@@ -74,9 +75,8 @@ class OvStatusHistoryService
                 continue;
             }
 
-            $key = $noteId . '|' . (int) $row->idNum . '|' . (int) $row->numStat;
-
-            $batch[$key] = [
+            $key   = $noteId . '|' . (int) $row->numStat . '|' . $dtStats;
+            $event = [
                 'note_id'           => $noteId,
                 'id_num'            => (int) $row->idNum,
                 'num_stat'          => (int) $row->numStat,
@@ -88,14 +88,21 @@ class OvStatusHistoryService
                 'created_at'        => $now,
                 'updated_at'        => $now,
             ];
+
+            // Mesmo evento repetido no lote (ex.: renumerado na origem): vale o que traz o usuário da transição.
+            if (isset($batch[$key]) && $batch[$key]['transicao_usuario'] !== null && $event['transicao_usuario'] === null) {
+                $event['transicao_usuario'] = $batch[$key]['transicao_usuario'];
+            }
+
+            $batch[$key] = $event;
         }
 
         foreach (array_chunk(array_values($batch), self::UPSERT_CHUNK) as $chunk) {
             // updated_at fora da lista: linha sem mudança não é regravada.
             HistoricNote::upsert(
                 $chunk,
-                ['note_id', 'id_num', 'num_stat'],
-                ['dt_stats', 'considerar_prazo', 'pze', 'status', 'transicao_usuario'],
+                ['note_id', 'num_stat', 'dt_stats'],
+                ['id_num', 'considerar_prazo', 'pze', 'status', 'transicao_usuario'],
             );
         }
 
