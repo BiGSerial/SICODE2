@@ -41,7 +41,7 @@ class SupervisionDispatchListQuery
             })
             ->leftJoin("work_reports", "work_reports.id", "=", "dispatch_rows.work_report_id");
 
-        if ($user?->contract) {
+        if ($user?->usesContractDispatch()) {
             $companyIds = SicodeRules::visibleCompanyIdsFor($user);
 
             if (empty($companyIds)) {

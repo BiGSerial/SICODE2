@@ -28,6 +28,11 @@ class Service extends Model
         'post_construction',
         'icon',
         'canReturn',
+        'partner_own_stack',
+    ];
+
+    protected $casts = [
+        'partner_own_stack' => 'boolean',
     ];
 
     public function Contracts()

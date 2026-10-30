@@ -534,7 +534,9 @@
                                 <select class="form-select form-select-sm" aria-label="Small select example"
                                     wire:model="type">
                                     <option selected>Selecione</option>
-                                    <option value="1">Pilha</option>
+                                    @if ($service->partner_own_stack)
+                                        <option value="1">Pilha</option>
+                                    @endif
                                     <option value="2">Individual</option>
                                 </select>
                             </div> --}}

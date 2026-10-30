@@ -249,7 +249,7 @@ class SicodeRules
             return false;
         }
 
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             return true;
         }
 
@@ -258,7 +258,7 @@ class SicodeRules
 
     public static function primaryCompanyNameFor(User $user): ?string
     {
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             return null;
         }
 
@@ -274,7 +274,7 @@ class SicodeRules
 
     public static function applyContractDispatchListVisibility($query, User $user, string $serviceId)
     {
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             return $query;
         }
 
@@ -293,7 +293,7 @@ class SicodeRules
 
     public static function hasCompanyDispatchProductionFor(Note $note, User $user, string $serviceId): bool
     {
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             return true;
         }
 
@@ -325,7 +325,7 @@ class SicodeRules
         callable $applyStatusRules,
         bool $includeCompletedCompanyActivity = false
     ) {
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             $applyStatusRules($query);
 
             return $query;

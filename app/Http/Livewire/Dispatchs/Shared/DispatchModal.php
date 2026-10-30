@@ -71,7 +71,7 @@ class DispatchModal extends Component
         $this->notes        = collect();
         $this->company_l    = collect();
         $this->user_l       = collect();
-        $this->contractMode = (bool) auth()->user()?->contract;
+        $this->contractMode = (bool) auth()->user()?->usesContractDispatch();
     }
 
     public function openForSelfAssign(array $noteIds): void
@@ -376,7 +376,7 @@ class DispatchModal extends Component
 
     public function dispatchTypeChanged($type): void
     {
-        if ($this->contractMode && (string) $type !== '2') {
+        if ($this->userOnly() && (string) $type !== '2') {
             $this->type = '2';
             $this->loadDispatchUsers();
 
@@ -424,12 +424,14 @@ class DispatchModal extends Component
 
     public function confirmAtt(): void
     {
-        if ($this->contractMode && $this->type !== '2') {
+        if ($this->userOnly() && $this->type !== '2') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
-                'title'    => 'Usuario com contrato deve atribuir a atividade, nao enviar para pilha.',
-                'timer'    => 4000,
+                'title'    => $this->contractMode
+                    ? 'Usuario com contrato deve atribuir a atividade, nao enviar para pilha.'
+                    : 'Esta atividade nao usa pilha: selecione um usuario.',
+                'timer' => 4000,
             ]);
 
             return;
@@ -517,12 +519,14 @@ class DispatchModal extends Component
             return;
         }
 
-        if ($this->contractMode && $this->type !== '2') {
+        if ($this->userOnly() && $this->type !== '2') {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
                 'icon'     => 'warning',
-                'title'    => 'Usuario com contrato deve atribuir a atividade, nao enviar para pilha.',
-                'timer'    => 4000,
+                'title'    => $this->contractMode
+                    ? 'Usuario com contrato deve atribuir a atividade, nao enviar para pilha.'
+                    : 'Esta atividade nao usa pilha: selecione um usuario.',
+                'timer' => 4000,
             ]);
 
             return;
@@ -799,7 +803,7 @@ class DispatchModal extends Component
 
     private function loadDispatchCompanies(): void
     {
-        if (auth()->user()?->contract && $this->notes->count()) {
+        if (auth()->user()?->usesContractDispatch() && $this->notes->count()) {
             $sourceIds  = collect($this->sourceProductionIdsByNote)->values()->all();
             $companyIds = Production::query()
                 ->whereIn("id", $sourceIds)
@@ -823,7 +827,7 @@ class DispatchModal extends Component
                     ->where('service', true);
             });
         })
-            ->when(auth()->user()?->contract, function ($q) {
+            ->when(auth()->user()?->usesContractDispatch(), function ($q) {
                 $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
 
                 return count($companyIds)
@@ -836,7 +840,7 @@ class DispatchModal extends Component
 
     private function preselectContractDispatchCompany(): void
     {
-        if (!auth()->user()?->contract || !$this->notes->count()) {
+        if (!auth()->user()?->usesContractDispatch() || !$this->notes->count()) {
             return;
         }
 
@@ -864,7 +868,7 @@ class DispatchModal extends Component
         $this->additionalData            = [];
         $this->finalScopeOptions         = [];
         $this->finalScopeSelections      = [];
-        $this->contractMode              = (bool) auth()->user()?->contract;
+        $this->contractMode              = (bool) auth()->user()?->usesContractDispatch();
         $this->requiresDd                = false;
         $this->requiresFinalScope        = false;
         $this->sourceProductionIdsByNote = [];
@@ -932,9 +936,22 @@ class DispatchModal extends Component
         $this->user_l    = User::whereKey($user?->id)->select('id', 'name')->get();
     }
 
+    /** Só despacho individual: usuário com contrato, ou atividade sem pilha própria do parceiro. */
+    public function userOnly(): bool
+    {
+        return $this->contractMode || !$this->service->partner_own_stack;
+    }
+
     private function applyContractModeDefaults(): void
     {
+        if (!$this->userOnly()) {
+            return;
+        }
+
         if (!$this->contractMode) {
+            $this->type = '2';
+            $this->loadDispatchUsers();
+
             return;
         }
 

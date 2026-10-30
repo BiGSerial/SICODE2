@@ -44,7 +44,7 @@
 
         <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
 
-            @if (!Auth()->User()->contract)
+            @if (!Auth()->User()->usesContractDispatch())
                 <div class="dropdown mx-1">
                     <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
                         aria-expanded="false">

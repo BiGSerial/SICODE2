@@ -9,14 +9,14 @@ class DispatchController extends Controller
 {
     public function survey_main(Request $request)
     {
-        if (Auth()->user()?->contract) {
+        if (Auth()->user()?->usesContractDispatch()) {
             return redirect()->route('dispatch.partner', ['service' => $request->route('service')]);
         }
         $service = Service::where('uuid', $request->route('service'))->first();
 
         if (view()->exists('dispatchs.' . $service->folder . '.main')) {
 
-            if (Auth()->User()->contract) {
+            if (Auth()->User()->usesContractDispatch()) {
                 return view('dispatchs.' . $service->folder . '.main', [
                     'service' => $service,
                 ]);
@@ -27,7 +27,7 @@ class DispatchController extends Controller
             }
         } else {
 
-            if (Auth()->User()->contract) {
+            if (Auth()->User()->usesContractDispatch()) {
                 return view('dispatchs.default.main', [
                     'service' => $service,
                 ]);
@@ -41,7 +41,7 @@ class DispatchController extends Controller
 
     public function partner(Request $request)
     {
-        abort_unless(Auth()->user()?->contract, 403);
+        abort_unless(Auth()->user()?->usesContractDispatch(), 403);
         $service = Service::where('uuid', $request->route('service'))->firstOrFail();
         $view    = 'dispatchs.' . $service->folder . '.partner_main';
 
@@ -52,9 +52,14 @@ class DispatchController extends Controller
 
     public function partner_stack(Request $request)
     {
-        abort_unless(Auth()->user()?->contract, 403);
+        abort_unless(Auth()->user()?->usesContractDispatch(), 403);
         $service = Service::where('uuid', $request->route('service'))->firstOrFail();
-        $view    = 'dispatchs.' . $service->folder . '.partner_stack';
+
+        if (!$service->partner_own_stack) {
+            return redirect()->route('dispatch.partner', ['service' => $service->uuid]);
+        }
+
+        $view = 'dispatchs.' . $service->folder . '.partner_stack';
 
         return view(view()->exists($view) ? $view : 'dispatchs.default.partner_stack', [
             'service' => $service,
@@ -63,7 +68,7 @@ class DispatchController extends Controller
 
     public function survey_stack(Request $request)
     {
-        if (Auth()->user()?->contract) {
+        if (Auth()->user()?->usesContractDispatch()) {
             return redirect()->route('dispatch.partner.stack', ['service' => $request->route('service')]);
         }
         $service = Service::where('uuid', $request->route('service'))->first();
@@ -82,7 +87,7 @@ class DispatchController extends Controller
 
     public function survey_stack2(Request $request)
     {
-        if (Auth()->user()?->contract) {
+        if (Auth()->user()?->usesContractDispatch()) {
             return redirect()->route('dispatch.partner.stack', ['service' => $request->route('service')]);
         }
         $service = Service::where('uuid', $request->route('service'))->first();

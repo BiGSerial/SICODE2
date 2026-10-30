@@ -91,22 +91,12 @@ class ConfirmProd extends Command
                     if ($daysFromCompletion >= $expirationDays) {
                         $confirmByExpiration[] = $production->id;
 
-                        if (optional($production->User)->bypassprod) {
-                            $noInconsistency[] = $production->id;
-                        }
-
                         continue;
                     }
 
                     if ($daysFromCompletion >= $manualDays) {
                         $manualConfirm[] = $production->id;
                     }
-                }
-
-                if (optional($production->User)->bypassprod) {
-                    $noInconsistency[] = $production->id;
-                    $confirmByMatch[] = $production->id;
-                    continue;
                 }
 
                 $note = optional($production->Note)->note;

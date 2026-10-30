@@ -110,8 +110,11 @@
                 </div>
 
                 <div class="form-check form-check-inline">
-                    <input wire:model.defer="bypasspro" class="form-check-input" type="checkbox" id="bypassprod">
-                    <label class="form-check-label" for="superadmin">Auto Aprovar Produção</label>
+                    <input wire:model.defer="bypassprod" class="form-check-input" type="checkbox" id="bypassprod">
+                    <label class="form-check-label" for="bypassprod"
+                        title="Despacha como usuário interno: pilha da empresa, sem restrição de escopo e sem a tela de parceiro">
+                        Fora da regra de despacho de contratado
+                    </label>
                 </div>
 
                 <div class="form-check form-check-inline">

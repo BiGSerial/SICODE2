@@ -25,7 +25,7 @@ class PartnerStackQuery
             ->where("completed", false)
             ->where("confirmed", false);
 
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             return $query->whereRaw("0 = 1");
         }
 
@@ -40,7 +40,7 @@ class PartnerStackQuery
     {
         $serviceId = $service instanceof Service ? $service->uuid : (string) $service;
 
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             return Note::query()->whereRaw('0 = 1');
         }
 
@@ -67,7 +67,7 @@ class PartnerStackQuery
             ->where('service_id', $serviceId)
             ->whereNotNull('dispatch_at');
 
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             return $query->whereRaw('0 = 1');
         }
 
@@ -80,7 +80,7 @@ class PartnerStackQuery
 
     public function openFor(Note $note, Service|string $service, User $user): ?Production
     {
-        if (!$user->contract) {
+        if (!$user->usesContractDispatch()) {
             return null;
         }
 

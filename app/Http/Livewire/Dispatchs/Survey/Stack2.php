@@ -624,7 +624,7 @@ class Stack2 extends Component
                         ->orWhere('centerjob', 'like', '%' . trim($this->search) . '%');
                 });
             })
-            ->when(Auth()->User()->contract, function ($q) {
+            ->when(Auth()->User()->usesContractDispatch(), function ($q) {
                 return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
             })
             ->when($this->company_s, function ($q) {

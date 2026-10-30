@@ -203,6 +203,15 @@ class User extends Authenticatable
         return $this->regions()->pluck('region');
     }
 
+    /**
+     * Cai na regra de despacho de contratado (pilha própria, só individual, escopo da empresa).
+     * `bypassprod` tira usuários pontuais dessa regra (a antiga auto-aprovação de produção foi aposentada).
+     */
+    public function usesContractDispatch(): bool
+    {
+        return (bool) $this->contract && !$this->bypassprod;
+    }
+
     public function partnerPermissionExceptions(): HasMany
     {
         return $this->hasMany(PartnerUserPermissionException::class);

@@ -168,7 +168,7 @@ class Stack extends Component
         return Production::Query()
             ->where('service_id', $this->service)
             ->where('completed', false)
-            ->when(auth()->user()?->contract, function ($q) {
+            ->when(auth()->user()?->usesContractDispatch(), function ($q) {
                 $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
 
                 return count($companyIds)

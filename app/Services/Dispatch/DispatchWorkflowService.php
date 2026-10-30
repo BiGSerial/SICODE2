@@ -21,12 +21,16 @@ class DispatchWorkflowService
 
     public function dispatchToCompanyStack(Note $note, Service $service, Company $company, User $actor, ?string $dd = null, array $finalScopes = [], ?int $workReportId = null, ?int $partialId = null, ?int $fiveNoteId = null): Production
     {
-        if ($actor->contract) {
+        if ($actor->usesContractDispatch()) {
             throw new DispatchException('Usuario com contrato deve atribuir a atividade, nao enviar para pilha.');
         }
 
         if (!SicodeRules::allowsCompanyStackDispatch()) {
             throw new DispatchException('O envio para pilha da empresa nao esta habilitado para este ambiente.');
+        }
+
+        if (!$service->partner_own_stack) {
+            throw new DispatchException('Esta atividade nao usa pilha propria do parceiro: selecione um usuario.');
         }
 
         return $this->dispatch($note, $service, $company, null, $actor, $dd, $finalScopes, $workReportId, $partialId, $fiveNoteId);
@@ -41,6 +45,10 @@ class DispatchWorkflowService
     {
         if (!SicodeRules::partnerCanClaimCompanyStack()) {
             throw new DispatchException('A atribuicao pela pilha da empresa nao esta habilitada para este ambiente.');
+        }
+
+        if (!$production->Service?->partner_own_stack) {
+            throw new DispatchException('Esta atividade nao usa pilha propria do parceiro.');
         }
 
         return DB::transaction(function () use ($production, $user) {
@@ -390,7 +398,7 @@ class DispatchWorkflowService
                 throw new DispatchException('Todas as Notas/OVs precisam estar associadas a uma Nota DD.');
             }
 
-            if ($actor->contract) {
+            if ($actor->usesContractDispatch()) {
                 if (!$targetUser) {
                     throw new DispatchException('Usuario com contrato deve atribuir a atividade, nao enviar para pilha.');
                 }
@@ -786,7 +794,7 @@ class DispatchWorkflowService
             return;
         }
 
-        $linker    = app(WorkReportFlowProductionLinker::class);
+        $linker     = app(WorkReportFlowProductionLinker::class);
         $informeIds = collect($finalScopes)
             ->map(fn ($scope) => $linker->resolveCurrentFinalWorkReport($noteId, (string) $scope)?->id)
             ->filter()

@@ -189,7 +189,7 @@ class Main extends Component
 
     public function loadDispatchCompanies(): void
     {
-        if (Auth()->User()?->contract && $this->notes && $this->notes->count()) {
+        if (Auth()->User()?->usesContractDispatch() && $this->notes && $this->notes->count()) {
             $companyIds = Production::whereIn('note_id', $this->notes->pluck('id'))
                 ->where('service_id', $this->service->uuid)
                 ->whereIn('company_id', SicodeRules::visibleCompanyIdsFor(Auth()->User()))
@@ -212,7 +212,7 @@ class Main extends Component
                     ->where('service', true);
             });
         })
-            ->when(Auth()->User()?->contract, function ($q) {
+            ->when(Auth()->User()?->usesContractDispatch(), function ($q) {
                 $companyIds = SicodeRules::visibleCompanyIdsFor(Auth()->User());
 
                 return count($companyIds)
@@ -251,7 +251,7 @@ class Main extends Component
 
     private function preselectContractDispatchCompany(): void
     {
-        if (!Auth()->User()?->contract || !$this->notes || !$this->notes->count()) {
+        if (!Auth()->User()?->usesContractDispatch() || !$this->notes || !$this->notes->count()) {
             return;
         }
 
@@ -958,7 +958,7 @@ class Main extends Component
             $this->selectall = false;
         }
 
-        // if (!Auth()->User()->contract) {
+        // if (!Auth()->User()->usesContractDispatch()) {
         //     $this->company_l = Company::orderBy('name', 'ASC')->get();
         // } else {
 

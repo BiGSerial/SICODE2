@@ -127,6 +127,18 @@ class Services extends Component
 
     }
 
+    public function update_partner_stack(Service $service)
+    {
+        if ($service->update(['partner_own_stack' => !$service->partner_own_stack])) {
+            $this->dispatchBrowserEvent('torrada', [
+                'status'   => 'success',
+                'menssage' => 'SERVIÇO ' . $service->service . ($service->partner_own_stack ? ': PARCEIRO COM PILHA PRÓPRIA' : ': PARCEIRO SEM PILHA PRÓPRIA'),
+            ]);
+        }
+
+        $this->emitSelf('$refresh');
+    }
+
     public function getServicesProperty()
     {
         // Serviços legados (ex.: sobras de rollback) nunca têm Projeto nem

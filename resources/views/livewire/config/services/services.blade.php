@@ -98,6 +98,13 @@
                                 <i class="ri-arrow-go-back-fill align-middle"></i>
                                 Retorno
                             </button>
+                            <button
+                                class="btn btn-sm {{ $service->partner_own_stack ? 'btn-success' : 'btn-outline-secondary' }}"
+                                title="{{ $service->partner_own_stack ? 'Parceiro com pilha própria' : 'Parceiro sem pilha própria' }}"
+                                wire:click.prevent="update_partner_stack({{ $service->id }})">
+                                <i class="ri-stack-line align-middle"></i>
+                                Pilha do parceiro
+                            </button>
                             <button class="btn btn-sm btn-outline-secondary" wire:click.prevent="addStatus({{ $service->id }})">
                                 <i class="ri-filter-3-line align-middle"></i>
                                 Filtros

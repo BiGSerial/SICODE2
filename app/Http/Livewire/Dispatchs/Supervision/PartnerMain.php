@@ -255,7 +255,7 @@ class PartnerMain extends Component
 
     public function loadDispatchCompanies(): void
     {
-        if (Auth()->User()?->contract && $this->notes && $this->notes->count()) {
+        if (Auth()->User()?->usesContractDispatch() && $this->notes && $this->notes->count()) {
             $companyIds = Production::whereIn('note_id', $this->notes->pluck('id'))
                 ->where('service_id', $this->service->uuid)
                 ->whereIn('company_id', SicodeRules::visibleCompanyIdsFor(Auth()->User()))
@@ -275,7 +275,7 @@ class PartnerMain extends Component
                     ->where('service', true);
             });
         })
-            ->when(Auth()->User()?->contract, function ($q) {
+            ->when(Auth()->User()?->usesContractDispatch(), function ($q) {
                 $companyIds = SicodeRules::visibleCompanyIdsFor(Auth()->User());
 
                 return count($companyIds)
@@ -315,7 +315,7 @@ class PartnerMain extends Component
 
     private function preselectContractDispatchCompany(): void
     {
-        if (!Auth()->User()?->contract || !$this->notes || !$this->notes->count()) {
+        if (!Auth()->User()?->usesContractDispatch() || !$this->notes || !$this->notes->count()) {
             return;
         }
 
@@ -338,7 +338,7 @@ class PartnerMain extends Component
      */
     private function partnerDispatchProductionFor(Note $note): ?Production
     {
-        if (!Auth()->User()?->contract) {
+        if (!Auth()->User()?->usesContractDispatch()) {
             return null;
         }
 
@@ -384,7 +384,7 @@ class PartnerMain extends Component
                 $id = $this->selectionKey($item);
 
                 if (!in_array($id, $this->selected)) {
-                    if (Auth()->User()?->contract) {
+                    if (Auth()->User()?->usesContractDispatch()) {
                         if ($this->partnerDispatchProductionFor($item)) {
                             $this->selected[] = $id;
                         }

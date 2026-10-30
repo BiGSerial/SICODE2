@@ -457,7 +457,7 @@ class PartnerStack extends Component
 
     public function remove_att()
     {
-        abort_unless(!auth()->user()?->contract, 403);
+        abort_unless(!auth()->user()?->usesContractDispatch(), 403);
         if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
 
             $this->dispatchBrowserEvent('swal', [
@@ -490,7 +490,7 @@ class PartnerStack extends Component
             ->when($this->search, function ($q) {
                 return $q->whereRelation('Note', 'note', $this->search);
             })
-            ->when(Auth()->User()->contract, function ($q) {
+            ->when(Auth()->User()->usesContractDispatch(), function ($q) {
                 return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
             })
             ->when($this->company_fs, function ($q) {
@@ -628,14 +628,14 @@ class PartnerStack extends Component
             $this->selectall = false;
         }
 
-        if (!Auth()->User()->contract) {
+        if (!Auth()->User()->usesContractDispatch()) {
             $this->company_l = Company::orderBy('name', 'ASC')->get();
         } else {
             $this->company_l = Company::whereIn('id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()))->get();
         }
 
         $this->user_fl = Production::Where('service_id', $this->service->uuid)
-            ->when(Auth()->User()->contract, function ($q) {
+            ->when(Auth()->User()->usesContractDispatch(), function ($q) {
                 return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
             })->when($this->company_fs, function ($q) {
                 return $q->whereIn('company_id', $this->company_fs);

@@ -759,7 +759,7 @@ class PartnerMain extends Component
 
 
 
-        if (!Auth()->User()->contract) {
+        if (!Auth()->User()->usesContractDispatch()) {
             $this->company_l = Company::orderBy('name', 'ASC')->get();
         } else {
 

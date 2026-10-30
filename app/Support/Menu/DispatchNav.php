@@ -75,7 +75,7 @@ final class DispatchNav extends SidebarNav
             default      => [$follow(array_values(array_filter([
                 $dash,
                 $main,
-                auth()->user()?->contract ? self::item('partner', 'Minhas atividades despachadas', 'dispatch.partner', 'ri-user-star-line', [], [], $params) : null,
+                auth()->user()?->usesContractDispatch() ? self::item('partner', 'Minhas atividades despachadas', 'dispatch.partner', 'ri-user-star-line', [], [], $params) : null,
                 $stack,
                 $historic,
                 $return,

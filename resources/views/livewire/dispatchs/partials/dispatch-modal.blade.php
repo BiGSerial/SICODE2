@@ -444,8 +444,8 @@
                     <div class="dispatch-modal__controls @if ($confirming || $selfAssign) d-none @endif">
                         <div class="dispatch-modal__control-card">
                             <label class="form-label">Destino</label>
-                            <div class="dispatch-modal__type-group {{ $contractMode ? 'is-single' : '' }}">
-                                @unless ($contractMode)
+                            <div class="dispatch-modal__type-group {{ $this->userOnly() ? 'is-single' : '' }}">
+                                @unless ($this->userOnly())
                                     <input class="btn-check" type="radio" name="dispatch_type_{{ $service->uuid }}"
                                         id="dispatch_type_stack_{{ $service->uuid }}" value="1"
                                         wire:model="type" wire:change="dispatchTypeChanged($event.target.value)">

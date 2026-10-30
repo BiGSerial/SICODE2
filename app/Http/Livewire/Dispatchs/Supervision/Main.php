@@ -294,7 +294,7 @@ class Main extends Component
 
     public function rowOpenCompanyStackProduction(Note $note): ?Production
     {
-        if (!Auth()->User()?->contract) {
+        if (!Auth()->User()?->usesContractDispatch()) {
             return null;
         }
 
@@ -408,7 +408,7 @@ class Main extends Component
 
     public function loadDispatchCompanies(): void
     {
-        if (Auth()->User()?->contract && $this->notes && $this->notes->count()) {
+        if (Auth()->User()?->usesContractDispatch() && $this->notes && $this->notes->count()) {
             $companyIds = $this->notes
                 ->map(fn ($note) => $this->rowOpenCompanyStackProduction($note)?->company_id)
                 ->filter()
@@ -428,7 +428,7 @@ class Main extends Component
                     ->where('service', true);
             });
         })
-            ->when(Auth()->User()?->contract, function ($q) {
+            ->when(Auth()->User()?->usesContractDispatch(), function ($q) {
                 $companyIds = SicodeRules::visibleCompanyIdsFor(Auth()->User());
 
                 return count($companyIds)
@@ -468,7 +468,7 @@ class Main extends Component
 
     private function preselectContractDispatchCompany(): void
     {
-        if (!Auth()->User()?->contract || !$this->notes || !$this->notes->count()) {
+        if (!Auth()->User()?->usesContractDispatch() || !$this->notes || !$this->notes->count()) {
             return;
         }
 
@@ -494,7 +494,7 @@ class Main extends Component
                 $id = $this->selectionKeyFor($item);
 
                 if (!in_array($id, $this->selected)) {
-                    if (Auth()->User()?->contract) {
+                    if (Auth()->User()?->usesContractDispatch()) {
                         if ($this->rowOpenCompanyStackProduction($item)) {
                             $this->selected[] = $id;
                         }

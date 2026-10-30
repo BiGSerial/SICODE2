@@ -332,7 +332,7 @@ class PartnerStack extends Component
 
     public function confirm_des_att_mass()
     {
-        abort_unless(!auth()->user()?->contract, 403);
+        abort_unless(!auth()->user()?->usesContractDispatch(), 403);
         $erros = 0;
         $total = 0;
 
@@ -596,7 +596,7 @@ class PartnerStack extends Component
 
     public function remove_att()
     {
-        abort_unless(!auth()->user()?->contract, 403);
+        abort_unless(!auth()->user()?->usesContractDispatch(), 403);
         if ($this->production->update(['user_id' => '', 'status' => 1, 'completed' => false])) {
 
             $this->dispatchBrowserEvent('swal', [
@@ -642,7 +642,7 @@ class PartnerStack extends Component
                     });
                 });
             })
-            ->when(Auth()->User()->contract, function ($q) {
+            ->when(Auth()->User()->usesContractDispatch(), function ($q) {
                 return $q->whereIn('productions.company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
             })
             ->when($this->company_fs, function ($q) {
@@ -705,7 +705,7 @@ class PartnerStack extends Component
                     });
                 });
             })
-            ->when(Auth()->User()->contract, function ($q) {
+            ->when(Auth()->User()->usesContractDispatch(), function ($q) {
                 return $q->whereIn('productions.company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
             })
             ->when($this->company_fs, function ($q) {
@@ -768,7 +768,7 @@ class PartnerStack extends Component
                     });
                 });
             })
-            ->when(Auth()->User()->contract, function ($q) {
+            ->when(Auth()->User()->usesContractDispatch(), function ($q) {
                 return $q->whereIn('productions.company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()));
             })
             ->when($this->company_fs, function ($q) {
@@ -909,7 +909,7 @@ class PartnerStack extends Component
     {
 
 
-        // if (!Auth()->User()->contract) {
+        // if (!Auth()->User()->usesContractDispatch()) {
         //     $this->company_l = Company::orderBy('name', 'ASC')->get();
         // } else {
         //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
@@ -939,7 +939,7 @@ class PartnerStack extends Component
 
 
         $this->user_fl = Production::where('service_id', $this->service->uuid)
-            ->when(Auth()->user()->contract, function ($q) {
+            ->when(Auth()->user()->usesContractDispatch(), function ($q) {
                 return $q->whereIn('company_id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->user()));
             })
             ->when($this->company_fs, function ($q) {
