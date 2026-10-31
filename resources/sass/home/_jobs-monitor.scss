@@ -1,0 +1,45 @@
+// Monitor de Fila (Administração → Sistema → Jobs). Usa o padrão da Home (`.my-panel`); aqui só larguras de coluna e payload.
+
+.my-panel.jobs-monitor {
+    // Largura mínima: em tela estreita a tabela rola dentro do painel em vez de sobrepor colunas.
+    .table {
+        min-width: 480px;
+        table-layout: fixed;
+    }
+
+    .jobs-col-id { width: 72px; }
+    .jobs-col-queue { width: 104px; }
+    .jobs-col-num { width: 58px; }
+    .jobs-col-status { width: 96px; }
+    .jobs-col-time { width: 132px; }
+    .jobs-col-wait { width: 88px; }
+    .jobs-col-action { width: 118px; }
+    .jobs-col-action-2 { width: 96px; }
+
+    .jobs-table td {
+        overflow-wrap: anywhere;
+    }
+
+    .jobs-clamp {
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+        display: -webkit-box;
+        overflow: hidden;
+    }
+
+    .jobs-payload-toggle {
+        font-size: .74rem;
+        text-decoration: none;
+    }
+
+    .jobs-payload {
+        background: #f1f5f9;
+        border-radius: 6px;
+        font-size: .72rem;
+        margin: 6px 0 2px;
+        max-height: 220px;
+        overflow: auto;
+        padding: 8px 10px;
+        white-space: pre-wrap;
+    }
+}

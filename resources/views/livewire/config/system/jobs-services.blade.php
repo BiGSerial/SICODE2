@@ -1,570 +1,356 @@
-<div class="jobs-monitor" wire:poll.3000ms="refreshData">
-    <style>
-        .jobs-monitor {
-            --jm-bg: #f6f7fb;
-            --jm-surface: #ffffff;
-            --jm-border: #e5e7eb;
-            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
-                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
-                var(--jm-bg);
-            padding: 1.5rem 0;
-        }
+@php
+    use App\Services\System\QueueMonitorService as Monitor;
 
-        .jobs-monitor .page-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
-            color: #f8fafc;
-            border-radius: 1rem;
-            padding: 1.5rem 2rem;
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
-            margin-bottom: 1rem;
-        }
+    $t       = $snap['totals'];
+    $ws      = $snap['worker_summary'];
+    $failed  = $snap['failed'];
+    $hasFail = $failed['total'] > 0;
+    $workerLabel = $ws['total'] !== null ? $ws['running'] . ' de ' . $ws['total'] . ' ativos' : ($ws['active'] ? 'ativo' : 'parado');
+    $retryAfter  = $snap['retry_after'];
+    $failedByType = collect($snap['failed_by_type'])->map(fn ($r) => [
+        'label' => $r['name'],
+        'text'  => (string) $r['qty'],
+        'pct'   => $r['qty'] / max(1, collect($snap['failed_by_type'])->max('qty')) * 100,
+        'tone'  => 'red',
+    ])->all();
+@endphp
 
-        .jobs-monitor .page-header h2 {
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            margin: 0;
-        }
+<div class="closure-dash my-panel jobs-monitor" wire:poll.5s>
 
-        .jobs-monitor .page-header .meta {
-            color: rgba(248, 250, 252, 0.75);
-            font-size: 0.95rem;
-        }
+    {{-- Hero --}}
+    <header class="mp-hero">
+        <div class="mp-hero-text">
+            <div class="mp-eyebrow">Sistema · Fila de jobs</div>
+            <h1 class="mp-hero-title">Monitor de Fila</h1>
+            <p class="mp-hero-sub">
+                O que está esperando, rodando, agendado e falhado na fila. Atualiza sozinho a cada 5 s
+                (última leitura às {{ $snap['now']->format('H:i:s') }}).
+            </p>
+        </div>
+        <div class="mp-hero-actions d-flex flex-wrap align-items-center gap-2">
+            <span class="badge {{ $ws['active'] ? 'text-bg-success' : 'text-bg-danger' }}" title="Fonte da detecção: {{ $ws['source'] }}">
+                Workers: {{ $workerLabel }}
+            </span>
+            @can('superadm')
+                <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="restartAll" wire:loading.attr="disabled" wire:target="restartAll" title="Envia queue:restart: cada worker reinicia ao terminar o job atual">
+                    <i class="ri-restart-line"></i> Reiniciar todos
+                </button>
+            @endcan
+        </div>
+    </header>
 
-        .jobs-monitor .summary-bar {
-            background: var(--jm-surface);
-            border: 1px solid var(--jm-border);
-            border-radius: 0.9rem;
-            padding: 0.75rem 1.25rem;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-            margin-bottom: 1rem;
-        }
+    {{-- Avisos --}}
+    @if (session()->has('message'))
+        <div class="alert alert-success d-flex align-items-center gap-2" role="status"><i class="ri-checkbox-circle-line" aria-hidden="true"></i> {{ session('message') }}</div>
+    @endif
+    @if (session()->has('error'))
+        <div class="alert alert-danger d-flex align-items-center gap-2" role="alert"><i class="ri-error-warning-line" aria-hidden="true"></i> {{ session('error') }}</div>
+    @endif
+    @if (!$ws['active'])
+        <div class="alert alert-danger d-flex align-items-center gap-2" role="alert">
+            <i class="ri-alarm-warning-line" aria-hidden="true"></i>
+            Nenhum worker ativo: os jobs pendentes não serão processados até um worker subir.
+        </div>
+    @endif
 
-        .jobs-monitor .table-card {
-            background: var(--jm-surface);
-            border: 1px solid var(--jm-border);
-            border-radius: 1rem;
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-            overflow: hidden;
-        }
+    <div wire:loading.class="is-loading-soft" wire:target="retryAllFailed, deleteAllFailed, restartAll, restartWorker, restartJob, deleteFailed">
 
-        /* Escopo do componente para evitar conflito com outras telas (ex.: specs) */
-        .jobs-monitor .jobs-auto-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-            gap: .75rem;
-        }
-
-        @media (max-width: 420px) {
-            .jobs-monitor .jobs-auto-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .jobs-monitor .jobs-kpi-card .card-body {
-            padding: .75rem;
-        }
-
-        .jobs-monitor .jobs-truncate-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .jobs-monitor .jobs-prewrap {
-            white-space: pre-wrap;
-        }
-
-        .jobs-monitor .jobs-table-wrap {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .jobs-monitor .jobs-table-wrap table {
-            min-width: 700px;
-        }
-
-        .jobs-monitor .worker-table table {
-            min-width: 760px;
-        }
-    </style>
-
-    @php
-        $statusClass = $workerActive ? 'text-bg-success' : 'text-bg-danger';
-        $statusText = $workerActive ? 'Worker ATIVO' : 'Worker PARADO';
-    @endphp
-
-    <div class="container-fluid">
-        <div class="page-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
-            <div>
-                <h2>Monitor de Fila</h2>
-                <div class="meta">Acompanhamento de pendencias, execucao, falhas e historico</div>
+        {{-- Resumo --}}
+        <h2 class="mp-section-title">Situação agora</h2>
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="blue" icon="ri-time-line" label="Pendentes" :value="$t['pending']"
+                    :note="$t['pending'] ? 'Espera mais longa: ' . Monitor::human((int) $t['oldest_wait']) : 'Nada esperando'" />
             </div>
-            <div class="text-lg-end">
-                <div class="meta">Origem do monitor</div>
-                <div><strong>{{ $workerSource }}</strong></div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="green" icon="ri-play-circle-line" label="Em execução" :value="$t['running']"
+                    :note="$t['long'] ? $t['long'] . ' há mais de ' . Monitor::human($retryAfter) : 'Todos dentro do prazo'" />
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="amber" icon="ri-calendar-schedule-line" label="Agendados" :value="$t['delayed']"
+                    note="Disponíveis em data futura" />
+            </div>
+            <div class="col-12 col-md-6 col-xl-3">
+                <x-home.hero-card tone="red" icon="ri-error-warning-line" label="Falhados" :value="$t['failed']"
+                    :note="$hasFail ? 'Precisam de ação' : 'Nenhuma falha'" />
             </div>
         </div>
 
-        <div class="summary-bar d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <div class="d-flex align-items-center gap-2">
-                <span class="badge {{ $statusClass }}">{{ $statusText }}</span>
-                <span class="badge text-bg-secondary">Fonte: {{ $workerSource }}</span>
-            </div>
-            <button id="btn-queue-restart" class="btn btn-sm btn-warning text-dark" type="button"
-                title="Reiniciar workers">
-                <span class="d-inline-flex align-items-center gap-1">
-                    <i class="bi bi-power"></i>
-                    <span>Reiniciar</span>
-                    <span id="queue-restart-spinner" class="spinner-border spinner-border-sm ms-1 d-none"
-                        role="status" aria-hidden="true"></span>
-                </span>
-            </button>
-        </div>
-
-        <div class="table-card">
-            <div class="card-body">
-            <div id="jobs-restart-alert" class="alert d-none mb-3"></div>
-
-            <div class="card shadow-sm mb-3">
-                <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <div>
-                        <strong>Workers do Supervisor</strong>
-                        <div class="small text-muted">Processos detectados e reinicio individual</div>
+        {{-- Filas e workers --}}
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-xl-5">
+                <div class="mp-panel h-100">
+                    <div class="mp-panel-head">
+                        <div>
+                            <h3 class="mp-panel-title">Filas</h3>
+                            <div class="mp-panel-sub">Contagem real por fila, não só dos itens listados abaixo</div>
+                        </div>
+                        <span class="mp-pill">{{ count($snap['queues']) }}</span>
                     </div>
-                    <span class="badge text-bg-secondary">{{ count($supervisorWorkers) }}</span>
-                </div>
-                <div class="jobs-table-wrap worker-table">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Worker</th>
-                                <th>Status</th>
-                                <th>PID</th>
-                                <th>Uptime</th>
-                                <th>Detalhe</th>
-                                <th class="text-end">Acoes</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($supervisorWorkers as $worker)
-                                <tr wire:key="supervisor-worker-{{ md5($worker['name']) }}">
-                                    <td class="fw-semibold">{{ $worker['name'] }}</td>
-                                    <td>
-                                        <span class="badge {{ $worker['running'] ? 'text-bg-success' : 'text-bg-danger' }}">
-                                            {{ $worker['status'] }}
-                                        </span>
-                                    </td>
-                                    <td>{{ $worker['pid'] ?? '-' }}</td>
-                                    <td>{{ $worker['uptime'] ?? '-' }}</td>
-                                    <td class="small text-muted jobs-truncate-2" title="{{ $worker['description'] }}">
-                                        {{ $worker['description'] ?: '-' }}
-                                    </td>
-                                    <td class="text-end">
-                                        <button class="btn btn-sm btn-outline-warning"
-                                            wire:click="restartWorker(@js($worker['name']))"
-                                            wire:loading.attr="disabled"
-                                            wire:target="restartWorker">
-                                            <i class="bi bi-arrow-clockwise"></i>
-                                            Reiniciar
-                                        </button>
-                                    </td>
-                                </tr>
-                            @empty
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0 mp-table">
+                            <colgroup>
+                                <col>
+                                <col class="jobs-col-num">
+                                <col class="jobs-col-num">
+                                <col class="jobs-col-num">
+                                <col class="jobs-col-num">
+                                <col class="jobs-col-wait">
+                            </colgroup>
+                            <thead>
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">
-                                        Nenhum worker retornado pelo supervisorctl.
-                                    </td>
+                                    <th>Fila</th>
+                                    <th class="text-end">Pend.</th>
+                                    <th class="text-end">Exec.</th>
+                                    <th class="text-end">Agend.</th>
+                                    <th class="text-end">Falh.</th>
+                                    <th class="text-end">Espera</th>
                                 </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @forelse ($snap['queues'] as $q)
+                                    <tr wire:key="queue-{{ $q['queue'] }}">
+                                        <td><span class="mp-chip">{{ $q['queue'] }}</span></td>
+                                        <td class="text-end">{{ $q['pending'] }}</td>
+                                        <td class="text-end">{{ $q['running'] }}</td>
+                                        <td class="text-end">{{ $q['delayed'] }}</td>
+                                        <td class="text-end {{ $q['failed'] ? 'text-danger fw-bold' : '' }}">{{ $q['failed'] }}</td>
+                                        <td class="text-end text-muted">{{ $q['pending'] ? Monitor::human($q['oldest_wait']) : '—' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="6" class="text-center text-muted py-4">Nenhum job em nenhuma fila.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 
-            {{-- KPIs por fila (grid fluido, sem conflito com specs) --}}
-            <div class="jobs-auto-grid">
-                @forelse($queueCounts as $q)
-                    @php
-                        $total = $q['pending'] + $q['running'] + $q['delayed'];
-                        $pctPending = $total ? round(($q['pending'] / $total) * 100, 1) : 0;
-                        $pctRunning = $total ? round(($q['running'] / $total) * 100, 1) : 0;
-                        $pctDelayed = $total ? round(($q['delayed'] / $total) * 100, 1) : 0;
-                    @endphp
-                    <div class="card shadow-sm jobs-kpi-card">
-                        <div class="card-body">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div class="fw-semibold">Fila: {{ $q['queue'] }}</div>
-                                <span class="badge text-bg-secondary">Total: {{ $total }}</span>
-                            </div>
-                            <div class="small mt-2">
-                                Pendentes: <strong>{{ $q['pending'] }}</strong> — Execução:
-                                <strong>{{ $q['running'] }}</strong> — Atrasados: <strong>{{ $q['delayed'] }}</strong>
-                            </div>
-                            <div class="progress mt-2" style="height:8px;">
-                                <div class="progress-bar bg-secondary" style="width: {{ $pctPending }}%"
-                                    title="Pendentes {{ $pctPending }}%"></div>
-                                <div class="progress-bar bg-info" style="width: {{ $pctRunning }}%"
-                                    title="Em execução {{ $pctRunning }}%"></div>
-                                <div class="progress-bar bg-warning" style="width: {{ $pctDelayed }}%"
-                                    title="Atrasados {{ $pctDelayed }}%"></div>
-                            </div>
+            <div class="col-12 col-xl-7">
+                <div class="mp-panel h-100">
+                    <div class="mp-panel-head">
+                        <div>
+                            <h3 class="mp-panel-title">Workers do Supervisor</h3>
+                            <div class="mp-panel-sub">Processos que consomem as filas. Reinicie um só quando ele estiver travado</div>
                         </div>
+                        <span class="mp-pill">{{ $ws['total'] !== null ? $ws['running'] . '/' . $ws['total'] : count($snap['workers']) }}</span>
                     </div>
-                @empty
-                    <div class="card shadow-sm jobs-kpi-card">
-                        <div class="card-body small text-muted">Sem dados de filas.</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0 mp-table">
+                            <colgroup>
+                                <col>
+                                <col class="jobs-col-status">
+                                <col class="jobs-col-id">
+                                <col class="jobs-col-wait">
+                                <col class="jobs-col-action">
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>Worker</th>
+                                    <th>Status</th>
+                                    <th>PID</th>
+                                    <th>Ativo há</th>
+                                    <th class="text-end">Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($snap['workers'] as $w)
+                                    <tr wire:key="worker-{{ md5($w['name']) }}">
+                                        <td class="fw-semibold" title="{{ $w['name'] }}">{{ $w['process'] }}</td>
+                                        <td>
+                                            <span class="badge {{ $w['running'] ? 'text-bg-success' : 'text-bg-danger' }}" title="{{ $w['description'] }}">
+                                                {{ $w['running'] ? 'Rodando' : ($w['status'] === 'STOPPED' ? 'Parado' : $w['status']) }}
+                                            </span>
+                                        </td>
+                                        <td class="text-muted">{{ $w['pid'] ?? '—' }}</td>
+                                        <td class="text-muted">{{ $w['uptime'] ?? '—' }}</td>
+                                        <td class="text-end">
+                                            @can('superadm')
+                                                <button class="btn btn-sm btn-outline-warning btn-dash" type="button" wire:click="restartWorker(@js($w['name']))" wire:loading.attr="disabled" wire:target="restartWorker" title="Reiniciar {{ $w['process'] }}">
+                                                    <i class="ri-restart-line"></i> Reiniciar
+                                                </button>
+                                            @endcan
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="5" class="text-center text-muted py-4">Supervisor não disponível neste ambiente (fonte: {{ $ws['source'] }}).</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
                     </div>
-                @endforelse
+                </div>
             </div>
+        </div>
 
-            {{-- Listas --}}
-            <div class="row g-3 mt-3">
-                {{-- Pendentes --}}
-                <div class="col-12 col-lg-6">
-                    <div class="card shadow-sm h-100">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <strong>Pendentes</strong>
-                            <span class="badge text-bg-secondary">{{ $pendingJobs->count() }}</span>
+        {{-- Falhados --}}
+        <h2 class="mp-section-title">Falhados</h2>
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-xl-8">
+                <div class="mp-panel h-100">
+                    <div class="mp-panel-head">
+                        <div>
+                            <h3 class="mp-panel-title">Jobs que falharam</h3>
+                            <div class="mp-panel-sub">Reenfileirar tenta de novo; excluir descarta o registro para sempre</div>
                         </div>
-                        <div class="jobs-table-wrap">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Queue</th>
-                                        <th>Job</th>
-                                        <th class="text-end">Tent.</th>
-                                        <th class="text-end">Disponível</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse ($pendingJobs as $job)
-                                        <tr wire:key="pending-job-{{ $job->id }}">
-                                            <td>{{ $job->id }}</td>
-                                            <td>{{ $job->queue }}</td>
-                                            <td>
-                                                <div class="jobs-truncate-2" title="{{ $job->name }}">
-                                                    {{ $job->name }}</div>
-                                                <button class="btn btn-xs btn-link p-0" data-bs-toggle="collapse"
-                                                    data-bs-target="#payload-p-{{ $job->id }}">ver
-                                                    payload</button>
-                                                <div class="collapse" id="payload-p-{{ $job->id }}"
-                                                    wire:ignore.self>
-                                                    <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
-                                                </div>
-                                            </td>
-                                            <td class="text-end">{{ $job->attempts }}</td>
-                                            <td class="text-end" title="{{ $job->available_at->toDateTimeString() }}">
-                                                {{ $job->available_at->diffForHumans() }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="5" class="text-center text-muted">Sem jobs pendentes.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Em execução --}}
-                <div class="col-12 col-lg-6">
-                    <div class="card shadow-sm h-100">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <strong>Em execução</strong>
-                            <span class="badge text-bg-info">{{ $runningJobs->count() }}</span>
-                        </div>
-                        <div class="jobs-table-wrap">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Queue</th>
-                                        <th>Job</th>
-                                        <th class="text-end">Tent.</th>
-                                        <th class="text-end">Reservado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse ($runningJobs as $job)
-                                        <tr wire:key="running-job-{{ $job->id }}">
-                                            <td>{{ $job->id }}</td>
-                                            <td>{{ $job->queue }}</td>
-                                            <td>
-                                                <div class="jobs-truncate-2" title="{{ $job->name }}">
-                                                    {{ $job->name }}</div>
-                                                <button class="btn btn-xs btn-link p-0" data-bs-toggle="collapse"
-                                                    data-bs-target="#payload-r-{{ $job->id }}">ver
-                                                    payload</button>
-                                                <div class="collapse" id="payload-r-{{ $job->id }}"
-                                                    wire:ignore.self>
-                                                    <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
-                                                </div>
-                                            </td>
-                                            <td class="text-end">{{ $job->attempts }}</td>
-                                            <td class="text-end"
-                                                title="{{ optional($job->reserved_at)->toDateTimeString() }}">
-                                                {{ optional($job->reserved_at)->diffForHumans() }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="5" class="text-center text-muted">
-                                                Sem jobs em execução (últimos {{ $this->runningThresholdMinutes }}
-                                                min).
-                                            </td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Atrasados --}}
-                <div class="col-12 col-lg-6">
-                    <div class="card shadow-sm h-100">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <strong>Atrasados (agendados)</strong>
-                            <span class="badge text-bg-warning">{{ $delayedJobs->count() }}</span>
-                        </div>
-                        <div class="jobs-table-wrap">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Queue</th>
-                                        <th>Job</th>
-                                        <th class="text-end">Disponível em</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse ($delayedJobs as $job)
-                                        <tr wire:key="delayed-job-{{ $job->id }}">
-                                            <td>{{ $job->id }}</td>
-                                            <td>{{ $job->queue }}</td>
-                                            <td>
-                                                <div class="jobs-truncate-2" title="{{ $job->name }}">
-                                                    {{ $job->name }}</div>
-                                                <button class="btn btn-xs btn-link p-0" data-bs-toggle="collapse"
-                                                    data-bs-target="#payload-d-{{ $job->id }}">ver
-                                                    payload</button>
-                                                <div class="collapse" id="payload-d-{{ $job->id }}"
-                                                    wire:ignore.self>
-                                                    <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
-                                                </div>
-                                            </td>
-                                            <td class="text-end"
-                                                title="{{ $job->available_at->toDateTimeString() }}">
-                                                {{ $job->available_at->diffForHumans() }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="4" class="text-center text-muted">Sem jobs atrasados.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Falhados --}}
-                <div class="col-12 col-lg-6">
-                    <div class="card shadow-sm h-100">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <strong>Falhados</strong>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-outline-primary"
-                                    wire:click="retryAllFailed">Reenfileirar
-                                    todos</button>
-                            </div>
-                        </div>
-                        <div class="jobs-table-wrap">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Queue</th>
-                                        <th>Job</th>
-                                        <th>Erro</th>
-                                        <th class="text-end">Falhou</th>
-                                        <th class="text-end">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse ($failedJobs as $job)
-                                        <tr wire:key="failed-job-{{ $job->id }}">
-                                            <td>{{ $job->id }}</td>
-                                            <td>{{ $job->queue }}</td>
-                                            <td>
-                                                <div class="jobs-truncate-2" title="{{ $job->name }}">
-                                                    {{ $job->name }}</div>
-                                                <button class="btn btn-xs btn-link p-0" data-bs-toggle="collapse"
-                                                    data-bs-target="#payload-f-{{ $job->id }}">ver
-                                                    payload</button>
-                                                <div class="collapse" id="payload-f-{{ $job->id }}"
-                                                    wire:ignore.self>
-                                                    <pre class="jobs-prewrap small mt-1">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) }}</pre>
-                                                </div>
-                                            </td>
-                                            <td><span class="small jobs-truncate-2"
-                                                    title="{{ $job->exception }}">{{ $job->exception }}</span></td>
-                                            <td class="text-end" title="{{ $job->failed_at->toDateTimeString() }}">
-                                                {{ $job->failed_at->diffForHumans() }}</td>
-                                            <td class="text-end">
-                                                <div class="btn-group btn-group-sm">
-                                                    <button class="btn btn-outline-primary"
-                                                        wire:click="restartJob({{ $job->id }})">Reiniciar</button>
-                                                    <button class="btn btn-outline-danger"
-                                                        wire:click="deleteFailed({{ $job->id }})">Excluir</button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="6" class="text-center text-muted">Sem jobs falhados.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Sucesso (histórico) --}}
-                <div class="col-12">
-                    <div class="card shadow-sm">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <strong>Finalizados com sucesso (histórico)</strong>
-                            @if ($succeeded->isEmpty())
-                                <span class="badge text-bg-light">Ative o histórico: migration & provider</span>
+                        <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+                            <span class="mp-pill">{{ $failed['total'] }}</span>
+                            @if ($hasFail)
+                                <button class="btn btn-sm btn-outline-primary btn-dash" type="button" wire:click="retryAllFailed" wire:loading.attr="disabled" wire:target="retryAllFailed">
+                                    <i class="ri-refresh-line"></i> Reenfileirar tudo
+                                </button>
+                                @can('superadm')
+                                    @if ($confirmingDeleteAll)
+                                        <span class="small fw-bold text-danger">Excluir {{ $failed['total'] }} falhado(s)?</span>
+                                        <button class="btn btn-sm btn-danger btn-dash" type="button" wire:click="deleteAllFailed" wire:loading.attr="disabled" wire:target="deleteAllFailed">
+                                            <i class="ri-delete-bin-line"></i> Sim, excluir tudo
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary btn-dash" type="button" wire:click="cancelDeleteAllFailed">Cancelar</button>
+                                    @else
+                                        <button class="btn btn-sm btn-outline-danger btn-dash" type="button" wire:click="askDeleteAllFailed">
+                                            <i class="ri-delete-bin-line"></i> Excluir tudo
+                                        </button>
+                                    @endif
+                                @endcan
                             @endif
                         </div>
-                        <div class="jobs-table-wrap">
-                            <table class="table table-sm align-middle mb-0">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>UUID</th>
-                                        <th>Queue</th>
-                                        <th>Job</th>
-                                        <th class="text-end">Tent.</th>
-                                        <th class="text-end">Runtime (ms)</th>
-                                        <th class="text-end">Finalizado</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @forelse ($succeeded as $row)
-                                        <tr wire:key="succeeded-job-{{ $row->id }}">
-                                            <td>{{ $row->id }}</td>
-                                            <td class="text-truncate" style="max-width: 180px;"
-                                                title="{{ $row->uuid }}">{{ $row->uuid }}</td>
-                                            <td>{{ $row->queue }}</td>
-                                            <td class="text-truncate" style="max-width: 260px;"
-                                                title="{{ $row->name }}">{{ $row->name }}</td>
-                                            <td class="text-end">{{ $row->attempts }}</td>
-                                            <td class="text-end">{{ $row->runtime_ms }}</td>
-                                            <td class="text-end" title="{{ $row->finished_at->toDateTimeString() }}">
-                                                {{ $row->finished_at->diffForHumans() }}</td>
-                                        </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="7" class="text-center text-muted">Sem histórico
-                                                disponível.</td>
-                                        </tr>
-                                    @endforelse
-                                </tbody>
-                            </table>
-                        </div>
                     </div>
-                </div>
 
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0 mp-table jobs-table">
+                            <colgroup>
+                                <col class="jobs-col-id">
+                                <col class="jobs-col-queue">
+                                <col>
+                                <col class="jobs-col-time">
+                                <col class="jobs-col-action-2">
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Fila</th>
+                                    <th>Job e erro</th>
+                                    <th class="text-end">Falhou há</th>
+                                    <th class="text-end">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse ($failed['rows'] as $job)
+                                    <tr wire:key="failed-job-{{ $job->id }}">
+                                        <td class="text-muted">#{{ $job->id }}</td>
+                                        <td><span class="mp-chip">{{ $job->queue }}</span></td>
+                                        <td>
+                                            <div class="fw-semibold" title="{{ $job->name }}">{{ $job->short }}</div>
+                                            <div class="small text-danger jobs-clamp" title="{{ $job->error }}">
+                                                @if ($job->error_class)<strong>{{ $job->error_class }}:</strong>@endif {{ $job->error }}
+                                            </div>
+                                            <button class="btn btn-link btn-sm p-0 jobs-payload-toggle" type="button" data-bs-toggle="collapse" data-bs-target="#payload-failed-{{ $job->id }}">
+                                                <i class="ri-code-s-slash-line" aria-hidden="true"></i> payload
+                                            </button>
+                                            <div class="collapse" id="payload-failed-{{ $job->id }}" wire:ignore.self>
+                                                <pre class="jobs-payload">{{ json_encode($job->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) }}</pre>
+                                            </div>
+                                        </td>
+                                        <td class="text-end" title="{{ $job->failed_at->format('d/m/Y H:i:s') }}">
+                                            {{ Monitor::human($snap['now']->diffInSeconds($job->failed_at)) }}
+                                        </td>
+                                        <td class="text-end">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-primary" type="button" wire:click="restartJob({{ $job->id }})" title="Reenfileirar este job"><i class="ri-refresh-line"></i></button>
+                                                <button class="btn btn-outline-danger" type="button" wire:click="deleteFailed({{ $job->id }})" title="Excluir este registro"><i class="ri-delete-bin-line"></i></button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr><td colspan="5" class="text-center text-muted py-4">Nenhum job falhado.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if ($failed['total'] > $failed['rows']->count())
+                        <div class="mp-panel-foot small text-muted">Mostrando os {{ $failed['rows']->count() }} mais recentes de {{ $failed['total'] }}. "Reenfileirar tudo" e "Excluir tudo" valem para todos.</div>
+                    @endif
+                </div>
             </div>
 
-            {{-- Alerts --}}
-            @if (session()->has('message'))
-                <div class="alert alert-success mt-3 mb-0">{{ session('message') }}</div>
-            @endif
-            @if (session()->has('error'))
-                <div class="alert alert-danger mt-3 mb-0">{{ session('error') }}</div>
-            @endif
+            <div class="col-12 col-xl-4">
+                <div class="mp-panel h-100">
+                    <div class="mp-panel-head">
+                        <div>
+                            <h3 class="mp-panel-title">Falhas por tipo de job</h3>
+                            <div class="mp-panel-sub">Entre os {{ min($failed['total'], 500) }} mais recentes</div>
+                        </div>
+                    </div>
+                    <div class="mp-panel-body">
+                        <x-home.bar-list :rows="$failedByType" caption="Falhas por tipo de job" :headers="['Job', 'Falhas', '']" empty="Nenhuma falha registrada." />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {{-- Listas --}}
+        <h2 class="mp-section-title">Na fila</h2>
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-xl-6">
+                @include('livewire.config.system.partials.jobs-table', ['list' => $snap['pending'], 'kind' => 'pending', 'title' => 'Pendentes', 'sub' => 'Prontos, esperando um worker (mais antigos primeiro)', 'timeLabel' => 'Esperando há', 'empty' => 'Sem jobs pendentes.'])
+            </div>
+            <div class="col-12 col-xl-6">
+                @include('livewire.config.system.partials.jobs-table', ['list' => $snap['running'], 'kind' => 'running', 'title' => 'Em execução', 'sub' => 'Reservados por um worker neste momento', 'timeLabel' => 'Rodando há', 'empty' => 'Nenhum job em execução.'])
+            </div>
+            <div class="col-12">
+                @include('livewire.config.system.partials.jobs-table', ['list' => $snap['delayed'], 'kind' => 'delayed', 'title' => 'Agendados', 'sub' => 'Só ficam disponíveis na data indicada (não são atraso)', 'timeLabel' => 'Disponível', 'empty' => 'Sem jobs agendados.'])
+            </div>
+        </div>
+
+        {{-- Histórico --}}
+        <h2 class="mp-section-title">Histórico</h2>
+        <div class="mp-panel">
+            <div class="mp-panel-head">
+                <div>
+                    <h3 class="mp-panel-title">Finalizados com sucesso</h3>
+                    <div class="mp-panel-sub">Últimas {{ Monitor::LIST_LIMIT }} execuções registradas</div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0 mp-table">
+                    <colgroup>
+                        <col class="jobs-col-id">
+                        <col class="jobs-col-queue">
+                        <col>
+                        <col class="jobs-col-num">
+                        <col class="jobs-col-time">
+                        <col class="jobs-col-time">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Fila</th>
+                            <th>Job</th>
+                            <th class="text-end">Tent.</th>
+                            <th class="text-end">Duração</th>
+                            <th class="text-end">Finalizou há</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($snap['succeeded']['rows'] as $row)
+                            <tr wire:key="succeeded-job-{{ $row->id }}">
+                                <td class="text-muted">#{{ $row->id }}</td>
+                                <td><span class="mp-chip">{{ $row->queue }}</span></td>
+                                <td class="fw-semibold" title="{{ $row->name }}">{{ $row->short }}</td>
+                                <td class="text-end">{{ $row->attempts }}</td>
+                                <td class="text-end">{{ Monitor::human((int) round($row->runtime_ms / 1000)) }}</td>
+                                <td class="text-end" title="{{ $row->finished_at->format('d/m/Y H:i:s') }}">{{ Monitor::human($snap['now']->diffInSeconds($row->finished_at)) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">
+                                    {{ $snap['succeeded']['enabled'] ? 'Nenhuma execução registrada ainda.' : 'Histórico de sucessos não habilitado neste ambiente (tabela queue_job_history ausente).' }}
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-    @push('scripts')
-        <script>
-            document.addEventListener('DOMContentLoaded', () => {
-                const btn = document.getElementById('btn-queue-restart');
-                const spin = document.getElementById('queue-restart-spinner');
-                const alertBox = document.getElementById('jobs-restart-alert');
-
-                // Proteção: exige meta CSRF no layout (padrao do Laravel em app.blade)
-                const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
-                async function showAlert(type, text) {
-                    // type: 'success' | 'danger' | 'warning' | 'info'
-                    alertBox.className = 'alert alert-' + type + ' mb-3';
-                    alertBox.textContent = text;
-                    // mostra
-                    alertBox.classList.remove('d-none');
-
-                    // some sozinho em 4s quando sucesso/info
-                    if (['success', 'info'].includes(type)) {
-                        setTimeout(() => {
-                            alertBox.classList.add('d-none');
-                            alertBox.textContent = '';
-                        }, 4000);
-                    }
-                }
-
-                btn?.addEventListener('click', async () => {
-                    try {
-                        if (!csrf) {
-                            await showAlert('danger', 'CSRF token ausente. Verifique o layout.');
-                            return;
-                        }
-                        // trava botão + mostra spinner
-                        btn.disabled = true;
-                        spin.classList.remove('d-none');
-
-                        const res = await fetch(@json(route('config.system.restart_jobs')), {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': csrf,
-                                'Accept': 'application/json'
-                            }
-                        });
-
-                        // tenta ler json, mesmo em status 4xx/5xx
-                        let data = {};
-                        try {
-                            data = await res.json();
-                        } catch (_) {}
-
-                        if (res.ok && data?.ok) {
-                            await showAlert('success', data.message ?? 'queue:restart enviado.');
-                            // opcional: pedir para o Livewire dar um refresh nos dados
-                            if (window.Livewire) {
-                                // tenta chamar método refreshData do componente atual
-                                @this.call('refreshData');
-                            }
-                        } else {
-                            const msg = (data?.message || data?.error || 'Falha ao reiniciar a fila.') +
-                                (res.status ? ` (HTTP ${res.status})` : '');
-                            await showAlert('danger', msg);
-                        }
-                    } catch (e) {
-                        await showAlert('danger', 'Erro de rede ou permissão ao chamar a rota.');
-                    } finally {
-                        // restaura botão/spinner
-                        spin.classList.add('d-none');
-                        btn.disabled = false;
-                    }
-                });
-            });
-        </script>
-    @endpush
-
 </div>
