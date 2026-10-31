@@ -1,0 +1,230 @@
+// Modal de informe (final e parcial) — padrão único da Engenharia e da empreiteira.
+// Componentes: resources/views/components/inform/*. Estilo novo entra aqui, nunca inline em Blade.
+
+.inform-modal {
+    --im-teal: #0f766e;
+    --im-ink: #0f172a;
+    --im-line: #e5e9ee;
+    --im-soft: #f6f7fb;
+    --im-edge: 18px;
+
+    background: var(--im-soft);
+    border: 0;
+    border-radius: 10px;
+    overflow: hidden;
+
+    .inform-header {
+        background: linear-gradient(120deg, var(--im-ink), var(--im-teal) 75%);
+        color: #f8fafc;
+        border: 0;
+        padding: 1.1rem var(--im-edge);
+        align-items: flex-start;
+
+        h4 { font-size: 1.15rem; letter-spacing: .02em; }
+        small { color: rgba(248, 250, 252, .78); }
+    }
+
+    .inform-tabs {
+        display: flex;
+        gap: .35rem;
+        flex-wrap: wrap;
+        padding: .6rem var(--im-edge);
+        background: #fff;
+        border-bottom: 1px solid var(--im-line);
+
+        button {
+            border: 0;
+            background: transparent;
+            border-radius: 999px;
+            padding: .35rem .9rem;
+            font-size: .82rem;
+            font-weight: 700;
+            color: #475569;
+
+            &:hover { background: #eef2f6; }
+            &.is-active { background: var(--im-teal); color: #fff; }
+            .badge { margin-left: .3rem; }
+        }
+    }
+
+    .modal-body { padding: var(--im-edge); }
+}
+
+.inform-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    margin-bottom: 1rem;
+}
+
+.inform-kpi {
+    background: #fff;
+    border: 1px solid var(--im-line);
+    border-left: 4px solid var(--im-teal);
+    border-radius: 8px;
+    padding: .75rem var(--im-edge);
+
+    span { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; color: #64748b; }
+    strong { display: block; margin-top: .15rem; font-size: 1.05rem; color: var(--im-ink); overflow-wrap: anywhere; }
+
+    &.is-danger { border-left-color: #dc2626; strong { color: #b91c1c; } }
+    &.is-warning { border-left-color: #f59e0b; }
+}
+
+.inform-card {
+    background: #fff;
+    border: 1px solid var(--im-line);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, .05);
+    overflow: hidden;
+    margin-bottom: 1rem;
+
+    &.is-danger { border-color: #fecaca; }
+}
+
+.inform-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    padding: .65rem var(--im-edge);
+    background: var(--im-teal);
+    color: #fff;
+
+    h5 { margin: 0; font-size: .85rem; font-weight: 800; text-transform: uppercase; }
+
+    .is-danger > & { background: #b91c1c; }
+}
+
+.inform-card-body { padding: var(--im-edge); }
+
+.inform-facts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .6rem;
+
+    > div {
+        border: 1px solid #edf0f3;
+        border-radius: 8px;
+        background: #fbfbfc;
+        padding: .55rem .75rem;
+    }
+
+    span { display: block; font-size: .68rem; font-weight: 700; text-transform: uppercase; color: #64748b; }
+    strong { display: block; margin-top: .15rem; overflow-wrap: anywhere; }
+}
+
+.inform-timeline {
+    display: grid;
+    gap: .6rem;
+}
+
+.inform-step {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr);
+    gap: .7rem;
+    border: 1px solid #edf0f3;
+    border-radius: 8px;
+    background: #fbfbfc;
+    padding: .65rem .75rem;
+
+    .icon {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        border-radius: 999px;
+        background: #e5e9ee;
+        color: #475569;
+        font-size: 1.15rem;
+    }
+
+    span { display: block; font-size: .7rem; font-weight: 700; text-transform: uppercase; color: #64748b; }
+    strong { display: block; }
+    small { color: #64748b; }
+
+    &.is-done { background: #f0fdfa; border-color: rgba(15, 118, 110, .25); .icon { background: var(--im-teal); color: #fff; } }
+    &.is-danger { background: #fef2f2; border-color: #fecaca; .icon { background: #dc2626; color: #fff; } }
+}
+
+.inform-empty {
+    display: grid;
+    place-items: center;
+    gap: .25rem;
+    min-height: 90px;
+    border: 1px dashed #cfd6dd;
+    border-radius: 8px;
+    color: #64748b;
+    text-align: center;
+    padding: 1rem;
+    font-weight: 700;
+    font-size: .85rem;
+
+    i { font-size: 1.6rem; }
+}
+
+.inform-text {
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.inform-note {
+    border-left: 3px solid #cbd5e1;
+    padding: .4rem .75rem;
+    margin-bottom: .6rem;
+    background: #f8fafc;
+    border-radius: 0 6px 6px 0;
+
+    &.is-danger { border-left-color: #dc2626; background: #fef2f2; }
+    small { display: block; color: #64748b; }
+}
+
+.inform-table {
+    width: 100%;
+    font-size: .85rem;
+
+    th { font-size: .7rem; text-transform: uppercase; color: #64748b; padding: .45rem .6rem; border-bottom: 1px solid var(--im-line); }
+    td { padding: .5rem .6rem; border-bottom: 1px solid #f1f3f5; vertical-align: middle; }
+    th:first-child, td:first-child { padding-left: var(--im-edge); }
+    th:last-child, td:last-child { padding-right: var(--im-edge); }
+    tr.is-confirmed td { background: #f0fdf4; }
+}
+
+.inform-files {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: .6rem;
+}
+
+.inform-file {
+    position: relative;
+    border: 1px solid var(--im-line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+
+    .thumb {
+        height: 100px;
+        display: grid;
+        place-items: center;
+        background: #f1f5f9;
+        color: #64748b;
+        font-size: 1.8rem;
+
+        img { width: 100%; height: 100%; object-fit: cover; }
+    }
+
+    .meta { padding: .4rem .55rem; font-size: .74rem; overflow-wrap: anywhere; small { display: block; color: #64748b; } }
+    .actions { display: flex; border-top: 1px solid #f1f3f5; a { flex: 1; text-align: center; padding: .3rem; font-size: .78rem; text-decoration: none; } }
+}
+
+@media (max-width: 992px) {
+    .inform-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 576px) {
+    .inform-kpis,
+    .inform-facts { grid-template-columns: 1fr; }
+}

@@ -364,7 +364,7 @@
                                         @if ($row['tacit']) <span class="badge text-bg-warning" title="ADS tácita">Tácita</span> @endif
                                     </td>
                                     <td class="text-end">
-                                        <button type="button" class="row-action border-0" title="Ver o informe" wire:click.prevent="$emitTo('partner.show.show-work-form', 'show_form', {{ $row['id'] }})"><i class="ri-eye-line"></i> Ver</button>
+                                        <button type="button" class="row-action border-0" title="Ver o informe" wire:click.prevent="$emitTo('engineers.inform-detail', 'open_inform', 'final', {{ $row['id'] }})"><i class="ri-eye-line"></i> Ver</button>
                                     </td>
                                 </tr>
                             @endforeach
@@ -376,7 +376,7 @@
         </section>
     </div>
 
-    @livewire('partner.show.show-work-form', key('inform-dash-show-work-form'))
+    @livewire('engineers.inform-detail', key('inform-dash-detail'))
 </div>
 
 @once

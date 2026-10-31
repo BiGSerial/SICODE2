@@ -200,7 +200,7 @@
                                         <div class="small text-muted">{{ $headline }}</div>
                                     </td>
                                     <td class="text-end">
-                                        <button type="button" class="row-action border-0" wire:click.prevent="$emitTo('partner.show.show-partial-info', 'show_form', {{ $list->id }})">
+                                        <button type="button" class="row-action border-0" wire:click.prevent="$emitTo('engineers.inform-detail', 'open_inform', 'partial', {{ $list->id }})">
                                             <i class="ri-eye-line"></i> Detalhes
                                         </button>
                                     </td>
@@ -262,7 +262,7 @@
         </div>
     </div>
 
-    @livewire('partner.show.show-partial-info', key('show_partial_info'))
+    @livewire('engineers.inform-detail', key('inform-detail'))
 
     <script>
         window.addEventListener('hide-bulk-search-modal', function() {

@@ -213,7 +213,7 @@
                                     </td>
                                     <td class="text-end">
                                         <button type="button" class="row-action border-0"
-                                            wire:click.prevent="$emitTo('{{ $row['type'] === 'partial' ? 'partner.show.show-partial-info' : 'partner.show.show-work-form' }}', 'show_form', {{ $row['informe_id'] }})">
+                                            wire:click.prevent="$emitTo('engineers.inform-detail', 'open_inform', '{{ $row['type'] === 'partial' ? 'partial' : 'final' }}', {{ $row['informe_id'] }})">
                                             <i class="ri-eye-line"></i> Ver informe
                                         </button>
                                     </td>
@@ -327,8 +327,7 @@
             </div>
         </div>
     </div>
-    @livewire('partner.show.show-work-form', key('pep-show-work-form'))
-    @livewire('partner.show.show-partial-info', key('pep-show-partial-info'))
+    @livewire('engineers.inform-detail', key('pep-inform-detail'))
 </div>
 
 @once

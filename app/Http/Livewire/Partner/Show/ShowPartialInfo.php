@@ -49,7 +49,27 @@ class ShowPartialInfo extends Component
 
     public function render()
     {
-        return view('livewire.partner.show.show-partial-info');
+        $form = $this->form;
+
+        [$status, $statusClass] = match (true) {
+            !$form                                => ['', ''],
+            (bool) $form->deny                    => ['REJEITADO', 'text-bg-danger'],
+            $form->payment && $form->allow        => ['PAGO', 'text-bg-success'],
+            $form->supervision && !$form->payment => ['EM MEDIÇÃO', 'text-bg-info'],
+            $form->allow && !$form->supervision   => ['EM FISCALIZAÇÃO', 'text-bg-info'],
+            default                               => ['EM AVALIAÇÃO', 'text-bg-warning'],
+        };
+
+        $orders = $form
+            ? $form->Orders->pluck('ordem')->merge($form->Note?->Orders?->pluck('ordem') ?? collect())->filter()->unique()->values()
+            : collect();
+
+        return view('livewire.partner.show.show-partial-info', [
+            'status'      => $status,
+            'statusClass' => $statusClass,
+            'orders'      => $orders,
+            'internal'    => $this->userCanInspectInternalReports(),
+        ]);
     }
 
     private function userCanInspectInternalReports(): bool

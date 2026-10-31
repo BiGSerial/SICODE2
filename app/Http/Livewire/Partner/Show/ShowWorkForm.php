@@ -28,6 +28,8 @@ class ShowWorkForm extends Component
             $this->applyPartnerBranchScopeToNoteRelation($query);
         }
 
+        $internal = $this->userCanInspectInternalReports();
+
         $this->form = $query->firstOrFail()->load([
             'Company',
             'Equipment',
@@ -35,7 +37,11 @@ class ShowWorkForm extends Component
             'Note.FiveNote.productions.Service:id,uuid,service',
             'Note.FiveNote.productions.User:id,name,email',
             'Orders',
-            'FlowProductions' => function ($query) {
+            'Returnwork' => fn ($query) => $query->orderBy('created_at'),
+        ]);
+
+        if ($internal) {
+            $this->form->load(['FlowProductions' => function ($query) {
                 $query->with([
                     'Production.Service:id,uuid,service',
                     'Production.User:id,name,email',
@@ -46,10 +52,8 @@ class ShowWorkForm extends Component
                     ->orderByDesc('is_current')
                     ->orderBy('linked_at')
                     ->orderBy('id');
-            },
-        ]);
-
-        // dd($this->form);
+            }]);
+        }
 
         if ($this->form) {
 
@@ -61,8 +65,13 @@ class ShowWorkForm extends Component
 
     public function render()
     {
+        $internal = $this->userCanInspectInternalReports();
+
         return view('livewire.partner.show.show-work-form', [
-            'reportFiles' => $this->form ? $this->filesOfReport($this->form) : collect(),
+            'internal'    => $internal,
+            'reportFiles' => $this->form
+                ? ($internal ? $this->filesOfReport($this->form) : $this->form->Files()->with(['Service', 'User'])->get())
+                : collect(),
         ]);
     }
 
