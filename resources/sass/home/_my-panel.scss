@@ -256,6 +256,32 @@
         padding: 16px var(--mp-edge);
     }
 
+    // Aviso contratual: destacado (faixa lateral + fundo âmbar) para o usuário não ignorar. Tom via `.tone-amber`.
+    .mp-legal-note {
+        background: var(--tone-soft);
+        border-left: 4px solid var(--k);
+        border-radius: 8px;
+        font-size: .84rem;
+        line-height: 1.5;
+        margin: 0 var(--mp-edge) 16px;
+        padding: 12px 14px;
+
+        p:last-child { margin-bottom: 0; }
+        p + p { margin-top: .6rem; }
+    }
+
+    .mp-legal-note-title {
+        align-items: center;
+        color: var(--tone);
+        display: flex;
+        font-size: .74rem;
+        font-weight: 800;
+        gap: 6px;
+        letter-spacing: .06em;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+    }
+
     // Rede de segurança: lista de barras ou "Ver como tabela" soltas direto no painel não podem encostar na borda.
     // O certo é envolver em `.mp-panel-body`; isto só evita que o erro vire texto colado no card.
     .mp-panel > .mp-bars {

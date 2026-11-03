@@ -467,9 +467,9 @@
                                             $daysLeft = (int) now()->startOfDay()->diffInDays($dueDate->copy()->startOfDay(), false);
                                         @endphp
                                         <tr>
-                                            <td class="fw-bold">{{ $item->note->note ?? '—' }}</td>
+                                            <td><span class="fw-bold d-block">{{ $item->note->note ?? '—' }}</span>@if ($item->Company?->name)<small class="text-muted d-block text-truncate" title="{{ $item->Company->name }}">{{ $item->Company->name }}</small>@endif</td>
                                             <td class="text-center"><x-ops.date :date="$item->sended_at" /></td>
-                                            <td class="text-center"><x-ops.date :date="$dueDate" :tone="PrazoReal::tone($daysLeft)" :sub="ControlAge::remainingLabel($daysLeft)" hint="Data de vencimento e dias que faltam" /></td>
+                                            <td class="text-center"><x-ops.date :date="$dueDate" :tone="\App\Support\Ops\PrazoParceira::tone($daysLeft)" :sub="ControlAge::remainingLabel($daysLeft)" hint="Data de vencimento e dias que faltam" /></td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -495,9 +495,9 @@
                                     @foreach ($workReportsWithoutAdsDueSoon as $item)
                                         @php $daysLeft = $item->ads_days_left !== null ? (int) $item->ads_days_left : null; @endphp
                                         <tr>
-                                            <td class="fw-bold">{{ $item->note->note ?? '—' }}</td>
+                                            <td><span class="fw-bold d-block">{{ $item->note->note ?? '—' }}</span>@if ($item->Company?->name)<small class="text-muted d-block text-truncate" title="{{ $item->Company->name }}">{{ $item->Company->name }}</small>@endif</td>
                                             <td class="text-center"><x-ops.date :date="$item->informed_at" time /></td>
-                                            <td class="text-center"><x-ops.date :date="$item->ads_due_at" :tone="PrazoReal::tone($daysLeft)" :sub="ControlAge::remainingLabel($daysLeft)" hint="Prazo de entrega da ADS e dias que faltam" /></td>
+                                            <td class="text-center"><x-ops.date :date="$item->ads_due_at" :tone="\App\Support\Ops\PrazoParceira::tone($daysLeft)" :sub="ControlAge::remainingLabel($daysLeft)" hint="Prazo de entrega da ADS e dias que faltam" /></td>
                                         </tr>
                                     @endforeach
                                 </tbody>
@@ -506,9 +506,11 @@
                     @else
                         <div class="mp-panel-body text-center text-muted">Sem entregas de ADS vencendo no horizonte atual.</div>
                     @endif
-                    <div class="mp-panel-body border-top small">
-                        <strong class="d-block mb-1">Base contratual</strong>
-                        {!! $legalNotices->adsDueText() !!}
+                    <div class="border-top pt-3">
+                        <div class="mp-legal-note tone-amber" role="note">
+                            <div class="mp-legal-note-title"><i class="ri-error-warning-line"></i> Base contratual</div>
+                            {!! $legalNotices->adsDueText() !!}
+                        </div>
                     </div>
                 </section>
             </div>
@@ -526,7 +528,7 @@
                                 <tbody>
                                     @foreach ($tacitAdsOverdueWithoutDelivery as $item)
                                         <tr>
-                                            <td class="fw-bold">{{ $item->note->note ?? '—' }}</td>
+                                            <td><span class="fw-bold d-block">{{ $item->note->note ?? '—' }}</span>@if ($item->Company?->name)<small class="text-muted d-block text-truncate" title="{{ $item->Company->name }}">{{ $item->Company->name }}</small>@endif</td>
                                             <td class="text-center"><x-ops.date :date="$item->Adsform?->tacit_due_at" tone="red" :sub="ControlAge::remainingLabel(-1 * (int) ($item->ads_late_days ?? 0))" hint="Data em que a ADS venceu e dias de atraso" /></td>
                                         </tr>
                                     @endforeach
@@ -536,9 +538,11 @@
                     @else
                         <div class="mp-panel-body text-center text-muted">Sem entregas de ADS em atraso.</div>
                     @endif
-                    <div class="mp-panel-body border-top small">
-                        <strong class="d-block mb-1">Base contratual</strong>
-                        {!! $legalNotices->adsOverdueText() !!}
+                    <div class="border-top pt-3">
+                        <div class="mp-legal-note tone-amber" role="note">
+                            <div class="mp-legal-note-title"><i class="ri-error-warning-line"></i> Base contratual</div>
+                            {!! $legalNotices->adsOverdueText() !!}
+                        </div>
                     </div>
                 </section>
             </div>
