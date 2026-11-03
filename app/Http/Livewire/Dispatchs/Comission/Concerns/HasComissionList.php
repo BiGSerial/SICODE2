@@ -54,21 +54,29 @@ trait HasComissionList
     /** @var Collection|null Linhas da página já apresentadas (memo por requisição, zerado a cada render). */
     private ?Collection $rowsMemo = null;
 
-    protected $listeners = [
-        'refresh_dispatch' => '$refresh',
-        'refresh_list'     => '$refresh',
-        'getCopy'          => 'copy',
-        'confirm_mass_dd'  => 'confirmed_mass_dd',
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$listeners` do Livewire\Component. */
+    protected function getListeners()
+    {
+        return array_merge(parent::getListeners(), [
+            'refresh_dispatch' => '$refresh',
+            'refresh_list'     => '$refresh',
+            'getCopy'          => 'copy',
+            'confirm_mass_dd'  => 'confirmed_mass_dd',
+        ]);
+    }
 
-    protected $queryString = [
-        'search'       => ['except' => '', 'as' => 'buscar'],
-        'page'         => ['except' => 1, 'as' => 'p'],
-        'perPage'      => ['as' => 'pp'],
-        'note_type'    => ['except' => '', 'as' => 'tipo'],
-        'not_assigned' => ['except' => false, 'as' => 'livres'],
-        'filters'      => ['except' => [], 'as' => 'f'],
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$queryString` do Livewire\Component. */
+    protected function queryString(): array
+    {
+        return [
+            'search'       => ['except' => '', 'as' => 'buscar'],
+            'page'         => ['except' => 1, 'as' => 'p'],
+            'perPage'      => ['as' => 'pp'],
+            'note_type'    => ['except' => '', 'as' => 'tipo'],
+            'not_assigned' => ['except' => false, 'as' => 'livres'],
+            'filters'      => ['except' => [], 'as' => 'f'],
+        ];
+    }
 
     public function mount($service)
     {

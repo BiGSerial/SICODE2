@@ -63,23 +63,31 @@ trait HasDefaultControlList
     /** Production alvo de uma confirmação pendente (Re-atribuir / Remover despacho). */
     public ?int $pendingProductionId = null;
 
-    protected $queryString = [
-        'search'    => ['except' => '', 'as' => 'buscar'],
-        'page'      => ['except' => 1, 'as' => 'p'],
-        'perPage'   => ['as' => 'pp'],
-        'note_type' => ['except' => '', 'as' => 'tipo'],
-        'filters'   => ['except' => [], 'as' => 'f'],
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$queryString` do Livewire\Component. */
+    protected function queryString(): array
+    {
+        return [
+            'search'    => ['except' => '', 'as' => 'buscar'],
+            'page'      => ['except' => 1, 'as' => 'p'],
+            'perPage'   => ['as' => 'pp'],
+            'note_type' => ['except' => '', 'as' => 'tipo'],
+            'filters'   => ['except' => [], 'as' => 'f'],
+        ];
+    }
 
-    protected $listeners = [
-        'refresh_list'       => '$refresh',
-        'confirm_remove_att' => 'remove_att',
-        'confirm_dispatch'   => 'confirmed_att',
-        'getCopy'            => 'copy',
-        'filterUser'         => 'filterUser',
-        'confirm_reatt'      => 'confirmReattribute',
-        'confirm_delete'     => 'confirmRemove',
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$listeners` do Livewire\Component. */
+    protected function getListeners()
+    {
+        return array_merge(parent::getListeners(), [
+            'refresh_list'       => '$refresh',
+            'confirm_remove_att' => 'remove_att',
+            'confirm_dispatch'   => 'confirmed_att',
+            'getCopy'            => 'copy',
+            'filterUser'         => 'filterUser',
+            'confirm_reatt'      => 'confirmReattribute',
+            'confirm_delete'     => 'confirmRemove',
+        ]);
+    }
 
     public function mount($service)
     {

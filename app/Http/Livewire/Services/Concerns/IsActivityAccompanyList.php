@@ -47,21 +47,29 @@ trait IsActivityAccompanyList
 
     public $analise;
 
-    protected $queryString = [
-        'search'  => ['except' => '', 'as' => 'buscar'],
-        'filters' => ['except' => [], 'as' => 'f'],
-        'perPage' => ['except' => 50, 'as' => 'pp'],
-        'tab'     => ['except' => 'producao', 'as' => 'aba'],
-        'user_s'  => ['except' => '', 'as' => 'usuario'],
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$queryString` do Livewire\Component. */
+    protected function queryString(): array
+    {
+        return [
+            'search'  => ['except' => '', 'as' => 'buscar'],
+            'filters' => ['except' => [], 'as' => 'f'],
+            'perPage' => ['except' => 50, 'as' => 'pp'],
+            'tab'     => ['except' => 'producao', 'as' => 'aba'],
+            'user_s'  => ['except' => '', 'as' => 'usuario'],
+        ];
+    }
 
-    protected $listeners = [
-        'refresh_accomany'    => '$refresh',
-        'refresh_service'     => '$refresh',
-        'getCopy'             => 'copy',
-        'confirm_getAnalise'  => 'go_to_analise',
-        'confirm_finish_mass' => 'finishBulk',
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$listeners` do Livewire\Component. */
+    protected function getListeners()
+    {
+        return array_merge(parent::getListeners(), [
+            'refresh_accomany'    => '$refresh',
+            'refresh_service'     => '$refresh',
+            'getCopy'             => 'copy',
+            'confirm_getAnalise'  => 'go_to_analise',
+            'confirm_finish_mass' => 'finishBulk',
+        ]);
+    }
 
     public function mount($service)
     {

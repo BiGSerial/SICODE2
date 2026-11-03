@@ -46,21 +46,29 @@ trait HasComissionControl
 
     public string $note_type = '';
 
-    protected $queryString = [
-        'search'       => ['except' => '', 'as' => 'buscar'],
-        'page'         => ['except' => 1, 'as' => 'p'],
-        'perPage'      => ['as' => 'pp'],
-        'note_type'    => ['except' => '', 'as' => 'tipo'],
-        'statusFilter' => ['except' => null, 'as' => 'status'],
-        'multiSearch'  => ['except' => []],
-        'filters'      => ['except' => [], 'as' => 'f'],
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$queryString` do Livewire\Component. */
+    protected function queryString(): array
+    {
+        return [
+            'search'       => ['except' => '', 'as' => 'buscar'],
+            'page'         => ['except' => 1, 'as' => 'p'],
+            'perPage'      => ['as' => 'pp'],
+            'note_type'    => ['except' => '', 'as' => 'tipo'],
+            'statusFilter' => ['except' => null, 'as' => 'status'],
+            'multiSearch'  => ['except' => []],
+            'filters'      => ['except' => [], 'as' => 'f'],
+        ];
+    }
 
-    protected $listeners = [
-        'resetFilters' => 'clearAllCriteria',
-        'refresh_list' => '$refresh',
-        'getCopy'      => 'copy',
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$listeners` do Livewire\Component. */
+    protected function getListeners()
+    {
+        return array_merge(parent::getListeners(), [
+            'resetFilters' => 'clearAllCriteria',
+            'refresh_list' => '$refresh',
+            'getCopy'      => 'copy',
+        ]);
+    }
 
     public function mount(string $service): void
     {

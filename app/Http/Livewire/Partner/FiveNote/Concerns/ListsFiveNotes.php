@@ -40,9 +40,13 @@ trait ListsFiveNotes
 
     public $endDate;
 
-    protected $listeners = [
-        'refresh_component' => '$refresh',
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$listeners` do Livewire\Component. */
+    protected function getListeners()
+    {
+        return array_merge(parent::getListeners(), [
+            'refresh_component' => '$refresh',
+        ]);
+    }
 
     /** Recorte da tela (visibilidade, concluída ou não, devolvida ou não), já com o escopo da empresa. */
     abstract protected function baseQuery(): Builder;

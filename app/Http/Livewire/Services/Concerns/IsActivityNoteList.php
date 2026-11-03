@@ -31,16 +31,24 @@ trait IsActivityNoteList
 
     public $last_update;
 
-    protected $listeners = [
-        'refresh_service'   => '$refresh',
-        'getCopy'           => 'copy',
-        'confirm_accompany' => 'add_to_accompany',
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$listeners` do Livewire\Component. */
+    protected function getListeners()
+    {
+        return array_merge(parent::getListeners(), [
+            'refresh_service'   => '$refresh',
+            'getCopy'           => 'copy',
+            'confirm_accompany' => 'add_to_accompany',
+        ]);
+    }
 
-    protected $queryString = [
-        'search'  => ['except' => '', 'as' => 'buscar'],
-        'filters' => ['except' => [], 'as' => 'f'],
-    ];
+    /** Método (e não propriedade): o trait não redeclara `$queryString` do Livewire\Component. */
+    protected function queryString(): array
+    {
+        return [
+            'search'  => ['except' => '', 'as' => 'buscar'],
+            'filters' => ['except' => [], 'as' => 'f'],
+        ];
+    }
 
     /** Colunas da Nota consultadas pela busca simples. */
     protected function searchColumns(): array
