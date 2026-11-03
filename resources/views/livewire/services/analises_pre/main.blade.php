@@ -1,377 +1,207 @@
 @php
-    use Carbon\Carbon;
-    use App\Custom\Notestatus;
+    use App\Support\Ops\RowState;
 
-    $prazoRealFromDtCreated = function ($note) {
-        if (!$note?->dt_created) {
-            return null;
-        }
-
-        return Carbon::parse($note->dt_created)->startOfDay()->diffInDays(Carbon::now()->startOfDay());
-    };
+    $statusCodes = $service->Status->count()
+        ? $service->Status->where('exclusion', false)->unique('value')->pluck('value')->implode(' · ')
+        : null;
+    $hasCriteria = $this->hasListFilters() || filled($search) || $not_assigned || $assigned_mmgd || !empty($multiSearch);
+    $canManage = auth()->user()->can('management');
+    $widths = $canManage
+        ? [38, 120, 70, 92, 84, 108, 96, 120, 96, 130, 76, 96, 70, 104, 108, 100, 112]
+        : [38, 120, 70, 92, 84, 108, 96, 120, 96, 76, 96, 70, 104, 108, 100, 112];
 @endphp
-<div class="oexterno-page">
-    <x-show-loading />
 
-    <style>
-        .oexterno-page {
-            --oe-bg: #f6f7fb;
-            --oe-surface: #ffffff;
-            --oe-ink: #1f2933;
-            --oe-muted: #6b7280;
-            --oe-border: #e5e7eb;
-            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
-                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%),
-                var(--oe-bg);
-            padding: 1.25rem 0;
-        }
+{{-- Lista operacional (Serviços, auto-atribuição): padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md. Hero → ferramentas → painel com a tabela. --}}
+<div class="closure-dash my-panel ops-list" x-data="opsSelection()">
 
-        .oexterno-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
-            color: #f8fafc;
-            border-radius: .5rem;
-            padding: 1.25rem 1.5rem;
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
-            margin-bottom: 1rem;
-        }
-
-        .filter-card,
-        .summary-bar,
-        .table-card {
-            background: var(--oe-surface);
-            border: 1px solid var(--oe-border);
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-        }
-
-        .filter-card {
-            border-radius: .4rem;
-            padding: .9rem 1rem;
-            height: 100%;
-        }
-
-        .summary-bar {
-            border-radius: .3rem;
-            padding: .7rem 1rem;
-        }
-
-        .table-card {
-            border-radius: .15rem;
-            overflow: hidden;
-        }
-
-        .table-card .table thead th {
-            font-size: .75rem;
-            text-transform: uppercase;
-            letter-spacing: .04em;
-            white-space: nowrap;
-        }
-    </style>
-
-    <div class="container-fluid">
-        <div class="oexterno-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
-            <div>
-                <h2 class="mb-0">{{ mb_strtoupper($service->service) }}</h2>
-                <div class="small">Gestão de atribuições</div>
-            </div>
-            <div class="text-lg-end small">
-                @if ($last_update)
-                    Última Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
-                @endif
-            </div>
+    <x-ops.hero
+        :eyebrow="'Serviços · ' . $service->service"
+        :title="'Lista para ' . mb_strtolower($service->service)"
+        subtitle="Notas e OVs para você assumir. Marque as linhas, assuma e acompanhe os prazos pela cor."
+        :updated-at="$update ? $last_update : null">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <x-ops.legend />
         </div>
+    </x-ops.hero>
 
-        <div class="row g-3 mb-3">
-            <div class="col-12 col-lg-5">
-                <div class="filter-card">
-                    <div class="row g-2">
-                        <div class="col-12 col-md-4">
-                            <div class="form-floating">
-                                <select class="form-select border border-secondary" wire:model="perPage" id="perPage">
-                                    <option value="25">25</option>
-                                    <option value="50">50</option>
-                                    <option value="100">100</option>
-                                    <option value="200">200</option>
-                                    <option value="500">500</option>
-                                </select>
-                                <label for="perPage">Registros/página</label>
-                            </div>
-                        </div>
-                        <div class="col-12 col-md-8">
-                            <div class="form-floating position-relative">
-                                <input wire:model.bounce.2s="search" type="text" class="form-control border border-secondary"
-                                    id="search" placeholder="Buscar">
-                                <label for="search">Buscar</label>
-                                <button class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
-                                    data-bs-toggle="modal" data-bs-target="#buscar_multi">
-                                    <i class="ri-checkbox-multiple-blank-line"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <section class="ops-toolbar" aria-label="Filtros da lista">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar nota" label="Buscar nota">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#buscar_multi" title="Buscar várias notas de uma vez" aria-label="Buscar várias notas de uma vez">
+                    <i class="ri-list-check-2" aria-hidden="true"></i>
+                </button>
+            </x-ops.search>
 
-            <div class="col-12 col-lg-4">
-                <div class="filter-card">
-                    <div class="dropdown mb-2">
-                        <button class="btn btn-outline-secondary dropdown-toggle w-100" type="button" data-bs-toggle="dropdown"
-                            aria-expanded="false">
-                            Rubrica
-                            @if (count($rubrica_s))
-                                <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                            @endif
-                        </button>
-                        <div class="dropdown-menu w-100" style="max-height: 350px; overflow-y: auto;">
-                            <form wire:submit.prevent="filter_save">
-                                @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                                    @foreach ($rubrica_l as $rubrica)
-                                        @if ($rubrica->rubrica)
-                                            <div class="dropdown-item">
-                                                <input type="checkbox" wire:model.defer="rubrica_s"
-                                                    wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                                <label>{{ $rubrica->rubrica }}</label>
-                                            </div>
-                                        @endif
-                                    @endforeach
-                                @endif
-                            </form>
-                        </div>
-                    </div>
-                    <div class="btn-group w-100">
-                        <button class="btn btn-primary" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i> Aplicar</button>
-                        <button class="btn btn-primary" wire:click.prevent="filter_clean"><i class="ri-filter-off-fill"></i> Limpar</button>
-                    </div>
-                </div>
-            </div>
+            <x-ops.toggle label="Só livres" icon="ri-user-unfollow-line" :on="$not_assigned" wire:click.prevent="filterStatus" title="Mostra só o que ainda não foi atribuído a ninguém" />
+            <x-ops.toggle label="Somente MMGD" icon="ri-sun-line" :on="$assigned_mmgd" wire:click.prevent="filterMMGD" title="Mostra só notas de micro e minigeração distribuída" />
 
-            <div class="col-12 col-lg-3">
-                <div class="filter-card d-flex flex-column gap-2">
-                    <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="filterStatus()">
-                        {{ Notestatus::status(1)->status }}
-                        @if ($not_assigned)
-                            <span class="badge text-bg-success">ON</span>
-                        @else
-                            <span class="badge text-bg-danger">OFF</span>
-                        @endif
-                    </button>
+            <span class="ops-toolbar-spacer"></span>
 
-                    <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}" wire:click.prevent="filterMMGD()">
-                        Somente MMGD
-                        @if ($assigned_mmgd)
-                            <span class="badge text-bg-success">ON</span>
-                        @else
-                            <span class="badge text-bg-danger">OFF</span>
-                        @endif
-                    </button>
-
-                    <button class="btn btn-outline-success" wire:click.prevent="go_att_mass" @disabled(!count($selected))>
-                        <i class="ri-user-add-line"></i> Atribuir selecionados ({{ count($selected) }})
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        @if ($lists->count())
-            <div class="summary-bar mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>{{ $lists->links() }}</div>
-                <div>
-                    Exibindo <strong>{{ $lists->firstItem() }}</strong> até <strong>{{ $lists->lastItem() }}</strong> de
-                    <strong>{{ $lists->total() }}</strong> registros.
-                </div>
-            </div>
-        @endif
-
-        <div class="table-card">
-            @if (!$lists->count())
-                <div class="card-body">
-                    <h4 class="text-center">SEM NOTAS PARA EXIBIR EM {{ $service->service }}</h4>
-                </div>
-            @else
-                <h4 class="card-header fw-bold text-bg-secondary mb-0">LISTA PARA {{ mb_strtoupper($service->service) }}
-                    @if ($service->Status->count())
-                        @foreach ($service->Status->where('exclusion', false)->unique('value')->unique('value') as $sts)
-                            ({{ $sts->value }})
-                        @endforeach
-                    @endif
-                </h4>
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-condensed mb-0">
-                        <thead class="table-dark">
-                            <tr class="text-center">
-                                <th>
-                                    <input class="form-check-input" type="checkbox" wire:model="selectAll"
-                                        wire:click="setSelectAllFiltered" @checked($this->checkAllSelect())>
-                                </th>
-                                <th scope="col" class="fw-bold">Note</th>
-                                <th scope="col" class="fw-bold">MMGD</th>
-                                <th scope="col" class="fw-bold">Criado Em</th>
-                                <th scope="col" class="fw-bold">Retorno</th>
-                                <th scope="col" class="fw-bold">numPedido</th>
-                                <th scope="col" class="fw-bold">Rubrica</th>
-                                <th scope="col" class="fw-bold">Municipio</th>
-                                @can('management')
-                                    <th scope="col" class="fw-bold">Grp1</th>
-                                @endcan
-                                <th scope="col" class="fw-bold">Grp2</th>
-                                @can('management')
-                                    <th scope="col" class="fw-bold">Descrição</th>
-                                @endcan
-                                <th scope="col" class="fw-bold">Status</th>
-                                <th scope="col" class="fw-bold">Pze</th>
-                                <th scope="col" class="fw-bold">Data Status</th>
-                                <th scope="col" class="fw-bold">Prazo Real</th>
-                                <th scope="col" class="fw-bold">Situação</th>
-                                <th scope="col" class="fw-bold"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                @php
-                                    $block = false;
-
-                                    $productions = $list->Productions
-                                        ->where('service_id', $service->uuid)
-                                        ->where('noinconsistency', false);
-                                    $return = $list->Productions
-                                        ->where('service_id', $service->uuid)
-                                        ->where('completed', true)
-                                        ->where('noinconsistency', true)
-                                        ->count();
-
-                                    if ($productions->isNotEmpty()) {
-                                        $production = $productions->last();
-
-                                        if ($production->dt_note == $list->dt_status || !$production->confirmed) {
-                                            $block = true;
-                                        }
-                                        if (isset($production->User->name)) {
-                                            $lastUser = $production->User->name;
-                                            $lastUser = explode(' ', $lastUser);
-                                            $lastUser = $lastUser[0] . ' ' . end($lastUser);
-                                        } else {
-                                            $lastUser = 'DESCONHECIDO';
-                                        }
-                                    }
-                                @endphp
-
-                                <tr class="align-middle text-center
-                                    @if ($block)
-                                        @if ($production?->status == 1) table-warning
-                                        @elseif ($production?->status == 2) table-primary
-                                        @elseif ($production?->status == 5 && !$production?->confirmed) table-success
-                                        @elseif ($production?->status == 5 && $production?->confirmed) table-danger
-                                        @else table-primary @endif
-                                    @endif">
-                                    <td class="text-center">
-                                        <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                            value="{{ $list->id }}" wire:model.defer="selected">
-                                    </td>
-                                    <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}</td>
-                                    <td class="fw-light">{{ $list->mmgd ? 'SIM' : '' }}</td>
-                                    <td class="fw-light">{{ date('d/m/Y', strToTime($list->dt_created)) }}</td>
-                                    <td class="fw-light text-center @if ($return) table-warning @endif">
-                                        @if ($return)
-                                            <span class="badge text-bg-dark">{{ $return }}</span>
-                                        @endif
-                                    </td>
-                                    <td class="fw-light">{{ mb_strtoupper($list->numPedido) }}</td>
-                                    <td class="fw-light">{{ $list->rubrica }}</td>
-                                    <td class="fw-light">{{ $list->lexp }}</td>
-                                    @can('management')
-                                        <td class="fw-light">{{ $list->group1 }}</td>
-                                    @endcan
-                                    <td class="fw-light">{{ $list->group2 }}</td>
-                                    @can('management')
-                                        <td class="fw-light">{{ $list->material }}</td>
-                                    @endcan
-                                    <td class="fw-light">{{ $list->nstats }}</td>
-                                    <td class="fw-light">{{ $list->pze }}</td>
-                                    <td class="fw-light">{{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }}</td>
-                                    @php
-                                        $prazoReal = $prazoRealFromDtCreated($list);
-                                        $prazoRestante = $prazoReal === null ? null : 30 - $prazoReal;
-                                    @endphp
-                                    <td class="text-center
-                                        @if ($prazoRestante === null || $prazoRestante < 0) text-bg-secondary
-                                        @elseif($prazoRestante >= 0 && $prazoRestante < 6) table-danger
-                                        @elseif($prazoRestante >= 6 && $prazoRestante < 10) table-warning
-                                        @else table-success @endif">
-                                        {{ $prazoReal ?? '--' }}
-                                    </td>
-                                    <td class="fw-light">
-                                        @if ($list->pze_parecer === 'Vencido')
-                                            <span class="badge text-bg-danger">VENCIDO</span>
-                                        @elseif ($list->pze_parecer === 'Não vencido')
-                                            <span class="badge text-bg-success">EM PRAZO</span>
-                                        @else
-                                            <span class="badge text-bg-secondary">DESCONHECIDO</span>
-                                        @endif
-                                    </td>
-
-                                    <td class="fw-bold text-center">
-                                        @if (!$block)
-                                            <i class="ri-play-circle-line my-0 align-middle text-success fs-4"
-                                                style="cursor: pointer;" wire:click.prevent="to_accompany({{ $list->id }})"
-                                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                                data-bs-title="Enviar para Acompanhamento"></i>
-                                        @else
-                                            <span style="font-size: 11px">{{ $lastUser }}</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar tudo</button>
             @endif
         </div>
 
-        @if ($lists->count())
-            <div class="summary-bar mt-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <div>{{ $lists->links() }}</div>
-                <div>
-                    Exibindo <strong>{{ $lists->firstItem() }}</strong> até <strong>{{ $lists->lastItem() }}</strong> de
-                    <strong>{{ $lists->total() }}</strong> registros.
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
+        </div>
+
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
+        @endif
+    </section>
+
+    <section class="mp-panel" aria-label="Lista para {{ $service->service }}">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Lista para {{ mb_strtolower($service->service) }}</h2>
+                <div class="mp-panel-sub">
+                    {{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'registro' : 'registros' }}@if ($statusCodes) · status {{ $statusCodes }}@endif
                 </div>
+            </div>
+            <span class="mp-pill" wire:loading.delay>Atualizando…</span>
+        </div>
+
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="8" />
+
+        @if ($rows->isEmpty())
+            <div class="mp-panel-body">
+                <x-closure.empty-state
+                    :title="$hasCriteria ? 'Nenhum resultado para os filtros escolhidos' : 'Sem notas em ' . $service->service . ' no momento'"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais notas.' : 'Quando houver notas liberadas, elas aparecem aqui.'"
+                    icon="ri-inbox-line" />
+                @if ($hasCriteria)
+                    <div class="text-center mt-2"><button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearAllCriteria">Limpar filtros</button></div>
+                @endif
+            </div>
+        @else
+            <div class="ops-table-wrap" wire:loading.delay.class="d-none">
+                <table class="table ops-table">
+                    <colgroup>
+                        @foreach ($widths as $w)
+                            <col style="width: {{ $w }}px">
+                        @endforeach
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th><input class="form-check-input" type="checkbox" wire:model="selectAll" wire:click="setSelectAllFiltered" @checked($selectAll) aria-label="Selecionar todas as notas do filtro"></th>
+                            <th>Nota</th>
+                            <th>MMGD</th>
+                            <th>Criada em</th>
+                            <th>Retorno</th>
+                            <th>Pedido</th>
+                            <th>Rubrica</th>
+                            <th class="is-left">Município</th>
+                            @if ($canManage)
+                                <th>Grp1</th>
+                            @endif
+                            <th>Grp2</th>
+                            @if ($canManage)
+                                <th class="is-left">Descrição</th>
+                            @endif
+                            <th>Status</th>
+                            <th>Pze</th>
+                            <th>Data do status</th>
+                            <th>Prazo real</th>
+                            <th>Situação</th>
+                            <th><span class="visually-hidden">Ação</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rows as $row)
+                            <tr wire:key="note-{{ $row['key'] }}" @class(['ops-row-' . $row['state'] => $row['state'] !== 'free'])>
+                                <td>
+                                    <input class="form-check-input" type="checkbox" data-ops-row value="{{ $row['key'] }}" wire:model.defer="selected" aria-label="Selecionar {{ $row['note'] }}" @change="recount()">
+                                </td>
+
+                                <td><x-ops.note :note="$row['note']" /></td>
+
+                                <td>
+                                    @if ($row['mmgd'])
+                                        <x-ops.badge sm tone="teal" label="MMGD" hint="Micro e minigeração distribuída" />
+                                    @else
+                                        <span class="ops-empty">—</span>
+                                    @endif
+                                </td>
+
+                                <td><x-ops.date :date="$row['dtCreated']" /></td>
+
+                                <td>
+                                    @if ($row['returns'] > 0)
+                                        <x-ops.badge sm tone="amber" :label="$row['returns']" hint="Quantas vezes esta Nota/OV voltou com inconsistência neste serviço" />
+                                    @else
+                                        <span class="ops-empty">—</span>
+                                    @endif
+                                </td>
+
+                                <td>{{ $row['numPedido'] ?: '—' }}</td>
+                                <td>{{ $row['rubrica'] ?: '—' }}</td>
+                                <td class="is-left"><span class="d-block text-truncate" title="{{ $row['city'] }}">{{ $row['city'] ?: '—' }}</span></td>
+                                @if ($canManage)
+                                    <td>{{ $row['group1'] ?: '—' }}</td>
+                                @endif
+                                <td>{{ $row['group2'] ?: '—' }}</td>
+                                @if ($canManage)
+                                    <td class="is-left"><span class="d-block text-truncate" title="{{ $row['material'] }}">{{ $row['material'] ?: '—' }}</span></td>
+                                @endif
+                                <td>{{ $row['status'] ?: '—' }}</td>
+                                <td>{{ $row['pze'] ?: '—' }}</td>
+                                <td><x-ops.date :date="$row['dtStatus']" time /></td>
+                                <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['elapsed'] !== null ? $row['elapsed'] . ' d' : null" :hint="\App\Services\Dispatch\PreAnalysisListRowPresenter::DEADLINE_HINT" /></td>
+                                <td><x-ops.badge :tone="$row['parecer']['tone']" :label="$row['parecer']['label']" :hint="$row['parecer']['hint']" /></td>
+
+                                <td>
+                                    @if ($row['canDispatch'])
+                                        <button type="button" class="btn btn-primary btn-sm ops-action"
+                                            wire:click.prevent="to_accompany({{ $row['noteId'] }})"
+                                            title="Enviar para o seu acompanhamento">
+                                            <i class="ri-hand-coin-line" aria-hidden="true"></i> Assumir
+                                        </button>
+                                    @else
+                                        <x-ops.badge :tone="RowState::tone($row['state'])" :label="$row['assignee'] ?? RowState::label($row['state'])" :hint="RowState::all()[$row['state']]['hint']" icon="ri-user-line" />
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
 
-        <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content edp-bg-stategrey-50">
-                    <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">Buscar Multi-Notas</div>
+        <x-ops.pager :paginator="$lists" :per-page="$perPage" />
+    </section>
+
+    <div wire:ignore>
+        <x-ops.selection-bar>
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="go_att_mass" wire:loading.attr="disabled" wire:target="go_att_mass"><i class="ri-hand-coin-line" aria-hidden="true"></i> Assumir selecionadas</button>
+        </x-ops.selection-bar>
+    </div>
+
+    {{-- MODAIS --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="buscar_multi" tabindex="-1" aria-labelledby="buscarMultiLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
                     <div>
-                        <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                            wire:model.defer="advanceSearch"></textarea>
+                        <span class="modal-eyebrow">Busca em massa</span>
+                        <h5 class="modal-title" id="buscarMultiLabel">Buscar várias notas</h5>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
-                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="ops-modal-note">Cole uma nota por linha ou separe por espaço, vírgula ou ponto e vírgula. Também vale o número do pedido.</p>
+                    <label class="form-label text-uppercase" for="advanceSearch">Notas</label>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" rows="8" wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-outline-danger btn-dash" wire:click="clean">Limpar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click="buscarMulti"><i class="ri-search-line" aria-hidden="true"></i> Aplicar busca</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-@push('script')
-    <script>
-        const copyTextCells = document.querySelectorAll('.copy-text');
-
-        copyTextCells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                const value = cell.getAttribute('data-value');
-                copyToClipboard(value);
-                livewire.emit('getCopy', `Valor "${value}" copiado para a área de transferência.`);
-            });
-        });
-
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-    </script>
-@endpush

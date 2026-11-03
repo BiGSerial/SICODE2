@@ -66,7 +66,7 @@ class CaseSearch extends Component
         }]);
 
         if ($this->search) {
-            $s = "%{$this->search}%";
+            $s            = "%{$this->search}%";
             $documentHash = $this->searchDocumentHash($this->search);
             $query->where(
                 function ($q) use ($s, $documentHash) {

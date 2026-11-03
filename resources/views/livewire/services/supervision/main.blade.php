@@ -1,480 +1,220 @@
 @php
-    use App\Custom\Notestatus;
-    use Illuminate\Support\Carbon;
+    $serviceTitle = mb_strtolower($service->service);
+    $statusCodes  = $service->Status->unique('value')->pluck('value')->implode(' · ');
+    $hasCriteria  = $this->hasListFilters() || filled($search) || filled($note_type);
 @endphp
 
-<div class="service-page">
-    <x-show-loading />
+{{-- Acompanhamento do Serviço de Fiscalização (as notas atribuídas a quem está logado): padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md.
+     Hero → ferramentas (busca, tipo, filtros) → abas Produção / Transferências → painel com a tabela. --}}
+<div class="closure-dash my-panel ops-list" wire:init="checkOpen">
 
-    <style>
-        .service-page {
-            --sp-bg: #f6f7fb;
-            --sp-surface: #ffffff;
-            --sp-muted: #6b7280;
-            --sp-border: #e5e7eb;
-            background: radial-gradient(circle at 10% 0%, #eef2ff, transparent 40%),
-                radial-gradient(circle at 90% 10%, #ecfeff, transparent 35%), var(--sp-bg);
-            padding: 1.5rem 0;
-        }
+    <x-ops.hero
+        :eyebrow="'Serviço · ' . $service->service"
+        :title="'Acompanhamento de ' . $serviceTitle"
+        subtitle="As notas e OVs atribuídas a você: abra a atividade, transfira ou devolva o informe e acompanhe os prazos pela cor."
+        :updated-at="null">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel">
+                <i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel
+            </button>
+        </div>
+    </x-ops.hero>
 
-        .service-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
-            color: #f8fafc;
-            border-radius: 1rem;
-            padding: 1.5rem 2rem;
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
-            margin-bottom: 1.5rem;
-        }
+    <section class="ops-toolbar" aria-label="Filtros da lista">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar nota ou material" label="Buscar nota ou material" />
 
-        .service-header h2 {
-            margin: 0;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-        }
+            <x-ops.segmented name="servicesSupervisionNoteType" label="Tipo de nota" wire:model="note_type" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
 
-        .service-header .meta {
-            color: rgba(248, 250, 252, 0.75);
-            font-size: 0.95rem;
-        }
+            <span class="ops-toolbar-spacer"></span>
 
-        .filters-grid .filter-card {
-            background: var(--sp-surface);
-            border: 1px solid var(--sp-border);
-            border-radius: 0.9rem;
-            padding: 1rem 1.25rem;
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-            height: 100%;
-        }
-
-        .filters-grid .filter-card h6 {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 600;
-            color: var(--sp-muted);
-        }
-
-        .ads-info {
-            line-height: 1.2;
-            min-width: 105px;
-        }
-
-        .ads-info-date {
-            color: inherit;
-            font-size: .78rem;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .ads-info-days {
-            color: inherit;
-            font-size: .7rem;
-            font-weight: 700;
-            margin-top: .2rem;
-            opacity: .9;
-            text-transform: uppercase;
-        }
-
-        .ads-tacit-badge {
-            cursor: help;
-            font-size: .65rem;
-            margin-top: .35rem;
-        }
-    </style>
-
-    <div class="container-fluid">
-        <div class="service-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
-            <div>
-                <h2>{{ mb_strtoupper($service->service) }}</h2>
-                <div class="meta">Gestao de acompanhamento de supervisao</div>
-            </div>
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar filtros</button>
+            @endif
         </div>
 
-        <div class="row g-3 filters-grid mb-3">
-            <div class="col-12 col-lg-5">
-                <div class="filter-card">
-                    <h6>Pesquisa</h6>
-                    <label for="search" class="form-label">Buscar</label>
-                    <input wire:model.debounce.500ms="search" type="text"
-                        class="form-control border border-2 border-secondary" id="search"
-                        placeholder="Buscar por Nota ou Material">
-                </div>
-            </div>
-
-            <div class="col-12 col-lg-4">
-                <div class="filter-card">
-                    <h6>Tipo de nota</h6>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
-                            value="1" id="nt1">
-                        <label class="form-check-label" for="nt1">Nota</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
-                            value="2" id="nt2">
-                        <label class="form-check-label" for="nt2">OV</label>
-                    </div>
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="radio" name="note_type" wire:model="note_type"
-                            value="" id="nt3">
-                        <label class="form-check-label" for="nt3">Ambos</label>
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-12 col-lg-3">
-                <div class="filter-card d-flex flex-column justify-content-end">
-                    <h6>Acoes</h6>
-                    <button class="btn btn-success" wire:click.prevent="exportToExcel" wire:loading.attr="disabled"
-                        wire:target="exportToExcel">
-                        <span wire:loading.remove wire:target="exportToExcel">
-                            <i class="ri-file-excel-2-line me-2"></i>Exportar
-                        </span>
-                        <span wire:loading wire:target="exportToExcel">
-                            <i class="ri-loader-4-line me-2"></i>Enfileirando...
-                        </span>
-                    </button>
-                </div>
-            </div>
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
         </div>
+
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
+        @endif
+    </section>
 
     <nav>
         <div class="nav nav-tabs" id="nav-tab" role="tablist">
             <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
-                type="button" role="tab" aria-controls="nav-home" aria-selected="true"
+                type="button" role="tab" aria-controls="my_production" aria-selected="true"
                 wire:click.prevent="$emit('refresh_accomany')">
                 Produção
             </button>
 
             <button class="nav-link" id="nav-transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer"
-                type="button" role="tab" aria-controls="nav-profile" aria-selected="false"
-                wire:click.prevent="$emit('refresh_translist')">
+                type="button" role="tab" aria-controls="transfer" aria-selected="false"
+                wire:click.prevent="openTransfers">
                 Transferências
                 @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))
             </button>
         </div>
     </nav>
 
-    @php
-        $serviceTitle = mb_strtoupper($service->service);
-        $statusBadges = $service->Status->unique('value')->pluck('value')->implode(') (');
-    @endphp
-
     <div class="tab-content" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
-            tabindex="0">
-
-            @if ($lists->count())
-                <div class="row">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle">
-                            Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de {{ $lists->total() }}
-                            registros.
-                        </span>
-                    </div>
-                </div>
-            @endif
-
-            <div class="card">
-                @if (!$lists->count())
-                    <div class="card-body">
-                        <h4 class="text-center">
-                            VOCÊ NÃO TEM TAREFA ATRIBUÍDA <strong>{{ $serviceTitle }}</strong>
-                            @if ($statusBadges)
-                                ({{ $statusBadges }})
-                            @endif
-                        </h4>
-                    </div>
-                @else
-                    <div class="card-header text-bg-danger py-3">
-                        <div>
-                            <h5 class="fw-semibold fs-5 my-0">Acompanhamento</h5>
-                            <div class="small text-white-50">
-                                {{ $serviceTitle }}
-                                @if ($statusBadges)
-                                    · Status {{ $statusBadges }}
-                                @endif
-                            </div>
+        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-production-tab" tabindex="0">
+            <section class="mp-panel" aria-label="Acompanhamento de {{ $service->service }}">
+                <div class="mp-panel-head">
+                    <div>
+                        <h2 class="mp-panel-title">Acompanhamento</h2>
+                        <div class="mp-panel-sub">
+                            {{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'registro' : 'registros' }}@if ($statusCodes) · status {{ $statusCodes }}@endif
                         </div>
                     </div>
+                    <span class="mp-pill" wire:loading.delay>Atualizando…</span>
+                </div>
 
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped table-condensed">
-                            <thead class="table-dark">
-                                <tr class="text-center align-middle">
-                                    <th style="width:52px;"></th>
-                                    <th>Note</th>
+                <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="8" />
+
+                @if ($rows->isEmpty())
+                    <div class="mp-panel-body">
+                        <x-closure.empty-state
+                            :title="$hasCriteria ? 'Nenhum resultado para os filtros escolhidos' : 'Você não tem tarefa atribuída em ' . $service->service"
+                            :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais notas.' : 'Quando uma nota for atribuída a você, ela aparece aqui.'"
+                            icon="ri-inbox-line" />
+                        @if ($hasCriteria)
+                            <div class="text-center mt-2"><button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearAllCriteria">Limpar filtros</button></div>
+                        @endif
+                    </div>
+                @else
+                    <div class="ops-table-wrap" wire:loading.delay.class="d-none">
+                        <table class="table ops-table">
+                            <colgroup>
+                                @foreach ([66, 140, 100, 90, 60, 64, 56, 74, 92, 130, 90, 90, 100, 104, 100, 100] as $w)
+                                    <col style="width: {{ $w }}px">
+                                @endforeach
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>Tipo</th>
+                                    <th>Nota</th>
                                     <th>Ordens</th>
                                     <th>DD</th>
-                                    <th>Files</th>
+                                    <th>Arquivos</th>
                                     <th>MMGD</th>
                                     <th>Postes</th>
-                                    <th>Rubrica</th>
-                                    <th>Municipio</th>
-                                    <th>Descrição</th>
-                                    <th>Dias Despacho</th>
-                                    <th>Dias Atribuido</th>
-                                    <th>Dias Informe</th>
+                                    <th class="is-left">Rubrica</th>
+                                    <th class="is-left">Município</th>
+                                    <th class="is-left">Descrição</th>
+                                    <th>Despachado</th>
+                                    <th>Atribuído</th>
+                                    <th>Informe</th>
                                     <th>ADS</th>
                                     <th>Status</th>
-                                    <th></th>
+                                    <th><span class="visually-hidden">Ações</span></th>
                                 </tr>
                             </thead>
-                            <tbody id="table-body" class="align-middle text-center">
-                                @foreach ($lists as $list)
-                                    @php
-                                        $note = $list->Note;
-                                        $flowWorkForm = $list->WorkReportFlowProductions
-                                            ->firstWhere('stage', \App\Models\WorkReportFlowProduction::STAGE_FISCALIZATION)
-                                            ?->WorkReport;
-                                        $workForm = $flowWorkForm ?? $note->WorkForm;
-                                        $formBlock = $workForm ? (bool) $workForm->rejected : false;
+                            <tbody id="table-body">
+                                @foreach ($rows as $row)
+                                    <tr wire:key="prod-{{ $row['id'] }}"
+                                        @if ($row['dblclick']) wire:dblclick="$emitTo('{{ $row['dblclick']['component'] }}', 'show_form', {{ $row['dblclick']['id'] }})" @endif
+                                        @class(['ops-row-priority' => $row['priority'], 'ops-row-late' => !$row['priority'] && $row['rejected']])>
 
-                                        $dfive = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($list);
-                                        $rowWarn = $list->priority
-                                            ? 'table-danger'
-                                            : ($formBlock
-                                                ? 'table-warning text-danger'
-                                                : '');
-                                        $daysLeft = (int) $list->days_left; // vindo do SQL
-                                        $daysAss = (int) $list->days_assigned; // vindo do SQL
-                                        $daysDispatch = $list->dispatch_at ? (int) $list->days_dispatch : null; // vindo do SQL
+                                        <td>
+                                            <x-ops.badge :tone="$row['isPartial'] || $row['isConnection'] ? 'amber' : 'green'" :label="$row['isPartial'] ? 'Parcial' : 'Final'"
+                                                :hint="$row['isPartial'] ? 'Informe parcial' : ($row['isConnection'] ? 'Informe final de ligação' : 'Informe final')" />
+                                        </td>
 
-                                        $lastWpa = $list->Wpas->last(); // 1 item (latest()->limit(1))
-                                        $hasOld = $note->OldAds && $note->OldAds->isNotEmpty();
-                                        $adsForm = $note->Adsform ?? $workForm?->Adsform;
-                                        $isTacitAds = (bool) ($adsForm?->tacit ?? false);
-                                        $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
-                                        $adsDate = $adsForm
-                                            ? $adsForm->created_at
-                                            : $note->OldAds?->sortByDesc('date')->first()?->date;
-                                        $adsDays = $adsDate
-                                            ? Carbon::parse($adsDate)
-                                                ->startOfDay()
-                                                ->diffInDays(Carbon::now()->startOfDay())
-                                            : null;
-                                        $adsDeadlineClass = match (true) {
-                                            $adsDays === null => '',
-                                            $adsDays <= 6 => 'text-bg-success',
-                                            $adsDays <= 9 => 'text-bg-warning',
-                                            default => 'text-bg-danger',
-                                        };
-                                    @endphp
-
-                                    <tr wire:key='prod-{{ $list->id }}'
-                                        @if ($workForm) wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $workForm->id }})"
-                                        @elseif ($list->partial && $note->Partials && $note->Partials->isNotEmpty())
-                                            wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $note->Partials->last() }})" @endif
-                                        class="{{ $rowWarn }}">
-
-                                        <td class="text-center">
-                                            @if ($list->partial)
-                                                <span class="badge text-bg-warning">P</span>
+                                        <td>
+                                            @if ($row['d5'])
+                                                <x-ops.note :note="$row['note']" kind="d5" tone="green" hint="D5 concluída – aguardando fiscalização"
+                                                    wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $row['noteId'] }})">
+                                                    @include('livewire.services.supervision.partials.note-extras')
+                                                </x-ops.note>
                                             @else
-                                                @php
-                                                    $isConnection = $workForm ? collect($workForm->finalScopeBadges())->pluck('scope')->contains('connection') : false;
-                                                @endphp
-                                                <span class="badge {{ $isConnection ? 'text-bg-warning' : 'text-bg-success' }}">F</span>
+                                                <x-ops.note :note="$row['note']">
+                                                    @include('livewire.services.supervision.partials.note-extras')
+                                                </x-ops.note>
                                             @endif
                                         </td>
 
-                                        <td class="@if ($list->priority) text-danger fw-bold @endif">
-                                            @if ($dfive?->is_completed && !$dfive?->is_supervisioned)
-                                                <span class="badge text-bg-success fs-6 copy-text"
-                                                    data-value="{{ $note->note }}" style="cursor:pointer;"
-                                                    wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $note->id }})">
-                                                    D5 {{ $note->note }}
-                                                </span>
+                                        <td><div class="ops-cell-stack is-center">@forelse ($row['orders'] as $order)<span class="fw-semibold">{{ $order }}</span>@empty<span class="ops-empty">—</span>@endforelse</div></td>
+
+                                        <td>
+                                            @if ($row['dd'])
+                                                <a class="fw-semibold" href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $row['dd'] }}" target="_blank" rel="noopener" title="Abrir a DD no WPA">{{ $row['dd'] }}</a>
                                             @else
-                                                <span class="copy-text" data-value="{{ $note->note }}"
-                                                    style="cursor:pointer;">
-                                                    {{ $note->note }}
-                                                </span>
-                                            @endif
-                                            <i class="ri-file-copy-line ms-1 copy-text"
-                                                data-value="{{ $note->note }}" style="cursor:pointer;"></i>
-                                            <div class="mt-1">
-                                                <x-work-report.canceled-badge :report="$canceledByProduction[$list->id] ?? null" />
-                                            </div>
-                                            <div class="mt-1">
-                                                <x-legal.note-demand-tags
-                                                    :demands="$legalTagsByNoteId[$list->note_id] ?? []"
-                                                    :row-key="'services-supervision-accompany-'.$list->id"
-                                                />
-                                            </div>
-
-                                            @if ($list->priority)
-                                                <i class="ri-alert-fill align-middle ms-2"
-                                                    wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                    style="cursor:pointer;">
-                                                </i>
+                                                <span class="ops-empty">—</span>
                                             @endif
                                         </td>
 
-                                        <td class="@if ($list->priority) text-danger fw-bold @endif">
-                                            @if ($workForm && $workForm->Orders && $workForm->Orders->isNotEmpty())
-                                                @foreach ($workForm->Orders as $order)
-                                                    <p class="py-0 my-0">{{ $order->ordem }}</p>
-                                                @endforeach
-                                            @endif
+                                        <td><x-files.select-download-list :files="$row['files']" /></td>
+
+                                        <td>@if ($row['mmgd'])<x-ops.badge sm tone="teal" label="MMGD" hint="Micro e minigeração distribuída" />@else<span class="ops-empty">—</span>@endif</td>
+
+                                        <td>@if ($row['postes'] !== null)<span class="fw-semibold">{{ $row['postes'] }}</span>@else<span class="ops-empty">—</span>@endif</td>
+
+                                        <td class="is-left"><span class="d-block text-truncate" title="{{ $row['rubrica'] }}">{{ $row['rubrica'] ?: '—' }}</span></td>
+                                        <td class="is-left"><span class="d-block text-truncate" title="{{ $row['city'] }}">{{ $row['city'] ?: '—' }}</span></td>
+                                        <td class="is-left"><span class="d-block text-truncate" title="{{ $row['material'] }}">{{ $row['material'] ?: '—' }}</span></td>
+
+                                        <td><x-ops.date :date="$row['dispatchAt']" :sub="$row['dispatchAt'] ? $row['dispatchDays'] . ($row['dispatchDays'] === 1 ? ' dia' : ' dias') : null" hint="Data em que foi despachada e dias desde então" /></td>
+                                        <td><x-ops.date :date="$row['attAt']" :sub="$row['attAt'] ? $row['attDays'] . ($row['attDays'] === 1 ? ' dia' : ' dias') : null" hint="Data em que foi atribuída a você e dias desde então" /></td>
+
+                                        <td>
+                                            <x-ops.date :date="$row['informedAt']" :tone="$row['informedTone']" :sub="$row['informedDays'] . ($row['informedDays'] === 1 ? ' dia' : ' dias')"
+                                                hint="Dias desde o informe (verde até 20 dias, âmbar de 21 a 27, vermelho a partir de 28)" />
                                         </td>
 
-                                        <td class="@if ($list->priority) text-danger fw-bold @endif">
-                                            @if ($lastWpa)
-                                                <a class="link-primary fw-bold"
-                                                    href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $lastWpa->dd }}"
-                                                    target="_blank" rel="noopener">
-                                                    {{ $lastWpa->dd }}
-                                                </a>
-                                            @else
-                                                -----
-                                            @endif
-                                        </td>
-
-                                        <td class="align-middle">
-                                            <x-files.select-download-list :files="$note->Files" />
-                                        </td>
-
-                                        <td class="fw-light">
-                                            <span class="text-danger">{{ $note->mmgd ? 'MMGD' : '' }}</span>
-                                        </td>
-
-                                        <td class="fw-light">
-                                            <span class="text-primary fw-bold">{{ $note->postes ?? '---' }}</span>
-                                        </td>
-
-                                        <td class="fw-light">{{ $note->rubrica }}</td>
-                                        <td class="fw-light">{{ $note->lexp }}</td>
-                                        <td class="fw-light">{{ $note->material }}</td>
-
-                                        <td class="fw-light">
-                                            <div class="ads-info">
-                                                @if ($list->dispatch_at)
-                                                    <div class="ads-info-date">
-                                                        {{ Carbon::parse($list->dispatch_at)->format('d/m/Y') }}
-                                                    </div>
-                                                    <span class="badge text-bg-secondary">
-                                                        {{ max(0, $daysDispatch) }}
-                                                        {{ max(0, $daysDispatch) === 1 ? 'dia' : 'dias' }}
-                                                    </span>
+                                        <td>
+                                            <div class="ops-cell-stack is-center">
+                                                @if ($row['adsAt'])
+                                                    <x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']" :sub="$row['adsDays'] . ($row['adsDays'] === 1 ? ' dia' : ' dias')"
+                                                        hint="Entrega da ADS e dias desde então (verde até 6 dias, âmbar até 9, vermelho acima de 9)" />
+                                                @elseif ($row['adsTacit'])
+                                                    <x-ops.badge sm tone="red" label="Aguardando entrega" hint="ADS tácita ainda não entregue" />
                                                 @else
-                                                    <span class="text-muted">—</span>
+                                                    <span class="ops-empty">—</span>
+                                                @endif
+
+                                                @if ($row['adsTacit'])
+                                                    <x-ops.badge sm :tone="$row['adsDelivered'] ? 'muted' : 'amber'" label="Tácita"
+                                                        :hint="$row['adsDelivered'] ? 'ADS entregue de forma tácita; está em Solicitação de ADS, na lista de Histórico.' : 'ADS tácita ainda não entregue'" />
+                                                @elseif ($row['adsLegacy'])
+                                                    <x-ops.badge sm tone="muted" label="Legada" hint="ADS do sistema antigo" />
                                                 @endif
                                             </div>
                                         </td>
 
-                                        <td class="fw-light">
-                                            <div class="ads-info">
-                                                @if ($list->att_at)
-                                                    <div class="ads-info-date">
-                                                        {{ Carbon::parse($list->att_at)->format('d/m/Y') }}
-                                                    </div>
-                                                    <span class="badge text-bg-secondary">
-                                                        {{ max(0, $daysAss) }}
-                                                        {{ max(0, $daysAss) === 1 ? 'dia' : 'dias' }}
-                                                    </span>
-                                                @else
-                                                    <span class="text-muted">—</span>
-                                                @endif
-                                            </div>
-                                        </td>
-
-                                        @php
-                                            $daysLeftClass = match (true) {
-                                                $daysLeft <= 20 => 'text-bg-success',
-                                                $daysLeft >= 28 => 'text-bg-danger',
-                                                default => 'text-bg-warning',
-                                            };
-                                        @endphp
-                                        <td class="fw-light">
-                                            <div class="ads-info">
-                                                @if ($list->work_informed_at)
-                                                    <div class="ads-info-date">
-                                                        {{ Carbon::parse($list->work_informed_at)->format('d/m/Y') }}
-                                                    </div>
-                                                @endif
-                                                <span class="badge {{ $daysLeftClass }}">
-                                                    {{ $daysLeft }}
-                                                    {{ $daysLeft === 1 ? 'dia' : 'dias' }}
-                                                </span>
-                                            </div>
-                                        </td>
-
-                                        <td class="fw-light {{ $adsDeadlineClass }}">
-                                            <div class="ads-info">
-                                                @if ($adsDate)
-                                                    <div class="ads-info-date">
-                                                        {{ Carbon::parse($adsDate)->format('d/m/Y') }}
-                                                    </div>
-                                                    @if ($adsDays !== null)
-                                                        <div class="ads-info-days">
-                                                            {{ max(0, $adsDays) }}
-                                                            {{ max(0, $adsDays) === 1 ? 'dia' : 'dias' }}
-                                                        </div>
-                                                    @endif
-                                                @elseif ($isTacitAds)
-                                                    <span class="text-danger fw-bold small">Aguardando entrega</span>
-                                                @else
-                                                    <span class="text-muted">—</span>
-                                                @endif
-
-                                                @if ($isTacitAds)
-                                                    <div>
-                                                        <span
-                                                            class="badge {{ $tacitDelivered ? 'text-bg-dark' : 'text-bg-warning' }} ads-tacit-badge"
-                                                            @if ($tacitDelivered)
-                                                                data-bs-toggle="popover"
-                                                                data-bs-trigger="hover focus"
-                                                                data-bs-placement="top"
-                                                                data-bs-title="ADS entregue de forma tácita"
-                                                                data-bs-content="A ADS foi entregue de forma tácita e está disponível em Solicitação de ADS, na lista de Histórico."
-                                                            @endif>
-                                                            TÁCITA
-                                                        </span>
-                                                    </div>
-                                                @elseif ($hasOld)
-                                                    <div><span class="badge text-bg-secondary mt-1">LEGADA</span></div>
-                                                @endif
-                                            </div>
-                                        </td>
-
-                                        <td class="fw-light">
-                                            @if ($list->transferred && $list->block_wpa)
-                                                <span class="badge bg-warning">Aguardando Despacho</span>
-                                            @elseif ($workForm && $workForm->rejected)
-                                                <span class="badge text-bg-warning text-wrap p-1">INFORME EM
-                                                    REVISÃO</span>
+                                        <td>
+                                            @if ($row['status']['history'])
+                                                <x-ops.badge class="ops-clickable" :tone="$row['status']['tone']" :label="$row['status']['label']" :hint="$row['status']['hint']"
+                                                    wire:click="$emitTo('components.status.show-status', 'showStatus', {{ $row['id'] }}, {{ $row['statusCode'] }})" />
                                             @else
-                                                @php $ns = Notestatus::status($list->status); @endphp
-                                                <span class="badge {{ $ns->colorbg }}"
-                                                    wire:click="$emitTo('components.status.show-status','showStatus', {{ $list }}, {{ $list->status }})"
-                                                    style="cursor:pointer;">
-                                                    {{ $ns->status }}
-                                                </span>
+                                                <x-ops.badge :tone="$row['status']['tone']" :label="$row['status']['label']" :hint="$row['status']['hint']" />
                                             @endif
                                         </td>
 
-                                        <td class="fw-bold fs-5">
-                                            @if (!$list->block && !$list->block_wpa && !$this->blockWaiting($list->status))
-                                                @if (!$list->completed)
-                                                    <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                        style="cursor:pointer;"
-                                                        wire:click="$emitTo('services.supervision.forms.jobform', 'showProduction', {{ $list }})"></i>
-
-                                                    <i class="ri-exchange-fill m-0 align-middle text-primary ms-2"
-                                                        style="cursor:pointer;"
-                                                        wire:click.prevent="goTransferProd({{ $list->id }})"></i>
+                                        <td>
+                                            <div class="d-inline-flex gap-1">
+                                                @if ($row['canPlay'])
+                                                    <button type="button" class="btn btn-primary btn-sm ops-action" title="Abrir a atividade"
+                                                        wire:click="$emitTo('services.supervision.forms.jobform', 'showProduction', {{ $row['id'] }})">
+                                                        <i class="ri-play-circle-line" aria-hidden="true"></i> Abrir
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm" title="Transferir para outro usuário" aria-label="Transferir"
+                                                        wire:click.prevent="goTransferProd({{ $row['id'] }})">
+                                                        <i class="ri-exchange-fill" aria-hidden="true"></i>
+                                                    </button>
                                                 @endif
-
-                                                @if ($workForm && !$workForm->rejected && !$list->dfive)
-                                                    <i class="ri-delete-back-2-fill m-0 align-middle text-danger ms-2"
-                                                        style="cursor:pointer;"
-                                                        wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
+                                                @if ($row['canReturn'])
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" title="Devolver o informe para a empreiteira" aria-label="Devolver o informe"
+                                                        wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $row['id'] }})">
+                                                        <i class="ri-delete-back-2-fill" aria-hidden="true"></i>
+                                                    </button>
                                                 @endif
-                                            @endif
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -482,25 +222,15 @@
                         </table>
                     </div>
                 @endif
-            </div>
 
-            @if ($lists->count())
-                <div class="row">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle">
-                            Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de {{ $lists->total() }}
-                            registros.
-                        </span>
-                    </div>
-                </div>
-            @endif
+                <x-ops.pager :paginator="$lists" :per-page="$perPage" />
+            </section>
         </div>
 
-        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="0">
-            @livewire('components.transprod.translist', ['service' => $service->id])
+        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-transfer-tab" tabindex="0">
+            @if ($transfersLoaded)
+                @livewire('components.transprod.translist', ['service' => $service->id])
+            @endif
         </div>
     </div>
 
@@ -513,55 +243,4 @@
     @livewire('partner.show.show-partial-info', key('PartialInfo'))
     @livewire('components.d5.d5details', key('ViewD5Details'))
     @livewire('production.return.return-work', key('returnWorkfomr'))
-    </div>
 </div>
-
-@push('script')
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            Livewire.emitTo('services.supervision.main', 'checkOpen');
-
-            const initializeAdsPopovers = () => {
-                document.querySelectorAll('.ads-tacit-badge[data-bs-toggle="popover"]').forEach((element) => {
-                    bootstrap.Popover.getInstance(element)?.dispose();
-                    new bootstrap.Popover(element, {
-                        container: 'body',
-                        html: false,
-                    });
-                });
-            };
-
-            initializeAdsPopovers();
-            Livewire.hook('message.processed', initializeAdsPopovers);
-
-            // Delegation: copiar texto
-            const tableBody = document.getElementById('table-body');
-            tableBody?.addEventListener('click', async (ev) => {
-                const el = ev.target.closest('.copy-text');
-                if (!el) return;
-                const value = el.getAttribute('data-value');
-                try {
-                    if (navigator.clipboard?.writeText) {
-                        await navigator.clipboard.writeText(value);
-                    } else {
-                        const ta = document.createElement('textarea');
-                        ta.value = value;
-                        document.body.appendChild(ta);
-                        ta.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(ta);
-                    }
-                    livewire.emit('getCopy', `Valor "${value}" copiado para a área de transferência.`);
-                } catch (_) {
-                    livewire.emit('getCopy', `Falha ao copiar "${value}".`);
-                }
-            });
-
-            // Abrir modal por evento (mantém)
-            window.addEventListener("showModal2", function(e) {
-                const myModal = new bootstrap.Modal(document.getElementById(e.detail.id));
-                myModal.show();
-            });
-        });
-    </script>
-@endpush

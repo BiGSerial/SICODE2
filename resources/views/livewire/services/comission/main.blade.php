@@ -1,338 +1,221 @@
 @php
-    use Carbon\Carbon;
+    use App\Support\Ops\Tone;
     use App\Custom\Notestatus;
+
+    $statusCodes = $service->Status->count()
+        ? $service->Status->where('exclusion', false)->unique('value')->pluck('value')->implode(' · ')
+        : null;
+    $hasCriteria = $this->hasListFilters() || filled($search) || filled($note_type);
+    $dueHint = 'Prazo real: já desconta o tempo em status que não conta. Verde com 10 dias ou mais para vencer, âmbar de 6 a 9, vermelho com menos de 6 ou vencido.';
 @endphp
-<div class="user-activity-page">
-    {{-- Carrega o Loading da página --}}
-    <x-show-loading />
-    @include('livewire.services.partials.user-activity-list-style')
-    @include('livewire.services.partials.user-activity-hero', [
-        'context' => 'Acompanhamento de produção',
-        'subtitle' => 'Gestão das atividades atribuídas ao usuário',
-        'total' => $lists->total(),
-        'accent' => '#0f766e',
-    ])
 
-    <div class="row g-3 activity-filter-card mb-3">
-        <div class="col-12 col-lg-5">
-            <label for="search" class="form-label">Buscar</label>
-            <input wire:model.bounce.2s="search" type="email" class="form-control border border-2 border-secondary"
-                id="search" placeholder="Buscar">
+{{-- Minhas atividades no padrão de listas operacionais (docs/PADRAO_LISTAS_OPERACIONAIS.md). Hero → abas → ferramentas → painel. --}}
+<div class="closure-dash my-panel ops-list">
+
+    <x-ops.hero
+        :eyebrow="'Serviços · ' . $service->service"
+        :title="'Minhas atividades em ' . mb_strtolower($service->service)"
+        subtitle="Notas e OVs atribuídas a você. Inicie a atividade ou transfira para outra pessoa."
+        :updated-at="null">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="export_excel" wire:loading.attr="disabled" wire:target="export_excel">
+                <i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel
+            </button>
         </div>
-        <div class="col-12 col-lg-7 d-flex align-items-center justify-content-lg-end">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div>
-        </div>
-        {{-- <div class="btn-group mb-3">
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i>
-                        Aplicar Filtro</button>
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_clean"><i
-                            class="ri-filter-off-fill"></i> Limpar Filtro</button>
-
-                </div>
-            </div>
-        </div> --}}
-    </div>
-
-
+    </x-ops.hero>
 
     <nav>
         <div class="nav nav-tabs" id="nav-tab" role="tablist">
             <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
-                type="button" role="tab" aria-controls="nav-home" aria-selected="true"
+                type="button" role="tab" aria-controls="my_production" aria-selected="true"
                 wire:click.prevent="$emit('refresh_accomany')">Produção</button>
             <button class="nav-link" id="nav-transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer"
-                type="button" role="tab" aria-controls="nav-profile" aria-selected="false"
+                type="button" role="tab" aria-controls="transfer" aria-selected="false"
                 wire:click.prevent="$emit('refresh_translist')">Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))</button>
-
         </div>
     </nav>
 
     <div class="tab-content" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
-            tabindex="0">
-            @if ($lists->count())
-                <div class="row user-activity-summary my-3 align-items-center">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
-                    </div>
-                </div>
-            @endif
-            <div class="user-activity-table-card">
+        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-production-tab" tabindex="0">
 
-                @if (!$lists->count())
-                    <div class="card-body">
-                        <h4 class="text-center">VOCÊ NAO TEM TAREFA ATRIBUÍDA
-                            <strong>{{ mb_strtoupper($service->service) }}</strong>
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    ({{ $sts->value }})
-                                @endforeach
-                            @endif
-                        </h4>
+            <section class="ops-toolbar" aria-label="Filtros da lista">
+                <div class="ops-toolbar-row">
+                    <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar nota ou material" label="Buscar nota ou material" />
+
+                    <x-ops.segmented name="servicesComissionNoteType" label="Tipo de nota" wire:model="note_type" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
+
+                    <span class="ops-toolbar-spacer"></span>
+
+                    @if ($hasCriteria)
+                        <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar tudo</button>
+                    @endif
+                </div>
+
+                <div class="ops-toolbar-row">
+                    <span class="ops-toolbar-label">Filtros</span>
+                    <x-ops.filters :payload="$this->listFilterPayload()" />
+                </div>
+
+                @if ($this->hasListFilters())
+                    <div class="ops-toolbar-row">
+                        <x-ops.chips :chips="$this->listFilterChips()" />
+                    </div>
+                @endif
+            </section>
+
+            <section class="mp-panel" aria-label="Minhas atividades em {{ $service->service }}">
+                <div class="mp-panel-head">
+                    <div>
+                        <h2 class="mp-panel-title">Acompanhamento · {{ mb_strtolower($service->service) }}</h2>
+                        <div class="mp-panel-sub">
+                            {{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'registro' : 'registros' }}@if ($statusCodes) · status {{ $statusCodes }}@endif
+                        </div>
+                    </div>
+                    <span class="mp-pill" wire:loading.delay>Atualizando…</span>
+                </div>
+
+                <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="8" />
+
+                @if ($rows->isEmpty())
+                    <div class="mp-panel-body">
+                        <x-closure.empty-state
+                            :title="$hasCriteria ? 'Nenhum resultado para os filtros escolhidos' : 'Você não tem tarefa atribuída em ' . $service->service"
+                            :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais notas.' : 'Quando uma nota for atribuída a você, ela aparece aqui.'"
+                            icon="ri-inbox-line" />
+                        @if ($hasCriteria)
+                            <div class="text-center mt-2"><button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearAllCriteria">Limpar filtros</button></div>
+                        @endif
                     </div>
                 @else
-                    <div class="user-activity-table-header text-bg-danger">
-                        <div class="row">
-                            <div class="col">
-                                <h4 class="user-activity-table-title">ACOMPANHAMENTO -
-                                    {{ mb_strtoupper($service->service) }} - @if ($service->Status->count())
-                                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                            ({{ $sts->value }})
-                                        @endforeach
-                                    @endif
-                                </h4>
-                            </div>
-                            <div class="col-4 d-flex justify-content-end">
-                                <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                        class="ri-file-excel-2-line"></i> Exportar</button>
-                            </div>
-                        </div>
-                    </div>
+                    <div class="ops-table-wrap" wire:loading.delay.class="d-none">
+                        <table class="table ops-table">
+                            <colgroup>
+                                @foreach ([128, 100, 70, 84, 110, 130, 84, 200, 90, 110, 120, 170] as $w)
+                                    <col style="width: {{ $w }}px">
+                                @endforeach
+                            </colgroup>
+                            <thead>
+                                <tr>
+                                    <th>Nota</th>
+                                    <th>DD</th>
+                                    <th>MMGD</th>
+                                    <th>Grupo 2</th>
+                                    <th>Rubrica</th>
+                                    <th>Município</th>
+                                    <th>Zona</th>
+                                    <th class="is-left">Descrição</th>
+                                    <th>Dias atribuído</th>
+                                    <th>Prazo real</th>
+                                    <th>Status</th>
+                                    <th><span class="visually-hidden">Ações</span></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($rows as $row)
+                                    <tr wire:key="prod-{{ $row['id'] }}" @class(['ops-row-priority' => $row['priority']])>
+                                        <td>
+                                            <x-ops.note :note="$row['note']">
+                                                @if ($row['priority'])
+                                                    <x-ops.badge sm tone="red" icon="ri-alert-fill" class="ops-clickable" label="Prioridade" hint="Prioritária – clique para ver o motivo"
+                                                        wire:click.prevent="$emit('infoPriority', '{{ $row['id'] }}')" />
+                                                @endif
+                                            </x-ops.note>
+                                        </td>
 
-                    <div class="card-body">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-striped table-condensed">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th scope="col" class="fw-bold">Note</th>
-                                        <th scope="col" class="fw-bold">DD</th>
-                                        <th scope="col" class="fw-bold">MMGD</th>
-                                        <th scope="col" class="fw-bold">Grupo2</th>
-                                        {{-- <th scope="col" class="fw-bold">Grupo5</th> --}}
-                                        <th scope="col" class="fw-bold">Rubrica</th>
-                                        <th scope="col" class="fw-bold">Municipio</th>
-                                        <th scope="col" class="fw-bold">Zona</th>
-                                        <th scope="col" class="fw-bold">Descrição</th>
-                                        <th scope="col" class="fw-bold">Dias Atribuido</th>
-                                        <th scope="col" class="fw-bold">Prazo Real</th>
-                                        <th scope="col" class="fw-bold">Status</th>
-                                        <th scope="col" class="fw-bold"></th>
+                                        <td>
+                                            @if ($row['dd'])
+                                                <a class="fw-semibold" href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $row['dd'] }}" title="Abrir a DD no WPA">{{ $row['dd'] }}</a>
+                                            @else
+                                                <span class="ops-empty">—</span>
+                                            @endif
+                                        </td>
+
+                                        <td>
+                                            @if ($row['mmgd'])
+                                                <x-ops.badge sm tone="teal" label="MMGD" hint="Micro e minigeração distribuída" />
+                                            @else
+                                                <span class="ops-empty">—</span>
+                                            @endif
+                                        </td>
+
+                                        <td>{{ $row['group2'] ?: '—' }}</td>
+                                        <td>{{ $row['rubrica'] ?: '—' }}</td>
+                                        <td>{{ $row['city'] ?: '—' }}</td>
+                                        <td>{{ $row['zone'] ?: '—' }}</td>
+                                        <td class="is-left"><span class="d-block text-truncate" title="{{ $row['material'] }}">{{ $row['material'] ?: '—' }}</span></td>
+                                        <td>{{ $row['attDays'] !== null ? $row['attDays'] . ' dias' : '—' }}</td>
+
+                                        <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['dueSub']" :hint="$dueHint . ' Já passaram ' . $row['elapsedDays'] . ' de 30 dias.'" /></td>
+
+                                        <td>
+                                            @if ($row['waiting'])
+                                                <x-ops.badge tone="amber" label="Aguardando despacho" hint="Transferida: aguarda o despacho para seguir" />
+                                            @else
+                                                <x-ops.badge class="ops-clickable" :tone="Tone::forProductionStatus($row['status'])" :label="Notestatus::status($row['status'])->status" hint="Clique para ver o histórico de status"
+                                                    wire:click="$emitTo('components.status.show-status', 'showStatus', {{ $row['id'] }}, {{ $row['status'] }})" />
+                                            @endif
+                                        </td>
+
+                                        <td>
+                                            @if ($row['canAct'])
+                                                <div class="d-inline-flex gap-1">
+                                                    <button type="button" class="btn btn-primary btn-sm ops-action" wire:click.prevent="getAnalise({{ $row['id'] }}, {{ $row['noteId'] }})" title="Iniciar a atividade desta Nota/OV">
+                                                        <i class="ri-play-circle-line" aria-hidden="true"></i> Iniciar
+                                                    </button>
+                                                    <button type="button" class="btn btn-outline-secondary btn-sm ops-action" wire:click.prevent="goTransferProd({{ $row['id'] }})" title="Transferir esta Nota/OV para outra pessoa">
+                                                        <i class="ri-exchange-fill" aria-hidden="true"></i> Transferir
+                                                    </button>
+                                                </div>
+                                            @endif
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($lists->sortBy([['priority', 'desc'], ['Note.days_left', 'asc']]) as $list)
-                                        <tr class="align-middle @if ($list->priority) table-danger @endif">
-                                            <td
-                                                class="fw-bold @if ($list->priority) text-danger fw-bold @endif">
-                                                {{ $list->Note->note }}
-                                                <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                                    style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                    data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-content="Copiar Número da Nota"> <i
-                                                        class="ri-file-copy-line"></i></span>
-
-                                                @if ($list->priority)
-                                                    <i class="ri-alert-fill align-middle"
-                                                        wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                        style="cursor: pointer;" tabindex="0"
-                                                        data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                        data-bs-placement="top" data-bs-title="Exibir Prioridade"
-                                                        data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
-                                                @endif
-                                            </td>
-                                            <td
-                                                class="fw-light text-center @if ($list->priority) text-danger fw-bold @endif">
-                                                @if ($list->Wpas->count())
-                                                    <a class="link-primary fw-bold"
-                                                        href="https://edp-wpa-po.azurewebsites.net/Search?q={{ $list->Wpas()->orderBy('created_at', 'DESC')->first()->dd }}"">{{ $list->Wpas()->orderBy('created_at', 'DESC')->first()->dd }}</a>
-                                                @else
-                                                    -----
-                                                @endif
-
-                                            </td>
-                                            <td class="fw-light">
-                                                <span class="text-danger">{{ $list->Note->mmgd ? 'MMGD' : '' }}</span>
-                                            </td>
-                                            <td class="fw-light">
-                                                {{ $list->Note->group2 }}</td>
-                                            {{-- <td class="fw-light">{{ $list->Note->group5 }}</td> --}}
-                                            <td class="fw-light">{{ $list->Note->rubrica }}</td>
-                                            <td class="fw-light">{{ $list->Note->lexp }}</td>
-                                            <td class="fw-light">{{ $list->Note->group1 }}</td>
-                                            <td class="fw-light">{{ $list->Note->material }}</td>
-                                            <td class="fw-light">
-                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
-                                            </td>
-                                            <td scope="col"
-                                                class="text-center
-                                        @if ($list->Note->days_left < 0) text-bg-secondary
-                                        @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6)
-                                        table-danger
-                                        @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10)
-                                            table-warning
-                                        @else
-                                            table-success @endif
-                                    "
-                                                tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                data-bs-placement="top" data-bs-title="Prazo Real"
-                                                data-bs-content="
-                                <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                ">
-                                                {{ 30 - $list->Note->days_left }}
-                                            </td>
-                                            {{-- <td class="fw-light">
-                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->Note->dt_status)->format('Y-m-d')) }}
-                                            </td> --}}
-
-                                            <td class="fw-light">
-                                                @if ($list->transferred && $list->block_wpa)
-                                                    <span class="badge bg-warning">Aguardando Despacho</span>
-                                                @else
-                                                    <span
-                                                        class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                                        wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                                        style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
-                                                @endif
-                                            </td>
-                                            <td class="fw-bold fs-5">
-                                                @if (!$list->block && !$list->block_wpa)
-                                                    @if (!$list->completed)
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Iniciar.">
-                                                            <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i>
-                                                        </span>
-                                                        <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                            data-bs-placement="top"
-                                                            data-bs-custom-class="custom-tooltip"
-                                                            data-bs-title="Transferir.">
-                                                            <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                                style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                                wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                        </span>
-                                                    @endif
-                                                @endif
-                                            </td>
-
-
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
+                                @endforeach
+                            </tbody>
+                        </table>
                     </div>
                 @endif
 
-
-            </div>
-            @if ($lists->count())
-                <div class="row user-activity-summary my-3 align-items-center">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
-                    </div>
-                </div>
-            @endif
+                <x-ops.pager :paginator="$lists" :per-page="$perPage" />
+            </section>
         </div>
 
-
-        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="0">
+        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-transfer-tab" tabindex="0">
             @livewire('components.transprod.translist', ['service' => $service->id])
         </div>
     </div>
 
-
-    <!-- Modal -->
-    <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    {{-- MODAIS --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
+        tabindex="-1" aria-labelledby="analiseFormLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
-            <div class="modal-content h-100">
-                <div class="modal-header text-bg-success">
-                    <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
-                        {{ mb_strtoupper($service->service) }}
-                    </h1>
-                    {{-- <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button> --}}
+            <div class="modal-content closure-dash ops-list h-100">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Atividade em andamento</span>
+                        <h5 class="modal-title" id="analiseFormLabel">{{ $service->service }}</h5>
+                    </div>
                 </div>
                 <div class="modal-body">
                     @livewire('services.comission.forms.analise', key('comissionamento-form'))
                 </div>
-                {{-- <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                        wire:click.prevent="$emit('analise_clean')">Close</button>
-                    <button type="button" class="btn btn-primary">Understood</button>
-                </div> --}}
             </div>
         </div>
     </div>
 
-    <!-- Modal -->
-    <div wire:ignore.self class="modal fade" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div wire:ignore.self class="modal fade ops-modal" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false"
+        tabindex="-1" aria-labelledby="pauseNoteLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content h-100">
-                <div class="modal-header text-bg-warning">
-                    <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
-                        PARAR {{ mb_strtoupper($service->service) }}
-                    </h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Pausar atividade</span>
+                        <h5 class="modal-title" id="pauseNoteLabel">{{ $service->service }}</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     @livewire('components.pausenote.pausenote')
                 </div>
-                {{-- <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                        wire:click.prevent="$emit('analise_clean')">Close</button>
-                    <button type="button" class="btn btn-primary">Understood</button>
-                </div> --}}
             </div>
         </div>
     </div>
@@ -342,32 +225,4 @@
     @livewire('components.status.show-status', key('show_status_note'))
 
     <div wire:init="checkOpen"></div>
-
 </div>
-
-
-@push('script')
-    <script>
-        const copyTextCells = document.querySelectorAll('.copy-text');
-
-        copyTextCells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                const value = cell.getAttribute('data-value');
-                copyToClipboard(value);
-                livewire.emit('getCopy',
-                    `Valor "${value}" copiado para a área de transferência.`);
-                // alert(`Valor "${value}" copiado para a área de transferência.`);
-            });
-        });
-
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-
-    </script>
-@endpush

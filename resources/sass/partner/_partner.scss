@@ -1,0 +1,251 @@
+// Portal da parceira: tema próprio, nas cores EDP, para se distinguir do sistema da empresa (que é verde-petróleo escuro).
+// Composição TOM SOBRE TOM em azul cobalto: o topo é o cobalto profundo e o menu lateral é o mesmo cobalto em véu claro, então os dois
+// se leem como uma peça só. O item ativo é um cartão branco que salta do véu; o resto (texto marine, vermelho só para pendência) é quieto.
+// Escopo: `.partner-shell` (corpo do layout `layouts/company`) e `.snav--partner` (menu lateral, tema declarado em `PartnerNav::THEME`).
+// Cor só por token (--ptn-*) derivado das variáveis EDP de `_variables.scss`; sem cor literal fora do bloco de tokens.
+
+// Família cobalto, derivada do cobalto EDP: profundo (topo), véu (coluna) e véu mais denso (cabeçalhos de grupo).
+$ptn-deep: mix($edp-cobalt-blue, $edp-marine-blue, 72%);
+$ptn-veil: mix($edp-cobalt-blue, #fff, 11%);
+$ptn-veil-strong: mix($edp-cobalt-blue, #fff, 22%);
+$ptn-canvas: mix($edp-cobalt-blue, #fff, 4%);
+$ptn-ink: mix($edp-marine-blue, $edp-cobalt-blue, 84%);
+
+.partner-shell,
+.snav.snav--partner {
+    --ptn-header: #{$ptn-deep};
+    --ptn-veil: #{$ptn-veil};
+    --ptn-veil-strong: #{$ptn-veil-strong};
+    --ptn-ink: #{$ptn-ink};
+    --ptn-muted: #{$edp-marineblue-70};
+    --ptn-accent: #{$edp-cobalt-blue};
+    --ptn-accent-deep: #{$ptn-deep};
+    --ptn-accent-soft: #{rgba($edp-cobalt-blue, .1)};
+    --ptn-accent-soft-strong: #{rgba($edp-cobalt-blue, .18)};
+    --ptn-accent-ring: #{rgba($edp-cobalt-blue, .25)};
+    --ptn-canvas: #{$ptn-canvas};
+    --ptn-surface: #fff;
+    --ptn-on-accent: #fff;
+    --ptn-glass: #{rgba(#fff, .62)};
+    --ptn-glass-strong: #{rgba(#fff, .85)};
+    --ptn-header-line: #{rgba(#fff, .12)};
+    --ptn-line: #{rgba($edp-cobalt-blue, .16)};
+    --ptn-danger: #{$edp-semantic-red};
+    --ptn-shadow: 0 1px 2px #{rgba($edp-cobalt-blue, .08)}, 0 8px 24px #{rgba($edp-cobalt-blue, .08)};
+}
+
+// ---------- Corpo do layout ----------
+body.partner-shell {
+    background: var(--ptn-canvas);
+    color: var(--ptn-ink);
+}
+
+// Topo em cobalto profundo (a utilidade `edp-bg-marineblue-100` do layout tem !important; em "visão de outro usuário" o topo vermelho é mantido).
+.partner-shell .header.edp-bg-marineblue-100 {
+    background-color: var(--ptn-header) !important;
+}
+
+.partner-shell .header {
+    border-bottom: 1px solid var(--ptn-header-line);
+    box-shadow: none;
+}
+
+// Marca no topo: nome da empresa em branco e o produto em azul-gelo (antes, verde neon).
+.partner-shell .header .partner-brand-product {
+    color: $edp-iceblue-70;
+}
+
+.partner-shell #main {
+    padding-top: 24px;
+}
+
+// Migalhas: cartão branco com filete cobalto, no lugar da barra cinza-azulada do template.
+.partner-shell nav[aria-label='breadcrumb'] > .breadcrumb.bg-light {
+    background-color: var(--ptn-surface) !important;
+    border: 1px solid var(--ptn-line);
+    box-shadow: var(--ptn-shadow);
+}
+
+.partner-shell .breadcrumb-item.active {
+    color: var(--ptn-ink);
+    font-weight: 600;
+}
+
+.partner-shell .breadcrumb-item a {
+    color: var(--ptn-accent);
+}
+
+.partner-shell .footer {
+    border-top: 1px solid var(--ptn-line);
+    color: var(--ptn-muted);
+}
+
+// Popovers (dica de campo): cobalto profundo com texto claro, no lugar do teal com verde neon.
+.partner-shell .popover {
+    background-color: var(--ptn-header);
+    border-color: var(--ptn-accent);
+    color: var(--ptn-on-accent);
+
+    .popover-header {
+        background-color: var(--ptn-accent);
+        color: var(--ptn-on-accent);
+        font-weight: 700;
+    }
+
+    .popover-body {
+        background-color: var(--ptn-header);
+        color: var(--ptn-on-accent);
+    }
+
+    &.bs-popover-top > .arrow::after,
+    &.bs-popover-bottom > .arrow::after,
+    &.bs-popover-left > .arrow::after,
+    &.bs-popover-right > .arrow::after {
+        background-color: var(--ptn-header);
+        border-color: var(--ptn-header);
+    }
+}
+
+// Avatar redondo do topo e dos perfis (tamanho por --avatar-size).
+.partner-shell .avatar-circle {
+    border-radius: 50% !important;
+    display: inline-block;
+    height: var(--avatar-size, 120px) !important;
+    min-height: var(--avatar-size, 120px) !important;
+    min-width: var(--avatar-size, 120px) !important;
+    object-fit: cover;
+    width: var(--avatar-size, 120px) !important;
+}
+
+// ---------- Menu lateral (tema da parceira) ----------
+.snav.snav--partner {
+    --snav-ink: var(--ptn-ink);
+    --snav-muted: var(--ptn-muted);
+    --snav-line: var(--ptn-line);
+    --snav-surface: var(--ptn-glass);
+    --snav-surface-hover: var(--ptn-glass-strong);
+    --snav-accent: var(--ptn-accent);
+    --snav-danger: var(--ptn-danger);
+    --snav-group: var(--ptn-accent-deep);
+    --snav-group-ink: var(--ptn-accent-deep);
+
+    // Coluna no véu cobalto, da mesma família do topo (tom sobre tom).
+    .snav-aside {
+        background: var(--ptn-veil);
+        border-right: 1px solid var(--ptn-line);
+        box-shadow: var(--ptn-shadow);
+        color: var(--ptn-ink);
+    }
+
+    .snav-modules {
+        background: var(--ptn-veil-strong);
+    }
+
+    .snav-module {
+        &:hover {
+            background: var(--snav-surface-hover);
+            color: var(--ptn-accent);
+        }
+
+        &.is-active {
+            background: var(--ptn-surface);
+            box-shadow: 0 1px 3px var(--ptn-accent-ring);
+            color: var(--ptn-accent);
+        }
+    }
+
+    .snav-title strong {
+        color: var(--ptn-accent-deep);
+        font-size: 1rem;
+    }
+
+    // O brasão do portal é o único bloco cheio de cor da coluna.
+    .snav-title-ico {
+        background: var(--ptn-accent);
+        border: 0;
+        box-shadow: 0 4px 10px var(--ptn-accent-ring);
+        color: var(--ptn-on-accent);
+    }
+
+    .snav-search-input {
+        background: var(--ptn-surface);
+        color: var(--ptn-ink);
+
+        &:focus {
+            background: var(--ptn-surface);
+            border-color: var(--ptn-accent);
+            box-shadow: 0 0 0 3px var(--ptn-accent-ring);
+        }
+    }
+
+    // Cabeçalho de grupo: o véu mais denso, com texto cobalto profundo (continua diferente dos itens, como o padrão exige).
+    .snav-group-head {
+        background: var(--ptn-veil-strong);
+        color: var(--ptn-accent-deep);
+
+        &:hover {
+            background: var(--ptn-accent-soft-strong);
+            color: var(--ptn-accent-deep);
+        }
+    }
+
+    .snav-item {
+        color: var(--ptn-ink);
+
+        &:hover {
+            background: var(--snav-surface-hover);
+            color: var(--ptn-ink);
+            transform: none;
+        }
+
+        // Ativo: cartão branco que salta do véu, com a barra cobalto à esquerda.
+        &.is-active {
+            background: var(--ptn-surface);
+            box-shadow: 0 1px 3px var(--ptn-accent-ring), 0 4px 12px var(--ptn-accent-soft);
+            color: var(--ptn-accent);
+
+            &::before {
+                background: var(--ptn-accent);
+            }
+        }
+    }
+
+    .snav-ico {
+        background: var(--snav-surface);
+        color: var(--ptn-accent-deep);
+    }
+
+    .snav-item:hover .snav-ico {
+        background: var(--ptn-surface);
+        color: var(--ptn-accent);
+    }
+
+    .snav-item.is-active .snav-ico {
+        background: var(--ptn-accent);
+        color: var(--ptn-on-accent);
+    }
+
+    // Pendência continua vermelha (é sinal), mas sem a sombra forte do menu da empresa.
+    .snav-count .badge.text-bg-danger,
+    .snav-count .badge.bg-danger {
+        background: var(--ptn-danger) !important;
+        box-shadow: none;
+    }
+
+    .snav-foot-link {
+        &:hover {
+            background: var(--snav-surface-hover);
+            color: var(--ptn-accent);
+        }
+    }
+
+    .snav-extra {
+        color: var(--ptn-ink);
+    }
+}
+
+@media (max-width: 1199px) {
+    .snav.snav--partner .snav-aside {
+        box-shadow: 8px 0 30px var(--ptn-accent-ring);
+    }
+}

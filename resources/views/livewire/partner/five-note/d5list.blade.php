@@ -1,466 +1,179 @@
 @php
-    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+    $canFinish = \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'd5_notes.finish');
+    $canExport = \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'd5_notes.export');
+    $tabs      = [
+        'current' => 'Metas atuais (' . number_format($counts['current'], 0, ',', '.') . ')',
+        'passive' => 'Passivos (' . number_format($counts['passive'], 0, ',', '.') . ')',
+        'all'     => 'Tudo (' . number_format($counts['all'], 0, ',', '.') . ')',
+    ];
+    $scopeLabels = ['connection' => 'Ligação', 'network' => 'Rede'];
 @endphp
 
-<div class="d5list-page">
-    {{-- Carrega o Loading da pagina --}}
-    <x-show-loading />
-    @include('livewire.partner.partials.company-filter')
+{{-- D5 EM ESPERA / REJEITADAS DA PARCEIRA (lista de controle). Padrão: docs/PADRAO_LISTAS_OPERACIONAIS.md §10. Escopo por empresa: AuthorizesPartnerAccess. --}}
+<div class="closure-dash my-panel ops-list ops-control">
 
-    <style>
-        .d5list-page {
-            --d5-bg: #f5f7fb;
-            --d5-surface: #ffffff;
-            --d5-ink: #1f2933;
-            --d5-muted: #6b7280;
-            --d5-accent: #0f766e;
-            --d5-border: #e5e7eb;
-            background: radial-gradient(circle at 15% 0%, #eef2ff, transparent 40%),
-                radial-gradient(circle at 85% 15%, #ecfeff, transparent 35%),
-                var(--d5-bg);
-            padding: 1.5rem 0;
-        }
+    <x-ops.hero class="ops-hero--control" eyebrow="Portal da parceira · Notas D5"
+        :title="$returned ? 'D5 rejeitadas' : 'D5 em espera de execução'"
+        :subtitle="$returned ? 'D5 devolvidas para correção: ajuste e conclua novamente.' : 'Fila de execução e acompanhamento das D5 despachadas para a sua empresa.'">
+        @if ($canExport)
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportExcel" wire:loading.attr="disabled" wire:target="exportExcel"><i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel</button>
+        @endif
+    </x-ops.hero>
 
-        .d5list-header {
-            background: linear-gradient(120deg, #0f172a, #0f766e 70%);
-            color: #f8fafc;
-            border-radius: 1rem;
-            padding: 1.5rem 2rem;
-            box-shadow: 0 16px 40px rgba(15, 23, 42, 0.2);
-            margin-bottom: 1.5rem;
-        }
+    <section class="ops-toolbar" aria-label="Filtros das D5">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar por nota, ordem, PEP ou local…" label="Buscar D5">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#multiSearchModal" title="Busca em massa" aria-label="Busca em massa"><i class="ri-checkbox-multiple-blank-line" aria-hidden="true"></i></button>
+            </x-ops.search>
 
-        .d5list-header h2 {
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            margin: 0;
-        }
+            <x-ops.segmented name="d5Show" label="Mostrar" wire:model="passiveFilter" :options="$tabs" />
 
-        .d5list-header .meta {
-            color: rgba(248, 250, 252, 0.75);
-            font-size: 0.95rem;
-        }
+            <span class="ops-toolbar-spacer"></span>
 
-        .filters-grid .filter-card {
-            background-color: var(--d5-surface);
-            border: 1px solid var(--d5-border);
-            border-radius: 0.9rem;
-            padding: 1rem 1.25rem;
-            height: 100%;
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
-        }
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="toClean"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar filtros</button>
+            @endif
+        </div>
 
-        .filters-grid .filter-card h6 {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 600;
-            color: var(--d5-muted);
-        }
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Período</span>
+            <input type="month" class="form-control form-control-sm w-auto" wire:model="month" aria-label="Mês de despacho">
+            <input type="date" class="form-control form-control-sm w-auto" wire:model="startDate" aria-label="Despachada a partir de">
+            <input type="date" class="form-control form-control-sm w-auto" wire:model="endDate" aria-label="Despachada até">
+            @if (count($this->listFilterPayload()['defs']))
+                <span class="ops-toolbar-label">Filtros</span>
+                <x-ops.filters :payload="$this->listFilterPayload()" />
+            @endif
+        </div>
 
-        .summary-bar {
-            background: var(--d5-surface);
-            border: 1px solid var(--d5-border);
-            border-radius: 0.9rem;
-            padding: 0.75rem 1.25rem;
-            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
-        }
+        @if ($this->hasListFilters() || $multipleSearch)
+            <div class="ops-toolbar-row">
+                @if ($multipleSearch)
+                    <span class="ops-chip"><span><strong>Busca em massa:</strong> {{ count($multipleSearch) }} termo(s)</span></span>
+                @endif
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
+        @endif
+    </section>
 
-        .summary-bar .summary-item {
-            font-size: 0.92rem;
-            color: var(--d5-muted);
-        }
-
-        .summary-bar .summary-item strong {
-            color: var(--d5-ink);
-        }
-
-        .table-card {
-            background: var(--d5-surface);
-            border: 1px solid var(--d5-border);
-            border-radius: 1rem;
-            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
-            overflow: hidden;
-        }
-
-        .table-card .table thead th {
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            white-space: nowrap;
-        }
-
-        .table-card .table tbody td {
-            font-size: 0.92rem;
-        }
-
-        .d5list-page .legend-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .d5list-page .legend-dot.passive {
-            background: linear-gradient(135deg, #f97316, #facc15);
-            box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.4);
-        }
-
-        .d5list-page .badge-passive {
-            background: #fef3c7;
-            color: #92400e;
-            border-radius: 999px;
-            font-weight: 600;
-            padding: 0.15rem 0.6rem;
-            font-size: 0.7rem;
-            border: 1px solid #fdba74;
-        }
-
-        .d5list-page .chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 0.2rem 0.55rem;
-            border-radius: 999px;
-            font-size: 0.78rem;
-            font-weight: 600;
-        }
-
-        .d5list-page .chip.warn {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .d5list-page .chip.ok {
-            background: #dcfce7;
-            color: #166534;
-        }
-
-        .d5list-page .chip.danger {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .d5list-page .passive-row {
-            background: rgba(251, 146, 60, 0.08);
-            box-shadow: inset 3px 0 0 #fb923c;
-        }
-
-        .d5list-page .passive-row:hover {
-            background: rgba(251, 146, 60, 0.15);
-        }
-
-        @media (max-width: 991px) {
-            .d5list-header {
-                padding: 1.25rem;
-            }
-        }
-    </style>
-
-    <div class="container-fluid">
-        <div class="d5list-header d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+    <section class="mp-panel" aria-label="{{ $returned ? 'D5 rejeitadas' : 'D5 em espera' }}">
+        <div class="mp-panel-head">
             <div>
-                <h2>D5 em espera de execucao</h2>
-                <div class="meta">Fila de execucao e acompanhamento</div>
-            </div>
-            <div class="text-lg-end">
-                <div class="meta">Registros no filtro atual</div>
-                <div><strong>{{ $fives->total() }}</strong></div>
+                <h2 class="mp-panel-title">{{ $returned ? 'D5 rejeitadas' : 'D5 em espera' }}</h2>
+                <div class="mp-panel-sub">{{ number_format($fives->total(), 0, ',', '.') }} {{ $fives->total() === 1 ? 'registro' : 'registros' }}@if ($hasCriteria) com os filtros atuais @endif</div>
             </div>
         </div>
 
-        {{-- START SearchBar and Filters --}}
-        <div class="card mb-3 border-0 bg-transparent">
-            <div class="card-body px-0">
-                <div class="row g-3 filters-grid">
-                    <div class="col-12 col-lg-5 col-xl-4">
-                        <div class="filter-card">
-                            <h6>Pesquisa</h6>
-                            <div class="row g-2">
-                                <div class="col-12 col-sm-5">
-                                    <div class="form-floating w-100">
-                                        <select class="form-select border border-secondary" wire:model="perPage"
-                                            id="perPageSelect">
-                                            <option value="10">10</option>
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                        </select>
-                                        <label for="perPageSelect">Registros por pagina</label>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-sm-7">
-                                    <div class="form-floating w-100 position-relative">
-                                        <input wire:model.defer="search" type="text"
-                                            class="form-control border border-secondary" id="search"
-                                            placeholder="Buscar por nota, PEP, motivo" wire:keydown.enter="toSearch">
-                                        <label for="search">Buscar</label>
-                                        <button
-                                            class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
-                                            data-bs-toggle="modal" data-bs-target="#multiSearchModal"
-                                            title="Busca multipla">
-                                            <i class="ri-checkbox-multiple-blank-line"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="8" :cols="8" />
 
-                    <div class="col-12 col-lg-4 col-xl-3">
-                        <div class="filter-card">
-                            <h6>Periodo</h6>
-                            <div class="row g-2">
-                                <div class="col-12">
-                                    <div class="form-floating w-100">
-                                        <input type="month" class="form-control border border-secondary"
-                                            wire:model.defer="month" id="filterMonth">
-                                        <label for="filterMonth">Mes</label>
-                                    </div>
-                                </div>
-                                <div class="col-12">
-                                    <div class="form-floating w-100">
-                                        <input type="date" class="form-control border border-secondary"
-                                            wire:model.defer="startDate" id="filterStart">
-                                        <label for="filterStart">Inicio</label>
-                                    </div>
-                                </div>
-                                <div class="col-12">
-                                    <div class="form-floating w-100">
-                                        <input type="date" class="form-control border border-secondary"
-                                            wire:model.defer="endDate" id="filterEnd">
-                                        <label for="filterEnd">Fim</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-xl-5">
-                        <div class="filter-card h-100">
-                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                <h6 class="mb-0">Acoes e exibicao</h6>
-                                @if ($partnerCan('d5_notes.export'))
-                                    <button type="button" class="btn btn-outline-primary" wire:click="exportExcel">
-                                        <i class="ri-download-2-line me-1"></i> Exportar Excel
-                                    </button>
-                                @endif
-                            </div>
-                            <div class="row g-2 align-items-end">
-                                <div class="col-12 col-md-7">
-                                    <div class="form-floating w-100">
-                                        <select id="passiveFilter" class="form-select border border-secondary"
-                                            wire:model="passiveFilter">
-                                            <option value="current">Metas atuais</option>
-                                            <option value="passive">Passivos</option>
-                                            <option value="all">Tudo</option>
-                                        </select>
-                                        <label for="passiveFilter">Mostrar</label>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-5 d-flex gap-2">
-                                    <button class="btn btn-primary flex-grow-1" wire:click="toSearch()">
-                                        <i class="ri-search-line me-1"></i> Buscar
-                                    </button>
-                                    <button class="btn btn-outline-secondary" wire:click="toClean()">
-                                        <i class="ri-eraser-line"></i>
-                                    </button>
-                                </div>
-                                <div class="col-12">
-                                    <div class="d-flex align-items-center gap-2 text-muted small flex-wrap mt-2">
-                                        <span class="legend-dot passive"></span>
-                                        Passivos destacados
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        {{-- END SearchBar and Filters --}}
-
-        <div class="summary-bar mb-3">
-            <div class="row align-items-center">
-                <div class="col-12 col-lg-6">
-                    @if ($fives->links())
-                        {{ $fives->links() }}
-                    @endif
-                </div>
-                <div class="col-12 col-lg-6 text-lg-end">
-                    <div class="summary-item">
-                        Exibindo <strong>{{ $fives->firstItem() }}</strong> ate
-                        <strong>{{ $fives->lastItem() }}</strong> de
-                        <strong>{{ $fives->total() }}</strong> registros.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {{-- Lista --}}
-        <div class="table-card">
-            @if ($fives->isNotEmpty())
+        <div wire:loading.delay.class="d-none">
+            @if ($fives->isEmpty())
+                <x-closure.empty-state icon="ri-folder-2-line"
+                    :title="$hasCriteria ? 'Nenhuma D5 com esses filtros' : ($returned ? 'Nenhuma D5 rejeitada' : 'Sem D5 para execução')"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais D5.' : 'Quando uma D5 for despachada para a sua empresa, ela aparece aqui.'" />
+            @else
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0">
-                        <thead class="table-dark">
-                            <tr class="sticky-top bg-dark" style="z-index:1; top:0;">
-                                <th class="text-center" style="width:52px;">#</th>
+                    <table class="table mp-table align-middle mb-0">
+                        <colgroup>
+                            <col style="width: 150px">
+                            <col style="width: 90px">
+                            <col style="width: 110px">
+                            <col style="width: 110px">
+                            <col style="width: 120px">
+                            <col style="width: 130px">
+                            <col>
+                            <col style="width: 120px">
+                            <col style="width: 120px">
+                            <col style="width: 16%">
+                            <col style="width: 130px">
+                        </colgroup>
+                        <thead>
+                            <tr>
                                 <th>Nota D5</th>
                                 <th>Informe</th>
                                 <th>Escopo</th>
-                                <th>Note</th>
-                                <th>Orders</th>
+                                <th>Nota</th>
+                                <th>Ordem</th>
                                 <th>PEP</th>
                                 <th>Motivo</th>
-                                <th>Codificacao</th>
-                                <th class="text-center">Despachado em</th>
-                                <th class="text-center">Dias</th>
-                                <th class="text-center">Empresa</th>
-                                <th class="text-center" style="width:56px;">Acao</th>
+                                <th>Codificação</th>
+                                <th>Despachada</th>
+                                <th>Empresa</th>
+                                <th><span class="visually-hidden">Ações</span></th>
                             </tr>
                         </thead>
                         <tbody>
-                            @if (!function_exists('d5list_get_order'))
-                                @php
-                                    function d5list_get_order($note): ?string
-                                    {
-                                        return $note->WorkForm?->Orders?->sortBy('ordem')->first()?->ordem;
-                                    }
-                                @endphp
-                            @endif
-
-                            @foreach ($fives as $index => $five)
-                                @php
-                                    $diffDays = $five->dispatch_at ? now()->diffInDays($five->dispatch_at) : 0;
-                                    $chipClass = $diffDays >= 10 ? 'danger' : ($diffDays >= 5 ? 'warn' : 'ok');
-                                @endphp
-                                <tr wire:key="five-{{ $five->id }}" @class(['passive-row' => $five->isPassive])>
-                                    <td class="text-center">
-                                        <span class="badge text-bg-light">#{{ $index + 1 }}</span>
+                            @foreach ($fives as $five)
+                                <tr wire:key="five-{{ $five->id }}">
+                                    <td>
+                                        <x-ops.note :note="$five->note_d5 ?: '—'" kind="d5" tone="blue" :hint="$returned ? 'D5 devolvida para correção' : 'D5 em espera de execução'" :sub="$five->loc_install">
+                                            @if ($five->isPassive)
+                                                <x-ops.badge sm tone="amber" label="Passivo" hint="Registro passivo: não conta como meta atual" />
+                                            @endif
+                                        </x-ops.note>
                                     </td>
                                     <td>
-                                        <div class="d-flex flex-column">
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="fw-semibold">{{ $five->note_d5 }}</span>
-                                                @if ($five->isPassive)
-                                                    <span class="badge-passive" title="Registro passivo">
-                                                        Passivo
-                                                    </span>
-                                                @endif
-                                            </div>
-                                            <small class="text-muted">{{ $five->loc_install }}</small>
-                                        </div>
-                                    </td>
-                                    @php
-                                        $d5Associations = collect();
-                                        if ($five->work_report_id) {
-                                            $scopes = collect($five->WorkReport?->selected_final_scopes ?? ["general"])->filter();
-                                            foreach ($scopes as $scope) {
-                                                $d5Associations->push(["report" => $five->work_report_id, "scope" => $scope]);
-                                            }
-                                        }
-                                        foreach (($five->productions ?? collect()) as $production) {
-                                            foreach (($production->WorkReportFlowProductions ?? collect())->where("is_current", true)->whereNotNull("work_report_id") as $flow) {
-                                                $d5Associations->push(["report" => $flow->work_report_id, "scope" => $flow->final_scope ?: "general"]);
-                                            }
-                                        }
-                                        $d5Associations = $d5Associations->unique(fn ($item) => $item["report"] . "|" . $item["scope"])->values();
-                                    @endphp
-                                    <td>
-                                        @forelse ($d5Associations as $association)
-                                            <span class="badge bg-light text-dark">#{{ $association["report"] }}</span>
+                                        @forelse ($five->list_reports as $association)
+                                            <x-ops.badge sm tone="muted" mono :label="'#' . $association['report']" hint="Número do informe" />
                                         @empty
-                                            <span class="text-muted">---</span>
+                                            <span class="ops-empty">—</span>
                                         @endforelse
                                     </td>
                                     <td>
-                                        @forelse ($d5Associations as $association)
-                                            @php
-                                                $scopeLabel = match ($association["scope"]) {
-                                                    "connection" => "Ligação",
-                                                    "network" => "Rede",
-                                                    default => "Geral",
-                                                };
-                                                $scopeClass = $association["scope"] === "connection" ? "text-bg-warning" : "text-bg-success";
-                                            @endphp
-                                            <span class="badge {{ $scopeClass }}">{{ $scopeLabel }}</span>
+                                        @forelse ($five->list_reports as $association)
+                                            <x-ops.badge sm :tone="$association['scope'] === 'connection' ? 'amber' : 'green'" :label="$scopeLabels[$association['scope']] ?? 'Geral'" />
                                         @empty
-                                            <span class="text-muted">---</span>
+                                            <span class="ops-empty">—</span>
                                         @endforelse
                                     </td>
-                                    <td>{{ $five->note->note }}</td>
-                                    <td>{{ d5list_get_order($five->note) }}</td>
-                                    <td>{{ $five->pep }}</td>
-                                    <td>{{ $five->reason }}</td>
-                                    <td>{{ $five->codify }}</td>
-                                    <td class="text-center">
-                                        {{ $five->dispatch_at?->format('d/m/Y H:i') }}
-                                    </td>
-                                    <td class="text-center">
-                                        <span class="chip {{ $chipClass }}"><i class="ri-timer-line"></i>
-                                            {{ $diffDays }}
-                                        </span>
-                                    </td>
-                                    <td class="text-center">{{ $five->company?->name }}</td>
-                                    <td class="text-center">
-                                        <button class="btn btn-sm btn-success"
-                                            @if ($partnerCan('d5_notes.finish')) wire:click="$emitTo('partner.five-note.actions.finish-d5', 'getInfoResponse', {{ $five->id }})" @endif>
-                                            <i class="ri-play-line"></i>
-                                        </button>
+                                    <td>{{ $five->note?->note ?? '—' }}</td>
+                                    <td>{{ $five->list_order ?? '—' }}</td>
+                                    <td>{{ $five->pep ?: '—' }}</td>
+                                    <td>{{ $five->reason ?: '—' }}</td>
+                                    <td>{{ $five->codify ?: '—' }}</td>
+                                    <td><x-ops.age :date="$five->dispatch_at" :days="$five->list_days" rule="dispatch" :ok="4" :warn="9" what="do despacho da D5" /></td>
+                                    <td>{{ $five->company?->name ?? '—' }}</td>
+                                    <td class="text-end">
+                                        @if ($canFinish)
+                                            <button type="button" class="btn btn-primary btn-sm ops-action" wire:click="$emitTo('partner.five-note.actions.finish-d5', 'getInfoResponse', {{ $five->id }})"><i class="ri-check-double-line" aria-hidden="true"></i> Concluir</button>
+                                        @else
+                                            <button type="button" class="btn btn-outline-secondary btn-sm ops-action" disabled title="Seu perfil não tem permissão para concluir D5"><i class="ri-check-double-line" aria-hidden="true"></i> Concluir</button>
+                                        @endif
                                     </td>
                                 </tr>
                             @endforeach
                         </tbody>
                     </table>
                 </div>
-            @else
-                <div class="card-body">
-                    <div class="text-center py-5 text-secondary">
-                        <i class="ri-folder-2-line d-block fs-2 mb-2"></i>
-                        <div>Sem D5 para execucao.</div>
-                    </div>
-                </div>
+
+                <x-ops.pager :paginator="$fives" :per-page="$perPage" :sizes="[25, 50, 100]" />
             @endif
         </div>
+    </section>
 
-        <div class="summary-bar mt-3">
-            <div class="row align-items-center">
-                <div class="col-12 col-lg-6">
-                    @if ($fives->links())
-                        {{ $fives->links() }}
-                    @endif
+    {{-- Busca em massa --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="multiSearchModal" tabindex="-1" aria-labelledby="multiSearchTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Busca em massa</span>
+                        <h5 class="modal-title" id="multiSearchTitle">Notas, ordens ou PEP</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div class="col-12 col-lg-6 text-lg-end">
-                    <div class="summary-item">
-                        Exibindo <strong>{{ $fives->firstItem() }}</strong> ate
-                        <strong>{{ $fives->lastItem() }}</strong> de
-                        <strong>{{ $fives->total() }}</strong> registros.
-                    </div>
+                <div class="modal-body">
+                    <p class="ops-modal-note">Cole uma nota, ordem ou PEP por linha.</p>
+                    <textarea class="form-control" rows="12" wire:model.defer="multiSearch" aria-label="Termos da busca em massa" placeholder="Cole aqui as notas/OV (uma por linha)"></textarea>
                 </div>
-            </div>
-        </div>
-
-        {{-- Modal Busca multipla --}}
-        <div wire:ignore.self class="modal fade" id="multiSearchModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content" style="border-radius:16px;">
-                    <div class="modal-header">
-                        <h5 class="modal-title"><i class="ri-file-search-line me-1"></i> Busca Multi-notas</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
-                    </div>
-                    <div class="modal-body p-0">
-                        <textarea class="form-control border-0" rows="15" wire:model.defer="multiSearch"
-                            placeholder="Cole aqui as notas/OV (uma por linha)"></textarea>
-                    </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-primary" wire:click.prevent="multiSearch"><i
-                                class="ri-search-line me-1"></i> Buscar</button>
-                    </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click.prevent="multiSearch"><i class="ri-search-line" aria-hidden="true"></i> Buscar</button>
                 </div>
             </div>
         </div>
-
-        {{-- LIVEWIRE COMPONENTS --}}
-        @livewire('partner.five-note.actions.finish-d5')
     </div>
+
+    {{-- Conclusão da D5 (modal próprio, fora do escopo desta migração) --}}
+    @livewire('partner.five-note.actions.finish-d5')
 </div>

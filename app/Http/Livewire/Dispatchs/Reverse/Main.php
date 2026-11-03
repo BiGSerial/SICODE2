@@ -3,25 +3,32 @@
 namespace App\Http\Livewire\Dispatchs\Reverse;
 
 use App\Custom\RuleBuilder;
-use App\Exports\DispatchDesenhoMain;
 use App\Exports\Services\analisesExport;
 use App\Helpers\TextFormatter;
-use App\Models\City;
-use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Http\Livewire\Concerns\WithNoteListFilters;
+use App\Models\{City, Note, Service};
 use App\Services\Design\BlockEvaluator;
+use App\Services\Reverse\ReverseListRowPresenter;
 use App\Support\SicodeRules;
 use App\Traits\WildcardFormmater;
+use Illuminate\Support\Facades\Cache;
 use Livewire\{Component, WithPagination};
 
+/**
+ * Despacho · Fluxo Reverso: lista operacional (padrão: docs/PADRAO_LISTAS_OPERACIONAIS.md).
+ * A lista da parceira (`PartnerMain`) herda daqui; só muda o perfil e a exportação.
+ */
 class Main extends Component
 {
     use WithPagination;
-
+    use WithNoteListFilters;
     use WildcardFormmater;
-
     use TextFormatter;
 
     protected $paginationTheme = 'bootstrap';
+
+    /** `dispatch` (Despacho) ou `partner` (parceira): só muda o texto do cabeçalho. */
+    protected string $profile = 'dispatch';
 
     public $service;
 
@@ -29,157 +36,112 @@ class Main extends Component
 
     public $search;
 
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
-    public $note;
-
     public $last_update;
 
     public $advanceSearch;
 
     public $multiSearch = [];
 
-    public $selectall;
+    public $selectall = false;
 
     public $selected = [];
 
-    public $company_l;
-
-    public $company_s;
-
-    public $user_l;
-
-    public $user_s;
-
-    public $type;
-
-    public $additionalData = [];
-
-    public $notes;
-
-    public $enter_dd;
-
-    public $filteredLists;
-
-    public $search_user;
-
-    public $note_type = '';
-
-    // Filtros
-    public $region_l;
-
-    public $region_s = [];
-
-    public $district_l;
-
-    public $district_s = [];
-
-    public $city_l;
-
-    public $city_s = [];
-
-    public $group1_l;
-
-    public $group1_s = [];
-
-    public $group2_l;
-
-    public $group2_s = [];
-
-    public $group5_l;
-
-    public $group5_s = [];
-
     public $not_assigned = false;
+
     public $mmgd = false;
 
-
-    // Filters
-    private $filter_group = 'reverse';
-
-    private $filter;
+    /** @var array<string, array> Memo de `rowDispatchState()` (zerado a cada render). */
+    private array $dispatchStateMemo = [];
 
     protected $listeners = [
-        'refresh_dispatch'  => '$refresh',
-        'refresh_list'      => '$refresh',
-        'getCopy'           => 'copy',
-        'confirm_accompany' => 'add_to_accompany',
-        'confirm_dispatch'  => 'confirmed_att',
-        'refresh_All_Filter' => 'cleanAll',
+        'refresh_dispatch' => '$refresh',
+        'refresh_list'     => '$refresh',
+        'getCopy'          => 'copy',
     ];
 
-
-
-    protected $queryString =  [
-        'search' => ['except' => ''],
-        'page' => ['except' => 1],
-        'perPage' => ['except' => 100],
-        'not_assigned' => ['except' => false],
-        'mmgd' => ['except' => false],
-        'multiSearch' => ['except' => []],
+    protected $queryString = [
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['except' => 100, 'as' => 'pp'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'mmgd'         => ['except' => false, 'as' => 'semmmgd'],
+        'filters'      => ['except' => [], 'as' => 'f'],
     ];
 
     public function mount($service)
     {
-
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
-
-        $this->group1_l = $this->lists->orderBy('group1')->get()->pluck('group1')->unique();
-        $this->group2_l = $this->lists->orderBy('group2')->get()->pluck('group2')->unique();
-        $this->group5_l = $this->lists->orderBy('group5')->get()->pluck('group5')->unique();
-
-
+        $this->last_update = Cache::remember('reverse-dispatch:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
     }
 
-    public function updatedCompanyS()
-    {
+    // ---------- Filtros (WithNoteListFilters) ----------
 
-        $this->user_s = '';
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'material' => ['label' => 'Material'],
+            'rubrica'  => ['label' => 'Rubrica'],
+            'region'   => ['label' => 'Região'],
+            'regional' => ['label' => 'Regional', 'depends' => ['region']],
+            'city'     => ['label' => 'Município', 'depends' => ['region', 'regional']],
+        ];
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return [
+            'material' => $this->rememberFilterOptions('material', fn () => Note::query()
+                ->whereNotNull('material')->where('material', '!=', '')
+                ->distinct()->orderBy('material')->pluck('material')
+                ->map(fn ($m) => ['v' => (string) $m, 'l' => (string) $m])->all()),
+            'rubrica' => $this->rememberFilterOptions('rubrica', fn () => Note::query()
+                ->whereNotNull('rubrica')->where('rubrica', '!=', '')
+                ->distinct()->orderBy('rubrica')->pluck('rubrica')
+                ->map(fn ($r) => ['v' => (string) $r, 'l' => (string) $r])->all()),
+        ] + $this->locationFilterOptions();
+    }
+
+    /** As opções de Material/Rubrica varrem a tabela de notas inteira: ficam 30 minutos em cache. */
+    protected function listFilterCacheTtl(): int
+    {
+        return 1800;
+    }
+
+    /** "Limpar tudo": filtros, busca (simples e em massa) e atalhos. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters       = [];
+        $this->search        = '';
+        $this->multiSearch   = [];
+        $this->advanceSearch = '';
+        $this->not_assigned  = false;
+        $this->mmgd          = false;
+        $this->afterListFiltersChanged();
+    }
+
+    // ---------- Estado da tela ----------
+
+    public function updatedSearch()
+    {
+        $this->multiSearch = [];
+        $this->gotoPage(1);
+    }
+
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
     }
 
     public function filterMMGD()
     {
         $this->mmgd = !$this->mmgd;
+        $this->gotoPage(1);
     }
 
-    public function export_excel()
+    public function filterStatus()
     {
-        $query = $this->lists->with('Productions.Company');
-
-        if (count($this->selected)) {
-            $query->whereIn('id', $this->selected);
-        }
-
-        return (new analisesExport($query, $this->service->uuid))->download(date('YmdHis-') . 'exportAnalises.xlsx');
-    }
-
-    public function updatedSelectall($val)
-    {
-
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
-
-        if ($val) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($idsToKeep as $id) {
-                if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
-                }
-            }
-        } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $idsToKeep)) {
-                    $newSelected[] = $id;
-                }
-            }
-            $this->selected = $newSelected;
-        }
-
+        $this->not_assigned = !$this->not_assigned;
+        $this->gotoPage(1);
     }
 
     public function copy($msg)
@@ -190,7 +152,53 @@ class Main extends Component
         ]);
     }
 
+    public function needBlock(Note $note): array
+    {
+        return $this->rowDispatchState($note)['eval'];
+    }
 
+    /**
+     * Avaliação de bloqueio + pilha da empresa de uma linha, feita UMA vez por requisição
+     * (antes a tela, o "selecionar todos" e a verificação da página liam isso 3x por linha).
+     *
+     * @return array{eval: array, stack: ?\App\Models\Production, canDispatch: bool}
+     */
+    public function rowDispatchState(Note $note): array
+    {
+        return $this->dispatchStateMemo[$note->id] ??= (function () use ($note) {
+            $eval  = app(BlockEvaluator::class)->evaluate($note, $this->service);
+            $stack = SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
+
+            return [
+                'eval'        => $eval,
+                'stack'       => $stack,
+                'canDispatch' => !$eval['block'] || (bool) ($eval['command'] ?? false) || (bool) $stack,
+            ];
+        })();
+    }
+
+    private function canDispatchNote(Note $note): bool
+    {
+        return $this->rowDispatchState($note)['canDispatch'];
+    }
+
+    // ---------- Seleção e despacho ----------
+
+    /** Marca/desmarca as linhas despacháveis da página atual, preservando o que já estava marcado em outras páginas. */
+    public function updatedSelectall($val)
+    {
+        $pageIds = collect($this->lists->paginate($this->perPage)->items())
+            ->filter(fn (Note $note) => $this->canDispatchNote($note))
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id)
+            ->all();
+
+        $current = array_map('strval', $this->selected);
+
+        $this->selected = $val
+            ? array_values(array_unique([...$current, ...$pageIds]))
+            : array_values(array_diff($current, $pageIds));
+    }
 
     public function get_single_note($note)
     {
@@ -201,7 +209,6 @@ class Main extends Component
 
     public function go_att_mass()
     {
-
         $this->clean();
 
         if (!count($this->selected)) {
@@ -218,212 +225,25 @@ class Main extends Component
         $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', array_values($this->selected));
     }
 
-    public function confirm_att()
+    public function export_excel()
     {
-        if ($this->type === '2') {
+        $query = $this->lists->with('Productions.Company');
 
-            if (!$this->user_s) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
-                    'timer'    => 2500,
-                ]);
-
-                return;
-            }
-
-            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
-
-        } else {
-
-            if (!$this->company_s) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
-                    'timer'    => 2500,
-                ]);
-
-                return;
-            }
-
-            $para = (Company::find($this->company_s))->name;
+        if (count($this->selected)) {
+            $query->whereIn('id', $this->selected);
         }
 
-        $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmar Despachar',
-            'msg'           => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Despache!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_dispatch',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
-
-        ]);
-    }
-
-    public function add_dd()
-    {
-        if (!trim($this->enter_dd)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Nenhuma empresa foi selecionada para despacho!',
-                'timer'    => 5000,
-            ]);
-
-            return;
-        }
-
-        $linhas = explode("\n", trim($this->enter_dd));
-
-        if ($linhas && count($linhas)) {
-
-            foreach ($linhas as $linha) {
-
-                if ($linha) {
-
-                    $coluna = explode("\t", $linha);
-
-                    if (preg_match('/^[0-9]+$/', $coluna[0]) && preg_match('/^[0-9]+$/', $coluna[1])) {
-
-                        $index = $this->notes->search(function ($note) use ($coluna) {
-                            return $note->note == $coluna[0];
-                        });
-
-                        if ($index !== false) {
-                            $this->additionalData[$index] = $coluna[1];
-                        }
-                    }
-
-                }
-            }
-
-        }
-    }
-
-    public function confirmed_att()
-    {
-
-        $erros = [];
-
-        if ($this->type == '2') {
-
-            foreach ($this->notes as $key => $note) {
-
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
-                    $production = Production::create([
-                        'note_id'     => $note->id,
-                        'service_id'  => $this->service->uuid,
-                        'user_id'     => $this->user_s,
-                        'company_id'  => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'att_by'      => Auth()->User()->id,
-                        'dt_note'     => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'centroTrab'  => $note->centerjob,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'att_at'      => date('Y-m-d H:i:s'),
-                        'status'      => 2,
-                    ]);
-
-                    $user = Auth()->User()->name;
-
-                    $user_info = $this->dispatchRecipientInfo();
-
-                    if ($production) {
-                        Notetimeline::Create([
-                            'note_id'      => $production->note_id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "Usuário {$user} {$user_info}",
-                            'status'       => 2,
-                            'production_id' => $production->id,
-                        ]);
-                    }
-                } else {
-                    $erros[] = $erro;
-                }
-            }
-
-        } else {
-
-            foreach ($this->notes as $key => $note) {
-
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
-                    $production = Production::create([
-                        'note_id'     => $note->id,
-                        'service_id'  => $this->service->uuid,
-                        'company_id'  => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'dt_note'     => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'centroTrab'  => $note->centerjob,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'status'      => 1,
-                    ]);
-
-                    $user = Auth()->User()->name;
-
-                    $user_info = $this->dispatchRecipientInfo();
-
-                    if ($production) {
-                        Notetimeline::Create([
-                            'note_id'      => $production->note_id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "Usuário {$user} {$user_info}",
-                            'status'       => 1,
-                            'production_id' => $production->id,
-                        ]);
-                    }
-                } else {
-                    $erros[] = $erro;
-                }
-
-            }
-        }
-
-        if (count($erros)) {
-
-            $info = '<br>';
-
-            foreach ($erros as $err) {
-                $info .= $this->productionAssignmentLabel($err) . '<br>';
-            }
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Notas Despachadas com sucesso parcial!',
-                'msg'      => "Foram Despachadas com sucesso, porém, algumas ja se enconram em controle: {$info}",
-                'timer'    => 2500,
-            ]);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Notas Despachadas com sucesso!',
-                'timer'    => 2500,
-            ]);
-        }
-
-        $this->closeall();
+        return (new analisesExport($query, $this->service->uuid))->download(date('YmdHis-') . 'exportAnalises.xlsx');
     }
 
     public function closeall()
     {
         $this->dispatchBrowserEvent('hideModal');
 
-        $this->company_s      = '';
-        $this->selected       = [];
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->advanceSearch  = '';
-        $this->search         = '';
+        $this->selected      = [];
+        $this->selectall     = false;
+        $this->advanceSearch = '';
+        $this->search        = '';
         $this->gotoPage(1);
 
         $this->emit('refresh_dispatch');
@@ -431,30 +251,17 @@ class Main extends Component
 
     public function clean()
     {
-
-        $this->company_s      = '';
-        $this->enter_dd       = '';
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->multiSearch    = [];
-        $this->advanceSearch  = '';
-        $this->search         = '';
+        $this->advanceSearch = '';
+        $this->multiSearch   = [];
+        $this->search        = '';
     }
 
     public function buscarMulti()
     {
-
         if ($this->advanceSearch) {
-
-
-
-            $this->multiSearch = $this->formatTextToArray($this->advanceSearch);
-
-            $this->search = '';
-
+            $this->multiSearch = array_values($this->formatTextToArray($this->advanceSearch));
+            $this->search      = '';
             $this->gotoPage(1);
-
         }
 
         if (count($this->multiSearch)) {
@@ -463,50 +270,34 @@ class Main extends Component
         }
     }
 
-    public function updatedSearch()
-    {
-        if (!trim($this->search)) {
-            $this->multiSearch = [];
-            $this->gotoPage(1);
-        }
-    }
+    // ---------- Consulta ----------
 
-
-    public function filterStatus()
+    /** Códigos de município (`notes.nexp`) dos filtros Região/Regional/Município; vazio sem filtro de localidade. */
+    public function getBaseProperty(): array
     {
-        if ($this->not_assigned) {
-            $this->not_assigned = false;
-        } else {
-            $this->not_assigned = true;
+        $region = $this->filterValues('region');
+        $local  = $this->filterValues('regional');
+        $city   = $this->filterValues('city');
+
+        if (!$region && !$local && !$city) {
+            return [];
         }
 
+        return City::query()
+            ->when($region, fn ($q) => $q->whereIn('regiao', $region))
+            ->when($local, fn ($q) => $q->whereIn('baseConstrucao', $local))
+            ->when($city, fn ($q) => $q->whereIn('rdMunicipio', $city))
+            ->pluck('rdMunicipio')->filter()->unique()->values()->all();
     }
 
-    public function cleanAll()
-    {
-
-        $this->advanceSearch = '';
-        $this->multiSearch   = [];
-        $this->search        = '';
-        $this->gotoPage(1);
-
-        $this->emit('refresh_dispatch');
-    }
-
+    /** Consulta única da lista, do Excel e do "selecionar todos". */
     public function getListsProperty()
     {
+        $query  = Note::query()->excludeCanceledFullDone();
+        $search = trim((string) $this->search);
+        $base   = $this->base;
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
-
-        $query = Note::query()->excludeCanceledFullDone();
-
-        if (!$this->search && !count($this->multiSearch)) {
+        if (!$search && !count($this->multiSearch)) {
             SicodeRules::applyContractDispatchMainVisibility(
                 $query,
                 Auth()->User(),
@@ -514,11 +305,7 @@ class Main extends Component
                 fn ($statusQuery) => RuleBuilder::applyRules($statusQuery, $this->service->Status)
             );
         } else {
-            $query->where(function ($q) {
-                $q->where('nstats', 2)
-                ->orWhere('nstats', 21)
-                ->orWhere('nstats', 4);
-            });
+            $query->whereIn('nstats', [2, 21, 4]);
 
             SicodeRules::applyContractDispatchMainVisibility(
                 $query,
@@ -527,8 +314,6 @@ class Main extends Component
                 fn ($statusQuery) => null
             );
         }
-
-
 
         if ($this->not_assigned) {
             $query->where(function ($q) {
@@ -540,10 +325,7 @@ class Main extends Component
             });
         }
 
-        $query->when(trim($this->search), function ($q, $s) {
-            $this->gotoPage(1);
-            $this->multiSearch = [];
-
+        $query->when($search, function ($q, $s) {
             $search = $this->formatWithWildcard($s);
 
             return $q->where(function ($query) use ($search) {
@@ -556,11 +338,7 @@ class Main extends Component
             });
         });
 
-
         $query->when($this->multiSearch, function ($q, $s) {
-
-            $this->search = '';
-            $this->gotoPage(1);
             return $q->where(function ($query) use ($s) {
                 $query->whereIn('note', $s)
                     ->orWhereIn('material', $s)
@@ -572,229 +350,41 @@ class Main extends Component
         });
 
         if ($this->mmgd) {
-            # code...
             $query->where('material', 'not like', '%MMGD%');
         }
 
-        $activeFilters = is_array($this->filter) ? $this->filter : [];
+        $query->when($this->filterValues('rubrica'), fn ($q, $v) => $q->whereIn('rubrica', $v))
+            ->when($this->filterValues('material'), fn ($q, $v) => $q->whereIn('material', $v))
+            ->when($base, fn ($q, $codes) => $q->whereIn('nexp', $codes));
 
-        if (isset($activeFilters['rubrica'])) {
-            $query->whereIn('rubrica', $activeFilters['rubrica']);
+        // Filtro de localidade sem nenhum município correspondente não pode liberar tudo.
+        if (($this->filterValues('region') || $this->filterValues('regional') || $this->filterValues('city')) && !$base) {
+            $query->whereRaw('0 = 1');
         }
 
-        if (isset($activeFilters['material'])) {
-            $query->whereIn('material', $activeFilters['material']);
-        }
-
-        $regionValues = collect((array) ($activeFilters['region'] ?? []))
-            ->filter(fn ($v) => filled($v))
-            ->map(fn ($v) => trim((string) $v))
-            ->values();
-        $regionalValues = collect((array) ($activeFilters['regional'] ?? []))
-            ->filter(fn ($v) => filled($v))
-            ->map(fn ($v) => trim((string) $v))
-            ->values();
-        $cityValues = collect((array) ($activeFilters['city'] ?? []))
-            ->filter(fn ($v) => filled($v))
-            ->map(fn ($v) => trim((string) $v))
-            ->values();
-
-        if ($regionValues->isNotEmpty() || $regionalValues->isNotEmpty() || $cityValues->isNotEmpty()) {
-            $nexpCodes = collect();
-            $nexpCodes = $nexpCodes->merge(
-                $cityValues->filter(fn ($v) => preg_match('/^\d+$/', $v) === 1)->values()
-            );
-
-            $mappedQuery = City::query();
-            if ($regionValues->isNotEmpty()) {
-                $mappedQuery->where(function ($sq) use ($regionValues) {
-                    $sq->whereIn('regiao', $regionValues->all())
-                        ->orWhereIn('baseConstrucao', $regionValues->all());
-                });
-            }
-            if ($regionalValues->isNotEmpty()) {
-                $mappedQuery->whereIn('baseConstrucao', $regionalValues->all());
-            }
-            if ($cityValues->isNotEmpty()) {
-                $mappedQuery->where(function ($sq) use ($cityValues) {
-                    $sq->whereIn('cidade', $cityValues->all())
-                        ->orWhereIn('municipio', $cityValues->all())
-                        ->orWhereIn('rdMunicipio', $cityValues->all());
-                });
-            }
-
-            $mappedCodes = $mappedQuery->pluck('rdMunicipio')
-                ->filter(fn ($v) => filled($v))
-                ->map(fn ($v) => trim((string) $v))
-                ->values();
-
-            $query->whereIn('nexp', $nexpCodes->merge($mappedCodes)->unique()->values()->all());
-        }
-
-
-        $query->with(['Productions.User', 'Productions.Company'])
+        return $query->with(['Productions.User', 'Productions.Company'])
             ->orderBy('type_note', 'DESC')
             ->orderBy('days_left');
-
-        return $query;
-
-    }
-
-    public function needBlock(Note $note): array
-    {
-        return app(BlockEvaluator::class)->evaluate($note, $this->service);
-    }
-
-    private function canDispatchNote(Note $note): bool
-    {
-        $eval = $this->needBlock($note);
-
-        return !$eval['block']
-            || (bool) ($eval['command'] ?? false)
-            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
-    }
-
-    public function getBaseProperty()
-    {
-        try {
-            $query          = City::query();
-            $filtersApplied = false;
-
-            if (!empty($this->region_s)) {
-                $query->whereIn('regiao', $this->region_s);
-                $filtersApplied = true;
-            }
-
-            if (!empty($this->district_s)) {
-                $query->whereIn('baseConstrucao', $this->district_s);
-                $filtersApplied = true;
-            }
-
-            if (!empty($this->city_s)) {
-                $query->whereIn('cidade', $this->city_s);
-                $filtersApplied = true;
-            }
-
-            if (!$filtersApplied) {
-                return [];
-            }
-
-            $result = $query->orderBy('cidade')
-                ->get()
-                ->pluck('rdMunicipio')
-                ->toArray();
-
-            return $result;
-        } catch (\Throwable $th) {
-            return [];
-        }
-    }
-
-    private function dispatchRecipientInfo(): string
-    {
-        if (trim((string) $this->user_s)) {
-            $userName = User::find($this->user_s)?->name ?? 'Desconhecido';
-
-            return "Atribuiu a NOTA/OV para: {$userName}";
-        }
-
-        $companyName = Company::find($this->company_s)?->name ?? 'Desconhecido';
-
-        return "Despachou a NOTA/OV para: {$companyName}";
-    }
-
-    private function productionAssignmentLabel(Production $production): string
-    {
-        $production->loadMissing(['Note', 'User', 'Company']);
-
-        $note = $production->Note?->note ?? $production->note_id;
-
-        if ($production->User) {
-            return "{$note} => {$production->User->name}";
-        }
-
-        if ($production->Company) {
-            return "{$note} => {$production->Company->name} (sem usuário atribuído)";
-        }
-
-        return "{$note} => Desconhecido";
     }
 
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(fn ($list) => $this->canDispatchNote($list));
+        $this->dispatchStateMemo = [];
 
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-            $this->selectall = true;
-        } else {
-            $this->selectall = false;
-        }
+        $lists     = $this->lists->paginate($this->perPage);
+        $presenter = app(ReverseListRowPresenter::class);
+        $rows      = collect($lists->items())->map(fn (Note $note) => $presenter->dispatchRow($note, $this->rowDispatchState($note)));
 
-        // if (!Auth()->User()->usesContractDispatch()) {
-        //     $this->company_l = Company::orderBy('name', 'ASC')->get();
-        // } else {
+        $dispatchable = $rows->where('canDispatch', true)->pluck('key')->all();
 
-        //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
-        // }
-
-        $this->company_l = Company::whereHas('toUsers', function ($query) {
-            $query->whereRelation('ToServices', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->where('service', true);
-            });
-        })
-            ->orderBy('name', 'ASC')
-            ->get();
-
-        $this->user_l = User::whereRelation('ToServices', function ($q) {
-            $q->where('service_id', $this->service->uuid)
-                ->where('service', true);
-        })
-         ->where(function ($q) {
-             $q->whereRelation('Company', 'company_id', $this->company_s)
-                 ->orWhere('company_id', $this->company_s);
-         })
-        ->when($this->search_user, function ($q) {
-            return $q->where('name', 'like', '%' . $this->search_user . '%');
-        })
-        ->orderBy('name', 'ASC')->get();
-
-        // $this->user_l = User::when($this->search_user, function ($q) {
-        //     return $q->where('name', 'like', '%' . $this->search_user . '%');
-        // })->whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
-
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
-
-        // Municipios Filtros
-        try {
-
-            $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
-
-            $this->district_l = City::when($this->region_s, function ($q) {
-                return $q->whereIn('regiao', $this->region_s);
-
-            })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
-            $this->city_l = City::when($this->region_s, function ($q) {
-                return $q->whereIn('regiao', $this->region_s);
-            })
-                ->when($this->district_s, function ($q) {
-                    return $q->whereIn('baseConstrucao', $this->district_s);
-                })
-                ->select('rdMunicipio', 'cidade', 'municipio')
-                ->orderBy('cidade')
-                ->groupBy('rdMunicipio', 'cidade', 'municipio')
-                ->get();
-
-        } catch (\Illuminate\Database\QueryException $e) {
-
-            $this->region_l   = [];
-            $this->district_l = [];
-            $this->city_l     = [];
-        }
+        $this->selectall = $dispatchable !== [] && empty(array_diff($dispatchable, array_map('strval', $this->selected)));
 
         return view('livewire.dispatchs.reverse.main', [
-            'lists'  => $this->lists->paginate($this->perPage),
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'        => $lists,
+            'rows'         => $rows,
+            'legalNoteIds' => $presenter->legalLinkedNoteIds($rows->pluck('noteId')->all()),
+            'profile'      => $this->profile,
+            'update'       => $this->last_update,
         ]);
     }
 }

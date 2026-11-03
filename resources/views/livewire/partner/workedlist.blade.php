@@ -1,351 +1,212 @@
 @php
-    use Carbon\Carbon;
+    $situationFilter = $this->filterValues('situation');
 @endphp
 
-@push('css')
-    <style>
-        .work-informs-page {
-            --surface: #fff;
-            --muted: #64748b;
-            --border: #dbe2ea;
-            --ink: #0f172a;
-            --primary: #0f766e;
-            --danger: #b91c1c;
-            --warning: #b45309;
-            background: #f4f7fb;
-            border-radius: 14px;
-            padding: 1rem;
-        }
+{{-- OBRAS INFORMADAS (lista de controle da parceira). Padrão: docs/PADRAO_LISTAS_OPERACIONAIS.md §10. Escopo por empresa: AuthorizesPartnerAccess. --}}
+<div class="closure-dash my-panel ops-list ops-control">
 
-        .work-informs-page .toolbar,
-        .work-informs-page .list-panel {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.07);
-        }
+    <x-ops.hero class="ops-hero--control" eyebrow="Portal da parceira · Informes de conclusão" title="Obras informadas"
+        subtitle="Todos os informes da sua empresa, incluindo rejeitados e cancelados, com o andamento de cada um.">
+        <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel">
+                <i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel
+            </button>
+        </div>
+    </x-ops.hero>
 
-        .work-informs-page .page-title {
-            color: var(--ink);
-            font-weight: 700;
-            margin: 0;
-        }
+    <section class="ops-stats" aria-label="Resumo dos informes">
+        <x-ops.stat tone="teal" label="Informados" :value="number_format($counts['informed'], 0, ',', '.')" icon="ri-file-list-3-line" :active="$situationFilter === ['informed']"
+            wire:click.prevent="quickSituation('informed')" title="Filtrar informes em andamento (não rejeitados nem cancelados)" />
+        <x-ops.stat tone="amber" label="Rejeitados" :value="number_format($counts['rejected'], 0, ',', '.')" icon="ri-arrow-go-back-line" :active="$situationFilter === ['rejected']"
+            wire:click.prevent="quickSituation('rejected')" title="Filtrar informes devolvidos para correção" />
+        <x-ops.stat tone="muted" label="Cancelados" :value="number_format($counts['canceled'], 0, ',', '.')" icon="ri-close-circle-line" :active="$situationFilter === ['canceled']"
+            wire:click.prevent="quickSituation('canceled')" title="Filtrar informes cancelados" />
+    </section>
 
-        .work-informs-page .page-subtitle {
-            color: var(--muted);
-            font-size: .86rem;
-        }
+    <section class="ops-toolbar" aria-label="Filtros dos informes">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Nota, OV ou ordem…" label="Buscar informe">
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#workedListMultiSearch" title="Buscar vários registros de uma vez" aria-label="Buscar vários registros">
+                    <i class="ri-file-copy-line" aria-hidden="true"></i>
+                </button>
+            </x-ops.search>
 
-        .work-informs-page .table thead th {
-            color: #334155;
-            background: #f8fafc;
-            font-size: .72rem;
-            text-transform: uppercase;
-            letter-spacing: .04em;
-            white-space: nowrap;
-        }
+            <label class="ops-toolbar-label" for="workedMonth">Mês</label>
+            <input type="month" id="workedMonth" class="form-control form-control-sm w-auto" wire:model="month" max="{{ now()->format('Y-m') }}" min="2023-05">
+            <label class="ops-toolbar-label" for="workedDateIn">De</label>
+            <input type="date" id="workedDateIn" class="form-control form-control-sm w-auto" wire:model.lazy="date_in" min="2023-05-01">
+            <label class="ops-toolbar-label" for="workedDateOut">Até</label>
+            <input type="date" id="workedDateOut" class="form-control form-control-sm w-auto" wire:model.lazy="date_out" min="{{ $date_in ?: '2023-05-01' }}">
 
-        .work-informs-page .table td {
-            vertical-align: middle;
-            font-size: .86rem;
-        }
+            <span class="ops-toolbar-spacer"></span>
 
-        .work-informs-page .row-canceled {
-            color: #64748b;
-            background: #f8fafc;
-        }
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar filtros</button>
+            @endif
+        </div>
 
-        .work-informs-page .row-rejected {
-            background: #fff7ed;
-        }
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
+        </div>
 
-        .work-informs-page .status-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 88px;
-            border-radius: 999px;
-            padding: .28rem .55rem;
-            font-size: .72rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: .03em;
-        }
-    </style>
-@endpush
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
+        @endif
+    </section>
 
-<div class="work-informs-page">
-    <x-show-loading />
-
-    <div class="toolbar mb-3">
-        <div class="p-3 border-bottom">
-            <div class="d-flex flex-column flex-lg-row justify-content-between gap-2">
-                <div>
-                    <h4 class="page-title">Obras informadas</h4>
-                    <div class="page-subtitle">Todos os informes, incluindo rejeitados e cancelados.</div>
-                </div>
-                <div class="d-flex align-items-center">
-                    <button class="btn btn-sm btn-primary" wire:click.prevent="exportToExcel">
-                        <i class="ri-file-excel-2-line align-middle"></i> Exportar
-                    </button>
-                </div>
+    <section class="mp-panel" aria-label="Informes">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Informes de conclusão</h2>
+                <div class="mp-panel-sub">{{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'informe' : 'informes' }}@if ($hasCriteria) com os filtros atuais @endif</div>
             </div>
         </div>
 
-        <div class="p-3">
-            <div class="row align-items-end g-2">
-                <div class="col-12 col-sm-4 col-lg-1">
-                    <label for="perPage" class="form-label mb-1">Registros</label>
-                    <select name="perPage" id="perPage" class="form-select" wire:model="perPage">
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="250">250</option>
-                        <option value="500">500</option>
-                    </select>
-                </div>
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="8" :cols="8" />
 
-                <div class="col-12 col-sm-8 col-lg-2">
-                    <label for="search" class="form-label mb-1">Buscar</label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="search"
-                            placeholder="Nota, OV ou ordem" wire:model.debounce.2s="search">
-                        <button class="btn btn-outline-primary" type="button" data-bs-toggle="modal"
-                            data-bs-target="#workedListMultiSearchModal" data-bs-placement="top"
-                            data-bs-title="Buscar múltiplos registros">
-                            <i class="ri-file-copy-line align-middle"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <div class="col-12 col-sm-6 col-lg-1">
-                    <label for="companyId" class="form-label mb-1">Empreiteira</label>
-                    <select id="companyId" class="form-select" wire:model="companyId">
-                        <option value="">Todas</option>
-                        @foreach ($companyOptions as $company)
-                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="col-12 col-sm-6 col-lg-2">
-                    <label for="currentStatus" class="form-label mb-1">Status atual</label>
-                    <select id="currentStatus" class="form-select" wire:model="currentStatus">
-                        <option value="">Todos</option>
-                        @foreach ($currentStatusOptions as $statusOption)
-                            <option value="{{ $statusOption['key'] }}">{{ $statusOption['label'] }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <div class="col-12 col-sm-6 col-lg-2">
-                    <label for="month" class="form-label mb-1">Mês</label>
-                    <input type="month" id="month" class="form-control" wire:model="month"
-                        max="{{ now()->format('Y-m') }}" min="2023-05">
-                </div>
-
-                <div class="col-12 col-sm-6 col-lg-2">
-                    <label for="date_in" class="form-label mb-1">Data inicial</label>
-                    <input type="date" id="date_in" class="form-control" wire:model="date_in" min="2023-05-01">
-                </div>
-
-                <div class="col-12 col-sm-6 col-lg-2">
-                    <label for="date_out" class="form-label mb-1">Data final</label>
-                    <input type="date" id="date_out" class="form-control" wire:model="date_out" min="2023-05-01">
-                </div>
-
-                <div class="col-12 col-sm-6 col-lg-1">
-                    <button class="btn btn-outline-danger w-100" wire:click.prevent="cleanAll()"
-                        data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Limpar busca">
-                        <i class="ri-find-replace-line fs-5 align-middle"></i>
-                    </button>
-                </div>
-
-                <div class="col-12 d-flex flex-wrap justify-content-end gap-2 pt-2">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_forms', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner_forms', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner_forms', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner_forms'], key('removeAll'))
-                </div>
-            </div>
-        </div>
-    </div>
-
-    @if (!$lists->count())
-        <div class="list-panel text-center my-4 p-4">
-            <h5 class="mb-1">Nenhuma atividade encontrada</h5>
-            <div class="text-muted">Revise os filtros aplicados.</div>
-        </div>
-    @else
-        <div class="d-flex flex-column flex-md-row justify-content-between gap-2 align-items-md-center mb-2">
-            <div>{{ $lists->links() }}</div>
-            <div class="text-muted small">
-                Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de {{ $lists->total() }} registros.
-            </div>
-        </div>
-
-        <div class="list-panel">
-            <div class="table-responsive">
-                <table class="table table-sm table-hover mb-0">
-                    <thead>
-                        <tr>
-                            <th class="text-center">Status</th>
-                            <th class="text-center">Status atual</th>
-                            <th class="text-center">Nota/OV</th>
-                            <th class="text-center">Ordens</th>
-                            <th class="text-center">Escopo</th>
-                            <th class="text-center">Rubrica</th>
-                            <th class="text-center">Arquivos</th>
-                            <th class="text-center">Equip.</th>
-                            <th class="text-center">Alteração</th>
-                            <th class="text-center">Equipe WPA</th>
-                            <th class="text-center">Responsável / Empreiteira</th>
-                            <th class="text-center">Conclusão Informada</th>
-                            <th class="text-center">ADS Entregue</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($lists as $list)
-                            @php
-                                if ($list->canceled) {
-                                    $statusLabel = 'Cancelado';
-                                    $statusClass = 'text-bg-secondary';
-                                    $rowClass = 'row-canceled';
-                                } elseif ($list->rejected) {
-                                    $statusLabel = 'Rejeitado';
-                                    $statusClass = 'text-bg-warning';
-                                    $rowClass = 'row-rejected';
-                                } else {
-                                    $statusLabel = 'Informado';
-                                    $statusClass = 'text-bg-success';
-                                    $rowClass = '';
-                                }
-                            @endphp
-                            <tr wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $list }})"
-                                wire:key="work-report-{{ $list->id }}" class="{{ $rowClass }}">
-                                <td class="text-center">
-                                    <span class="status-badge {{ $statusClass }}">{{ $statusLabel }}</span>
-                                </td>
-                                <td class="text-center">
-                                    @if ($list->current_status_label)
-                                        <span class="status-badge {{ $list->current_status_class }}">
-                                            {{ $list->current_status_label }}
-                                        </span>
-                                    @else
-                                        <span class="text-muted">Atualizando</span>
-                                    @endif
-                                </td>
-                                <td class="text-center fw-bold">{{ $list->Note->note }}</td>
-                                <td class="text-center">
-                                    @forelse ($list->Orders as $order)
-                                        <div>{{ $order->ordem }}</div>
-                                    @empty
-                                        <span class="text-muted">-</span>
-                                    @endforelse
-                                </td>
-                                <td class="text-center">
-                                    @foreach ($list->finalScopeBadges() as $scopeBadge)
-                                        <span class="badge {{ $scopeBadge['class'] }} mb-1">{{ $scopeBadge['label'] }}</span>
-                                    @endforeach
-                                </td>
-                                <td class="text-center">{{ $list->Note->rubrica }}</td>
-                                <td class="text-center">
-                                    <x-files.select-download-list :files="$list->Note->Files" />
-                                </td>
-                                <td class="text-center">
-                                    @if ($list->Equipment->count())
-                                        <span class="badge text-bg-dark">{{ $list->Equipment->count() }}</span>
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </td>
-                                <td class="text-center">{{ $list->changes ? 'SIM' : 'NÃO' }}</td>
-                                <td class="text-center">{{ $list->team ?: 'Desconhecido' }}</td>
-                                <td class="text-center">
-                                    <div>{{ $list->responsible ?: 'Desconhecido' }}</div>
-                                    <div class="small text-muted">
-                                        {{ $list->Company?->name ?: 'Empreiteira não informada' }}
-                                    </div>
-                                </td>
-                                <td class="text-center">
-                                    {{ $list->informed_at ? $list->informed_at->format('d/m/Y H:i') : 'Desconhecido' }}
-                                </td>
-                                <td class="text-center">
-                                    @if ($list->Adsform)
-                                        {{ ($list->Adsform->tacit ? $list->Adsform->tacit_delivered_at : $list->Adsform->created_at)?->format('d/m/Y H:i') ?? '-' }}
-                                    @elseif ($list->Note->OldAds->isNotEmpty())
-                                        {{ $list->Note->OldAds->last()->date?->format('d/m/Y H:i') ?? '-' }}
-                                    @else
-                                        <span class="text-muted">-</span>
-                                    @endif
-                                </td>
+        <div wire:loading.delay.class="d-none">
+            @if ($lists->isEmpty())
+                <x-closure.empty-state icon="ri-file-list-3-line"
+                    :title="$hasCriteria ? 'Nenhum informe com esses filtros' : 'Nenhum informe encontrado'"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais informes.' : 'Quando a sua empresa informar uma obra concluída, ela aparece aqui.'" />
+            @else
+                <div class="table-responsive">
+                    <table class="table mp-table align-middle mb-0">
+                        <colgroup>
+                            <col style="width: 110px">
+                            <col style="width: 150px">
+                            <col style="width: 120px">
+                            <col style="width: 110px">
+                            <col style="width: 90px">
+                            <col style="width: 100px">
+                            <col style="width: 70px">
+                            <col style="width: 60px">
+                            <col style="width: 80px">
+                            <col style="width: 110px">
+                            <col>
+                            <col style="width: 130px">
+                            <col style="width: 130px">
+                            <col style="width: 110px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Situação</th>
+                                <th>Status atual</th>
+                                <th>Nota/OV</th>
+                                <th>Ordens</th>
+                                <th>Escopo</th>
+                                <th>Rubrica</th>
+                                <th>Arquivos</th>
+                                <th>Equip.</th>
+                                <th>Alteração</th>
+                                <th>Equipe WPA</th>
+                                <th>Responsável / Empreiteira</th>
+                                <th>Conclusão informada</th>
+                                <th>ADS entregue</th>
+                                <th><span class="visually-hidden">Ações</span></th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        </thead>
+                        <tbody>
+                            @foreach ($lists as $list)
+                                @php
+                                    $adsAt = $list->Adsform
+                                        ? ($list->Adsform->tacit ? $list->Adsform->tacit_delivered_at : $list->Adsform->created_at)
+                                        : ($list->Note->OldAds->isNotEmpty() ? $list->Note->OldAds->last()->date : null);
+                                @endphp
+                                <tr wire:key="work-report-{{ $list->id }}">
+                                    <td>
+                                        @if ($list->canceled)
+                                            <x-ops.badge tone="muted" icon="ri-close-circle-line" label="Cancelado" hint="Informe cancelado" />
+                                        @elseif ($list->rejected)
+                                            <x-ops.badge tone="amber" icon="ri-arrow-go-back-line" label="Rejeitado" hint="Devolvido para correção" />
+                                        @else
+                                            <x-ops.badge tone="green" icon="ri-checkbox-circle-line" label="Informado" hint="Informe enviado" />
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if ($list->current_status_label)
+                                            <x-ops.badge :tone="$this->classTone($list->current_status_class)" :label="$list->current_status_label" hint="Onde o informe está agora no fluxo" />
+                                        @else
+                                            <span class="ops-sub">Atualizando</span>
+                                        @endif
+                                    </td>
+                                    <td><x-ops.note :note="$list->Note->note" /></td>
+                                    <td>
+                                        @forelse ($list->Orders as $order)
+                                            <div>{{ $order->ordem }}</div>
+                                        @empty
+                                            <span class="ops-empty">—</span>
+                                        @endforelse
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            @foreach ($list->finalScopeBadges() as $scopeBadge)
+                                                <x-ops.badge sm :tone="$this->classTone($scopeBadge['class'])" :label="$scopeBadge['label']" hint="Escopo informado" />
+                                            @endforeach
+                                        </div>
+                                    </td>
+                                    <td>{{ $list->Note->rubrica ?: '—' }}</td>
+                                    <td><x-files.select-download-list :files="$list->Note->Files" :tacit-file-ids="$tacitFiles" /></td>
+                                    <td>
+                                        @if ($list->Equipment->count())
+                                            <x-ops.badge sm tone="teal" :label="$list->Equipment->count()" hint="Equipamentos declarados no informe" />
+                                        @else
+                                            <span class="ops-empty">—</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if ($list->changes)
+                                            <x-ops.badge sm tone="amber" label="Sim" hint="O informe teve alteração" />
+                                        @else
+                                            <span class="ops-sub">Não</span>
+                                        @endif
+                                    </td>
+                                    <td>{{ $list->team ?: 'Desconhecido' }}</td>
+                                    <td>
+                                        <div class="ops-person-name">{{ $list->responsible ?: 'Desconhecido' }}</div>
+                                        <div class="ops-person-sub">{{ $list->Company?->name ?: 'Empreiteira não informada' }}</div>
+                                    </td>
+                                    <td><x-ops.date :date="$list->informed_at" :time="true" hint="Quando o informe foi enviado" /></td>
+                                    <td><x-ops.date :date="$adsAt" :time="true" hint="Quando a ADS foi entregue" /></td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-outline-primary btn-sm ops-action" wire:click="$emitTo('partner.show.show-work-form', 'show_form', {{ $list->id }})"><i class="ri-eye-line" aria-hidden="true"></i> Detalhes</button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
 
-        <div class="d-flex flex-column flex-md-row justify-content-between gap-2 align-items-md-center mt-3">
-            <div>{{ $lists->links() }}</div>
-            <div class="text-muted small">
-                Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de {{ $lists->total() }} registros.
-            </div>
+                <x-ops.pager :paginator="$lists" :per-page="$perPage" />
+            @endif
         </div>
-    @endif
+    </section>
 
     @livewire('partner.show.show-work-form', key('FormModdalShow'))
 
-    <div class="modal fade" id="workedListMultiSearchModal" tabindex="-1"
-        aria-labelledby="workedListMultiSearchModalLabel" aria-hidden="true" wire:ignore.self>
+    <div class="modal fade ops-modal" id="workedListMultiSearch" tabindex="-1" aria-labelledby="workedListMultiSearchTitle" aria-hidden="true" wire:ignore.self>
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header edp-bg-violeta-100 text-white">
-                    <h5 class="modal-title" id="workedListMultiSearchModalLabel">Buscar múltiplos registros</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Fechar"></button>
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Busca em massa</span>
+                        <h5 class="modal-title" id="workedListMultiSearchTitle">Buscar vários registros</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
-                    <label for="multiSearch" class="form-label">Notas, OVs ou ordens</label>
-                    <textarea id="multiSearch" class="form-control" rows="8"
-                        placeholder="Cole um registro por linha, ou separe por vírgula, ponto e vírgula ou espaço"
-                        wire:model.defer="multiSearch"></textarea>
+                    <p class="ops-modal-note">Cole uma nota, OV ou ordem por linha, ou separe por vírgula, ponto e vírgula ou espaço.</p>
+                    <label for="workedListMultiSearchText" class="form-label text-uppercase">Notas, OVs ou ordens</label>
+                    <textarea id="workedListMultiSearchText" class="form-control" rows="8" wire:model.defer="multiSearch"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" wire:click.prevent="applyMultiSearch"
-                        data-bs-dismiss="modal">
-                        <i class="ri-search-line align-middle"></i> Buscar
-                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click.prevent="applyMultiSearch" data-bs-dismiss="modal"><i class="ri-search-line" aria-hidden="true"></i> Buscar</button>
                 </div>
             </div>
         </div>
     </div>
-
-    <script>
-        document.addEventListener('livewire:load', function() {
-            const dateIn = document.getElementById('date_in');
-            const dateOut = document.getElementById('date_out');
-
-            if (!dateIn || !dateOut) {
-                return;
-            }
-
-            dateIn.addEventListener('change', function() {
-                dateOut.min = dateIn.value;
-            });
-
-            if (dateIn.value) {
-                dateOut.min = dateIn.value;
-            }
-
-            dateIn.addEventListener('keydown', function(e) {
-                e.preventDefault();
-            });
-
-            dateOut.addEventListener('keydown', function(e) {
-                e.preventDefault();
-            });
-        });
-    </script>
 </div>

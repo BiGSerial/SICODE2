@@ -4,20 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Exports\Partner\PartnerUserImportTemplateExport;
 use App\Imports\PartnerUserBulkImport;
-use App\Models\Andresscompany;
-use App\Models\Company;
-use App\Models\Contract;
-use App\Models\PartnerAdminAuditEvent;
-use App\Models\PartnerUserBranch;
-use App\Models\PartnerUserPermissionException;
-use App\Models\User;
-use App\Services\PartnerAccess\PartnerAccessGate;
-use App\Services\PartnerAccess\PartnerPermissionCatalog;
+use App\Models\{Andresscompany, Company, Contract, PartnerAdminAuditEvent, PartnerUserBranch, PartnerUserPermissionException, User};
+use App\Services\PartnerAccess\{PartnerAccessGate, PartnerPermissionCatalog, PartnerUserManager};
 use Illuminate\Contracts\View\View as ViewContract;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\{RedirectResponse, Request};
+use Illuminate\Support\Facades\{DB, Hash};
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -26,74 +17,8 @@ class PartnerAdminController extends Controller
 {
     public function users(Request $request): ViewContract
     {
-        $permissionCompanyId = $this->permissionCompanyId($request);
-        $companyIds = $this->branchCompanyIdsFor($permissionCompanyId);
-        $status = $request->query('status') === 'disabled' ? 'disabled' : 'active';
-        $companyFilter = (string) $request->query('company', '');
-        $presence = (string) $request->query('presence', 'all');
-        $search = trim((string) $request->query('search', ''));
-
-        if ($companyFilter !== '' && in_array($companyFilter, $companyIds, true)) {
-            $companyIds = [$companyFilter];
-        } else {
-            $companyFilter = '';
-        }
-
-        $users = User::query()
-            ->with([
-                'Company:id,parent_id,name',
-                'Watchdog:id,user_id,watchdog',
-                'partnerBranchAddresses' => fn ($query) => $query
-                    ->wherePivot('company_id', $permissionCompanyId)
-                    ->with('Company:id,parent_id,name')
-                    ->orderBy('city')
-                    ->orderBy('street'),
-            ])
-            ->where('onlyparner', true)
-            ->whereIn('company_id', $companyIds)
-            ->when($search !== '', fn ($query) => $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
-            }))
-            ->when($presence === 'online', fn ($query) => $query->where('last_seen_at', '>=', now()->subMinutes(5)))
-            ->when($presence === 'offline', fn ($query) => $query->where(function ($q) {
-                $q->whereNull('last_seen_at')->orWhere('last_seen_at', '<', now()->subMinutes(5));
-            }))
-            ->when($status === 'disabled', fn ($query) => $query->onlyTrashed())
-            ->when($status === 'active', fn ($query) => $query->whereNull('deleted_at'))
-            ->orderBy('name')
-            ->paginate(25);
-
-        $activeCount = User::query()
-            ->where('onlyparner', true)
-            ->whereIn('company_id', $companyIds)
-            ->whereNull('deleted_at')
-            ->count();
-        $disabledCount = User::onlyTrashed()
-            ->where('onlyparner', true)
-            ->whereIn('company_id', $companyIds)
-            ->count();
-        $onlineCount = User::query()
-            ->where('onlyparner', true)
-            ->whereIn('company_id', $this->branchCompanyIdsFor($permissionCompanyId))
-            ->whereNull('deleted_at')
-            ->where('last_seen_at', '>=', now()->subMinutes(5))
-            ->count();
-
-        return view('partner.admin.users', [
-            'users' => $users,
-            'status' => $status,
-            'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
-            'branchCount' => max(count($companyIds) - 1, 0),
-            'userCount' => $activeCount + $disabledCount,
-            'activeCount' => $activeCount,
-            'disabledCount' => $disabledCount,
-            'onlineCount' => $onlineCount,
-            'companyOptions' => Company::query()->whereIn('id', $this->branchCompanyIdsFor($permissionCompanyId))->orderBy('name')->get(),
-            'companyFilter' => $companyFilter,
-            'presence' => $presence,
-            'search' => $search,
-        ]);
+        // Lista, filtros e ações vivem no componente Livewire `partner.admin.users` (escopo e regras: PartnerUserManager).
+        return view('partner.admin.users');
     }
 
     public function createUser(Request $request): ViewContract
@@ -101,13 +26,13 @@ class PartnerAdminController extends Controller
         $permissionCompanyId = $this->permissionCompanyId($request);
 
         return view('partner.admin.user-form', [
-            'user' => new User(),
-            'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
-            'branches' => $this->branchesFor($permissionCompanyId),
-            'companies' => $this->managedCompanies($permissionCompanyId),
-            'selectedBranches' => collect(),
-            'userPermissionCatalog' => [],
-            'userPermissionValues' => [],
+            'user'                     => new User(),
+            'managedCompany'           => Company::withTrashed()->find($permissionCompanyId),
+            'branches'                 => $this->branchesFor($permissionCompanyId),
+            'companies'                => $this->managedCompanies($permissionCompanyId),
+            'selectedBranches'         => collect(),
+            'userPermissionCatalog'    => [],
+            'userPermissionValues'     => [],
             'canManageUserPermissions' => false,
         ]);
     }
@@ -117,18 +42,18 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.create'), 403);
 
         $permissionCompanyId = $this->permissionCompanyId($request);
-        $data = $this->validateUserData($request, null, $permissionCompanyId);
-        $companyId = $data['company_id'];
-        $branchIds = $this->validBranchIds($request, $permissionCompanyId);
+        $data                = $this->validateUserData($request, null, $permissionCompanyId);
+        $companyId           = $data['company_id'];
+        $branchIds           = $this->validBranchIds($request, $permissionCompanyId);
 
         $user = DB::transaction(function () use ($data, $branchIds, $companyId, $permissionCompanyId, $request) {
             $user = User::query()->create([
-                'name' => $data['name'],
-                'email' => $data['email'],
-                'password' => Hash::make(123456),
+                'name'       => $data['name'],
+                'email'      => $data['email'],
+                'password'   => Hash::make(123456),
                 'first_pass' => true,
                 'onlyparner' => true,
-                'user' => true,
+                'user'       => true,
                 'company_id' => $companyId,
             ]);
 
@@ -148,20 +73,20 @@ class PartnerAdminController extends Controller
 
     public function editUser(Request $request, User $user): ViewContract
     {
-        $companyId = $this->companyId($request);
+        $companyId           = $this->companyId($request);
         $permissionCompanyId = $this->permissionCompanyId($request);
-        $target = $this->targetUser($user, $companyId);
+        $target              = $this->targetUser($user, $companyId);
 
         return view('partner.admin.user-form', [
-            'user' => $target,
-            'managedCompany' => Company::withTrashed()->find($permissionCompanyId),
-            'branches' => $this->branchesFor($permissionCompanyId),
-            'companies' => $this->managedCompanies($permissionCompanyId),
+            'user'             => $target,
+            'managedCompany'   => Company::withTrashed()->find($permissionCompanyId),
+            'branches'         => $this->branchesFor($permissionCompanyId),
+            'companies'        => $this->managedCompanies($permissionCompanyId),
             'selectedBranches' => $target->partnerBranches()
                 ->where('company_id', $permissionCompanyId)
                 ->pluck('branch_id'),
-            'userPermissionCatalog' => $this->editablePermissionCatalog($permissionCompanyId),
-            'userPermissionValues' => $this->userPermissionValues($target, $permissionCompanyId),
+            'userPermissionCatalog'    => $this->editablePermissionCatalog($permissionCompanyId),
+            'userPermissionValues'     => $this->userPermissionValues($target, $permissionCompanyId),
             'canManageUserPermissions' => PartnerAccessGate::allows($request->user(), 'admin_user_exceptions.manage'),
         ]);
     }
@@ -170,16 +95,16 @@ class PartnerAdminController extends Controller
     {
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.update'), 403);
 
-        $companyId = $this->companyId($request);
+        $companyId           = $this->companyId($request);
         $permissionCompanyId = $this->permissionCompanyId($request);
-        $target = $this->targetUser($user, $companyId);
-        $data = $this->validateUserData($request, $target, $permissionCompanyId);
-        $branchIds = $this->validBranchIds($request, $permissionCompanyId);
+        $target              = $this->targetUser($user, $companyId);
+        $data                = $this->validateUserData($request, $target, $permissionCompanyId);
+        $branchIds           = $this->validBranchIds($request, $permissionCompanyId);
 
         DB::transaction(function () use ($target, $data, $branchIds, $companyId, $permissionCompanyId, $request) {
             $target->update([
-                'name' => $data['name'],
-                'email' => $data['email'],
+                'name'       => $data['name'],
+                'email'      => $data['email'],
                 'company_id' => $data['company_id'],
             ]);
 
@@ -201,87 +126,43 @@ class PartnerAdminController extends Controller
     {
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.update'), 403);
 
-        $permissionCompanyId = $this->permissionCompanyId($request);
-        $companyIds = $this->branchCompanyIdsFor($permissionCompanyId);
         $data = $request->validate([
-            'user_ids' => ['required', 'array', 'min:1'],
+            'user_ids'   => ['required', 'array', 'min:1'],
             'user_ids.*' => ['string'],
-            'action' => ['required', 'in:make_admin,remove_admin,reset_password,move_company,disable'],
-            'company_id' => ['nullable', 'string', 'in:' . implode(',', $companyIds)],
+            'action'     => ['required', 'in:make_admin,remove_admin,reset_password,move_company,disable,restore'],
+            'company_id' => ['nullable', 'string'],
         ]);
 
-        $targets = User::query()
-            ->where('onlyparner', true)
-            ->whereIn('id', $data['user_ids'])
-            ->whereIn('company_id', $companyIds)
-            ->get();
-
-        abort_if($targets->count() !== count(array_unique($data['user_ids'])), 403);
-
-        if ($data['action'] === 'move_company' && empty($data['company_id'])) {
-            return back()->withErrors(['company_id' => 'Selecione a empresa de destino.']);
-        }
-
-        DB::transaction(function () use ($targets, $data, $request, $permissionCompanyId) {
-            foreach ($targets as $target) {
-                abort_if($target->id === $request->user()->id && $data['action'] === 'disable', 403);
-
-                match ($data['action']) {
-                    'make_admin' => $target->update(['admin' => true]),
-                    'remove_admin' => $target->update(['admin' => false]),
-                    'reset_password' => $target->forceFill(['password' => Hash::make(123456), 'first_pass' => true])->save(),
-                    'move_company' => tap($target->update(['company_id' => $data['company_id']]), fn () => $target->Companies()->syncWithoutDetaching([$data['company_id']])),
-                    'disable' => $target->delete(),
-                };
-            }
-
-            $this->audit($request, 'bulk_updated_users', null, [
-                'action' => $data['action'],
-                'users' => $targets->pluck('id')->values()->all(),
-                'company_id' => $data['company_id'] ?? null,
-                'permission_company_id' => $permissionCompanyId,
-            ]);
-        });
+        (new PartnerUserManager($request->user()))->bulk($data['action'], $data['user_ids'], $data['company_id'] ?? null);
 
         return redirect()->route('partner.admin.users')->with('status', 'Alteração em massa concluída.');
     }
 
-    public function disableUser(Request $request, User $user): RedirectResponse
+    public function disableUser(Request $request, string $user): RedirectResponse
     {
-        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.disable'), 403);
-
-        $companyId = $this->companyId($request);
-        $target = $this->targetUser($user, $companyId);
-
-        abort_if($target->id === $request->user()->id, 403);
-
-        $target->delete();
-        $this->audit($request, 'disabled_user', $target);
+        (new PartnerUserManager($request->user()))->disable($user);
 
         return redirect()
             ->route('partner.admin.users')
-            ->with('status', 'Usuário desativado.');
+            ->with('status', 'Acesso desativado. Você pode reativá-lo na aba “Sem acesso”.');
+    }
+
+    public function restoreUser(Request $request, string $user): RedirectResponse
+    {
+        (new PartnerUserManager($request->user()))->restore($user);
+
+        return redirect()
+            ->route('partner.admin.users')
+            ->with('status', 'Acesso reativado.');
     }
 
     public function resetUserPassword(Request $request, string $user): RedirectResponse
     {
-        abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.update'), 403);
-
-        $companyId = $this->companyId($request);
-        $target = $this->targetUser(User::withTrashed()->findOrFail($user), $companyId);
-
-        abort_if($target->trashed(), 403);
-
-        $target->forceFill([
-            'password' => Hash::make(123456),
-            'first_pass' => true,
-        ])->save();
-
-        $this->audit($request, 'reset_user_password', $target);
+        $target = (new PartnerUserManager($request->user()))->resetPassword($user);
 
         return redirect()
             ->route('partner.admin.users.edit', $target)
-            ->with('status', 'Senha redefinida para 123456.');
+            ->with('status', 'Senha redefinida. No próximo acesso será pedida uma nova senha.');
     }
 
     public function auditEvents(Request $request): ViewContract
@@ -290,7 +171,7 @@ class PartnerAdminController extends Controller
 
         return view('partner.admin.audit', [
             'managedCompany' => Company::withTrashed()->find($companyId),
-            'events' => PartnerAdminAuditEvent::query()
+            'events'         => PartnerAdminAuditEvent::query()
                 ->with(['actor', 'target'])
                 ->where('company_id', $companyId)
                 ->orderByDesc('created_at')
@@ -319,14 +200,14 @@ class PartnerAdminController extends Controller
         $import = new PartnerUserBulkImport();
         Excel::import($import, $request->file('file'));
         $preview = $this->buildImportPreview($import->rows, $permissionCompanyId);
-        $token = (string) Str::uuid();
+        $token   = (string) Str::uuid();
 
         session()->put("partner_user_import.{$token}", $preview['valid_rows']);
 
         return view('partner.admin.import-preview', [
-            'token' => $token,
+            'token'          => $token,
             'managedCompany' => Company::withTrashed()->find(PartnerAccessGate::permissionCompanyIdFor($request->user())),
-            'preview' => $preview,
+            'preview'        => $preview,
         ]);
     }
 
@@ -335,8 +216,8 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_users.bulk_import'), 403);
 
         $permissionCompanyId = $this->permissionCompanyId($request);
-        $token = $request->validate(['token' => ['required', 'string']])['token'];
-        $rows = session()->pull("partner_user_import.{$token}", []);
+        $token               = $request->validate(['token' => ['required', 'string']])['token'];
+        $rows                = session()->pull("partner_user_import.{$token}", []);
 
         abort_if(empty($rows), 422);
 
@@ -356,22 +237,23 @@ class PartnerAdminController extends Controller
                 $userCompanyId = $row['company_id'] ?? $permissionCompanyId;
 
                 $user = User::query()->create([
-                    'name' => $row['name'],
-                    'email' => $row['email'],
-                    'password' => Hash::make(123456),
+                    'name'       => $row['name'],
+                    'email'      => $row['email'],
+                    'password'   => Hash::make(123456),
                     'first_pass' => true,
                     'onlyparner' => true,
-                    'user' => true,
+                    'user'       => true,
                     'company_id' => $userCompanyId,
                 ]);
 
                 $user->Companies()->syncWithoutDetaching([$userCompanyId]);
+
                 if ($contract) {
                     $user->Employee()->updateOrCreate(
                         ['user_id' => $user->id],
                         [
                             'contract_id' => $contract->id,
-                            'service_id' => $contract->services->first()?->uuid,
+                            'service_id'  => $contract->services->first()?->uuid,
                         ]
                     );
                 }
@@ -381,10 +263,10 @@ class PartnerAdminController extends Controller
 
             $this->audit($request, PartnerAdminAuditEvent::BULK_IMPORTED_USERS, null, [
                 'created' => $count,
-                'rows' => collect($rows)->map(fn ($row) => [
-                    'email' => $row['email'],
-                    'company_id' => $row['company_id'] ?? $permissionCompanyId,
-                    'branch_id' => $row['branch_id'],
+                'rows'    => collect($rows)->map(fn ($row) => [
+                    'email'       => $row['email'],
+                    'company_id'  => $row['company_id'] ?? $permissionCompanyId,
+                    'branch_id'   => $row['branch_id'],
                     'contract_id' => $row['contract_id'],
                 ])->values()->all(),
             ]);
@@ -420,12 +302,12 @@ class PartnerAdminController extends Controller
         $companyIds = $permissionCompanyId ? $this->branchCompanyIdsFor($permissionCompanyId) : [$this->companyId($request)];
 
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email' . ($user ? ',' . $user->id : '')],
-            'company_id' => ['required', 'string', 'in:' . implode(',', $companyIds)],
-            'branches' => ['array'],
-            'branches.*' => ['integer'],
-            'user_permissions' => ['array'],
+            'name'               => ['required', 'string', 'max:255'],
+            'email'              => ['required', 'email', 'max:255', 'unique:users,email' . ($user ? ',' . $user->id : '')],
+            'company_id'         => ['required', 'string', 'in:' . implode(',', $companyIds)],
+            'branches'           => ['array'],
+            'branches.*'         => ['integer'],
+            'user_permissions'   => ['array'],
             'user_permissions.*' => ['boolean'],
         ]);
 
@@ -482,7 +364,7 @@ class PartnerAdminController extends Controller
     private function targetUser(User $user, string $companyId): User
     {
         $managedCompanyId = PartnerAccessGate::permissionCompanyIdFor(auth()->user());
-        $companyIds = $managedCompanyId ? $this->branchCompanyIdsFor($managedCompanyId) : [$companyId];
+        $companyIds       = $managedCompanyId ? $this->branchCompanyIdsFor($managedCompanyId) : [$companyId];
 
         abort_unless(
             $user->onlyparner && in_array($user->company_id, $companyIds, true),
@@ -535,8 +417,8 @@ class PartnerAdminController extends Controller
         foreach ($branchIds as $branchId) {
             PartnerUserBranch::query()->create([
                 'company_id' => $companyId,
-                'user_id' => $user->id,
-                'branch_id' => $branchId,
+                'user_id'    => $user->id,
+                'branch_id'  => $branchId,
                 'created_by' => $actorUserId,
             ]);
         }
@@ -551,18 +433,18 @@ class PartnerAdminController extends Controller
         abort_unless(PartnerAccessGate::allows($request->user(), 'admin_user_exceptions.manage'), 403);
 
         $allowedKeys = $this->editablePermissionKeys($companyId);
-        $submitted = collect($request->input('user_permissions', []));
+        $submitted   = collect($request->input('user_permissions', []));
 
         foreach ($allowedKeys as $permissionKey) {
             PartnerUserPermissionException::query()->updateOrCreate(
                 [
-                    'company_id' => $companyId,
-                    'user_id' => $target->id,
+                    'company_id'     => $companyId,
+                    'user_id'        => $target->id,
                     'permission_key' => $permissionKey,
                 ],
                 [
-                    'enabled' => filter_var($submitted->get($permissionKey, false), FILTER_VALIDATE_BOOLEAN),
-                    'reason' => 'Configurado no cadastro do usuário.',
+                    'enabled'    => filter_var($submitted->get($permissionKey, false), FILTER_VALIDATE_BOOLEAN),
+                    'reason'     => 'Configurado no cadastro do usuário.',
                     'created_by' => $request->user()->id,
                 ]
             );
@@ -572,15 +454,15 @@ class PartnerAdminController extends Controller
     private function buildImportPreview(array $rows, string $companyId): array
     {
         $seenEmails = [];
-        $validRows = [];
-        $items = [];
+        $validRows  = [];
+        $items      = [];
 
         foreach ($rows as $index => $row) {
-            $line = $index + 2;
-            $name = trim((string) ($row['nome'] ?? $row['name'] ?? ''));
-            $email = strtolower(trim((string) ($row['email'] ?? '')));
+            $line       = $index + 2;
+            $name       = trim((string) ($row['nome'] ?? $row['name'] ?? ''));
+            $email      = strtolower(trim((string) ($row['email'] ?? '')));
             $branchName = trim((string) ($row['filial'] ?? $row['branch'] ?? ''));
-            $errors = [];
+            $errors     = [];
 
             if ($name === '' && $email === '' && $branchName === '') {
                 continue;
@@ -599,7 +481,7 @@ class PartnerAdminController extends Controller
             }
 
             $seenEmails[$email] = true;
-            $branch = $this->findBranchByLabel($branchName, $companyId);
+            $branch             = $this->findBranchByLabel($branchName, $companyId);
 
             if (!$branch) {
                 $errors[] = 'Filial não encontrada na empresa.';
@@ -607,24 +489,24 @@ class PartnerAdminController extends Controller
 
             $contract = $branch ? $this->defaultContractForCompany($branch->company_id) : null;
 
-            $valid = empty($errors);
-            $item = compact('line', 'name', 'email', 'branchName', 'errors', 'valid');
+            $valid   = empty($errors);
+            $item    = compact('line', 'name', 'email', 'branchName', 'errors', 'valid');
             $items[] = $item;
 
             if ($valid) {
                 $validRows[] = [
-                    'name' => $name,
-                    'email' => $email,
-                    'branch_id' => $branch->id,
-                    'company_id' => $branch->company_id,
+                    'name'        => $name,
+                    'email'       => $email,
+                    'branch_id'   => $branch->id,
+                    'company_id'  => $branch->company_id,
                     'contract_id' => $contract?->id,
                 ];
             }
         }
 
         return [
-            'items' => $items,
-            'valid_rows' => $validRows,
+            'items'       => $items,
+            'valid_rows'  => $validRows,
             'valid_count' => count($validRows),
             'error_count' => collect($items)->where('valid', false)->count(),
         ];
@@ -664,7 +546,7 @@ class PartnerAdminController extends Controller
 
     private function defaultContractForCompany(string $companyId): ?Contract
     {
-        $company = Company::withTrashed()->find($companyId);
+        $company    = Company::withTrashed()->find($companyId);
         $companyIds = collect([$companyId, $company?->parent_id])->filter()->all();
 
         return Contract::query()
@@ -680,11 +562,11 @@ class PartnerAdminController extends Controller
     private function audit(Request $request, string $eventType, ?User $target = null, array $payload = []): void
     {
         PartnerAdminAuditEvent::query()->create([
-            'company_id' => $this->permissionCompanyId($request),
-            'actor_user_id' => $request->user()->id,
+            'company_id'     => $this->permissionCompanyId($request),
+            'actor_user_id'  => $request->user()->id,
             'target_user_id' => $target?->id,
-            'event_type' => $eventType,
-            'payload' => $payload,
+            'event_type'     => $eventType,
+            'payload'        => $payload,
         ]);
     }
 }

@@ -2,24 +2,18 @@
 
 namespace App\Exports\Dispatchs;
 
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithProperties;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithMapping;
+use Carbon\Carbon;
+use Maatwebsite\Excel\Concerns\{Exportable, FromQuery, WithChunkReading, WithEvents, WithHeadings, WithMapping, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use Carbon\Carbon;
 
 class PublicationExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
 {
     use Exportable;
 
     protected $exports;
-    protected $service;
 
+    protected $service;
 
     public function __construct($data, $service)
     {
@@ -45,15 +39,15 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
         ];
     }
 
-
     public function map($row): array
     {
-        $workForm = $row->WorkForm ?: $row->WorkFormAny;
+        $workForm      = $row->WorkForm ?: $row->WorkFormAny;
         $workFormLabel = $workForm?->canceled ? ' (CANCELADO)' : '';
 
         $company = '';
+
         if ($workForm) {
-            $company = ($workForm->Company?->name ?? '').$workFormLabel;
+            $company = ($workForm->Company?->name ?? '') . $workFormLabel;
         } elseif ($row->RamalForm) {
             $company = $row->RamalForm->Company?->name;
         }
@@ -71,8 +65,8 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->nstats,
             $row->centerjob,
             isset($row->prazo_final) ? Carbon::parse($row->prazo_final)->format('d/m/Y') : '',
-            isset($production->Company->name) ? $production->Company->name : '',
-            isset($production->User->name) ? $production->User->name : '',
+            $production->Company->name ?? '',
+            $production->User->name ?? '',
             $this->formatProductionDate($production?->dispatch_at),
             $this->formatProductionDate($production?->att_at),
             $this->formatProductionDate($production?->completed_at),
@@ -86,6 +80,7 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
         }
 
         $value = Carbon::parse($date);
+
         return $value->format('d/m/Y H:i:s') . ' (' . $value->copy()->startOfDay()->diffInDays(now()->startOfDay()) . ' dia(s))';
     }
 
@@ -96,12 +91,12 @@ class PublicationExportList implements FromQuery, WithEvents, WithProperties, Wi
 
                 $event->sheet->getStyle('A1:L1')->applyFromArray([
                     'font' => [
-                    'bold'  => true,
-                    'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
+                        'bold'  => true,
+                        'color' => ['rgb' => 'FFFFFF'], // Cor do texto (branco)
                     ],
                     'fill' => [
-                    'fillType'   => Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
+                        'fillType'   => Fill::FILL_SOLID,
+                        'startColor' => ['rgb' => '0000FF'], // Cor de fundo (azul)
                     ],
                 ]);
 

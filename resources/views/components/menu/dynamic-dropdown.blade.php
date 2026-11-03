@@ -6,7 +6,7 @@
     'idPrefix' => null,
     'itemClass' => 'mx-2',
     'simple' => false,
-    'layout' => 'panel',
+    'layout' => 'inline',
     'panelTitle' => null,
 ])
 
@@ -167,6 +167,38 @@
         ->filter()
         ->values();
 
+    // Cabeçalho sem nenhum item visível depois dele (até o próximo cabeçalho) não aparece.
+    $dropOrphanHeaders = function (array $list) use (&$dropOrphanHeaders): array {
+        $out = [];
+
+        foreach ($list as $i => $node) {
+            if (($node['kind'] ?? 'item') === 'header') {
+                $next = $list[$i + 1] ?? null;
+
+                if ($next === null || ($next['kind'] ?? 'item') === 'header') {
+                    continue;
+                }
+            }
+
+            if (($node['kind'] ?? 'item') === 'group') {
+                $node['nodes'] = $dropOrphanHeaders($node['nodes'] ?? []);
+            }
+
+            $out[] = $node;
+        }
+
+        return $out;
+    };
+
+    $visibleNodes = collect($dropOrphanHeaders($visibleNodes->all()));
+
+    $countLeaves = function (array $list) use (&$countLeaves): int {
+        return array_sum(array_map(fn ($n) => ($n['kind'] ?? 'item') === 'group' ? $countLeaves($n['nodes'] ?? []) : (($n['kind'] ?? 'item') === 'item' ? 1 : 0), $list));
+    };
+
+    // Menus com muitos itens ganham busca no cabeçalho.
+    $hasSearch = $countLeaves($visibleNodes->all()) >= 9;
+
     $menuUid = (\Illuminate\Support\Str::slug($idPrefix ?: $title) ?: 'menu') . '-' . uniqid();
 
     $resolveHref = function (array $item): string {
@@ -178,116 +210,35 @@
     };
 @endphp
 
-@if ($visibleNodes->isNotEmpty() || $visibleSections->isNotEmpty())
+@if ($visibleNodes->isNotEmpty())
     <li class="nav-item dropdown {{ $itemClass }}">
-        <a class="nav-link dropdown-toggle text-white nav-profile" href="#" role="button" data-bs-toggle="dropdown"
-            data-bs-auto-close="outside" aria-expanded="false">
-            {{ $title }}
+        <a class="nav-link dropdown-toggle text-white nav-profile tb-trigger" href="#" role="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" aria-haspopup="true">
+            {{ $title }}<span class="tb-trigger-count" hidden></span>
         </a>
         {{ $triggerAppend ?? '' }}
-        <ul class="dropdown-menu dropdown-menu-arrow dropdown-menu-end mt-2 dropdown-menu-custom services-dropdown services-dropdown-menu"
-            style="width: {{ $width }};">
-            @include('components.menu.partials.services-dropdown-style')
-
-            @if ($layout === 'inline')
-                <li class="dropdown-header services-dropdown-header">{{ $panelTitle ?: $title }}</li>
-
-                @foreach ($visibleNodes as $nodeIndex => $node)
-                    @include('components.menu.partials.dynamic-dropdown-node', [
-                        'node' => $node,
-                        'depth' => 0,
-                        'path' => (string) $nodeIndex,
-                        'menuUid' => $menuUid,
-                        'resolveHref' => $resolveHref,
-                    ])
-                @endforeach
-                @include('components.menu.partials.services-dropdown-script')
-            @elseif ($simple)
-                @foreach ($visibleSections as $section)
-                    @if (!empty($section['label']))
-                        <li class="px-3 py-2 text-uppercase small fw-semibold text-muted">{{ $section['label'] }}</li>
+        <ul class="dropdown-menu dropdown-menu-end tb-menu" role="menu" aria-label="{{ $panelTitle ?: $title }}" style="width: {{ $width }};">
+            <li class="tb-head" role="presentation">
+                <span class="tb-title">{{ $panelTitle ?: $title }}</span>
+                @if ($hasSearch)
+                    <input type="search" class="tb-search" placeholder="Filtrar…" aria-label="Filtrar em {{ $panelTitle ?: $title }}" autocomplete="off">
+                @endif
+            </li>
+            <li role="presentation">
+                <ul class="tb-list">
+                    @foreach ($visibleNodes as $nodeIndex => $node)
+                        @include('components.menu.partials.dynamic-dropdown-node', [
+                            'node'        => $node,
+                            'depth'       => 0,
+                            'path'        => (string) $nodeIndex,
+                            'menuUid'     => $menuUid,
+                            'resolveHref' => $resolveHref,
+                        ])
+                    @endforeach
+                    @if ($hasSearch)
+                        <li class="tb-empty" hidden>Nada encontrado.</li>
                     @endif
-
-                    @foreach ($section['items'] ?? [] as $item)
-                        <a class="dropdown-item" href="{{ $resolveHref($item) }}">
-                            @if (!empty($item['icon']))
-                                <i class="{{ $item['icon'] }} align-middle text-primary"></i>
-                            @endif
-                            {{ $item['label'] }}
-                            @if (!empty($item['countComponent']))
-                                @livewire($item['countComponent'], $item['countParams'] ?? [], key($item['countKey'] ?? ($menuUid . '-' . md5($item['label']))))
-                            @endif
-                        </a>
-                    @endforeach
-
-                    @foreach ($section['children'] ?? [] as $child)
-                        @if (!empty($child['label']))
-                            <li class="px-3 pt-2 pb-1 text-uppercase small fw-semibold text-muted">{{ $child['label'] }}</li>
-                        @endif
-                        @foreach ($child['items'] as $item)
-                            <a class="dropdown-item" href="{{ $resolveHref($item) }}">
-                                @if (!empty($item['icon']))
-                                    <i class="{{ $item['icon'] }} align-middle text-primary"></i>
-                                @endif
-                                {{ $item['label'] }}
-                                @if (!empty($item['countComponent']))
-                                    @livewire($item['countComponent'], $item['countParams'] ?? [], key($item['countKey'] ?? ($menuUid . '-' . md5($item['label']))))
-                                @endif
-                            </a>
-                        @endforeach
-                    @endforeach
-                @endforeach
-            @else
-                @foreach ($visibleSections as $sectionIndex => $section)
-                    @php
-                        $panelId = '#panel-' . $menuUid . '-' . $sectionIndex;
-                    @endphp
-                    <li class="menu-item js-menu-toggle" data-target="{{ $panelId }}">
-                        {{ $section['label'] }} <i class="ri-arrow-right-s-line"></i>
-                    </li>
-                    <div id="{{ ltrim($panelId, '#') }}" class="menu-panel">
-                        @foreach ($section['items'] ?? [] as $item)
-                            <a class="dropdown-item" href="{{ $resolveHref($item) }}">
-                                @if (!empty($item['icon']))
-                                    <i class="{{ $item['icon'] }} align-middle text-primary"></i>
-                                @endif
-                                {{ $item['label'] }}
-                                @if (!empty($item['countComponent']))
-                                    @livewire($item['countComponent'], $item['countParams'] ?? [], key($item['countKey'] ?? ($menuUid . '-' . md5($item['label']))))
-                                @endif
-                            </a>
-                        @endforeach
-
-                        @foreach ($section['children'] ?? [] as $childIndex => $child)
-                            @php
-                                $submenuId = '#submenu-' . $menuUid . '-' . $sectionIndex . '-' . $childIndex;
-                                $submenuClass = $loop->last ? 'submenu' : 'submenu mb-2';
-                            @endphp
-                            <div class="{{ $submenuClass }}">
-                                <button class="submenu-toggle js-submenu-toggle" data-target="{{ $submenuId }}"
-                                    type="button">
-                                    {{ $child['label'] }} <i class="ri-arrow-right-s-line"></i>
-                                </button>
-                                <div id="{{ ltrim($submenuId, '#') }}" class="submenu-panel">
-                                    @foreach ($child['items'] as $item)
-                                        <a class="dropdown-item" href="{{ $resolveHref($item) }}">
-                                            @if (!empty($item['icon']))
-                                                <i class="{{ $item['icon'] }} align-middle text-primary"></i>
-                                            @endif
-                                            {{ $item['label'] }}
-                                            @if (!empty($item['countComponent']))
-                                                @livewire($item['countComponent'], $item['countParams'] ?? [], key($item['countKey'] ?? ($menuUid . '-' . md5($item['label']))))
-                                            @endif
-                                        </a>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @endforeach
-
-                @include('components.menu.partials.services-dropdown-script')
-            @endif
+                </ul>
+            </li>
         </ul>
     </li>
 @endif

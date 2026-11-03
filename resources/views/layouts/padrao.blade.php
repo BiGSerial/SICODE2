@@ -90,7 +90,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
     <header id="header"
-        class="header fixed-top d-flex align-items-center @if (session('impersonate')) text-bg-danger @else edp-bg-marineblue-100 text-white @endif">
+        class="header fixed-top d-flex align-items-center @if (session('impersonate')) header--impersonating text-white @else edp-bg-marineblue-100 text-white @endif">
         <i class="bi bi-list toggle-sidebar-btn text-white me-3"></i>
 
         @if (env('APP_QA') && env('APP_DEBUG'))
@@ -102,11 +102,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
         @endif
 
         @if (session('impersonate'))
-            <h5 class="text-warning text-uppercase mx-4 align-middle">VOCÊ ESTÁ NA VISÂO DE
-                <strong>{{ Auth()->User()->name }}</strong>.
-                <a href="{{ route('stopImpersonating') }}" class="btn btn-sm btn-primary mx-2 align-middle">PARAR
-                    VISÃO</a>
-            </h5>
+            <x-nav.impersonation-banner />
         @endif
 
         <nav class="header-nav ms-auto me-2">

@@ -5,29 +5,16 @@ namespace App\Http\Livewire\Partner;
 use App\Exports\Partner\DashboardSummaryExport;
 use App\Models\{Adsform, FiveNote, Partial, Reclaim, ReturnWork, Viability, WorkReport};
 use App\Services\Ads\AdsDeadlinePolicy;
+use App\Services\Partner\PartnerDashboardCharts;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\{Collection, Str};
+use Illuminate\Support\{Collection};
 use Livewire\Component;
 use Maatwebsite\Excel\Facades\Excel;
 
 class Main extends Component
 {
     use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-
-    public $pizza1;
-
-    public $pizza2;
-
-    public $backlogChart;
-
-    public $dailyViabilityChart;
-
-    public $viabilityAgeChart;
-
-    public $d5AgeChart;
-
-    public $rejectedWorkReasonChart;
 
     public $month;
 
@@ -44,26 +31,6 @@ class Main extends Component
     public array $companyBreakdown = [];
 
     public array $executive = [];
-
-    public $dadospizza1 = [
-        'labels' => ['A', 'B', 'C'],
-        'data'   => [10, 20, 70],
-    ];
-
-    public $dadospizza2 = [
-        'labels' => ['A', 'B', 'C'],
-        'data'   => [10, 20, 70],
-    ];
-
-    public $dadosBacklog = [
-        'labels' => ['A', 'B', 'C'],
-        'data'   => [10, 20, 70],
-    ];
-
-    public $dadosDailyViability = [
-        'labels' => ['A', 'B', 'C'],
-        'data'   => [10, 20, 70],
-    ];
 
     public $dadosViabilityAgeHistogram = [
         'labels'  => [],
@@ -89,24 +56,29 @@ class Main extends Component
 
     protected array $overdueCache = [];
 
+    protected $queryString = [
+        'month'  => ['as' => 'mes', 'except' => ''],
+        'dt_ini' => ['as' => 'de', 'except' => ''],
+        'dt_fim' => ['as' => 'ate', 'except' => ''],
+    ];
+
     public function mount()
     {
-        $this->pizza1                  = 'chart-' . Str::random(8);
-        $this->pizza2                  = 'chart-' . Str::random(8);
-        $this->backlogChart            = 'chart-' . Str::random(8);
-        $this->dailyViabilityChart     = 'chart-' . Str::random(8);
-        $this->viabilityAgeChart       = 'chart-' . Str::random(8);
-        $this->d5AgeChart              = 'chart-' . Str::random(8);
-        $this->rejectedWorkReasonChart = 'chart-' . Str::random(8);
+        $this->month  = $this->month ?: now()->format('Y-m');
+        $this->dt_ini = $this->dt_ini ?: Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
+        $this->dt_fim = $this->dt_fim ?: Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
 
-        $this->month  = now()->format('Y-m');
-        $this->dt_ini = now()->startOfMonth()->format('Y-m-d');
-        $this->dt_fim = now()->endOfMonth()->format('Y-m-d');
-
-        $this->toUpdateGraphs();
+        $this->refreshData();
     }
 
+    /** Recalcula tudo a partir dos filtros e manda os gráficos novos ao `my-panel.js` (atualização in-place). */
     public function toUpdateGraphs()
+    {
+        $this->refreshData();
+        $this->dispatchBrowserEvent('my-panel:charts', ['charts' => $this->charts()]);
+    }
+
+    protected function refreshData(): void
     {
         $this->kpis           = $this->getDashboardKpis();
         $this->workReportKpis = $this->getWorkReportPeriodKpis();
@@ -115,6 +87,17 @@ class Main extends Component
         $this->atualizaRejectedWorkReasonChart();
         $this->executive        = $this->buildExecutiveData();
         $this->companyBreakdown = $this->buildCompanyBreakdown();
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    protected function charts(): array
+    {
+        return PartnerDashboardCharts::all(
+            $this->executive,
+            $this->dadosViabilityAgeHistogram,
+            $this->dadosD5AgeHistogram,
+            $this->dadosRejectedWorkReasons,
+        );
     }
 
     public function updatedPartnerCompanyFilter(): void
@@ -518,58 +501,6 @@ class Main extends Component
         ];
     }
 
-    public function getViabilityCounts()
-    {
-        $baseQuery = Viability::query()->where('canceled', false);
-
-        if (!empty($this->dt_ini)) {
-            $baseQuery->whereDate('sended_at', '>=', $this->dt_ini);
-        }
-
-        if (!empty($this->dt_fim)) {
-            $baseQuery->whereDate('sended_at', '<=', $this->dt_fim);
-        }
-
-        $this->scopeByCompany($baseQuery);
-
-        return [
-            'inViability' => (clone $baseQuery)->where('approved', false)
-                ->where('rejected', false)
-                ->where('completed', false)
-                ->where('tacit', false)
-                ->count(),
-
-            'realized' => (clone $baseQuery)->where(function ($q) {
-                $q->where('approved', true)
-                    ->orWhere('rejected', true);
-            })
-                ->where('tacit', false)
-                ->count(),
-
-            'notRealized' => (clone $baseQuery)->where('tacit', true)
-                ->count(),
-        ];
-    }
-
-    public function atualizarViabilityCounts()
-    {
-        $counts = $this->getViabilityCounts();
-
-        $labels = ['Em Viabilidade', 'Realizadas', 'Não Realizadas'];
-        $data   = [
-            $counts['inViability'],
-            $counts['realized'],
-            $counts['notRealized'],
-        ];
-
-        $this->dadospizza1 = [
-            'labels' => $labels,
-            'data'   => $data,
-        ];
-
-        $this->updateDataPizza($this->pizza1, $labels, $data);
-    }
-
     public function getReturnWorkReports()
     {
         $baseQuery = ReturnWork::query();
@@ -596,32 +527,6 @@ class Main extends Component
             ->get();
     }
 
-    public function atualizaReturnWorkReports()
-    {
-        $returnWorkReports = $this->getReturnWorkReports();
-
-        if ($returnWorkReports->isEmpty()) {
-            $this->dadospizza2 = [
-                'labels' => [],
-                'data'   => [],
-            ];
-
-            $this->updateDataPizza($this->pizza2, [], []);
-
-            return;
-        }
-
-        $labels = $returnWorkReports->pluck('category')->toArray();
-        $data   = $returnWorkReports->pluck('total')->toArray();
-
-        $this->dadospizza2 = [
-            'labels' => $labels,
-            'data'   => $data,
-        ];
-
-        $this->updateDataPizza($this->pizza2, $labels, $data);
-    }
-
     public function atualizaRejectedWorkReasonChart(): void
     {
         $returnWorkReports = $this->getReturnWorkReports();
@@ -637,78 +542,6 @@ class Main extends Component
             'total'  => array_sum($data),
         ];
 
-        $this->dispatchHorizontalBarChart(
-            $this->rejectedWorkReasonChart,
-            $labels,
-            $data,
-            'Informes rejeitados',
-            '#dc2626'
-        );
-    }
-
-    public function atualizaBacklogChart(): void
-    {
-        $kpis = $this->kpis ?: $this->getDashboardKpis();
-
-        $labels = [
-            'Viabilidade pendente',
-            'Viabilidade a vencer',
-            'Entregas de ADS a vencer',
-            'D5 pendente',
-            'Viabilidade rejeitada',
-            'Reclamações pendentes',
-            'Informes rejeitados',
-        ];
-
-        $data = [
-            (int) ($kpis['pending_viability'] ?? 0),
-            (int) ($kpis['viability_due_soon'] ?? 0),
-            (int) ($kpis['work_without_ads_due_soon'] ?? 0),
-            (int) ($kpis['d5_pending'] ?? 0),
-            (int) ($kpis['viability_rejected_waiting'] ?? 0),
-            (int) ($kpis['reclaims_pending'] ?? 0),
-            (int) ($kpis['informs_rejected'] ?? 0),
-        ];
-
-        $this->dadosBacklog = [
-            'labels' => $labels,
-            'data'   => $data,
-        ];
-
-        $this->updateDataPizza($this->backlogChart, $labels, $data);
-    }
-
-    public function atualizaDailyViability(): void
-    {
-        $baseQuery = Viability::query()
-            ->where('canceled', false)
-            ->whereNotNull('sended_at');
-
-        if (!empty($this->dt_ini)) {
-            $baseQuery->whereDate('sended_at', '>=', $this->dt_ini);
-        }
-
-        if (!empty($this->dt_fim)) {
-            $baseQuery->whereDate('sended_at', '<=', $this->dt_fim);
-        }
-
-        $this->scopeByCompany($baseQuery);
-
-        $data = $baseQuery
-            ->selectRaw('DATE(sended_at) as raw_date, DATE_FORMAT(MIN(sended_at), "%d/%m") as ref_date, COUNT(*) as total')
-            ->groupBy('raw_date')
-            ->orderBy('raw_date')
-            ->get();
-
-        $labels = $data->pluck('ref_date')->toArray();
-        $series = $data->pluck('total')->toArray();
-
-        $this->dadosDailyViability = [
-            'labels' => $labels,
-            'data'   => $series,
-        ];
-
-        $this->updateDataPizza($this->dailyViabilityChart, $labels, $series);
     }
 
     public function atualizaViabilityAgeHistogram(): void
@@ -716,14 +549,6 @@ class Main extends Component
         $histogram = $this->getOpenViabilityAgeHistogram();
 
         $this->dadosViabilityAgeHistogram = $histogram;
-        $this->dispatchBarChart(
-            $this->viabilityAgeChart,
-            $histogram['labels'],
-            $histogram['data'],
-            'Viabilidades em aberto',
-            '#0f766e',
-            'Dias desde o envio'
-        );
     }
 
     public function getOpenViabilityAgeHistogram(): array
@@ -765,7 +590,6 @@ class Main extends Component
         $histogram = $this->getOpenD5AgeHistogram();
 
         $this->dadosD5AgeHistogram = $histogram;
-        $this->dispatchD5StackedChart($this->d5AgeChart, $histogram);
     }
 
     public function getOpenD5AgeHistogram(): array
@@ -1023,148 +847,6 @@ class Main extends Component
         }, $fileName, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    private function updateDataPizza(string $chartId = null, array $labels = [], array $data = [])
-    {
-        $this->dispatchBrowserEvent('updateGraph' . Str::studly($chartId), [
-            'labels' => $labels,
-            'data'   => $data,
-        ]);
-
-        $this->dispatchBarChart($chartId, $labels, $data);
-    }
-
-    private function dispatchBarChart(
-        string $chartId = null,
-        array $labels = [],
-        array $data = [],
-        string $label = 'Viabilidades em aberto',
-        string $color = '#0f766e',
-        string $xTitle = 'Dias desde o envio'
-    ): void {
-        $this->dispatchBrowserEvent('chart-update', [
-            'chartId' => $chartId,
-            'chart'   => [
-                'type' => 'bar',
-                'data' => [
-                    'labels'   => $labels,
-                    'datasets' => [[
-                        'label'           => $label,
-                        'data'            => $data,
-                        'backgroundColor' => $color,
-                        'borderColor'     => $color,
-                        'borderRadius'    => 6,
-                        'maxBarThickness' => 34,
-                    ]],
-                ],
-                'options' => [
-                    'plugins' => [
-                        'legend'  => ['display' => false],
-                        'tooltip' => [
-                            'callbacks' => [
-                                'label' => '__VALUE_LABEL__',
-                            ],
-                        ],
-                    ],
-                    'scales' => [
-                        'x' => [
-                            'title' => ['display' => true, 'text' => $xTitle],
-                            'grid'  => ['display' => false],
-                        ],
-                        'y' => [
-                            'beginAtZero' => true,
-                            'title'       => ['display' => true, 'text' => 'Quantidade'],
-                            'ticks'       => ['precision' => 0],
-                        ],
-                    ],
-                ],
-            ],
-        ]);
-    }
-
-    private function dispatchD5StackedChart(string $chartId = null, array $histogram = []): void
-    {
-        $this->dispatchBrowserEvent('chart-update', [
-            'chartId' => $chartId,
-            'chart'   => [
-                'type' => 'bar',
-                'data' => [
-                    'labels'   => $histogram['labels'] ?? [],
-                    'datasets' => $histogram['datasets'] ?? [],
-                ],
-                'options' => [
-                    'plugins' => [
-                        'legend'  => ['display' => true, 'position' => 'top'],
-                        'tooltip' => [
-                            'callbacks' => [
-                                'label' => '__VALUE_LABEL__',
-                            ],
-                        ],
-                    ],
-                    'scales' => [
-                        'x' => [
-                            'stacked' => true,
-                            'title'   => ['display' => true, 'text' => 'Dias desde o despacho'],
-                            'grid'    => ['display' => false],
-                        ],
-                        'y' => [
-                            'stacked'     => true,
-                            'beginAtZero' => true,
-                            'title'       => ['display' => true, 'text' => 'Quantidade'],
-                            'ticks'       => ['precision' => 0],
-                        ],
-                    ],
-                ],
-            ],
-        ]);
-    }
-
-    private function dispatchHorizontalBarChart(
-        string $chartId = null,
-        array $labels = [],
-        array $data = [],
-        string $label = 'Registros',
-        string $color = '#dc2626'
-    ): void {
-        $this->dispatchBrowserEvent('chart-update', [
-            'chartId' => $chartId,
-            'chart'   => [
-                'type' => 'bar',
-                'data' => [
-                    'labels'   => $labels,
-                    'datasets' => [[
-                        'label'           => $label,
-                        'data'            => $data,
-                        'backgroundColor' => $color,
-                        'borderColor'     => $color,
-                        'borderRadius'    => 6,
-                        'maxBarThickness' => 26,
-                    ]],
-                ],
-                'options' => [
-                    'indexAxis' => 'y',
-                    'plugins'   => [
-                        'legend'  => ['display' => false],
-                        'tooltip' => [
-                            'callbacks' => [
-                                'label' => '__VALUE_LABEL__',
-                            ],
-                        ],
-                    ],
-                    'scales' => [
-                        'x' => [
-                            'beginAtZero' => true,
-                            'title'       => ['display' => true, 'text' => 'Quantidade'],
-                            'ticks'       => ['precision' => 0],
-                        ],
-                        'y' => [
-                            'grid' => ['display' => false],
-                        ],
-                    ],
-                ],
-            ],
-        ]);
-    }
-
     private function getAdsTacitOverdueThreshold(): Carbon
     {
         return now()->subDays(3)->startOfDay();
@@ -1180,6 +862,7 @@ class Main extends Component
             'openD5AgeHistogram'             => $this->dadosD5AgeHistogram,
             'rejectedWorkReasons'            => $this->dadosRejectedWorkReasons,
             'workReportKpis'                 => $this->workReportKpis,
+            'charts'                         => $this->charts(),
         ]);
     }
 }

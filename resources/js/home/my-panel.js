@@ -4,7 +4,8 @@
 //
 // Extensões do payload (ver MyPanelCharts.php): `dataset.gradient = [de, para]` vira degradê (vertical; horizontal em indexAxis y),
 // `options.plugins.mpCenter = {text, sub}` escreve o total no centro das roscas e `options.plugins.mpBarLabels = {segments, totals, decimals}`
-// escreve o valor dentro de cada faixa das barras empilhadas e o total acima da pilha (dataset.labelColor muda a cor do texto);
+// escreve o valor dentro de cada faixa das barras empilhadas e o total acima da pilha (dataset.labelColor muda a cor do texto; `outside: true`
+// escreve o valor acima de cada barra, ou à direita dela em barras horizontais, para barras agrupadas), `options.plugins.mpClick = {keys}` + `data-my-panel-click` filtram ao clicar (ver bindClick);
 // em datasets de linha, `showValues` escreve o valor sobre cada ponto (`decimals`, `valueSuffix`).
 
 const registry = (window.__myPanelCharts = window.__myPanelCharts || { instances: {}, bound: false, tries: 0, defaults: false, plugins: [] });
@@ -78,6 +79,7 @@ function setDefaults() {
             }
 
             const { ctx } = chart;
+            const horizontal = chart.options.indexAxis === 'y';
             const family = Chart.defaults.font.family;
             const format = (value, decimals = 0, suffix = '') => `${Number(value).toLocaleString('pt-BR', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}${suffix}`;
             const bars = chart.data.datasets
@@ -104,6 +106,24 @@ function setDefaults() {
                     total += value;
                     top = top === null ? Math.min(element.y, element.base) : Math.min(top, element.y, element.base);
                     x = element.x;
+
+                    if (config.outside) {
+                        ctx.fillStyle = dataset.labelColor || '#0f172a';
+                        ctx.font = `700 11px ${family}`;
+
+                        if (horizontal) {
+                            // Barra horizontal: o valor vai à direita da ponta da barra.
+                            ctx.textAlign = 'left';
+                            ctx.fillText(format(value, config.decimals || 0), Math.max(element.x, element.base) + 8, element.y);
+                            ctx.textAlign = 'center';
+
+                            return;
+                        }
+
+                        ctx.fillText(format(value, config.decimals || 0), element.x, Math.min(element.y, element.base) - 9);
+
+                        return;
+                    }
 
                     if (config.segments && Math.abs(element.base - element.y) >= 16) {
                         ctx.fillStyle = dataset.labelColor || '#ffffff';
@@ -191,7 +211,41 @@ function mount(canvas) {
 
     setDefaults();
     applyGradients(config);
+    bindClick(canvas, id, config);
     registry.instances[id] = new window.Chart(canvas, { type: config.type, data: config.data, options: config.options, plugins: registry.plugins });
+}
+
+/**
+ * Clique que filtra: `<canvas data-my-panel-click="metodo">` + `options.plugins.mpClick = {keys: [...]}` (uma chave por rótulo).
+ * Chama `metodo(idDoGrafico, chave, indiceDoDataset)` no componente Livewire que contém o canvas. As chaves são lidas do gráfico vivo,
+ * então acompanham a atualização in-place.
+ */
+function bindClick(canvas, id, config) {
+    const method = canvas.dataset.myPanelClick;
+
+    if (!method || !config.options || !config.options.plugins || !config.options.plugins.mpClick) {
+        return;
+    }
+
+    config.options.onHover = (event, elements) => {
+        canvas.style.cursor = elements.length ? 'pointer' : 'default';
+    };
+
+    config.options.onClick = (event, elements, chart) => {
+        if (!elements.length) {
+            return;
+        }
+
+        const keys = (chart.options.plugins.mpClick && chart.options.plugins.mpClick.keys) || [];
+        const key = keys[elements[0].index];
+        const host = canvas.closest('[wire\\:id]');
+
+        if (key === undefined || key === null || !host || !window.Livewire) {
+            return;
+        }
+
+        window.Livewire.find(host.getAttribute('wire:id')).call(method, id, String(key), elements[0].datasetIndex);
+    };
 }
 
 function syncInPlace(chart, next) {
@@ -210,6 +264,12 @@ function syncInPlace(chart, next) {
 
     if (chart.data.datasets.length > next.data.datasets.length) {
         chart.data.datasets.splice(next.data.datasets.length);
+    }
+
+    const click = next.options && next.options.plugins && next.options.plugins.mpClick;
+
+    if (click && chart.options.plugins && chart.options.plugins.mpClick) {
+        chart.options.plugins.mpClick.keys = click.keys;
     }
 
     const center = next.options && next.options.plugins && next.options.plugins.mpCenter;

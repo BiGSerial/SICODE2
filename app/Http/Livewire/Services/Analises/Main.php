@@ -2,14 +2,17 @@
 
 namespace App\Http\Livewire\Services\Analises;
 
-use App\Custom\Notestatus;
-use App\Custom\RuleBuilder;
+use App\Custom\{Notestatus, RuleBuilder};
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
+use App\Services\Analises\AnalysisListRowPresenter;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
+    use WithListFilters;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -19,10 +22,6 @@ class Main extends Component
     public $perPage = 100;
 
     public $search;
-
-    public $rubrica_s = [];
-
-    public $rubrica_l;
 
     public $note;
 
@@ -42,24 +41,76 @@ class Main extends Component
     public $assigned_mmgd = false;
 
     protected $listeners = [
-        'refresh_service'   => '$refresh',
-        'getCopy'           => 'copy',
-        'confirm_accompany' => 'add_to_accompany',
+        'refresh_service'        => '$refresh',
+        'getCopy'                => 'copy',
+        'confirm_accompany'      => 'add_to_accompany',
         'confirm_accompany_mass' => 'add_to_accompany_mass',
     ];
+
+    protected $queryString = [
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['as' => 'pp'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'filters'      => ['except' => [], 'as' => 'f'],
+    ];
+
+    /** @var array<int, int>|null Ids de todo o recorte filtrado (uma consulta por requisição). */
+    private ?array $filteredIdsMemo = null;
 
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->last_update = Cache::remember('analises-service:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
+    }
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
+    protected function listFilterDefinitions(): array
+    {
+        return ['rubrica' => ['label' => 'Rubrica']];
+    }
 
-        if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
-            $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
-        }
+    protected function listFilterCacheScope(): string
+    {
+        return static::class . $this->service->uuid;
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return [
+            'rubrica' => $this->rememberFilterOptions('rubrica', fn () => Note::query()
+                ->where('nstats', $this->service->status)
+                ->whereNotNull('rubrica')->where('rubrica', '!=', '')
+                ->distinct()->orderBy('rubrica')->pluck('rubrica')
+                ->map(fn ($r) => ['v' => (string) $r, 'l' => (string) $r])->all()),
+        ];
+    }
+
+    public function updatedSearch()
+    {
+        $this->multiSearch = [];
+        $this->gotoPage(1);
+    }
+
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
+    }
+
+    /** "Limpar tudo": filtros, busca (simples e em massa) e atalho. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters       = [];
+        $this->search        = '';
+        $this->multiSearch   = [];
+        $this->advanceSearch = '';
+        $this->not_assigned  = false;
+        $this->afterListFiltersChanged();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected  = [];
+        $this->selectAll = false;
     }
 
     public function copy($msg)
@@ -106,7 +157,7 @@ class Main extends Component
 
     public function add_to_accompany()
     {
-        $user = User::find(Auth()->User()->id);
+        $user   = User::find(Auth()->User()->id);
         $result = $this->assignNoteToCurrentUser($this->note, $user);
 
         if ($result['ok']) {
@@ -154,14 +205,15 @@ class Main extends Component
 
     public function add_to_accompany_mass()
     {
-        $user = User::find(Auth()->User()->id);
+        $user  = User::find(Auth()->User()->id);
         $notes = Note::whereIn('id', $this->selected)->get();
 
         $success = 0;
-        $errors = [];
+        $errors  = [];
 
         foreach ($notes as $note) {
             $result = $this->assignNoteToCurrentUser($note, $user);
+
             if ($result['ok']) {
                 $success++;
             } else {
@@ -169,12 +221,13 @@ class Main extends Component
             }
         }
 
-        $this->selected = [];
+        $this->selected  = [];
         $this->selectAll = false;
         $this->emit('refresh_service');
 
         if (count($errors)) {
             $msg = implode('<br>', array_slice($errors, 0, 10));
+
             if (count($errors) > 10) {
                 $msg .= '<br>...';
             }
@@ -201,7 +254,7 @@ class Main extends Component
     {
         if ($this->advanceSearch) {
             $this->gotoPage(1);
-            $this->search = '';
+            $this->search      = '';
             $this->multiSearch = preg_split('/[\s,;]+/', trim($this->advanceSearch), -1, PREG_SPLIT_NO_EMPTY);
             $this->multiSearch = array_map('trim', $this->multiSearch);
             $this->dispatchBrowserEvent('hideModal');
@@ -210,9 +263,15 @@ class Main extends Component
         }
     }
 
+    /** Ids de todo o recorte filtrado (todas as páginas), numa consulta só por requisição. */
+    private function filteredIds(): array
+    {
+        return $this->filteredIdsMemo ??= $this->baseQuery()->pluck('id')->toArray();
+    }
+
     public function setSelectAllFiltered()
     {
-        $ids = $this->baseQuery()->pluck('id')->toArray();
+        $ids = $this->filteredIds();
 
         if ($this->selectAll) {
             foreach ($ids as $id) {
@@ -227,7 +286,8 @@ class Main extends Component
 
     public function checkAllSelect()
     {
-        $ids = $this->baseQuery()->pluck('id')->toArray();
+        $ids = $this->filteredIds();
+
         if (!count($ids)) {
             $this->selectAll = false;
 
@@ -239,48 +299,10 @@ class Main extends Component
         return $this->selectAll;
     }
 
-    public function filter_save()
-    {
-        $this->gotoPage(1);
-
-        if (!isset($_SESSION)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-        $_SESSION['filtro']['analise']['rubrica'] = $this->rubrica_s;
-
-        $this->emit('refresh_service');
-
-    }
-
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-        $this->advanceSearch = null;
-        $this->multiSearch = [];
-        $this->selected = [];
-        $this->selectAll = false;
-
-        if (!isset($_SESSION)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filtro']['analise'])) {
-            unset($_SESSION['filtro']['analise']);
-        }
-
-        $this->gotoPage(1);
-
-        $this->emit('refresh_service');
-    }
-
     public function filterStatus()
     {
-        if ($this->not_assigned) {
-            $this->not_assigned = false;
-        } else {
-            $this->not_assigned = true;
-        }
-
+        $this->not_assigned = !$this->not_assigned;
+        $this->gotoPage(1);
     }
 
     private function baseQuery()
@@ -296,14 +318,16 @@ class Main extends Component
             });
         }
 
+        $rubrica = $this->filterValues('rubrica');
+
         $query->when($this->search, function ($q, $s) {
             return $q->where(function ($query) use ($s) {
                 $query->where('note', 'like', '%' . $s . '%')
                     ->orWhere('group2', 'like', '%' . $s . '%');
             });
-        })->when($this->rubrica_s, function ($q) {
-            return $q->where(function ($query) {
-                $query->whereIn('rubrica', $this->rubrica_s)
+        })->when($rubrica, function ($q) use ($rubrica) {
+            return $q->where(function ($query) use ($rubrica) {
+                $query->whereIn('rubrica', $rubrica)
                     ->orWhereNull('rubrica');
             });
         });
@@ -320,7 +344,7 @@ class Main extends Component
 
         $query->whereNotIn('num_material', [21, 78, 79]);
 
-        $query->with('Productions.User')
+        $query->with(['Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)->with('User:id,name')])
             ->orderBy('dt_created', 'ASC');
 
         return $query;
@@ -334,11 +358,17 @@ class Main extends Component
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $this->filteredIdsMemo = null;
+
+        $lists     = $this->lists;
+        $user      = Auth()->User();
+        $canSee    = $user->management || $user->superadm;
+        $presenter = app(AnalysisListRowPresenter::class);
 
         return view('livewire.services.analises.main', [
-            'lists'  => $this->lists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'  => $lists,
+            'rows'   => $lists->getCollection()->map(fn (Note $note) => $presenter->presentSelfAssign($note, $this->service->uuid, $canSee)),
+            'update' => Cache::remember('analises-service:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
         ]);
     }
 
@@ -355,12 +385,12 @@ class Main extends Component
         if ($check) {
             $check->loadMissing(['User', 'Company', 'Service']);
 
-            $name = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
+            $name   = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
             $status = Notestatus::status($check->status)->status;
 
             return [
-                'ok' => false,
-                'plain' => "já está {$status} por {$name}",
+                'ok'      => false,
+                'plain'   => "já está {$status} por {$name}",
                 'message' => "<p><strong>{$note->note}</strong> está sinalizada como <strong>{$status}</strong> em <strong>{$check->Service->service}</strong> por <strong>{$name}</strong></p>
                     <p class='text-bg-info p-2 mt-2'>Verifique com um gestor para atribuir manualmente esta NOTA/OV caso considere um erro atribuição.</p>",
             ];
@@ -383,18 +413,18 @@ class Main extends Component
 
         if (!$production) {
             return [
-                'ok' => false,
-                'plain' => 'erro ao criar produção',
+                'ok'      => false,
+                'plain'   => 'erro ao criar produção',
                 'message' => "Erro ao tentar atribuir {$note->note}.",
             ];
         }
 
         Notetimeline::Create([
-            'note_id'      => $note->id,
-            'service_id'   => $production->service_id,
-            'user_id'      => Auth()->User()->id,
-            'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
-            'status'       => 2,
+            'note_id'       => $note->id,
+            'service_id'    => $production->service_id,
+            'user_id'       => Auth()->User()->id,
+            'info'          => "Usuário {$user->name} atribuiu a Nota/OV.",
+            'status'        => 2,
             'production_id' => $production->id,
         ]);
 

@@ -2,18 +2,12 @@
 
 namespace App\Exports\Dispatchs;
 
+use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
-use Maatwebsite\Excel\Concerns\FromView;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
-use Maatwebsite\Excel\Concerns\WithTitle;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Carbon\Carbon;
+use Maatwebsite\Excel\Concerns\{Exportable, FromView, ShouldAutoSize, WithEvents, WithTitle};
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Fill};
 
 class CancellationHistoryExport implements FromView, ShouldAutoSize, WithTitle, WithEvents
 {
@@ -42,19 +36,19 @@ class CancellationHistoryExport implements FromView, ShouldAutoSize, WithTitle, 
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $sheet = $event->sheet->getDelegate();
+                $sheet         = $event->sheet->getDelegate();
                 $highestColumn = $sheet->getHighestColumn();
-                $highestRow = max(1, (int) $sheet->getHighestRow());
+                $highestRow    = max(1, (int) $sheet->getHighestRow());
 
                 $sheet->getStyle("A1:{$highestColumn}1")->applyFromArray([
                     'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
                     'fill' => [
-                        'fillType' => Fill::FILL_SOLID,
+                        'fillType'   => Fill::FILL_SOLID,
                         'startColor' => ['rgb' => '0F766E'],
                     ],
                     'alignment' => [
                         'horizontal' => Alignment::HORIZONTAL_CENTER,
-                        'vertical' => Alignment::VERTICAL_CENTER,
+                        'vertical'   => Alignment::VERTICAL_CENTER,
                     ],
                 ]);
 
@@ -62,7 +56,7 @@ class CancellationHistoryExport implements FromView, ShouldAutoSize, WithTitle, 
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
-                            'color' => ['rgb' => 'D1D5DB'],
+                            'color'       => ['rgb' => 'D1D5DB'],
                         ],
                     ],
                     'alignment' => [
@@ -74,7 +68,7 @@ class CancellationHistoryExport implements FromView, ShouldAutoSize, WithTitle, 
                     if ($row % 2 !== 0) {
                         $sheet->getStyle("A{$row}:{$highestColumn}{$row}")->applyFromArray([
                             'fill' => [
-                                'fillType' => Fill::FILL_SOLID,
+                                'fillType'   => Fill::FILL_SOLID,
                                 'startColor' => ['rgb' => 'F8FAFC'],
                             ],
                         ]);

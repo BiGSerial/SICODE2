@@ -1,289 +1,149 @@
 @php
-    use Carbon\Carbon;
+    $statusCodes = $service->Status->count()
+        ? $service->Status->pluck('status')->implode(' · ')
+        : null;
+    $hasCriteria = $this->hasCriteria();
 @endphp
-<div class="user-activity-page">
-    {{-- Carrega o Loading da página --}}
-    <x-show-loading />
-    @include('livewire.services.partials.user-activity-list-style')
-    @include('livewire.services.partials.user-activity-hero', [
-        'context' => 'Fila de distribuição',
-        'subtitle' => 'Gestão das atividades disponíveis para atribuição',
-        'total' => $lists->total(),
-        'accent' => '#475569',
-    ])
 
-    <div class="row g-3 activity-filter-card mb-3">
+{{-- Lista operacional de Serviços: padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md. Hero → ferramentas (busca, filtros) → painel com a tabela. --}}
+<div class="closure-dash my-panel ops-list">
 
-        <div class="mb-3 col-3">
-            <label for="search" class="form-label">Buscar</label>
-            <input wire:model.bounce.2s="search" type="email" class="form-control border border-2 border-secondary"
-                id="search" placeholder="Buscar">
+    <x-ops.hero
+        :eyebrow="'Serviços · ' . $service->service"
+        :title="'Lista para ' . mb_strtolower($service->service)"
+        subtitle="Notas e OVs disponíveis para você assumir. Quem já está com a nota aparece na última coluna, com a cor do andamento."
+        :updated-at="$updatedAt">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <x-ops.legend />
         </div>
-        <div class="btn-group mb-3">
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
+    </x-ops.hero>
 
-                </button>
+    <section class="ops-toolbar" aria-label="Filtros da lista">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar nota, pedido ou material" label="Buscar nota, pedido ou material" />
 
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
+            <span class="ops-toolbar-spacer"></span>
 
-                        @endif
-
-
-                    </form>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i>
-                        Aplicar Filtro</button>
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_clean"><i
-                            class="ri-filter-off-fill"></i> Limpar Filtro</button>
-
-                </div>
-            </div>
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar tudo</button>
+            @endif
         </div>
-    </div>
 
-    <div class="row user-activity-summary my-3 align-items-center">
-        @if (!$lists->count())
-            <div class="col-6">
-                @livewire('components.manualnote.manualnote', ['service' => $service->uuid])
-            </div>
-        @elseif ($lists->count())
-            <div class="col-6">
-                {{ $lists->links() }}
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
+        </div>
+
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
             </div>
         @endif
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
-                @if ($update)
-                    Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
-                @endif
-            </span>
+    </section>
+
+    <section class="mp-panel" aria-label="Lista para {{ $service->service }}">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Lista para {{ mb_strtolower($service->service) }}</h2>
+                <div class="mp-panel-sub">
+                    {{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'registro' : 'registros' }}@if ($statusCodes) · status {{ $statusCodes }}@endif
+                </div>
+            </div>
+            <span class="mp-pill" wire:loading.delay>Atualizando…</span>
         </div>
-    </div>
 
-    <div class="user-activity-table-card">
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="11" />
 
-        @if (!$lists->count())
-            <div class="card-body">
-                <h4 class="text-center">SEM NOTAS PARA EXIBIR EM {{ $service->service }}</h4>
+        @if ($rows->isEmpty())
+            <div class="mp-panel-body">
+                <x-closure.empty-state
+                    :title="$hasCriteria ? 'Nenhum resultado para os filtros escolhidos' : 'Sem notas para exibir em ' . $service->service"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais notas.' : 'Quando houver notas liberadas, elas aparecem aqui.'"
+                    icon="ri-inbox-line" />
+                @if ($hasCriteria)
+                    <div class="text-center mt-2"><button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearAllCriteria">Limpar filtros</button></div>
+                @endif
+                @livewire('components.manualnote.manualnote', ['service' => $service->uuid], key('cadastro-manualnote'))
             </div>
         @else
-            <h4 class="user-activity-table-header user-activity-table-title text-bg-secondary">LISTA PARA {{ mb_strtoupper($service->service) }}
-                @if ($service->Status->count())
-                    @foreach ($service->Status as $sts)
-                        ({{ $sts->status }})
-                    @endforeach
-                @endif
-            </h4>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-condensed">
-                        <thead class="table-dark        ">
-                            <tr>
+            <div class="ops-table-wrap" wire:loading.delay.class="d-none">
+                <table class="table ops-table">
+                    <colgroup>
+                        @can('management')
+                            <col style="width: 120px">
+                        @endcan
+                        <col style="width: 104px">
+                        <col style="width: 112px">
+                        <col style="width: 110px">
+                        <col style="width: 170px">
+                        <col style="width: 110px">
+                        @can('management')
+                            <col style="width: 240px">
+                        @endcan
+                        <col style="width: 70px">
+                        <col style="width: 118px">
+                        <col style="width: 90px">
+                        <col style="width: 108px">
+                        <col style="width: 150px">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            @can('management')
+                                <th>Nota</th>
+                            @endcan
+                            <th>Criado em</th>
+                            <th>Pedido</th>
+                            <th>Rubrica</th>
+                            <th class="is-left">Município</th>
+                            <th>Grupo</th>
+                            @can('management')
+                                <th class="is-left">Descrição</th>
+                            @endcan
+                            <th>Pze</th>
+                            <th>Data do status</th>
+                            <th>Prazo real</th>
+                            <th>Situação</th>
+                            <th><span class="visually-hidden">Ação</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rows as $row)
+                            <tr wire:key="note-{{ $row['id'] }}" @class(['ops-row-' . $row['state'] => $row['state'] !== 'free'])>
                                 @can('management')
-                                    <th scope="col" class="fw-bold">Note</th>
+                                    <td><x-ops.note :note="$row['note']" /></td>
                                 @endcan
-                                <th scope="col" class="fw-bold">Criado Em</th>
-                                <th scope="col" class="fw-bold">numPedido</th>
-                                <th scope="col" class="fw-bold">Rubrica</th>
-                                <th scope="col" class="fw-bold">Municipio</th>
-                                <th scope="col" class="fw-bold">Grupo</th>
+                                <td><x-ops.date :date="$row['createdAt']" hint="Data de criação da nota" /></td>
+                                <td>{{ $row['order'] ?: '—' }}</td>
+                                <td>{{ $row['rubrica'] ?: '—' }}</td>
+                                <td class="is-left">{{ $row['city'] ?: '—' }}</td>
+                                <td>{{ $row['group1'] ?: '—' }}</td>
                                 @can('management')
-                                    <th scope="col" class="fw-bold">Descrição</th>
+                                    <td class="is-left"><span class="d-block text-truncate" title="{{ $row['material'] }}">{{ $row['material'] ?: '—' }}</span></td>
                                 @endcan
-                                <th scope="col" class="fw-bold">Pze</th>
-                                <th scope="col" class="fw-bold">Data Status</th>
-                                <th scope="col" class="fw-bold">Prazo Real</th>
-                                <th scope="col" class="fw-bold">Situação</th>
-                                <th scope="col" class="fw-bold"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                @php
-                                    $block = false;
-
-                                    // if ($list->Productions->count()) {
-                                    //     $block = $list->Productions
-                                    //         ->where('status_note', $list->nstats)
-                                    //         ->Where('dt_note', $list->dt_status)
-                                    //         // ->where(function ($q) use ($list) {
-                                    //         //     return $q->where('completed', false)
-                                    //         //         ->orWhere('dt_note', $list->dt_status);
-                                    //         // })
-                                    //         ->first();
-                                    // }
-
-                                    $count = $list->Productions->where('service_id', $service->uuid)->where('noinconsistency', false);
-
-                                    if ($count->count()) {
-                                        if ($count->last()->dt_note == $list->dt_status || !$count->last()->confirmed) {
-                                            $block = true;
-                                        }
-                                        if (isset($count->last()->User->name)) {
-                                            $production = $count->last();
-
-                                            $lastUser = $count->last()->User->name;
-
-                                            $lastUser = explode(' ', $lastUser);
-                                            $lastUser = $lastUser[0] . ' ' . end($lastUser);
-                                        } else {
-                                            $lastUser = 'DESCONHECIDO';
-                                        }
-
-                                        // $chave = array_search($list->id, $selected);
-
-                                        // if ($chave !== false) {
-                                        //     unset($selected[$chave]);
-                                        //     $selected = $selected;
-                                        // }
-                                    }
-
-                                @endphp
-
-                                {{-- @dump($list->Productions) --}}
-                                <tr
-                                    class="align-middle 
-                            @if ($block) @if ($production->status == 1) 
-                                table-warning
-                                @elseif ($production->status == 2)
-                                table-primary
-                                @elseif ($production->status == 5 && !$production->confirmed)
-                                table-success
-                                @elseif ($production->status == 5 && $production->confirmed)
-                                table-danger 
-                                @else
-                                table-primary @endif @endif">
-                                    @can('management')
-                                        <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
-                                        </td>
-                                    @endcan
-                                    <td class="fw-light">{{ date('d/m/Y', strToTime($list->dt_created)) }}</td>
-                                    <td class="fw-light">{{ mb_strtoupper($list->numPedido) }}</td>
-                                    <td class="fw-light">{{ $list->rubrica }}</td>
-                                    <td class="fw-light">{{ $list->lexp }}</td>
-                                    <td class="fw-light">{{ $list->group1 }}</td>
-                                    @can('management')
-                                        <td class="fw-light">{{ $list->material }}</td>
-                                    @endcan
-                                    {{-- <td class="fw-light">{{ $list->nstats }}</td> --}}
-                                    <td class="fw-light">{{ $list->pze }}</td>
-                                    <td class="fw-light">{{ date('d/m/Y H:i:s', strToTime($list->dt_status)) }}</td>
-                                    <td scope="col"
-                                        class="text-center 
-                                    @if ($list->days_left < 0) text-bg-secondary
-                                    @elseif($list->days_left >= 0 && $list->days_left < 6)
-                                    table-danger
-                                    @elseif($list->days_left >= 6 && $list->days_left < 10)
-                                        table-warning
+                                <td>{{ $row['pze'] ?? '—' }}</td>
+                                <td><x-ops.date :date="$row['statusAt']" time hint="Data e hora do status atual da nota" /></td>
+                                <td>
+                                    <x-ops.prazo :elapsed="$row['prazoReal']" source="days_left" />
+                                </td>
+                                <td><x-ops.badge :tone="$row['parecer']['tone']" :label="$row['parecer']['label']" :hint="$row['parecer']['hint']" /></td>
+                                <td>
+                                    @if ($row['state'] === 'free')
+                                        <button type="button" class="btn btn-primary btn-sm ops-action"
+                                            wire:click.prevent="to_accompany({{ $row['id'] }})"
+                                            title="Enviar esta Nota/OV para o seu acompanhamento">
+                                            <i class="ri-hand-coin-line" aria-hidden="true"></i> Assumir
+                                        </button>
                                     @else
-                                        table-success @endif
-                                "
-                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                        data-bs-placement="top" data-bs-title="Prazo Real"
-                                        data-bs-content="
-                            <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                            <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                            <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                            <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                            ">
-                                        {{ 30 - $list->days_left }}
-                                    </td>
-                                    <td class="fw-light">
-                                        @if ($list->pze_parecer === 'Vencido')
-                                            <span class="badge text-bg-danger">VENCIDO</span>
-                                        @elseif ($list->pze_parecer === 'Não vencido')
-                                            <span class="badge text-bg-success">EM PRAZO</span>
-                                        @else
-                                            <span class="badge text-bg-secondary">DESCONHECIDO</span>
-                                        @endif
-                                    </td>
-
-                                    <td class="fw-bold text-center">
-                                        @if (!$block)
-                                            <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
-                                                style="cursor: pointer;"
-                                                wire:click.prevent="to_accompany({{ $list->id }})"
-                                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                                data-bs-custom-class="custom-tooltip"
-                                                data-bs-title="Enviar para Acompanhamento"></i>
-                                        @else
-                                            {{-- @php
-                                            if (isset($block->User->name)) {
-                                                $name = explode(' ', $block->User->name);
-                                                $name = $name[0] . ' ' . substr(end($name), 0, 1);
-                                            } else {
-                                                $name = 'DESCONHECIDO';
-                                            }
-                                        @endphp --}}
-                                            <span style="font-size: 11px">{{ $lastUser }}</span>
-                                        @endif
-
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                                        <x-ops.badge :tone="\App\Support\Ops\RowState::tone($row['state'])" :label="$row['assignee']" :hint="\App\Support\Ops\RowState::all()[$row['state']]['hint']" icon="ri-user-line" />
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
-    </div>
-        <div class="row user-activity-summary my-3 align-items-center">
-        <div class="col-6">
-            {{ $lists->links() }}
-        </div>
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.</span>
-        </div>
-    </div>
+
+        <x-ops.pager :paginator="$lists" :per-page="$perPage" />
+    </section>
 </div>
-
-@push('script')
-    <script>
-        const copyTextCells = document.querySelectorAll('.copy-text');
-
-        copyTextCells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                const value = cell.getAttribute('data-value');
-                copyToClipboard(value);
-                livewire.emit('getCopy',
-                    `Valor "${value}" copiado para a área de transferência.`);
-                // alert(`Valor "${value}" copiado para a área de transferência.`);
-            });
-        });
-
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-    </script>
-@endpush

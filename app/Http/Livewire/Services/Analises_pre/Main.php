@@ -2,14 +2,21 @@
 
 namespace App\Http\Livewire\Services\Analises_pre;
 
-use App\Custom\Notestatus;
-use App\Custom\RuleBuilder;
+use App\Custom\{Notestatus, RuleBuilder};
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
+use App\Services\Dispatch\PreAnalysisListRowPresenter;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Livewire\{Component, WithPagination};
 
+/**
+ * Serviços -> Lista para Análises Pré (auto-atribuição), no padrão de listas operacionais
+ * (docs/PADRAO_LISTAS_OPERACIONAIS.md). A pessoa assume a Nota/OV para si; a regra de bloqueio não mudou.
+ */
 class Main extends Component
 {
+    use WithListFilters;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -19,10 +26,6 @@ class Main extends Component
     public $perPage = 100;
 
     public $search;
-
-    public $rubrica_s = [];
-
-    public $rubrica_l;
 
     public $note;
 
@@ -42,22 +45,82 @@ class Main extends Component
     public $assigned_mmgd = false;
 
     protected $listeners = [
-        'refresh_service'   => '$refresh',
-        'getCopy'           => 'copy',
-        'confirm_accompany' => 'add_to_accompany',
+        'refresh_service'        => '$refresh',
+        'getCopy'                => 'copy',
+        'confirm_accompany'      => 'add_to_accompany',
         'confirm_accompany_mass' => 'add_to_accompany_mass',
     ];
+
+    protected $queryString = [
+        'search'        => ['except' => '', 'as' => 'buscar'],
+        'page'          => ['except' => 1, 'as' => 'p'],
+        'perPage'       => ['as' => 'pp'],
+        'not_assigned'  => ['except' => false, 'as' => 'livres'],
+        'assigned_mmgd' => ['except' => false, 'as' => 'mmgd'],
+        'filters'       => ['except' => [], 'as' => 'f'],
+    ];
+
+    /** Ids de todas as notas do filtro, lidos uma vez por requisição (seleção "todas do filtro"). */
+    private ?array $filteredIdsMemo = null;
 
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->last_update = Cache::remember('pre-analysis-service:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
+    }
 
-        if (!session()->isStarted()) { session()->start(); }
+    // ---------- Filtros (WithListFilters): só Rubrica, como na tela anterior ----------
 
-        if (isset($_SESSION['filtro']['rubrica']) && $_SESSION['filtro']['rubrica']) {
-            $this->rubrica_s = $_SESSION['filtro']['rubrica'];
-        }
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'rubrica' => ['label' => 'Rubrica'],
+        ];
+    }
+
+    protected function listFilterCacheScope(): string
+    {
+        return static::class . $this->service->uuid;
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return [
+            'rubrica' => $this->rememberFilterOptions('rubrica', fn () => Note::query()
+                ->where('nstats', $this->service->status)
+                ->whereNotNull('rubrica')->where('rubrica', '!=', '')
+                ->distinct()->orderBy('rubrica')->pluck('rubrica')
+                ->map(fn ($r) => ['v' => (string) $r, 'l' => (string) $r])->all()),
+        ];
+    }
+
+    /** "Limpar tudo": filtros, busca (simples e em massa) e atalhos. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters       = [];
+        $this->search        = '';
+        $this->multiSearch   = [];
+        $this->advanceSearch = '';
+        $this->not_assigned  = false;
+        $this->assigned_mmgd = false;
+        $this->afterListFiltersChanged();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected  = [];
+        $this->selectAll = false;
+    }
+
+    public function updatedSearch()
+    {
+        $this->multiSearch = [];
+        $this->resetPage();
+    }
+
+    public function updatedPerPage()
+    {
+        $this->resetPage();
     }
 
     public function copy($msg)
@@ -70,12 +133,8 @@ class Main extends Component
 
     public function filterMMGD()
     {
-        if ($this->assigned_mmgd) {
-            $this->assigned_mmgd = false;
-        } else {
-            $this->assigned_mmgd = true;
-        }
-
+        $this->assigned_mmgd = !$this->assigned_mmgd;
+        $this->resetPage();
     }
 
     public function to_accompany(Note $note)
@@ -105,7 +164,7 @@ class Main extends Component
 
     public function add_to_accompany()
     {
-        $user = User::find(Auth()->User()->id);
+        $user   = User::find(Auth()->User()->id);
         $result = $this->assignNoteToCurrentUser($this->note, $user);
 
         if ($result['ok']) {
@@ -153,14 +212,15 @@ class Main extends Component
 
     public function add_to_accompany_mass()
     {
-        $user = User::find(Auth()->User()->id);
+        $user  = User::find(Auth()->User()->id);
         $notes = Note::whereIn('id', $this->selected)->get();
 
         $success = 0;
-        $errors = [];
+        $errors  = [];
 
         foreach ($notes as $note) {
             $result = $this->assignNoteToCurrentUser($note, $user);
+
             if ($result['ok']) {
                 $success++;
             } else {
@@ -168,12 +228,13 @@ class Main extends Component
             }
         }
 
-        $this->selected = [];
+        $this->selected  = [];
         $this->selectAll = false;
         $this->emit('refresh_service');
 
         if (count($errors)) {
             $msg = implode('<br>', array_slice($errors, 0, 10));
+
             if (count($errors) > 10) {
                 $msg .= '<br>...';
             }
@@ -200,7 +261,7 @@ class Main extends Component
     {
         if ($this->advanceSearch) {
             $this->gotoPage(1);
-            $this->search = '';
+            $this->search      = '';
             $this->multiSearch = preg_split('/[\s,;]+/', trim($this->advanceSearch), -1, PREG_SPLIT_NO_EMPTY);
             $this->multiSearch = array_map('trim', $this->multiSearch);
             $this->dispatchBrowserEvent('hideModal');
@@ -209,9 +270,17 @@ class Main extends Component
         }
     }
 
+    /** Limpa a busca em massa (e fecha o filtro por lista de notas). */
+    public function clean()
+    {
+        $this->advanceSearch = '';
+        $this->multiSearch   = [];
+        $this->resetPage();
+    }
+
     public function setSelectAllFiltered()
     {
-        $ids = $this->baseQuery()->pluck('id')->toArray();
+        $ids = $this->filteredIds();
 
         if ($this->selectAll) {
             foreach ($ids as $id) {
@@ -224,54 +293,30 @@ class Main extends Component
         }
     }
 
-    public function checkAllSelect()
+    /**
+     * "Selecionar todas" marca quando todas as notas do filtro (todas as páginas) estão selecionadas. A lista de ids só é lida
+     * quando há seleção suficiente para isso ser possível (antes eram duas leituras completas a cada resposta).
+     */
+    public function checkAllSelect($total = null)
     {
-        $ids = $this->baseQuery()->pluck('id')->toArray();
-        if (!count($ids)) {
-            $this->selectAll = false;
-
-            return false;
+        if (!$total || count($this->selected) < $total) {
+            return $this->selectAll = false;
         }
 
-        $this->selectAll = empty(array_diff($ids, $this->selected));
+        $ids = $this->filteredIds();
 
-        return $this->selectAll;
+        return $this->selectAll = $ids !== [] && empty(array_diff($ids, $this->selected));
     }
 
-    public function filter_save()
+    private function filteredIds(): array
     {
-
-        if (!session()->isStarted()) { session()->start(); }
-        $_SESSION['filtro']['rubrica'] = $this->rubrica_s;
-        $this->emit('refresh_service');
-
-    }
-
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-        $this->advanceSearch = null;
-        $this->multiSearch = [];
-        $this->selected = [];
-        $this->selectAll = false;
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filtro'])) {
-            unset($_SESSION['filtro']);
-        }
-        $this->emit('refresh_service');
+        return $this->filteredIdsMemo ??= $this->baseQuery()->reorder()->pluck('id')->all();
     }
 
     public function filterStatus()
     {
-        if ($this->not_assigned) {
-            $this->not_assigned = false;
-        } else {
-            $this->not_assigned = true;
-        }
-
+        $this->not_assigned = !$this->not_assigned;
+        $this->resetPage();
     }
 
     private function baseQuery()
@@ -305,16 +350,15 @@ class Main extends Component
             });
         }
 
-        $query->when($this->rubrica_s, function ($q) {
-            return $q->where(function ($query) {
-                $query->whereIn('rubrica', $this->rubrica_s)
+        $query->when($this->filterValues('rubrica'), function ($q, $rubricas) {
+            return $q->where(function ($query) use ($rubricas) {
+                $query->whereIn('rubrica', $rubricas)
                     ->orWhereNull('rubrica');
             });
         })
             ->when($this->assigned_mmgd, function ($q) {
                 return $q->whereIn('num_material', [21, 78, 79]);
             })
-            ->with('Productions.User')
             ->orderBy('pze_parecer', 'DESC')
             ->orderBy('dt_created');
 
@@ -323,16 +367,25 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        return $this->baseQuery()->paginate($this->perPage);
+        return $this->baseQuery()
+            ->with('Productions.User:id,name')
+            ->paginate($this->perPage);
     }
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $this->filteredIdsMemo = null;
+
+        $lists = $this->getListsProperty();
+        $this->checkAllSelect($lists->total());
+
+        $presenter = app(PreAnalysisListRowPresenter::class);
+        $rows      = $lists->getCollection()->map(fn (Note $note) => $presenter->service($note, $this->service->uuid));
 
         return view('livewire.services.analises_pre.main', [
-            'lists'  => $this->lists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'  => $lists,
+            'rows'   => $rows,
+            'update' => Cache::remember('pre-analysis-service:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
         ]);
     }
 
@@ -349,12 +402,12 @@ class Main extends Component
         if ($check) {
             $check->loadMissing(['User', 'Company', 'Service']);
 
-            $name = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
+            $name   = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
             $status = Notestatus::status($check->status)->status;
 
             return [
-                'ok' => false,
-                'plain' => "já está {$status} por {$name}",
+                'ok'      => false,
+                'plain'   => "já está {$status} por {$name}",
                 'message' => "<p><strong>{$note->note}</strong> está sinalizada como <strong>{$status}</strong> em <strong>{$check->Service->service}</strong> por <strong>{$name}</strong></p>
                     <p class='text-bg-info p-2 mt-2'>Verifique com um gestor para atribuir manualmente esta NOTA/OV caso considere um erro atribuição.</p>",
             ];
@@ -377,18 +430,18 @@ class Main extends Component
 
         if (!$production) {
             return [
-                'ok' => false,
-                'plain' => 'erro ao criar produção',
+                'ok'      => false,
+                'plain'   => 'erro ao criar produção',
                 'message' => "Erro ao tentar atribuir {$note->note}.",
             ];
         }
 
         Notetimeline::Create([
-            'note_id'      => $note->id,
-            'service_id'   => $production->service_id,
-            'user_id'      => Auth()->User()->id,
-            'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
-            'status'       => 2,
+            'note_id'       => $note->id,
+            'service_id'    => $production->service_id,
+            'user_id'       => Auth()->User()->id,
+            'info'          => "Usuário {$user->name} atribuiu a Nota/OV.",
+            'status'        => 2,
             'production_id' => $production->id,
         ]);
 

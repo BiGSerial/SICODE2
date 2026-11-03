@@ -18,7 +18,7 @@ class TabCountBadge extends Component
     {
         return match ($this->tab) {
             'triage' => LegalDemand::externallyActive()
-                
+
                 ->whereIn('internal_status', ['new_imported', 'triage', 'waiting_controller_action'])
                 ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
                 ->whereNull('current_assigned_user_id')
@@ -28,7 +28,7 @@ class TabCountBadge extends Component
                 })
                 ->count(),
             'in_progress' => LegalDemand::externallyActive()
-                
+
                 ->whereIn('internal_status', [
                     'sent_to_field',
                     'field_received',
@@ -40,7 +40,7 @@ class TabCountBadge extends Component
                 ])
                 ->count(),
             'overdue' => LegalDemand::externallyActive()
-                
+
                 ->overdue()
                 ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
                 ->count(),

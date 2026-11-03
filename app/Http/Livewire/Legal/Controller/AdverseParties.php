@@ -2,8 +2,7 @@
 
 namespace App\Http\Livewire\Legal\Controller;
 
-use App\Models\Legal\LegalCase;
-use App\Models\Legal\LegalCaseAdverseParty;
+use App\Models\Legal\{LegalCase, LegalCaseAdverseParty};
 use App\Support\Legal\LegalPartyDocument;
 use Livewire\Component;
 
@@ -12,9 +11,13 @@ class AdverseParties extends Component
     public int $legalCaseId;
 
     public string $adversePartyDocument = '';
+
     public string $adversePartyName = '';
+
     public ?int $adversePartyEditingId = null;
+
     public ?string $adversePartyLookupMessage = null;
+
     public bool $showAdversePartyForm = false;
 
     public function mount(int $legalCaseId): void
@@ -27,6 +30,7 @@ class AdverseParties extends Component
         $this->adversePartyLookupMessage = null;
 
         $digits = LegalPartyDocument::digits($this->adversePartyDocument);
+
         if (!in_array(strlen($digits), [11, 14], true)) {
             return;
         }
@@ -35,6 +39,7 @@ class AdverseParties extends Component
             $this->adversePartyLookupMessage = strlen($digits) === 11
                 ? 'CPF inválido. Confira os dígitos informados.'
                 : 'CNPJ inválido. Confira os dígitos informados.';
+
             return;
         }
 
@@ -45,7 +50,7 @@ class AdverseParties extends Component
             ->first();
 
         if ($existing) {
-            $this->adversePartyName = $existing->name;
+            $this->adversePartyName          = $existing->name;
             $this->adversePartyLookupMessage = 'Documento já conhecido. Nome preenchido automaticamente.';
         }
     }
@@ -56,18 +61,19 @@ class AdverseParties extends Component
 
         $this->validate([
             'adversePartyDocument' => 'required|string|min:11|max:25',
-            'adversePartyName' => 'nullable|string|max:255',
+            'adversePartyName'     => 'nullable|string|max:255',
         ]);
 
         $digits = LegalPartyDocument::digits($this->adversePartyDocument);
-        $type = LegalPartyDocument::type($digits);
+        $type   = LegalPartyDocument::type($digits);
 
         if ($type === null || !LegalPartyDocument::validate($digits)) {
             $this->addError('adversePartyDocument', 'Informe um CPF ou CNPJ válido.');
+
             return;
         }
 
-        $hash = LegalPartyDocument::hash($digits);
+        $hash                = LegalPartyDocument::hash($digits);
         $existingForDocument = LegalCaseAdverseParty::query()
             ->where('document_hash', $hash)
             ->when($this->adversePartyEditingId, fn ($query) => $query->where('id', '!=', $this->adversePartyEditingId))
@@ -80,6 +86,7 @@ class AdverseParties extends Component
 
         if (!$name) {
             $this->addError('adversePartyName', 'Informe o nome da parte adversa.');
+
             return;
         }
 
@@ -91,16 +98,17 @@ class AdverseParties extends Component
 
         if ($duplicateInCase) {
             $this->dispatchBrowserEvent('swal', ['icon' => 'warning', 'title' => 'Esta parte adversa já está vinculada ao processo.']);
+
             return;
         }
 
         $payload = [
-            'name' => $name,
-            'document_type' => $type,
+            'name'               => $name,
+            'document_type'      => $type,
             'document_encrypted' => $digits,
-            'document_hash' => $hash,
-            'document_last4' => LegalPartyDocument::last4($digits),
-            'updated_by' => auth()->id(),
+            'document_hash'      => $hash,
+            'document_last4'     => LegalPartyDocument::last4($digits),
+            'updated_by'         => auth()->id(),
         ];
 
         if ($this->adversePartyEditingId) {
@@ -134,11 +142,11 @@ class AdverseParties extends Component
             ->where('legal_case_id', $this->legalCaseId)
             ->findOrFail($partyId);
 
-        $this->adversePartyEditingId = $party->id;
-        $this->adversePartyName = $party->name;
-        $this->adversePartyDocument = $party->document_formatted;
+        $this->adversePartyEditingId     = $party->id;
+        $this->adversePartyName          = $party->name;
+        $this->adversePartyDocument      = $party->document_formatted;
         $this->adversePartyLookupMessage = null;
-        $this->showAdversePartyForm = true;
+        $this->showAdversePartyForm      = true;
     }
 
     public function removeAdverseParty(int $partyId): void
@@ -159,11 +167,11 @@ class AdverseParties extends Component
 
     public function resetAdversePartyForm(): void
     {
-        $this->adversePartyDocument = '';
-        $this->adversePartyName = '';
-        $this->adversePartyEditingId = null;
+        $this->adversePartyDocument      = '';
+        $this->adversePartyName          = '';
+        $this->adversePartyEditingId     = null;
         $this->adversePartyLookupMessage = null;
-        $this->showAdversePartyForm = false;
+        $this->showAdversePartyForm      = false;
         $this->resetErrorBag(['adversePartyDocument', 'adversePartyName']);
     }
 
@@ -174,8 +182,8 @@ class AdverseParties extends Component
             ->findOrFail($this->legalCaseId);
 
         return view('livewire.legal.controller.adverse-parties', [
-            'legalCase' => $legalCase,
-            'canManageAdverseParties' => auth()->user()->can('legal.adverse_parties.manage'),
+            'legalCase'                      => $legalCase,
+            'canManageAdverseParties'        => auth()->user()->can('legal.adverse_parties.manage'),
             'canViewSensitiveAdverseParties' => auth()->user()->can('legal.adverse_parties.view_sensitive'),
         ]);
     }

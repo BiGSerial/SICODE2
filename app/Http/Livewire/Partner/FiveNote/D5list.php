@@ -2,182 +2,99 @@
 
 namespace App\Http\Livewire\Partner\FiveNote;
 
-use App\Helpers\TextFormatter;
-use App\Jobs\ExportFiveNotesJob;
+use App\Http\Livewire\Partner\FiveNote\Concerns\ListsFiveNotes;
 use App\Models\FiveNote;
-use App\Traits\WildcardFormmater;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Component;
-use Livewire\WithPagination;
 
+/**
+ * D5 em espera de execução da parceira (e, na subclasse, as rejeitadas): lista de controle, docs/PADRAO_LISTAS_OPERACIONAIS.md §10.
+ */
 class D5list extends Component
 {
-    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-    use TextFormatter;
-    use WildcardFormmater;
-    use WithPagination;
-    protected $paginationTheme = 'bootstrap';
+    use ListsFiveNotes;
 
-
-    public $perPage = 25;
-    public $multiSearch = '';
-    public $multipleSearch = [];
-    public $search = '';
-    public $month;
-    public $startDate;
-    public $endDate;
     public $passiveFilter = 'all';
 
     protected bool $onlyReturned = false;
 
-    protected $updatesQueryString = [
-        'search' => ['except' => ''],
-        'month' => ['except' => ''],
-        'startDate' => ['except' => ''],
-        'endDate' => ['except' => ''],
-    ];
-
     protected $queryString = [
-
-        'multipleSearch' => ['except' => ''],
+        'search'         => ['except' => ''],
+        'passiveFilter'  => ['except' => 'all', 'as' => 'mostrar'],
+        'month'          => ['except' => ''],
+        'startDate'      => ['except' => ''],
+        'endDate'        => ['except' => ''],
+        'multipleSearch' => ['except' => []],
+        'filters'        => ['except' => [], 'as' => 'f'],
     ];
 
-    protected $listeners = [
-        'refresh_component' => '$refresh',
-    ];
-
-    public function getFivesProperty()
+    protected function baseQuery(): Builder
     {
         $query = FiveNote::query();
-        $query->with([
-            "WorkReport:id,selected_final_scopes",
-            "productions:id,service_id,note_id",
-            "productions.WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current",
-        ]);
 
         $this->applyPartnerCompanyScope($query);
 
-        $query->where('visible_partner', true)
+        return $query->where('visible_partner', true)
             ->where('is_completed', false)
-            ->where('returned', $this->onlyReturned)
-            ->when($this->passiveFilter === 'current', fn ($q) => $q->where('isPassive', false))
-            ->when($this->passiveFilter === 'passive', fn ($q) => $q->where('isPassive', true))
-            ->when($this->search, function ($query) {
-                $query->where(function ($q) {
-
-                    $search = $this->formatWithWildcard($this->search);
-
-                    $q->where('note_d5', $search->type, $search->search)
-                        ->orWhere('pep', $search->type, $search->search)
-                        ->orWhere('loc_install', $search->type, $search->search)
-                        ->orWhereRelation('Note', function ($q) use ($search) {
-                            $q->where('note', $search->type, $search->search);
-                        })
-                        ->orWhereRelation('Note.Orders', function ($q) use ($search) {
-                            $q->where('ordem', $search->type, $search->search);
-                        });
-                });
-            })
-            ->when($this->multipleSearch, function ($query) {
-                $query->where(function ($q) {
-                    foreach ($this->multipleSearch as $item) {
-                        $search = $this->formatWithWildcard($item);
-                        $q->orWhere('note_d5', $search->type, $search->search)
-                        ->orWhere('pep', $search->type, $search->search)
-                        ->orWhere('loc_install', $search->type, $search->search)
-                        ->orWhereRelation('Note', function ($q) use ($search) {
-                            $q->where('note', $search->type, $search->search);
-                        })
-                        ->orWhereRelation('Note.Orders', function ($q) use ($search) {
-                            $q->where('ordem', $search->type, $search->search);
-                        });
-                    }
-                });
-            })
-            ->when($this->startDate, function ($query) {
-                $query->whereDate('dispatch_at', '>=', $this->startDate);
-            })
-            ->when($this->endDate, function ($query) {
-                $query->whereDate('dispatch_at', '<=', $this->endDate);
-            })
-            ->when($this->month, function ($query) {
-                $query->whereMonth('dispatch_at', $this->month);
-            })
-            ->orderBy('dispatch_at')
-            ->orderBy('id');
-
-        return $query;
+            ->where('returned', $this->onlyReturned);
     }
 
-    public function toSearch()
+    protected function exportKind(): string
     {
-        $this->resetPage();
-        $this->multipleSearch = [];
-        $this->multiSearch = '';
-    }
-
-
-    public function toClean()
-    {
-        $this->resetPage();
-        $this->multipleSearch = [];
-        $this->multiSearch = '';
-        $this->month = '';
-        $this->startDate = '';
-        $this->endDate = '';
-        $this->search = '';
-    }
-
-    public function updatedPassiveFilter()
-    {
-        $this->resetPage();
-    }
-
-    public function multiSearch()
-    {
-        $this->resetPage();
-        $this->search = '';
-        $this->multipleSearch = $this->formatTextToArray($this->multiSearch);
-        $this->dispatchBrowserEvent('hideModal');
-    }
-
-    public function exportExcel(): void
-    {
-        $this->authorizePartnerAccess('d5_notes.export');
-
-        $userId = auth()->id();
-
-        if (!$userId) {
-            return;
-        }
-
-        ExportFiveNotesJob::dispatch($this->exportPayload(), $userId, 'waiting');
-
-        $this->dispatchBrowserEvent('swal', [
-            'position' => 'center',
-            'icon'     => 'success',
-            'title'    => 'EXPORTAÇÃO INICIADA',
-            'text'     => 'Você receberá uma notificação com o link para download.',
-            'timer'    => 5000,
-        ]);
-    }
-
-    protected function exportPayload(): array
-    {
-        return [
-            'search'         => $this->search,
-            'multipleSearch' => $this->multipleSearch,
-            'month'          => $this->month,
-            'startDate'      => $this->startDate,
-            'endDate'        => $this->endDate,
-            'passiveFilter'  => $this->passiveFilter,
-            'partnerCompanyFilter' => $this->partnerCompanyFilter,
-        ];
+        return 'waiting';
     }
 
     public function render()
     {
+        $fives = $this->fives
+            ->with([
+                'note:id,note',
+                'note.WorkForm:id,note_id',
+                'note.WorkForm.Orders',
+                'company:id,name',
+                'WorkReport:id,selected_final_scopes',
+                'productions:id,service_id,note_id',
+                'productions.WorkReportFlowProductions:id,work_report_id,production_id,stage,final_scope,is_current',
+            ])
+            ->orderBy('dispatch_at')
+            ->orderBy('id')
+            ->paginate($this->perPage);
+
+        $fives->getCollection()->each(function (FiveNote $five) {
+            $five->setAttribute('list_days', $this->dispatchDays($five));
+            $five->setAttribute('list_order', $five->note?->WorkForm?->Orders?->sortBy('ordem')->first()?->ordem);
+            $five->setAttribute('list_reports', $this->reportAssociations($five));
+        });
+
         return view('livewire.partner.five-note.d5list', [
-            'fives' => $this->fives->paginate($this->perPage),
+            'fives'       => $fives,
+            'counts'      => $this->passiveCounts(),
+            'hasCriteria' => $this->hasCriteria(),
+            'returned'    => $this->onlyReturned,
         ]);
+    }
+
+    /**
+     * Informes e escopos (Geral, Rede, Ligação) ligados à D5: os do informe da própria D5 e os dos fluxos atuais das produções, sem repetir.
+     *
+     * @return array<int, array{report: int|string, scope: string}>
+     */
+    private function reportAssociations(FiveNote $five): array
+    {
+        $associations = collect();
+
+        if ($five->work_report_id) {
+            foreach (collect($five->WorkReport?->selected_final_scopes ?? ['general'])->filter() as $scope) {
+                $associations->push(['report' => $five->work_report_id, 'scope' => $scope]);
+            }
+        }
+
+        foreach ($five->productions ?? [] as $production) {
+            foreach ($production->WorkReportFlowProductions->where('is_current', true)->whereNotNull('work_report_id') as $flow) {
+                $associations->push(['report' => $flow->work_report_id, 'scope' => $flow->final_scope ?: 'general']);
+            }
+        }
+
+        return $associations->unique(fn ($item) => $item['report'] . '|' . $item['scope'])->values()->all();
     }
 }

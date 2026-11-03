@@ -2,14 +2,23 @@
 
 namespace App\Http\Livewire\Services\Publication;
 
-use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User, WorkReportFlowProduction};
-use App\Services\Publication\NoteFilter;
-use Illuminate\Support\Facades\DB;
+use App\Http\Livewire\Concerns\WithNoteListFilters;
+use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User, WorkReportFlowProduction};
+use App\Services\Publication\{NoteFilter, PublicationListRowPresenter};
+use Illuminate\Support\Facades\{Cache, DB};
 use Livewire\{Component, WithPagination};
 
+/**
+ * Serviços → Lista de Publicação (auto-atribuição: o usuário assume a Nota/OV para si).
+ * Lista operacional no padrão docs/PADRAO_LISTAS_OPERACIONAIS.md.
+ */
 class Main extends Component
 {
     use WithPagination;
+    use WithNoteListFilters {
+        listFilterDefinitions as protected noteListFilterDefinitions;
+        listFilterOptions as protected noteListFilterOptions;
+    }
     use \App\Http\Livewire\Services\Concerns\BuildsCanceledWorkReportTags;
 
     protected $paginationTheme = 'bootstrap';
@@ -20,10 +29,6 @@ class Main extends Component
 
     public $search;
 
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
     public $note;
 
     public $last_update;
@@ -32,18 +37,10 @@ class Main extends Component
 
     public $notes_limits_max = 21;
 
-    //Botão de  nao atribuído.
+    // Atalho "Só livres".
     public $not_assigned = false;
 
-    public $assigned_mmgd = false;
-
-    public $btzeroform = true;
-
-    protected $queryString = [
-        'search' => ['except' => '', 'as' => 'buscar'],
-    ];
-
-    // Filters
+    // Filtros
     private $filter_group = 'publication';
 
     protected $listeners = [
@@ -53,7 +50,18 @@ class Main extends Component
         'confirm_accompany' => 'add_to_accompany',
     ];
 
+    protected $queryString = [
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['as' => 'pp'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'filters'      => ['except' => [], 'as' => 'f'],
+    ];
+
     protected $noteFilter;
+
+    /** @var array<int, int> production_id => work_report_id (vínculo de Publicação em vigor), lido uma vez por requisição. */
+    private ?array $publicationLinks = null;
 
     public function boot(NoteFilter $noteFilter)
     {
@@ -63,7 +71,56 @@ class Main extends Component
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->last_update = Cache::remember('publication-dispatch:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
+    }
+
+    // ---------- Filtros ----------
+
+    /** Empreiteira, Região, Regional e Município (esta lista nunca teve filtro de Rubrica). */
+    protected function listFilterDefinitions(): array
+    {
+        return collect($this->noteListFilterDefinitions())->except('rubrica')->all();
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return [
+            // Só empreiteiras que têm informe.
+            'company' => $this->rememberFilterOptions('company-with-reports', fn () => Company::query()
+                ->whereExists(fn ($q) => $q->selectRaw('1')->from('work_reports')->whereColumn('work_reports.company_id', 'companies.id'))
+                ->orderBy('name')->get(['id', 'name'])
+                ->map(fn ($c) => ['v' => (string) $c->id, 'l' => (string) $c->name])->all()),
+        ] + $this->locationFilterOptions();
+    }
+
+    protected function listFilterCacheScope(): string
+    {
+        return static::class . $this->service->uuid;
+    }
+
+    public function updatedSearch()
+    {
+        $this->gotoPage(1);
+    }
+
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
+    }
+
+    public function filterStatus()
+    {
+        $this->not_assigned = !$this->not_assigned;
+        $this->gotoPage(1);
+    }
+
+    /** "Limpar tudo": filtros, busca e atalho. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters      = [];
+        $this->search       = '';
+        $this->not_assigned = false;
+        $this->afterListFiltersChanged();
     }
 
     public function copy($msg)
@@ -72,20 +129,6 @@ class Main extends Component
             'status'   => 'success',
             'menssage' => $msg,
         ]);
-    }
-
-    public function filterMMGD()
-    {
-        if ($this->assigned_mmgd) {
-            $this->assigned_mmgd = false;
-        } else {
-            $this->assigned_mmgd = true;
-        }
-    }
-
-    public function btzeroform()
-    {
-        $this->btzeroform = !$this->btzeroform;
     }
 
     public function to_accompany(Note $note)
@@ -251,112 +294,125 @@ class Main extends Component
         }
     }
 
+    /**
+     * Production de Publicação em vigor da Nota nesta atividade. A produção pertence ao informe a que está ligada; uma
+     * ligada a outro informe da nota não é exibida aqui. Sem nenhum vínculo (legado/Ramal) vale a última da atividade.
+     */
     public function hasPublication(Note $note)
     {
-        $productions = $note->Productions->where('service_id', $this->service->uuid);
+        $productions  = $note->relationLoaded('Productions') ? $note->Productions->where('service_id', $this->service->uuid) : $note->Productions()->where('service_id', $this->service->uuid)->get();
         $workReportId = $note->WorkForm?->id;
 
         if ($workReportId && $productions->isNotEmpty()) {
-            // A produção pertence ao informe a que está ligada. Produção ligada a outro informe
-            // da nota não é exibida aqui; sem nenhum vínculo (legado/Ramal) mantém o comportamento antigo.
-            $links = WorkReportFlowProduction::query()
-                ->whereIn('production_id', $productions->pluck('id'))
-                ->where('stage', WorkReportFlowProduction::STAGE_PUBLICATION)
-                ->where('is_current', true)
-                ->pluck('work_report_id', 'production_id');
+            $links = $this->publicationLinks;
 
-            $productions = $productions->filter(fn ($production) => !$links->has($production->id)
+            $productions = $productions->filter(fn ($production) => !isset($links[$production->id])
                 || (int) $links[$production->id] === (int) $workReportId);
         }
 
         return $productions->last() ?: false;
     }
 
-    public function filterStatus()
+    /** Consulta da lista: Notas elegíveis para Publicação (mesma do Wall) mais busca, "só livres" e ordenação por prazo. */
+    public function listQuery()
     {
-        if ($this->not_assigned) {
-            $this->not_assigned = false;
-        } else {
-            $this->not_assigned = true;
-        }
+        $uuid   = $this->service->uuid;
+        $term   = $this->search;
+        $filter = $this->noteFilter->filter($this->filter_group, true, $this->explicitFilters());
+
+        return $filter
+            ->when($term, fn ($q) => $q->where(function ($w) use ($term) {
+                $like = '%' . $term . '%';
+                $w->where('note', 'like', $like)
+                    ->orWhere('material', 'like', $like)
+                    ->orWhere('numPedido', 'like', $like)
+                    ->orWhere('group2', 'like', $like);
+            }))
+            ->when($this->not_assigned, function ($q) use ($uuid) {
+                $q->where(function ($w) use ($uuid) {
+                    $w->whereDoesntHave('Productions', fn ($p) => $p->where('service_id', $uuid)->whereNotNull('user_id'))
+                        ->orWhereHas('Productions', fn ($p) => $p->where('service_id', $uuid)
+                            ->where(fn ($u) => $u->whereNull('user_id')->orWhere('user_id', '')));
+                });
+            })
+            ->with([
+                'Productions' => fn ($q) => $q->where('service_id', $uuid)->with('User:id,name'),
+                'WorkForm.Company:id,name,deleted_at',
+                'WorkForm.Note:id,type_note',
+                'WorkForm.Orders',
+                'RamalForm.Company:id,name,deleted_at',
+            ])
+            ->select(
+                'notes.*',
+                DB::raw("
+                    CASE
+                        WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
+                        WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
+                        ELSE NULL
+                    END as prazo_final
+                ")
+            )
+            ->orderByRaw('
+                exists (
+                    select 1
+                    from ramal_reports
+                    where ramal_reports.note_id = notes.id
+                )
+                and not exists (
+                    select 1
+                    from work_reports
+                    where work_reports.note_id = notes.id
+                ) desc
+            ')
+            ->orderBy('prazo_final', 'ASC');
+    }
+
+    /** Filtros no formato do `NoteFilter` (company/rubrica/region/regional/city). */
+    private function explicitFilters(): array
+    {
+        return $this->filters;
     }
 
     public function getListsProperty()
     {
-        // return $this->noteFilter->filter($this->search, $this->filter_group)
-        //     ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
-        //     ->select('notes.*', 'work_reports.created_at as wCreated_at')
-        //     ->when($this->not_assigned, function ($q) {
-        //         $q->whereDoesntHave('Productions', function ($q) {
-        //             $q->where('service_id', $this->service->uuid)
-        //                 ->whereNotNull('user_id');
-        //         })->orWhereHas('Productions', function ($q) {
-        //             $q->where('service_id', $this->service->uuid)
-        //                 ->where(function ($q) {
-        //                     $q->whereNull('user_id')
-        //                         ->orWhere('user_id', '');
-        //                 });
-        //         });
-        //     })
-        //     ->orderBy('wCreated_at', 'ASC')
-        //     ->paginate($this->perPage);
-
-        return $this->noteFilter->filter($this->search, $this->filter_group, $this->btzeroform)
-        // ->join('work_reports', 'notes.id', '=', 'work_reports.note_id')
-
-        ->select(
-            'notes.*',
-            // 'work_reports.created_at as wCreated_at',
-            // Adicionar a coluna 'prazo_final' com base no type_note e mesalization
-            DB::raw("
-                CASE
-                    WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
-                    WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
-                    ELSE NULL
-                END as prazo_final
-            ")
-        )
-        ->when($this->not_assigned, function ($q) {
-            $q->whereDoesntHave('Productions', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->whereNotNull('user_id');
-            })->orWhereHas('Productions', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->where(function ($q) {
-                        $q->whereNull('user_id')
-                            ->orWhere('user_id', '');
-                    });
-            });
-        })
-        // Ordenar pela coluna 'prazo_final'
-        ->orderByRaw('
-            exists (
-                select 1
-                from ramal_reports
-                where ramal_reports.note_id = notes.id
-            )
-            and not exists (
-                select 1
-                from work_reports
-                where work_reports.note_id = notes.id
-            ) desc
-        ')
-        ->orderBy('prazo_final', 'ASC')
-        ->paginate($this->perPage);
+        return $this->listQuery()->paginate($this->perPage);
     }
 
     public function render()
     {
-        // $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $lists = $this->lists;
 
-        // dd(
-        //     $this->lists
-        // );
+        // Vínculo Production -> informe numa consulta só (antes era uma por linha).
+        $productionIds = $this->serviceProductionIds($lists->items(), $this->service->uuid);
+
+        $this->publicationLinks = $productionIds
+            ? WorkReportFlowProduction::query()
+                ->whereIn('production_id', $productionIds)
+                ->where('stage', WorkReportFlowProduction::STAGE_PUBLICATION)
+                ->where('is_current', true)
+                ->pluck('work_report_id', 'production_id')
+                ->all()
+            : [];
+
+        $presenter = app(PublicationListRowPresenter::class);
+        $user      = Auth()->User();
+        $canSeeAll = $user->management || $user->superadm;
+
+        $rows = collect($lists->items())->map(function (Note $list) use ($presenter, $user, $canSeeAll) {
+            $production = $this->hasPublication($list) ?: null;
+            $row        = $presenter->presentWith($list, $production, true);
+
+            // Só gestão, superadm ou o próprio responsável enxergam o número da nota.
+            $row['noteVisible'] = $canSeeAll || ($row['block'] && $production && $production->user_id === $user->id);
+
+            return $row;
+        })->values();
 
         return view('livewire.services.publication.main', [
-            'lists'                => $this->lists,
-            'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds($this->serviceProductionIds($this->lists instanceof \Illuminate\Contracts\Pagination\Paginator ? $this->lists->items() : $this->lists, $this->service->uuid)),
-            'update'               => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'                => $lists,
+            'rows'                 => $rows,
+            'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds($productionIds),
+            'update'               => Cache::remember('publication-dispatch:has-bancoupdate', 60, fn () => Bancoupdate::query()->exists()),
         ]);
     }
 }

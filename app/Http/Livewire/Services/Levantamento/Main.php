@@ -6,8 +6,9 @@ use App\Jobs\Services\ExportLevantamentoProductionListJob;
 use App\Models\{File, Production, QualityProcess, Service};
 use App\Services\Files\FileStorageService;
 use App\Services\Quality\{QualityBulkSearch, QualityDesignerResolver, QualityWorkflowException, QualityWorkflowService};
+use App\Services\Survey\SurveyListRowPresenter;
 use App\Support\SicodeRules;
-use Illuminate\Support\Facades\{Auth, DB, Log};
+use Illuminate\Support\Facades\{Auth, Log};
 use Livewire\{Component, WithPagination};
 use Throwable;
 
@@ -39,10 +40,6 @@ class Main extends Component
 
     protected $limit_pause = 50;
 
-    private string $filter_group = 'survey';
-
-    private array $filter = [];
-
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
         'getCopy'            => 'copy',
@@ -50,29 +47,31 @@ class Main extends Component
     ];
 
     protected $queryString = [
-        'search' => ['except' => ''],
-        'page'   => ['except' => 1],
+        'search'  => ['except' => '', 'as' => 'buscar'],
+        'page'    => ['except' => 1, 'as' => 'p'],
+        'perPage' => ['as' => 'pp'],
     ];
 
     public function mount($service)
     {
-        $this->service = Service::where('uuid', $service)->firstOrFail();
-        $this->loadFilters();
+        $this->service = Service::where('uuid', $service)->with('Status')->firstOrFail();
     }
 
-    private function loadFilters(): void
+    public function updatedSearch(): void
     {
-        if (!session()->isStarted()) {
-            session()->start();
-        }
+        $this->resetPage();
+    }
 
-        $filters = session("filter.{$this->filter_group}", []);
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
 
-        if ((!is_array($filters) || $filters === []) && isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
-            $filters = $_SESSION['filter'][$this->filter_group];
-        }
-
-        $this->filter = is_array($filters) ? $filters : [];
+    /** "Limpar busca" do estado vazio. */
+    public function clearAllCriteria(): void
+    {
+        $this->search = '';
+        $this->resetPage();
     }
 
     /** =====================
@@ -356,36 +355,6 @@ class Main extends Component
      * ===================== */
     public function getListsProperty()
     {
-        $this->loadFilters();
-        $cityFilter = collect((array) ($this->filter['city'] ?? []))
-            ->filter(fn ($city) => filled($city))
-            ->values()
-            ->all();
-
-        $pzoExpr = "
-        CASE
-            WHEN n.type_note = 1
-            AND n.mesalization REGEXP '^M[0-9]{1,2}/[0-9]{4}$' THEN
-                CASE
-                    WHEN CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) BETWEEN 1 AND 12 THEN
-                        DATE_ADD(
-                            DATE_ADD(
-                                MAKEDATE(
-                                    CAST(SUBSTRING_INDEX(n.mesalization, '/', -1) AS UNSIGNED),
-                                    1
-                                ),
-                                INTERVAL (CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) - 1) MONTH
-                            ),
-                            INTERVAL 27 DAY
-                        )
-                    ELSE NULL
-                END
-            WHEN n.type_note = 2 THEN
-                DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
-            ELSE NULL
-        END
-    ";
-
         return Production::query()
             ->select([
                 'productions.id',
@@ -406,7 +375,6 @@ class Main extends Component
                 'n.days_left',
                 'n.mmgd',
                 'n.dt_created',
-                DB::raw("$pzoExpr AS pzo"),
             ])
             ->join('notes as n', 'n.id', '=', 'productions.note_id')
             ->where('productions.service_id', $this->service->uuid)
@@ -429,15 +397,13 @@ class Main extends Component
                         ->orWhere('n.material', 'like', "%{$s}%");
                 });
             })
-            ->when(!empty($cityFilter), fn ($q) => $q->whereIn('n.nexp', $cityFilter))
             ->addSelect('n.dt_created as dt_created')
             ->orderByDesc('productions.priority')
             ->orderBy('n.dt_created')
             ->orderBy('productions.id', 'DESC')
             ->with([
-                'Wpas:id,production_id,dd,execstats,ststusexec,completed_at',
-                'Service:id,uuid,service',
-                'User:id,name',
+                'Wpas:id,production_id,dd,execstats,ststusexec,completed_at,created_at',
+                'activeQualityProcess',
                 'Note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,dt_created,material,group2',
             ])
             ->paginate($this->perPage);
@@ -448,8 +414,12 @@ class Main extends Component
      * ===================== */
     public function render()
     {
+        $lists     = $this->lists;
+        $presenter = app(SurveyListRowPresenter::class);
+
         return view('livewire.services.levantamento.main', [
-            'lists' => $this->lists,
+            'lists' => $lists,
+            'rows'  => $lists->getCollection()->map(fn (Production $item) => $presenter->presentOwn($item)),
         ]);
     }
 }

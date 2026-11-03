@@ -2,16 +2,24 @@
 
 namespace App\Http\Livewire\Dispatchs;
 
-use App\Exports\Reports\ReturnInternExport;
-use App\Models\City;
-use App\Models\{Company, File, Reclaim, Service, User};
+use App\Http\Livewire\Concerns\WithListFilters;
+use App\Jobs\Dispatchs\ExportReturnD5Job;
+use App\Models\{City, File, Note, Service, User};
 use App\Services\Files\FileStorageService;
-use App\Services\Reclaims\ReclaimRowPresenter;
+use App\Services\Reclaims\{ReclaimRowPresenter, ReturnD5Query};
 use Livewire\{Component, WithPagination};
 
+/**
+ * Lista de Retorno Interno (RI) do Despacho. Lista operacional: padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md.
+ * O componente guarda o estado da tela (busca, origem, atalho, filtros, seleção) e as ações; a consulta é do ReturnD5Query (a mesma do Excel)
+ * e a linha pronta é do ReclaimRowPresenter.
+ */
 class ReturnD5 extends Component
 {
+    use WithListFilters;
     use WithPagination;
+
+    public const PAGE_SIZES = [25, 50, 100, 250, 500];
 
     protected $paginationTheme = 'bootstrap';
 
@@ -19,47 +27,20 @@ class ReturnD5 extends Component
 
     public $service;
 
-    public $advanceSearch;
+    public $search = '';
 
-    public $search;
+    /** Origem do retorno (`ReturnD5Query::ORIGINS`); vazio = todas. */
+    public $origin = '';
 
-    public $selectAll;
-
-    public $selected = [];
-
-    public $typeNote = '';
-
-    public $multiSearch = [];
-
-    public $page = 1;
-
+    /** Atalho "Sem atribuição": só retornos que ainda não têm atividade. */
     public $notAtt = false;
 
-    //Selects
-    public $companies = null;
+    /** Usuário escolhido na Ocupação (menu lateral). */
+    public $filterUser = '';
 
-    public $company_s;
+    /** @var array<int, string> ids marcados (caixas `wire:model.defer`; a contagem é do navegador) */
+    public $selected = [];
 
-    public $services;
-
-    public $service_s;
-
-    public $action;
-
-    public $comment;
-
-    // Clipboard
-    public $clipboardData = [];
-
-    //filter User
-    public $filterUser;
-
-    // Filters
-    private $filter_group = 'd5controls';
-
-    private $filters;
-
-    // Orderenação
     public $sortField = 'created_at';
 
     public $sortDirection = 'asc';
@@ -67,48 +48,111 @@ class ReturnD5 extends Component
     protected $queryString = [
         'search'        => ['except' => '', 'as' => 'busca'],
         'perPage'       => ['as' => 'pagina'],
+        'origin'        => ['except' => '', 'as' => 'origem'],
         'filterUser'    => ['except' => ''],
+        'sortField'     => ['except' => 'created_at', 'as' => 'ordenar'],
         'sortDirection' => ['except' => 'asc'],
         'notAtt'        => ['except' => false],
+        'filters'       => ['except' => [], 'as' => 'f'],
     ];
 
     protected $listeners = [
         'refresh_list',
-        'refreshComponent'  => '$refresh',
-        'confirm_viability' => 'confirm_viability',
-        'cleanAll'          => 'closeall',
-        'giveBack'          => 'giveBack',
-        'filterUser'        => 'filterUser',
+        'refreshComponent' => '$refresh',
+        'cleanAll'         => 'closeall',
+        'filterUser'       => 'filterUser',
     ];
 
-    public function mount($service)
+    public function mount($service): void
     {
-        if ($this->perPage > 500) {
-            $this->perPage = 500;
-        }
+        $this->service = Service::where('uuid', $service)->firstOrFail();
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) {
-                session()->start();
-            }
-        }
-
-        $this->service   = Service::where('uuid', $service)->first();
-        $this->companies = Company::query()
-            ->linkedToService($this->service->uuid)
-            ->select('id', 'name')
-            ->orderBy('name')
-            ->get();
-        // $this->engineers = User::where('engineer', true)->Select('id', 'name')->orderBy('name')->get();
-        $this->services = Service::orderBy('service')->get();
+        $this->perPage = in_array((int) $this->perPage, self::PAGE_SIZES, true) ? (int) $this->perPage : 50;
+        $this->origin  = array_key_exists((string) $this->origin, ReturnD5Query::ORIGINS) ? $this->origin : '';
+        $this->filters = $this->normalizeFilters($this->filters);
     }
 
-    public function setNotAtt()
+    // ---------- Estado da tela ----------
+
+    public function updated($name): void
     {
-        $this->notAtt = !$this->notAtt;
+        // A seleção (`selected`, caixas `wire:model.defer`) chega como atualização antes da ação em lote: não pode ser zerada aqui.
+        if ($name === 'page' || str_starts_with((string) $name, 'selected')) {
+            return;
+        }
+
+        $this->resetPage();
+        $this->selected = [];
     }
 
-    public function massAssign()
+    public function setNotAtt(): void
+    {
+        $this->notAtt   = !$this->notAtt;
+        $this->selected = [];
+        $this->resetPage();
+    }
+
+    public function sortBy($field): void
+    {
+        if (!in_array($field, ReturnD5Query::SORTABLE, true)) {
+            return;
+        }
+
+        $this->sortDirection = $this->sortField === $field && $this->sortDirection === 'asc' ? 'desc' : 'asc';
+        $this->sortField     = $field;
+        $this->resetPage();
+    }
+
+    public function filterUser($user_id): void
+    {
+        $this->filterUser = $user_id;
+        $this->selected   = [];
+        $this->resetPage();
+    }
+
+    public function cleanUser(): void
+    {
+        $this->filterUser = '';
+        $this->selected   = [];
+        $this->resetPage();
+    }
+
+    /** "Limpar tudo": filtros, busca, origem, atalho e usuário. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->search     = '';
+        $this->origin     = '';
+        $this->notAtt     = false;
+        $this->filterUser = '';
+        $this->filters    = [];
+
+        $this->afterListFiltersChanged();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected = [];
+    }
+
+    public function refresh_list(): void
+    {
+        $this->selected = [];
+        $this->resetPage();
+    }
+
+    /** Chamado pelos modais de atribuição (`cleanAll`) depois de agir. */
+    public function closeall(): void
+    {
+        $this->dispatchBrowserEvent('hideModal');
+
+        $this->selected = [];
+        $this->resetPage();
+        $this->emit('refresh_list');
+    }
+
+    // ---------- Ações ----------
+
+    public function massAssign(): void
     {
         if (!$this->selected) {
             $this->dispatchBrowserEvent('swal', [
@@ -117,60 +161,40 @@ class ReturnD5 extends Component
                 'title'    => 'SEM OBRAS SELECIONADAS',
                 'html'     => 'Verifique a seleção das obras e tente novamente.',
                 'timer'    => 5000,
-            ]);        # code...
-        } else {
-            $this->emitTo('dispatchs.common.return-in-mass', 'goOpenMassAtt', $this->selected);
+            ]);
+
+            return;
         }
+
+        $this->emitTo('dispatchs.common.return-in-mass', 'goOpenMassAtt', $this->selected);
     }
 
-    public function refresh_list()
+    /** Excel por Job, nos mesmos filtros da tela; `$onlySelected` leva só as linhas marcadas. */
+    public function exportToExcel(bool $onlySelected = false): void
     {
-        $this->emitSelf('$refresh');
-        $this->resetPage();
-    }
-
-    public function exportToExcel()
-    {
-        return (new ReturnInternExport($this->lists->get()))->download('Retorno_Interno_Export_List_' . date('YmdHis') . '.xlsx');
-    }
-
-    public function filterUser($user_id)
-    {
-        $this->filterUser = $user_id;
-    }
-
-    public function cleanUser()
-    {
-        $this->filterUser = '';
-    }
-
-    public function updatedSelectAll($value)
-    {
-        if ($value) {
-
-            foreach ($this->lists->pluck('id')->toArray() as $id) {
-                if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
-                }
-            }
-
-        } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $this->lists->pluck('id')->toArray())) {
-                    $newSelected[] = $id;
-                }
-            }
-            $this->selected = $newSelected;
+        if ($onlySelected && !$this->selected) {
+            return;
         }
+
+        ExportReturnD5Job::dispatch(
+            $this->criteria() + ['service_uuid' => $this->service->uuid, 'ids' => $onlySelected ? array_map('intval', $this->selected) : []],
+            auth()->id()
+        )
+            ->onConnection((string) config('queue.channels.exports.connection', 'database'))
+            ->onQueue((string) config('queue.channels.exports.queue', 'exports'));
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO EM ANDAMENTO.',
+            'html'     => "<div class='card'><div class='card-body'><p>A lista de retornos internos está sendo gerada em Excel" . ($onlySelected ? ' (só as linhas selecionadas)' : ', nos filtros atuais') . ". Você será notificado quando o arquivo estiver pronto para download.</p><p class='fw-bold'>Verifique sua Central de Notificação.</p></div></div>",
+            'timer'    => 5000,
+        ]);
     }
 
     public function downloadFile($id)
     {
         if ($file = File::find($id)) {
-
             $storage = app(FileStorageService::class);
 
             if ($storage->exists($file)) {
@@ -179,158 +203,79 @@ class ReturnD5 extends Component
         }
     }
 
-    public function go_att_mass()
-    {
+    // ---------- Filtros (WithListFilters) ----------
 
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'rubrica'  => ['label' => 'Rubrica'],
+            'region'   => ['label' => 'Região'],
+            'regional' => ['label' => 'Regional', 'depends' => ['region']],
+            'city'     => ['label' => 'Município', 'depends' => ['region', 'regional']],
+        ];
     }
 
-    public function closeall()
+    protected function listFilterOptions(): array
     {
-        $this->dispatchBrowserEvent('hideModal');
+        $cities = $this->rememberFilterOptions('cities', fn () => City::query()
+            ->whereNotNull('rdMunicipio')
+            ->orderBy('municipio')
+            ->get(['rdMunicipio', 'municipio', 'regiao', 'regional'])
+            ->map(fn ($c) => [
+                'v' => (string) $c->rdMunicipio,
+                'l' => (string) ($c->municipio ?: $c->rdMunicipio),
+                'p' => ['region' => (string) $c->regiao, 'regional' => (string) $c->regional],
+            ])->unique('v')->values()->all());
 
-        $this->gotoPage(1);
-
-        $this->selectAll = false;
-        $this->selected  = [];
-
-        $this->emit('refresh_list');
+        return [
+            'rubrica' => $this->rememberFilterOptions('rubrica', fn () => Note::query()
+                ->whereIn('id', \App\Models\Reclaim::query()->where('completed', false)->where('service_id', $this->service->uuid)->select('note_id'))
+                ->whereNotNull('rubrica')->where('rubrica', '!=', '')
+                ->distinct()->orderBy('rubrica')->pluck('rubrica')
+                ->map(fn ($r) => ['v' => (string) $r, 'l' => (string) $r])->all()),
+            'region' => collect($cities)->pluck('p.region')->filter()->unique()->sort()->values()
+                ->map(fn ($r) => ['v' => $r, 'l' => $r])->all(),
+            'regional' => collect($cities)->map(fn ($c) => $c['p'])->filter(fn ($p) => $p['regional'] !== '')
+                ->unique(fn ($p) => $p['region'] . '|' . $p['regional'])->sortBy('regional')->values()
+                ->map(fn ($p) => ['v' => $p['regional'], 'l' => $p['regional'], 'p' => ['region' => $p['region']]])->all(),
+            'city' => $cities,
+        ];
     }
 
-    public function sortBy($field)
+    protected function listFilterCacheScope(): string
     {
-        if ($this->sortField === $field) {
-            $this->sortDirection = $this->sortDirection === 'asc' ? 'desc' : 'asc';
-        } else {
-            $this->sortDirection = 'asc';
-        }
-
-        $this->sortField = $field;
+        return static::class . ':' . $this->service->uuid;
     }
 
-    public function getListsProperty()
+    // ---------- Consulta ----------
+
+    /** @return array<string, mixed> critérios no formato do ReturnD5Query (tela e Excel) */
+    private function criteria(): array
     {
-
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) {
-                session()->start();
-            }
-        }
-
-        $sessionFilters = session('filter.' . $this->filter_group);
-
-        if (is_array($sessionFilters)) {
-            $this->filters = $sessionFilters;
-        } elseif (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
-            $this->filters = $_SESSION['filter'][$this->filter_group];
-        } else {
-            $this->filters = [];
-        }
-
-        $activeFilters = is_array($this->filters) ? $this->filters : [];
-
-        $rubricaFilters = collect((array) ($activeFilters['rubrica'] ?? []))
-            ->filter(fn ($value) => filled($value))
-            ->values()
-            ->all();
-
-        $regionFilters = collect((array) ($activeFilters['region'] ?? []))
-            ->filter(fn ($value) => filled($value))
-            ->values()
-            ->all();
-
-        $regionalFilters = collect((array) ($activeFilters['regional'] ?? []))
-            ->filter(fn ($value) => filled($value))
-            ->values()
-            ->all();
-
-        $cityFilters = collect((array) ($activeFilters['city'] ?? []))
-            ->filter(fn ($value) => filled($value))
-            ->values()
-            ->all();
-
-        $cityCodes       = collect();
-        $directCityCodes = collect($cityFilters)
-            ->filter(fn ($value) => preg_match('/^\d+$/', (string) $value) === 1)
-            ->values();
-
-        $cityCodes = $cityCodes->merge($directCityCodes);
-
-        $hasLocationFilters = !empty($regionFilters) || !empty($regionalFilters) || !empty($cityFilters);
-
-        if ($hasLocationFilters) {
-            $cityQuery = City::query();
-
-            if (!empty($regionFilters)) {
-                $cityQuery->whereIn('regiao', $regionFilters);
-            }
-
-            if (!empty($regionalFilters)) {
-                $cityQuery->whereIn('regional', $regionalFilters);
-            }
-
-            if (!empty($cityFilters)) {
-                $cityQuery->where(function ($query) use ($cityFilters) {
-                    $query->whereIn('cidade', $cityFilters)
-                        ->orWhereIn('municipio', $cityFilters)
-                        ->orWhereIn('rdMunicipio', $cityFilters);
-                });
-            }
-
-            $cityCodes = $cityCodes
-                ->merge($cityQuery->pluck('rdMunicipio'))
-                ->filter(fn ($value) => filled($value))
-                ->map(fn ($value) => trim((string) $value))
-                ->unique()
-                ->values();
-        }
-
-        $query = Reclaim::query()
-                ->Where('service_id', $this->service->uuid)
-                ->when($this->filterUser, function ($q) {
-                    $q->WhereRelation('Production', 'user_id', $this->filterUser);
-                })
-                ->when($this->search, function ($q) {
-                    $this->gotoPage(1);
-                    $q->Where(function ($q) {
-                        $q->whereRelation('Note', 'note', 'like', '%' . trim($this->search) . '%')
-                            ->orWhereRelation('Note', 'rubrica', 'like', '%' . trim($this->search) . '%')
-                            ->orWhereRelation('Note', 'group5', 'like', '%' . trim($this->search) . '%')
-                            ->orWhereRelation('Note', 'material', 'like', '%' . trim($this->search) . '%')
-                            ->orWhereRelation('Note', 'lexp', 'like', '%' . trim($this->search) . '%');
-                    });
-                });
-
-        if (!empty($rubricaFilters)) {
-            $query->whereRelation('Note', function ($query) use ($rubricaFilters) {
-                $query->whereIn('rubrica', $rubricaFilters);
-            });
-        }
-
-        if ($hasLocationFilters) {
-            $query->whereRelation('Note', function ($query) use ($cityCodes) {
-                $query->whereIn('nexp', $cityCodes->all());
-            });
-        }
-
-        if ($this->notAtt) {
-            $query->whereDoesntHave('production');
-        }
-
-        $query->Where('completed', false)
-            ->leftJoin('notes as n', 'reclaims.note_id', '=', 'n.id')
-
-            ->select('reclaims.*', 'n.note as note', 'n.rubrica as rubrica', 'n.group5 as group5', 'n.material as material', 'n.lexp')
-            ->with(ReclaimRowPresenter::RELATIONS)
-            ->orderBy($this->sortField, $this->sortDirection);
-
-        return $query;
-
+        return [
+            'search'    => $this->search,
+            'filters'   => $this->filters,
+            'origin'    => $this->origin,
+            'notAtt'    => (bool) $this->notAtt,
+            'user'      => $this->filterUser,
+            'sort'      => $this->sortField,
+            'direction' => $this->sortDirection,
+        ];
     }
 
     public function render()
     {
+        $query = app(ReturnD5Query::class);
+        $lists = $query->query($this->service->uuid, $this->criteria())->paginate((int) $this->perPage);
+        $now   = now();
+
         return view('livewire.dispatchs.return-d5', [
-            'lists' => $this->lists->paginate($this->perPage),
+            'lists'       => $lists,
+            'rows'        => collect($lists->items())->map(fn ($reclaim) => ReclaimRowPresenter::listRow($reclaim, $now)),
+            'hasCriteria' => $this->hasListFilters() || filled($this->search) || $this->origin !== '' || $this->notAtt || filled($this->filterUser),
+            'userName'    => filled($this->filterUser) ? User::whereKey($this->filterUser)->value('name') : null,
+            'origins'     => ReturnD5Query::ORIGINS,
+            'tacitFiles'  => $query->tacitFileIds($lists->getCollection()->flatMap(fn ($r) => $r->Note?->Files?->pluck('id') ?? [])),
         ]);
     }
 }

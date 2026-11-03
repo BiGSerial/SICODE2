@@ -36,11 +36,23 @@ h6,
 // Home do usuário (Meu painel)
 @import 'home/home';
 
+// Listas operacionais (padrão de telas de despacho/trabalho): docs/PADRAO_LISTAS_OPERACIONAIS.md
+@import 'ops/tokens';
+@import 'ops/ops';
+@import 'ops/modal';
+
 // Modal de informe (Engenharia e empreiteira)
 @import 'inform/inform-modal';
 
 // Menu lateral padrão (todas as áreas): docs/PADRAO_MENU_LATERAL.md
 @import 'nav/sidebar';
+
+// Portal da parceira: tema próprio (layout `layouts/company` + menu `snav--partner`)
+@import 'partner/partner';
+
+// Menu superior (topbar): docs/MenuSuperior.md
+@import 'nav/topbar';
+@import 'nav/impersonation';
 
 .dispatch-scroll-area,
 .dispatch-modal__table-wrap,

@@ -102,7 +102,7 @@ class TriageInbox extends Component
     private function query()
     {
         return LegalDemand::query()
-            
+
             ->with(['legalCase.adverseParties', 'lastSeenImportBatch', 'controller'])
             ->externallyActive()
             ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])

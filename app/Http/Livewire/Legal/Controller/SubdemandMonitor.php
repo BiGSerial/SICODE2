@@ -4,28 +4,33 @@ namespace App\Http\Livewire\Legal\Controller;
 
 use App\Models\Legal\LegalDemandSubdemand;
 use App\Models\User;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Livewire\{Component, WithPagination};
 
 class SubdemandMonitor extends Component
 {
     use WithPagination;
 
     public string $scope = 'open';
+
     public string $status = '';
+
     public string $area = '';
+
     public string $responsible = '';
+
     public string $type = '';
+
     public string $process = '';
+
     public int $perPage = 20;
 
     protected $queryString = [
-        'scope' => ['except' => 'open'],
-        'status' => ['except' => ''],
-        'area' => ['except' => ''],
+        'scope'       => ['except' => 'open'],
+        'status'      => ['except' => ''],
+        'area'        => ['except' => ''],
         'responsible' => ['except' => ''],
-        'type' => ['except' => ''],
-        'process' => ['except' => ''],
+        'type'        => ['except' => ''],
+        'process'     => ['except' => ''],
     ];
 
     public function updating($name, $value): void
@@ -53,10 +58,10 @@ class SubdemandMonitor extends Component
             }));
 
         $kpis = [
-            'open' => (clone $baseQuery)->whereNotIn('status', $closedStatuses)->count(),
+            'open'    => (clone $baseQuery)->whereNotIn('status', $closedStatuses)->count(),
             'overdue' => (clone $baseQuery)->whereNotIn('status', $closedStatuses)->whereNotNull('deadline_at')->where('deadline_at', '<', now())->count(),
-            'today' => (clone $baseQuery)->whereNotIn('status', $closedStatuses)->whereDate('deadline_at', now()->toDateString())->count(),
-            'all' => (clone $baseQuery)->count(),
+            'today'   => (clone $baseQuery)->whereNotIn('status', $closedStatuses)->whereDate('deadline_at', now()->toDateString())->count(),
+            'all'     => (clone $baseQuery)->count(),
         ];
 
         $query = clone $baseQuery;
@@ -76,9 +81,9 @@ class SubdemandMonitor extends Component
             ->paginate($this->perPage);
 
         return view('livewire.legal.controller.subdemand-monitor', [
-            'subdemands' => $subdemands,
+            'subdemands'   => $subdemands,
             'responsibles' => User::query()->orderBy('name')->get(['id', 'name']),
-            'kpis' => $kpis,
+            'kpis'         => $kpis,
         ]);
     }
 }

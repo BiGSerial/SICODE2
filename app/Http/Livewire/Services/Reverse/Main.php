@@ -2,15 +2,21 @@
 
 namespace App\Http\Livewire\Services\Reverse;
 
-use App\Custom\Notestatus;
-use App\Custom\RuleBuilder;
-use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
+use App\Custom\{Notestatus, RuleBuilder};
+use App\Http\Livewire\Concerns\WithListFilters;
+use App\Models\{Note, Notetimeline, Production, Service, User};
+use App\Services\Reverse\ReverseListRowPresenter;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Livewire\{Component, WithPagination};
 
+/**
+ * Serviços · Fluxo Reverso: fila de auto-atribuição no padrão de listas operacionais (docs/PADRAO_LISTAS_OPERACIONAIS.md).
+ */
 class Main extends Component
 {
     use WithPagination;
+    use WithListFilters;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -20,18 +26,12 @@ class Main extends Component
 
     public $search;
 
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
     public $note;
 
     public $last_update;
 
-    //Botão de  nao atribuído.
+    // Atalho "Só livres".
     public $not_assigned = false;
-
-    public $assigned_mmgd = false;
 
     protected $listeners = [
         'refresh_service'   => '$refresh',
@@ -39,18 +39,68 @@ class Main extends Component
         'confirm_accompany' => 'add_to_accompany',
     ];
 
+    protected $queryString = [
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['except' => 100, 'as' => 'pp'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'filters'      => ['except' => [], 'as' => 'f'],
+    ];
+
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->last_update = Cache::remember('reverse-service:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
+    }
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
+    // ---------- Filtros (WithListFilters) ----------
 
-        if (isset($_SESSION['filtro']['analise']['rubrica']) && $_SESSION['filtro']['analise']['rubrica']) {
-            $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
-        }
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'rubrica' => ['label' => 'Rubrica'],
+        ];
+    }
+
+    protected function listFilterCacheScope(): string
+    {
+        return static::class . $this->service->uuid;
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return [
+            'rubrica' => $this->rememberFilterOptions('rubrica', fn () => Note::query()
+                ->where('nstats', $this->service->status)
+                ->whereNotNull('rubrica')->where('rubrica', '!=', '')
+                ->distinct()->orderBy('rubrica')->pluck('rubrica')
+                ->map(fn ($r) => ['v' => (string) $r, 'l' => (string) $r])->all()),
+        ];
+    }
+
+    /** "Limpar tudo": filtros, busca e atalho. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters      = [];
+        $this->search       = '';
+        $this->not_assigned = false;
+        $this->afterListFiltersChanged();
+    }
+
+    public function updatedSearch()
+    {
+        $this->gotoPage(1);
+    }
+
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
+    }
+
+    public function filterStatus()
+    {
+        $this->not_assigned = !$this->not_assigned;
+        $this->gotoPage(1);
     }
 
     public function copy($msg)
@@ -59,15 +109,6 @@ class Main extends Component
             'status'   => 'success',
             'menssage' => $msg,
         ]);
-    }
-
-    public function filterMMGD()
-    {
-        if ($this->assigned_mmgd) {
-            $this->assigned_mmgd = false;
-        } else {
-            $this->assigned_mmgd = true;
-        }
     }
 
     public function to_accompany(Note $note)
@@ -110,7 +151,7 @@ class Main extends Component
         if ($check) {
             $check->loadMissing(['User', 'Company', 'Service']);
 
-            $name = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
+            $name   = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
             $status = Notestatus::status($check->status)->status;
 
             $this->dispatchBrowserEvent('swal', [
@@ -143,11 +184,11 @@ class Main extends Component
         if ($production) {
 
             Notetimeline::Create([
-                'note_id'      => $this->note->id,
-                'service_id'   => $production->service_id,
-                'user_id'      => Auth()->User()->id,
-                'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
-                'status'       => 2,
+                'note_id'       => $this->note->id,
+                'service_id'    => $production->service_id,
+                'user_id'       => Auth()->User()->id,
+                'info'          => "Usuário {$user->name} atribuiu a Nota/OV.",
+                'status'        => 2,
                 'production_id' => $production->id,
             ]);
 
@@ -167,63 +208,20 @@ class Main extends Component
         }
     }
 
-    public function filter_save()
-    {
-        $this->gotoPage(1);
-
-        if (!isset($_SESSION)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-        $_SESSION['filtro']['analise']['rubrica'] = $this->rubrica_s;
-
-        $this->emit('refresh_service');
-
-    }
-
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-
-        if (!isset($_SESSION)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filtro']['analise'])) {
-            unset($_SESSION['filtro']['analise']);
-        }
-
-        $this->gotoPage(1);
-
-        $this->emit('refresh_service');
-    }
-
-    public function filterStatus()
-    {
-        if ($this->not_assigned) {
-            $this->not_assigned = false;
-        } else {
-            $this->not_assigned = true;
-        }
-
-    }
-
     public function getListsProperty()
     {
-
         $query = Note::query()->excludeCanceledFullDone();
 
         RuleBuilder::applyRules($query, $this->service->Status);
 
-        $query->when($this->search, function ($q, $s) {
+        $query->when(trim((string) $this->search), function ($q, $s) {
             return $q->where(function ($query) use ($s) {
                 $query->where('note', 'like', '%' . $s . '%')
-                // ->orWhere('material', 'like', '%' . $s . '%')
-                // ->orWhere('numPedido', 'like', '%' . $s . '%');
-                ->orWhere('group2', 'like', '%' . $s . '%');
+                    ->orWhere('group2', 'like', '%' . $s . '%');
             });
-        })->when($this->rubrica_s, function ($q) {
-            return $q->where(function ($query) {
-                $query->whereIn('rubrica', $this->rubrica_s)
+        })->when($this->filterValues('rubrica'), function ($q, $rubricas) {
+            return $q->where(function ($query) use ($rubricas) {
+                $query->whereIn('rubrica', $rubricas)
                     ->orWhereNull('rubrica');
             });
         });
@@ -240,22 +238,24 @@ class Main extends Component
 
         $query->whereNotIn('num_material', [21, 78, 79]);
 
-        $query->with('Productions.User')
-            ->orderBy('days_left', 'ASC');
-
-        return $query->paginate($this->perPage);
-
+        return $query->with(['Productions.User'])
+            ->orderBy('days_left', 'ASC')
+            ->paginate($this->perPage);
     }
-
-    
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $lists     = $this->lists;
+        $user      = Auth()->User();
+        $presenter = app(ReverseListRowPresenter::class);
+        $seesNote  = (bool) ($user->management || $user->superadm);
+
+        $rows = collect($lists->items())->map(fn (Note $note) => $presenter->serviceRow($note, $this->service->uuid, (int) $user->id, $seesNote));
 
         return view('livewire.services.reverse.main', [
-            'lists'  => $this->lists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'  => $lists,
+            'rows'   => $rows,
+            'update' => $this->last_update,
         ]);
     }
 }

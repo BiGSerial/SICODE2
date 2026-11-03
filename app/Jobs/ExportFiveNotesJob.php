@@ -3,19 +3,16 @@
 namespace App\Jobs;
 
 use App\Exports\Partner\FiveNotesExport;
-use App\Models\FiveNote;
-use App\Models\User;
+use App\Models\{FiveNote, User};
 use App\Notifications\SystemNotification;
 use App\Services\PartnerAccess\PartnerAccessGate;
 use App\Traits\WildcardFormmater;
 use Illuminate\Bus\Queueable;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
+use Illuminate\Support\Facades\{Log, Storage};
 use Maatwebsite\Excel\Facades\Excel;
 use Throwable;
 
@@ -28,10 +25,15 @@ class ExportFiveNotesJob implements ShouldQueue
     use WildcardFormmater;
 
     public array $params;
+
     public $userId;
+
     public string $context;
-    public $tries   = 2;
+
+    public $tries = 2;
+
     public $backoff = [30, 120];
+
     public int $timeout = 1200; // 20 min
 
     public function __construct(array $params, $userId, string $context = 'waiting')
@@ -50,7 +52,7 @@ class ExportFiveNotesJob implements ShouldQueue
             return;
         }
 
-        $disk = Storage::disk('local');
+        $disk     = Storage::disk('local');
         $filePath = null;
 
         try {
@@ -155,6 +157,13 @@ class ExportFiveNotesJob implements ShouldQueue
 
     protected function applyFilters(Builder $query): void
     {
+        // Filtro Empresa da tela (várias empresas): só reduz o escopo de permissão já aplicado acima.
+        $companyIds = array_values(array_filter((array) ($this->params['companyIds'] ?? []), 'is_scalar'));
+
+        if ($companyIds) {
+            $query->whereIn('company_id', $companyIds);
+        }
+
         $passiveFilter = $this->params['passiveFilter'] ?? 'current';
 
         if ($passiveFilter === 'current') {

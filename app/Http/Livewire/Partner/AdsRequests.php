@@ -3,8 +3,9 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Enum\AdsRequestStatus;
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Jobs\Ads\ExportAdsRequestsHistoryJob;
-use App\Models\{AdsRequest, Note, SystemSetting};
+use App\Models\{AdsRequest, Company, Note, SystemSetting};
 use App\Models\SicodeSql\AdsRequest as SqlAdsRequest;
 use App\Services\PartnerAccess\PartnerAccessGate;
 use Illuminate\Support\{Carbon, Str};
@@ -14,6 +15,7 @@ use Livewire\{Component, WithPagination};
 class AdsRequests extends Component
 {
     use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+    use WithListFilters;
     use WithPagination;
 
     private const ADS_LINK_REUSE_START_DATE        = '2026-08-01 00:00:00';
@@ -31,19 +33,25 @@ class AdsRequests extends Component
 
     public $selectedPreviewItems = [];
 
+    /** active | history: só a aba aberta é consultada. */
+    public string $tab = 'active';
+
     public $activeSearch = '';
 
-    public $activePerPage = 25;
+    public $perPage = 25;
 
     public $historyStart;
 
     public $historyEnd;
 
-    public $historyPerPage = 25;
-
     public $historySearch = '';
 
-    public $historyCompanyId;
+    protected $queryString = [
+        'tab'           => ['except' => 'active'],
+        'activeSearch'  => ['except' => '', 'as' => 'q'],
+        'historySearch' => ['except' => '', 'as' => 'qh'],
+        'filters'       => ['except' => [], 'as' => 'f'],
+    ];
 
     public bool $sqlSyncEnabled = true;
 
@@ -54,6 +62,55 @@ class AdsRequests extends Component
         $this->historyStart   = now()->subDays(30)->toDateString();
         $this->historyEnd     = now()->toDateString();
         $this->sqlSyncEnabled = !SystemSetting::getBool('ads_auto_test_mode', false);
+        $this->tab            = $this->tab === 'history' ? 'history' : 'active';
+        $this->filters        = $this->normalizeFilters($this->filters);
+    }
+
+    /** O filtro Empresa do histórico existe só para o superadm (as demais empresas já são limitadas pelo escopo de permissão). */
+    protected function listFilterDefinitions(): array
+    {
+        return auth()->user()?->superadm ? ['company' => ['label' => 'Empresa']] : [];
+    }
+
+    protected function listFilterOptions(): array
+    {
+        if (!auth()->user()?->superadm) {
+            return [];
+        }
+
+        return [
+            'company' => $this->rememberFilterOptions('company', fn () => Company::query()->orderBy('name')->get(['id', 'name'])
+                ->map(fn (Company $company) => ['v' => (string) $company->id, 'l' => (string) $company->name])->all()),
+        ];
+    }
+
+    protected function listFilterCacheTtl(): int
+    {
+        return 60;
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = $tab === 'history' ? 'history' : 'active';
+        $this->resetPage('activePage');
+        $this->resetPage('historyPage');
+    }
+
+    public function updatedTab(): void
+    {
+        $this->setTab($this->tab);
+    }
+
+    protected function afterListFiltersChanged(): void
+    {
+        $this->resetPage('historyPage');
+        $this->dispatchBrowserEvent('ops-filters', ['sel' => (object) $this->filters]);
+    }
+
+    public function updatedPartnerCompanyFilter(): void
+    {
+        $this->resetPage('activePage');
+        $this->resetPage('historyPage');
     }
 
     public function updatedHistoryStart()
@@ -66,22 +123,14 @@ class AdsRequests extends Component
         $this->resetPage('historyPage');
     }
 
-    public function updatedHistoryPerPage()
+    public function updatedPerPage()
     {
-        $this->resetPage('historyPage');
-    }
-
-    public function updatedHistoryCompanyId()
-    {
+        $this->perPage = in_array((int) $this->perPage, [25, 50, 100], true) ? (int) $this->perPage : 25;
+        $this->resetPage('activePage');
         $this->resetPage('historyPage');
     }
 
     public function updatedActiveSearch()
-    {
-        $this->resetPage('activePage');
-    }
-
-    public function updatedActivePerPage()
     {
         $this->resetPage('activePage');
     }
@@ -140,7 +189,7 @@ class AdsRequests extends Component
                     'note_number'         => $noteNumber,
                     'note_id'             => null,
                     'status_label'        => 'Não existe no SICODE',
-                    'status_class'        => 'text-bg-danger',
+                    'status_tone'         => 'red',
                     'message'             => 'Não existe registro para esta nota no SICODE.',
                     'can_process'         => false,
                     'previous_request_id' => null,
@@ -159,7 +208,7 @@ class AdsRequests extends Component
                     'note_number'         => $noteNumber,
                     'note_id'             => $note->id,
                     'status_label'        => 'Sem ordem',
-                    'status_class'        => 'text-bg-danger',
+                    'status_tone'         => 'red',
                     'message'             => 'Não há ORDERS para a nota selecionada.',
                     'can_process'         => false,
                     'previous_request_id' => null,
@@ -180,7 +229,7 @@ class AdsRequests extends Component
                     'note_number'         => $noteNumber,
                     'note_id'             => $note->id,
                     'status_label'        => 'Sem ordem LIB',
-                    'status_class'        => 'text-bg-warning',
+                    'status_tone'         => 'amber',
                     'message'             => 'Não há ORDEM liberada para processar.',
                     'can_process'         => false,
                     'previous_request_id' => null,
@@ -200,7 +249,7 @@ class AdsRequests extends Component
                     'note_number'         => $noteNumber,
                     'note_id'             => $note->id,
                     'status_label'        => 'Aproveitar link',
-                    'status_class'        => 'text-bg-info',
+                    'status_tone'         => 'blue',
                     'message'             => 'Já existe ADS disponível para esta obra. Ao processar, a solicitação será finalizada localmente, sem novo envio para a fila do SQL.',
                     'can_process'         => true,
                     'previous_request_id' => $previousRequest?->id,
@@ -218,7 +267,7 @@ class AdsRequests extends Component
                     'note_number'         => $noteNumber,
                     'note_id'             => $note->id,
                     'status_label'        => 'Reagendar',
-                    'status_class'        => 'text-bg-warning',
+                    'status_tone'         => 'amber',
                     'message'             => 'Há uma solicitação em andamento. Ela será cancelada e reagendada.',
                     'can_process'         => true,
                     'previous_request_id' => $previousRequest->id,
@@ -235,7 +284,7 @@ class AdsRequests extends Component
                 'note_number'         => $noteNumber,
                 'note_id'             => $note->id,
                 'status_label'        => 'Apto',
-                'status_class'        => 'text-bg-success',
+                'status_tone'         => 'green',
                 'message'             => 'Pronto para solicitar.',
                 'can_process'         => true,
                 'previous_request_id' => null,
@@ -751,11 +800,12 @@ class AdsRequests extends Component
 
     public function clearHistoryFilters()
     {
-        $this->historyStart     = null;
-        $this->historyEnd       = null;
-        $this->historySearch    = '';
-        $this->historyCompanyId = null;
+        $this->historyStart  = null;
+        $this->historyEnd    = null;
+        $this->historySearch = '';
+        $this->filters       = [];
         $this->resetPage('historyPage');
+        $this->dispatchBrowserEvent('ops-filters', ['sel' => (object) []]);
     }
 
     public function exportHistory()
@@ -768,7 +818,7 @@ class AdsRequests extends Component
             'start'      => $this->historyStart,
             'end'        => $this->historyEnd,
             'search'     => $this->historySearch,
-            'company_id' => $user && $user->superadm ? $this->historyCompanyId : null,
+            'company_id' => $user && $user->superadm ? ($this->filterValues('company')[0] ?? null) : null,
         ], (string) auth()->id(), 'partner');
 
         $this->dispatchBrowserEvent('swal', [
@@ -777,17 +827,6 @@ class AdsRequests extends Component
             'title'    => 'Exportacao solicitada. Aguarde a notificacao.',
             'timer'    => 3000,
         ]);
-    }
-
-    public function getHistoryCompanyOptionsProperty()
-    {
-        $user = auth()->user();
-
-        if (!$user || !$user->superadm) {
-            return collect();
-        }
-
-        return \App\Models\Company::query()->orderBy('name')->get();
     }
 
     public function getActiveRequestsProperty()
@@ -820,7 +859,7 @@ class AdsRequests extends Component
             }
         }
 
-        return $query->paginate($this->activePerPage, ['*'], 'activePage');
+        return $query->paginate($this->perPage, ['*'], 'activePage');
     }
 
     public function syncAllRequests()
@@ -972,8 +1011,8 @@ class AdsRequests extends Component
             }
         }
 
-        if ($this->historyCompanyId && auth()->user()?->superadm) {
-            $query->where('company_id', $this->historyCompanyId);
+        if (auth()->user()?->superadm && ($companies = $this->filterValues('company'))) {
+            $query->whereIn('company_id', $companies);
         }
 
         if ($this->historyStart) {
@@ -986,22 +1025,51 @@ class AdsRequests extends Component
 
         return $query
             ->orderByDesc('created_at')
-            ->paginate($this->historyPerPage, ['*'], 'historyPage');
+            ->paginate($this->perPage, ['*'], 'historyPage');
+    }
+
+    /** Contagem das duas abas numa consulta agrupada só (no escopo de empresa do usuário, sem busca nem período). */
+    protected function tabCounts(): array
+    {
+        $terminal = [AdsRequestStatus::DONE->value, AdsRequestStatus::CANCELED->value, AdsRequestStatus::FAILED->value];
+        $in       = implode(',', array_fill(0, count($terminal), '?'));
+
+        $query = AdsRequest::query();
+
+        $this->applyPartnerCompanyScope($query);
+
+        $row = $query
+            ->selectRaw("COALESCE(SUM(status NOT IN ({$in})), 0) as active_total", $terminal)
+            ->selectRaw("COALESCE(SUM(status IN ({$in})), 0) as history_total", $terminal)
+            ->first();
+
+        return ['active' => (int) $row->active_total, 'history' => (int) $row->history_total];
     }
 
     public function render()
     {
-        $activeRequests      = $this->activeRequests;
-        $sqlStatusBySicodeId = $this->sqlSyncEnabled
+        $isActive = $this->tab !== 'history';
+
+        $activeRequests      = $isActive ? $this->activeRequests : null;
+        $sqlStatusBySicodeId = $isActive && $this->sqlSyncEnabled
             ? $this->loadSqlStatusBySicodeIds($activeRequests->pluck('id'))
             : collect();
 
         return view('livewire.partner.ads-requests', [
-            'activeRequests'        => $activeRequests,
-            'sqlStatusBySicodeId'   => $sqlStatusBySicodeId,
-            'historyRequests'       => $this->historyRequests,
-            'historyCompanyOptions' => $this->historyCompanyOptions,
-            'sqlSyncEnabled'        => $this->sqlSyncEnabled,
+            'activeRequests'      => $activeRequests,
+            'sqlStatusBySicodeId' => $sqlStatusBySicodeId,
+            'historyRequests'     => $isActive ? null : $this->historyRequests,
+            'sqlSyncEnabled'      => $this->sqlSyncEnabled,
+            'counts'              => $this->tabCounts(),
+            'companyChoices'      => $this->partnerCompanyFilterOptions(),
+            'statusTones'         => [
+                AdsRequestStatus::QUEUED->value      => 'muted',
+                AdsRequestStatus::IN_PROGRESS->value => 'blue',
+                AdsRequestStatus::RETRY->value       => 'amber',
+                AdsRequestStatus::FAILED->value      => 'red',
+                AdsRequestStatus::CANCELED->value    => 'muted',
+                AdsRequestStatus::DONE->value        => 'green',
+            ],
         ]);
     }
 

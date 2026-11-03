@@ -46,8 +46,8 @@ class KpiValue extends Component
                 ->count(),
             // Legacy metric key used in queue header; semantic is "na triagem".
             'returned_today' => (clone $triageQuery)->count(),
-            'triage' => (clone $triageQuery)->count(),
-            default => 0,
+            'triage'         => (clone $triageQuery)->count(),
+            default          => 0,
         };
     }
 

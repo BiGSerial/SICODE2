@@ -2,135 +2,146 @@
     use App\Services\Closure\{ClosureEventLabels, ClosureIssueWorkflowService, ClosurePartnerExporter};
 
     $outcomeTone = ['Aceita' => 'green', 'Devolvida para correção' => 'red', 'Em validação' => 'blue', 'Aguardando validação' => 'amber'];
+    $tabs        = ['' => 'Todas'];
+    foreach ($statuses as $statusKey) {
+        $tabs[$statusKey] = ClosureEventLabels::issueStatusLabel($statusKey);
+    }
 @endphp
-<div class="closure-dash">
-    <x-show-loading />
 
-    <div class="dash-hero mb-3">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-                <h2 class="dash-title">Meu histórico de retornos</h2>
-                <div class="dash-subtitle">Em quais obras você já respondeu ao Encerramento, o que respondeu, quando e o que aconteceu depois.</div>
-            </div>
-            <div class="d-flex flex-wrap gap-2">
-                <a href="{{ route('partner.closure.issues') }}" class="btn btn-light btn-sm btn-dash"><i class="ri-arrow-left-line"></i> Pendências</a>
-                <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel"><i class="ri-file-excel-2-line"></i> Exportar Excel</button>
-            </div>
+{{-- HISTÓRICO DE RETORNOS DA PARCEIRA (lista de controle + padrão do Encerramento: docs/encerramento/PADRAO_UI_ENCERRAMENTO.md). --}}
+<div class="closure-dash my-panel ops-list ops-control">
+
+    <x-ops.hero class="ops-hero--control" eyebrow="Portal da parceira · Encerramento" title="Meu histórico de retornos"
+        subtitle="Em quais obras você já respondeu ao Encerramento, o que respondeu, quando e o que aconteceu depois.">
+        <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+            <a href="{{ route('partner.closure.issues') }}" class="btn btn-light btn-sm btn-dash"><i class="ri-arrow-left-line" aria-hidden="true"></i> Pendências</a>
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel"><i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel</button>
         </div>
-    </div>
+    </x-ops.hero>
 
-    <div class="row g-2 mb-3">
-        @foreach ([['Retornos enviados', $totals['responses'], 'ri-reply-line', 'blue', 'no recorte filtrado'], ['Obras atendidas', $totals['notes'], 'ri-building-line', 'teal', 'obras distintas'], ['Aceitos', $totals['accepted'], 'ri-checkbox-circle-line', 'green', 'validados pelo Encerramento'], ['Devolvidos', $totals['returned'], 'ri-arrow-go-back-line', 'red', 'voltaram para correção']] as [$label, $value, $icon, $tone, $note])
-            <div class="col-6 col-xl-3" wire:key="hkpi-{{ $loop->index }}">
-                <div class="kpi tone-{{ $tone }}">
-                    <div class="kpi-top"><span>{{ $label }}</span><i class="{{ $icon }}"></i></div>
-                    <div class="kpi-value">{{ number_format($value, 0, ',', '.') }}</div>
-                    <div class="kpi-note">{{ $note }}</div>
-                </div>
-            </div>
-        @endforeach
-    </div>
+    <section class="ops-stats" aria-label="Resumo dos retornos">
+        <x-ops.stat tone="blue" label="Retornos enviados" :value="number_format($totals['responses'], 0, ',', '.')" icon="ri-reply-line" title="No recorte filtrado" />
+        <x-ops.stat tone="teal" label="Obras atendidas" :value="number_format($totals['notes'], 0, ',', '.')" icon="ri-building-line" title="Obras distintas" />
+        <x-ops.stat tone="green" label="Aceitos" :value="number_format($totals['accepted'], 0, ',', '.')" icon="ri-checkbox-circle-line" title="Validados pelo Encerramento" />
+        <x-ops.stat tone="red" label="Devolvidos" :value="number_format($totals['returned'], 0, ',', '.')" icon="ri-arrow-go-back-line" title="Voltaram para correção" />
+    </section>
 
-    <div class="table-card p-3 mb-3">
-        <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-4">
-                <label class="ctl-label" for="h-search">Buscar</label>
-                <input id="h-search" type="search" class="form-control form-control-sm" placeholder="Nota ou Ordem" wire:model.debounce.400ms="search">
-            </div>
-            <div class="col-6 col-md-2">
-                <label class="ctl-label" for="h-status">Situação atual</label>
-                <select id="h-status" class="form-select form-select-sm" wire:model="status">
-                    <option value="">Todas</option>
-                    @foreach ($statuses as $statusKey)
-                        <option value="{{ $statusKey }}">{{ ClosureEventLabels::issueStatusLabel($statusKey) }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-6 col-md-2">
-                <label class="ctl-label" for="h-from">De</label>
-                <input id="h-from" type="date" class="form-control form-control-sm" wire:model="from">
-            </div>
-            <div class="col-6 col-md-2">
-                <label class="ctl-label" for="h-to">Até</label>
-                <input id="h-to" type="date" class="form-control form-control-sm" wire:model="to">
-            </div>
-            @if ($companies->isNotEmpty())
-                <div class="col-6 col-md-2">
-                    <label class="ctl-label" for="h-company">Empresa</label>
-                    <select id="h-company" class="form-select form-select-sm" wire:model="partnerCompanyFilter">
-                        <option value="">Todas</option>
-                        @foreach ($companies as $company)
-                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+    <section class="ops-toolbar" aria-label="Filtros do histórico">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar por nota ou ordem…" label="Buscar retorno" />
+
+            <x-ops.segmented name="partnerHistoryStatus" label="Situação atual da pendência" wire:model="status" :options="$tabs" />
+
+            <span class="ops-toolbar-spacer"></span>
+
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearFilters"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar filtros</button>
             @endif
         </div>
-        <div class="mt-2">
-            <x-closure.filter-chips :filters="collect($chips)->map(fn ($chip) => ['key' => $chip[0], 'label' => strtok($chip[1], ':'), 'value' => trim(substr($chip[1], strpos($chip[1], ':') + 1))])->all()" />
-        </div>
-    </div>
 
-    <div class="table-card mb-3">
-        <div class="od-section-head">
-            <div><h3><i class="ri-history-line text-muted"></i> Retornos enviados <span class="od-count">{{ $events->total() }} registros</span></h3><div class="small text-muted mt-1">Do mais recente para o mais antigo.</div></div>
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Período</span>
+            <input type="date" class="form-control form-control-sm w-auto" wire:model="from" aria-label="Respondida a partir de">
+            <input type="date" class="form-control form-control-sm w-auto" wire:model="to" aria-label="Respondida até">
+            @if (count($this->listFilterPayload()['defs']))
+                <span class="ops-toolbar-label">Filtros</span>
+                <x-ops.filters :payload="$this->listFilterPayload()" />
+            @endif
         </div>
-        <div class="table-responsive dash-scroll">
-            <table class="table table-sm align-middle mb-0 dash-table table-min-lg">
-                <colgroup>
-                    <col class="col-pct-12"><col class="col-pct-14"><col class="col-pct-17"><col class="col-pct-27"><col class="col-pct-15"><col class="col-pct-15">
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th class="ps-3">Respondida em</th>
-                        <th>Obra / Ordem</th>
-                        <th>Pendência</th>
-                        <th>O que você respondeu</th>
-                        <th>Resultado desta resposta</th>
-                        <th class="pe-3 text-end">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($events as $event)
-                        @php
-                            $issue   = $event->Issue;
-                            $answers = collect($event->meta['answers'] ?? []);
-                            $outcome = ClosurePartnerExporter::outcomeOf($event);
-                        @endphp
-                        <tr wire:key="history-{{ $event->id }}">
-                            <td class="ps-3 small">{{ $event->created_at?->format('d/m/Y H:i') }}<div class="ord-sub">{{ $event->Actor?->name }}</div></td>
-                            <td><div class="ord-main">{{ $issue?->Order?->Note?->note ?? '—' }}</div><div class="ord-sub">Ordem {{ $issue?->Order?->ordem ?? '—' }}</div></td>
-                            <td><div class="fw-semibold small">{{ $issue?->Category?->name }}</div><div class="ord-sub">{{ $issue?->Subcategory?->name }} · Ciclo {{ $issue?->cycle }}</div></td>
-                            <td class="small cell-wrap">
-                                {{ \Illuminate\Support\Str::limit($event->meta['message'] ?? '', 140) }}
-                                @if ($answers->isNotEmpty())
-                                    <div class="mt-1">
-                                        <x-closure.status-badge :label="$answers->where('status', ClosureIssueWorkflowService::ANSWER_DONE)->count() . ' atendido(s)'" tone="green" />
-                                        @if ($answers->where('status', '!=', ClosureIssueWorkflowService::ANSWER_DONE)->isNotEmpty())
-                                            <x-closure.status-badge :label="$answers->where('status', '!=', ClosureIssueWorkflowService::ANSWER_DONE)->count() . ' com ressalva'" tone="amber" />
-                                        @endif
-                                    </div>
-                                @endif
-                                @if (!empty($event->meta['attachments']))<span class="badge bg-light text-dark mt-1"><i class="bi bi-paperclip"></i> {{ $event->meta['attachments'] }} anexo(s)</span>@endif
-                            </td>
-                            <td>
-                                <x-closure.status-badge :label="$outcome" :tone="$outcomeTone[$outcome] ?? 'muted'" />
-                                <div class="ord-sub mt-1">Hoje: {{ ClosureEventLabels::issueStatusLabel($issue?->status) }}</div>
-                            </td>
-                            <td class="pe-3 text-end cell-visible">
-                                @if ($issue)
-                                    <a class="btn btn-sm btn-outline-secondary btn-dash" href="{{ route('partner.closure.issue.show', $issue->id) }}"><i class="ri-eye-line"></i> Ver pedido</a>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="6"><x-closure.empty-state icon="ri-history-line" title="Nenhum retorno encontrado" text="Quando você responder uma pendência, ela aparece aqui com a data e o resultado." /></td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-        @if ($events->hasPages())
-            <div class="p-3 border-top">{{ $events->links() }}</div>
+
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
         @endif
-    </div>
+    </section>
+
+    <section class="mp-panel" aria-label="Retornos enviados">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Retornos enviados</h2>
+                <div class="mp-panel-sub">{{ number_format($events->total(), 0, ',', '.') }} {{ $events->total() === 1 ? 'registro' : 'registros' }} · do mais recente para o mais antigo.</div>
+            </div>
+        </div>
+
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="8" :cols="6" />
+
+        <div wire:loading.delay.class="d-none">
+            @if ($events->isEmpty())
+                <x-closure.empty-state icon="ri-history-line" title="Nenhum retorno encontrado" text="Quando você responder uma pendência, ela aparece aqui com a data e o resultado." />
+            @else
+                <div class="table-responsive">
+                    <table class="table mp-table align-middle mb-0">
+                        <colgroup>
+                            <col style="width: 150px">
+                            <col style="width: 14%">
+                            <col style="width: 18%">
+                            <col>
+                            <col style="width: 200px">
+                            <col style="width: 140px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Respondida em</th>
+                                <th>Nota / Ordem</th>
+                                <th>Pendência</th>
+                                <th>O que você respondeu</th>
+                                <th>Resultado desta resposta</th>
+                                <th><span class="visually-hidden">Ações</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($events as $event)
+                                @php
+                                    $issue    = $event->Issue;
+                                    $answers  = collect($event->meta['answers'] ?? []);
+                                    $done     = $answers->where('status', ClosureIssueWorkflowService::ANSWER_DONE)->count();
+                                    $reserved = $answers->count() - $done;
+                                    $outcome  = ClosurePartnerExporter::outcomeOf($event);
+                                @endphp
+                                <tr wire:key="history-{{ $event->id }}">
+                                    <td>
+                                        <x-ops.date :date="$event->created_at" :time="true" />
+                                        <div class="ops-person-sub">{{ $event->Actor?->name }}</div>
+                                    </td>
+                                    <td><x-ops.note :note="$issue?->Order?->Note?->note ?? '—'" :sub="'Ordem ' . ($issue?->Order?->ordem ?? '—')" /></td>
+                                    <td>
+                                        <div class="ops-person-name">{{ $issue?->Category?->name ?? '—' }}</div>
+                                        <div class="ops-person-sub">{{ $issue?->Subcategory?->name }} · Ciclo {{ $issue?->cycle }}</div>
+                                    </td>
+                                    <td class="cell-wrap">
+                                        {{ \Illuminate\Support\Str::limit($event->meta['message'] ?? '', 140) ?: '—' }}
+                                        @if ($answers->isNotEmpty() || !empty($event->meta['attachments']))
+                                            <div class="mt-1 d-flex flex-wrap gap-1">
+                                                @if ($answers->isNotEmpty())
+                                                    <x-ops.badge sm tone="green" :label="$done . ' atendido(s)'" />
+                                                    @if ($reserved > 0)
+                                                        <x-ops.badge sm tone="amber" :label="$reserved . ' com ressalva'" />
+                                                    @endif
+                                                @endif
+                                                @if (!empty($event->meta['attachments']))
+                                                    <x-ops.badge sm tone="muted" icon="ri-attachment-2" :label="$event->meta['attachments'] . ' anexo(s)'" />
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <x-ops.badge :tone="$outcomeTone[$outcome] ?? 'muted'" :label="$outcome" />
+                                        <div class="ops-person-sub">Hoje: {{ ClosureEventLabels::issueStatusLabel($issue?->status) }}</div>
+                                    </td>
+                                    <td class="text-end">
+                                        @if ($issue)
+                                            <a class="btn btn-outline-secondary btn-sm ops-action" href="{{ route('partner.closure.issue.show', $issue->id) }}"><i class="ri-eye-line" aria-hidden="true"></i> Ver pedido</a>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <x-ops.pager :paginator="$events" />
+            @endif
+        </div>
+    </section>
 </div>

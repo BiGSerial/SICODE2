@@ -529,7 +529,87 @@
         pointer-events: none;
         position: absolute;
         text-align: center;
+
+        // Parte sem conexão: o aviso fica mais firme, com o motivo, e o gráfico fica desabilitado por baixo.
+        &.is-offline {
+            background: rgba(248, 250, 252, .94);
+            color: #b45309;
+            flex-direction: column;
+            gap: 4px;
+            padding: 0 var(--mp-edge);
+
+            i { font-size: 1.6rem; }
+            small { color: var(--mp-muted); font-weight: 600; }
+        }
     }
+
+    // ---------- Status das conexões (painéis que dependem de bancos externos) ----------
+    .mp-conn {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .mp-conn-item {
+        align-items: center;
+        background: #fff;
+        border: 1px solid var(--mp-line);
+        border-radius: 999px;
+        color: var(--mp-ink);
+        display: inline-flex;
+        font-size: .76rem;
+        font-weight: 700;
+        gap: 7px;
+        padding: 4px 12px;
+
+        small { color: var(--mp-muted); font-weight: 600; }
+
+        &.is-down { border-color: #fcd34d; background: #fffbeb; }
+    }
+
+    .mp-conn-dot {
+        background: #22c55e;
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px rgba(34, 197, 94, .22);
+        height: 9px;
+        width: 9px;
+
+        .is-down > & { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, .25); }
+    }
+
+    // ---------- Indicadores analíticos (grade de números do período) ----------
+    .mp-stat-grid {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        padding: 14px var(--mp-edge);
+
+        @media (max-width: 991px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        @media (max-width: 575px) { grid-template-columns: 1fr; }
+
+        // Quantidade variável de indicadores: tantas colunas quanto couberem.
+        &.is-fit { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+    }
+
+    .mp-stat {
+        background: #fff;
+        border: 1px solid var(--mp-line);
+        border-radius: 10px;
+        padding: 10px 14px;
+
+        span { color: var(--mp-muted); display: block; font-size: .76rem; font-weight: 600; }
+        strong { color: var(--mp-ink); display: block; font-size: 1.2rem; font-weight: 800; line-height: 1.3; }
+        small { color: var(--mp-muted); display: block; font-size: .7rem; }
+
+        &.is-danger strong { color: #dc2626; }
+        &.is-warn strong { color: #b45309; }
+        &.is-good strong { color: #15803d; }
+    }
+
+    // Dica de interação logo abaixo do título do painel (ex.: "clique para filtrar").
+    .mp-click-hint { color: var(--mp-muted); font-size: .72rem; margin-top: 2px; }
 
     // ---------- Atividade recente ----------
     .mp-recent {

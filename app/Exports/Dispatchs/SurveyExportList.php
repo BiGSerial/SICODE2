@@ -4,32 +4,30 @@ namespace App\Exports\Dispatchs;
 
 use App\Helpers\DaysLeft;
 use Carbon\Carbon;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Concerns\{Exportable, FromQuery, WithChunkReading, WithEvents, WithHeadings, WithMapping, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use Illuminate\Database\Eloquent\Builder;
 
 class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
 {
     use Exportable;
 
     protected $serviceUuid;
+
     protected $selectedIds;
+
     protected $daysLeftCache = [];
+
     protected $daysLeftCalculator;
+
     protected $query;
 
     public function __construct(Builder $query, $serviceUuid, array $selectedIds = [])
     {
-        $this->query = $query;
-        $this->serviceUuid = $serviceUuid;
-        $this->selectedIds = $selectedIds;
+        $this->query              = $query;
+        $this->serviceUuid        = $serviceUuid;
+        $this->selectedIds        = $selectedIds;
         $this->daysLeftCalculator = new DaysLeft(); // Initialize DaysLeft outside loop
     }
 
@@ -56,12 +54,11 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
                 $q->where('service_id', $this->serviceUuid)
                   ->with([
                       'Company:id,name', // Especificar colunas
-                      'User:id,name'  // Especificar colunas
+                      'User:id,name',  // Especificar colunas
                   ]);
-            }
+            },
         ]);
     }
-
 
     public function chunkSize(): int
     {
@@ -71,7 +68,7 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
     public function headings(): array
     {
         return [
-            'Note', 'Ordem', 'DD', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Gp2', 'Gp5', 'Status', 'Prazo', 'Empresa', 'Usuario', 'Despachado Em', 'Atribuído Em', 'Finalizado Em'
+            'Note', 'Ordem', 'DD', 'Postes', 'NumPedido', 'Rubrica', 'Municipio', 'Gp2', 'Gp5', 'Status', 'Prazo', 'Empresa', 'Usuario', 'Despachado Em', 'Atribuído Em', 'Finalizado Em',
         ];
     }
 
@@ -79,7 +76,7 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
     {
         if (!isset($this->daysLeftCache[$row->id])) {
             $this->daysLeftCalculator->note = $row;  // Assign row to the daysLeftCalculator
-            $this->daysLeftCache[$row->id] = 30 - $this->daysLeftCalculator->getDaysLeft();
+            $this->daysLeftCache[$row->id]  = 30 - $this->daysLeftCalculator->getDaysLeft();
         }
         $daysLeft = $this->daysLeftCache[$row->id];
 
@@ -95,8 +92,8 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
 
         if ($row->productions->isNotEmpty()) {
             $production = $row->productions->last();
-            $empresa = $production->Company?->name ?? '---'; // Uso do operador null safe
-            $usuario = $production->User?->name ?? '---';  // Uso do operador null safe
+            $empresa    = $production->Company?->name ?? '---'; // Uso do operador null safe
+            $usuario    = $production->User?->name ?? '---';  // Uso do operador null safe
         }
 
         return [
@@ -121,11 +118,13 @@ class SurveyExportList implements FromQuery, WithEvents, WithProperties, WithHea
 
     private function formatProductionDate($date): string
     {
-        if (!$date) { return "---"; }
+        if (!$date) {
+            return "---";
+        }
         $value = Carbon::parse($date);
+
         return $value->format("d/m/Y H:i:s") . " (" . $value->copy()->startOfDay()->diffInDays(now()->startOfDay()) . " dia(s))";
     }
-
 
     public function properties(): array
     {

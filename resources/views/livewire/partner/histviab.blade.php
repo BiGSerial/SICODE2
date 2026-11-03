@@ -1,527 +1,200 @@
 @php
-    use App\Custom\Viabilitiesstatus;
-    use App\Custom\Notestatus;
-    use Carbon\Carbon;
+    use App\Services\Partner\ViabilityListRowPresenter as Row;
+
+    $canExport = $this->can('viability.export');
 @endphp
 
-@push('css')
-    <style>
-        .item {
-            animation: slideIn 0.5s forwards;
-            opacity: 0;
-        }
+{{-- HISTÓRICO DE VIABILIDADE (lista de controle da parceira). Padrão: docs/PADRAO_LISTAS_OPERACIONAIS.md §10. --}}
+<div class="closure-dash my-panel ops-list ops-control">
 
-        .item.hidden {
-            animation: slideOut 0.5s forwards;
-        }
+    <x-ops.hero class="ops-hero--control" eyebrow="Portal da parceira · Viabilidade" title="Histórico de viabilidade"
+        subtitle="Todas as viabilidades da sua empresa, de qualquer situação: filtre por período, tipo e localidade e consulte a justificativa de cada uma.">
+        @if ($canExport)
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="export_excel" wire:loading.attr="disabled" wire:target="export_excel">
+                <i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel
+            </button>
+        @endif
+    </x-ops.hero>
 
-        .detail-item {
-            opacity: 0;
-            animation: growDown 0.5s forwards;
-            transform-origin: top;
-        }
+    <section class="ops-toolbar" aria-label="Filtros do histórico">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar por nota ou ordem…" label="Buscar">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#partnerViabMultiNotes" title="Buscar várias notas ou ordens de uma vez">
+                    <i class="ri-checkbox-multiple-blank-line" aria-hidden="true"></i> Várias
+                </button>
+            </x-ops.search>
 
-        @keyframes growDown {
-            from {
+            <x-ops.segmented name="partnerHistType" label="Tipo de nota" wire:model="typeNote" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
 
-                transform: scaleY(0);
-                /* Escala vertical inicial: 0 */
-            }
+            <span class="ops-toolbar-spacer"></span>
 
-            to {
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar filtros</button>
+            @endif
+        </div>
 
-                transform: scaleY(1);
-                /* Escala vertical final: 1 (sem mudança de tamanho) */
-            }
-        }
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Período</span>
+            <select class="form-select form-select-sm w-auto" wire:model="dateBy" aria-label="Data usada no período">
+                <option value="sended_at">Recebido</option>
+                <option value="returned_at">Viabilizado</option>
+                <option value="completed_at">Completado</option>
+            </select>
+            <input type="month" class="form-control form-control-sm w-auto" wire:model="month" min="2023-06" max="{{ date('Y-m') }}" aria-label="Mês e ano">
+            <input type="date" class="form-control form-control-sm w-auto" wire:model="date_in" max="{{ $date_out ?: '' }}" aria-label="Data inicial">
+            <input type="date" class="form-control form-control-sm w-auto" wire:model="date_out" min="{{ $date_in ?: '' }}" aria-label="Data final">
+            @if ($multinotas)
+                <button type="button" class="ops-chip" wire:click="$set('multinotas', [])" title="Remover a busca por várias notas">
+                    {{ count($multinotas) }} notas/ordens na busca <i class="ri-close-line" aria-hidden="true"></i>
+                </button>
+            @endif
+        </div>
 
-        @keyframes slideIn {
-            0% {
-                opacity: 0;
-                transform: translateX(100%);
-            }
-
-            100% {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        @keyframes blink {
-            0% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0;
-            }
-
-            100% {
-                opacity: 1;
-            }
-        }
-
-        .blink {
-            animation: blink 2s infinite;
-        }
-    </style>
-@endpush
-
-<div>
-    <x-show-loading />
-    @include('livewire.partner.partials.company-filter')
-
-    <div class="d-flex flex-column mb-3">
-
-        <!-- Linha 1: Busca, Tipo de Nota e Data Selection -->
-        <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
-
-            <!-- Campo de busca com botão e tooltip -->
-            <div class="col-md-4">
-                <div class="input-group  me-3 mb-2">
-                    <input type="text" class="form-control" placeholder="Buscar..." aria-label="Buscar"
-                        wire:model.debounce.1s="search">
-                    <span data-bs-toggle="tooltip" data-bs-trigger="hover" data-bs-placement="top"
-                        data-bs-content="Multinotas">
-                        <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal"
-                            data-bs-target="#modal_multi_notas" title="Multinotas">
-                            <i class="ri-checkbox-multiple-blank-fill"></i>
-                        </button>
-
-                        @if ($multinotas)
-                            <button class="btn btn-outline-danger" type="button" wire:click="$set('multinotas', [])"
-                                title="Limpar Pesquisa">
-                                <i class="ri-filter-off-line"></i>
-                            </button>
-                        @endif
-                    </span>
-                </div>
+        @if ($this->listFilterPayload()['defs'])
+            <div class="ops-toolbar-row">
+                <span class="ops-toolbar-label">Filtros</span>
+                <x-ops.filters :payload="$this->listFilterPayload()" />
             </div>
+        @endif
 
-            <!-- Botões do tipo radio para seleção individual -->
-            <div class="btn-group me-3 mb-2" role="group" aria-label="Seleção de Opções">
-                <input type="radio" class="btn-check" name="selecao" id="nota" autocomplete="off"
-                    wire:model="typeNote" value="1">
-                <label class="btn btn-outline-primary" for="nota">Nota</label>
-
-                <input type="radio" class="btn-check" name="selecao" id="ov" autocomplete="off"
-                    wire:model="typeNote" value="2">
-                <label class="btn btn-outline-primary" for="ov">Ov</label>
-
-                <input type="radio" class="btn-check" name="selecao" id="ambas" autocomplete="off"
-                    wire:model="typeNote" value="">
-                <label class="btn btn-outline-primary" for="ambas">Ambas</label>
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
             </div>
+        @endif
+    </section>
 
-            <!-- Date Selection (Month/Year, Start Date, End Date) -->
-            <div class="d-flex flex-wrap align-items-center">
-
-                <!-- Select Mês/Ano -->
-                <div class="me-3 mb-2">
-                    <label for="month" class="form-label visually-hidden">Mês/Ano</label>
-                    <input type="month" class="form-control" id="month" wire:model="month" min="2023-06"
-                        max="{{ date('Y-m') }}">
-                </div>
-
-                <!-- Data Inicial -->
-                <div class="me-3 mb-2">
-                    <label for="date_in" class="form-label visually-hidden">Data Inicial</label>
-                    <input type="date" class="form-control" id="date_in" wire:model="date_in">
-                </div>
-
-                <!-- Data Final -->
-                <div class="me-3 mb-2">
-                    <label for="date_out" class="form-label visually-hidden">Data Final</label>
-                    <input type="date" class="form-control" id="date_out" wire:model="date_out">
-                </div>
-
-                <div class="me-3 mb-2">
-                    <label for="dateBy" class="form-label visually-hidden">Coluna a Filtrar</label>
-                    <select name="dateBy" id="dateBy" class="form-select" wire:model="dateBy"
-                        data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Data por Coluna">
-                        <option value="sended_at">Recebido</option>
-                        <option value="returned_at">Viabilizado</option>
-                        <option value="completed_at">Completado</option>
-                    </select>
-                </div>
+    <section class="mp-panel" aria-label="Histórico de viabilidade">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Histórico de viabilidade</h2>
+                <div class="mp-panel-sub">{{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'viabilidade' : 'viabilidades' }}@if ($hasCriteria) com os filtros atuais @endif · duplo clique na linha abre os detalhes</div>
             </div>
         </div>
 
-        <!-- Linha 2: Filtros -->
-        <div class="d-flex flex-wrap align-items-center justify-content-end">
-            <div class="btn-group" role="group" aria-label="Ações">
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="8" :cols="10" />
 
-                @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'analises', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'analises', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'analises', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-                @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'analises', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-                @livewire('components.filter.remove-all', ['group_filter' => 'analises'], key('removeAll'))
-            </div>
-        </div>
-
-    </div>
-
-
-    {{-- <div class="card mb-3">
-        <div class="card-body">
-            <div class="row">
-                <div class="col-1">
-                    <select name="" id="" class="form-select border border-secondary" wire:model="perPage">
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="250">250</option>
-                        <option value="500">500</option>
-                    </select>
-                </div>
-
-                <div class="col-2">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.2s="search">
-                </div>
-
-                <div class="col-1">
-                    <input type="date" id="date_in" class="form-control border border-secondary"
-                        wire:model="date_in" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data Inicial">
-                </div>
-
-                <div class="col-1">
-                    <input type="date" id="date_out" class="form-control border border-secondary"
-                        wire:model="date_out" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data Final">
-                </div>
-
-                <div class="col-1">
-                    <select name="" id="" class="form-select border border-secondary"
-                        wire:model="dateBy" data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Data por Coluna">
-                        <option value="sended_at">Recebido</option>
-                        <option value="returned_at">Viabilizado</option>
-                        <option value="completed_at">Completado</option>
-                    </select>
-                </div>
-                <div class='col align-middle'><button class="btn btn-danger btn-sm align-middle"
-                        wire:click.prevent='cleanAll()' data-bs-toggle="tooltip" data-bs-placement="top"
-                        data-bs-title="Limpar Busca por Datas"><i class="ri-find-replace-line fs-5"></i></button></div>
-                <div class="col-5 d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner_hist', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner_hist'], key('removeAll'))
-                </div>
-            </div>
-        </div>
-    </div> --}}
-    {{-- END SearchBar and Filters --}}
-
-    {{-- START LIST --}}
-    @if (!$lists->count())
-        <div class="text-center my-5 py-3">
-            <h3>NENHUMA ATIVIDADE ENCONTRADA</h3>
-        </div>
-    @endif
-
-    @if ($lists->count())
-        {{-- Paginador --}}
-        <div class="row mt-3">
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                    {{ $lists->lastItem() }}
-                    de {{ $lists->total() }}
-                    registros.</span>
-            </div>
-        </div>
-        {{-- FIM Paginador --}}
-        <div class="card mb-2 edp-bg-gray">
-            <div class="card-header edp-bg-seoweedgreen-100 text-white">
-                <div class="row">
-                    <div class="col">
-                        <h4 class="card-header  edp-bg-seoweedgreen-100 text-white">HISTÓRICO DE VIABILIDADE</h4>
-                    </div>
-                    <div class="col-3 d-flex justify-content-end">
-
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                class="ri-file-excel-2-line align-middle"></i> Exportar</button>
-
-                    </div>
-                </div>
-            </div>
-
-
-            <div class="table-responsive">
-                <table class="table table-sm table-condensed table-striped table-hover">
-                    <thead>
-                        <th scope="col" class="text-center align-middle"></th>
-                        <th scope="col" class="text-center align-middle">Nota/OV</th>
-                        <th scope="col" class="text-center align-middle">Arquivos</th>
-                        <th scope="col" class="text-center align-middle">Ordem</th>
-                        <th scope="col" class="text-center align-middle">Contratado</th>
-                        <th scope="col" class="text-center align-middle">Recebido</th>
-                        <th scope="col" class="text-center align-middle">Viabilizado</th>
-                        <th scope="col" class="text-center align-middle">Completado em</th>
-                        <th scope="col" class="text-center align-middle">Rubrica</th>
-                        {{-- <th scope="col" class="text-center align-middle">Regiao</th> --}}
-                        <th scope="col" class="text-center align-middle">Municipio</th>
-                        <th scope="col" class="text-center align-middle">Status Tacit</th>
-                        <th scope="col" class="text-center align-middle">Status</th>
-                        <th scope="col" class="text-center align-middle">Empreiteira</th>
-                        <th scope="col" class="text-center align-middle"></th>
-                    </thead>
-                    <tbody class="table-group-divider">
-                        @foreach ($lists as $index => $viability)
-                            @php
-                                $status = null;
-
-                                $dueDate = Carbon::parse($viability?->sended_at)->addDays($viability?->getDays() + 7);
-
-                                $today = Carbon::now();
-                                $daysDifference = 0;
-
-                                if ($dueDate) {
-                                    $daysDifference = $today->diffInDays($dueDate);
-
-                                    if ($dueDate->isBefore($today)) {
-                                        $daysDifference *= -1;
-                                    }
-
-                                    if ($daysDifference < 1) {
-                                        $status = [
-                                            'color' => 'text-bg-danger',
-                                            'info' => 'VENCIDO',
-                                        ];
-                                    } elseif ($daysDifference >= 1 && $daysDifference < 3) {
-                                        $status = [
-                                            'color' => 'text-bg-warning',
-                                            'info' => 'VENCENDO',
-                                        ];
-                                    } elseif ($daysDifference >= 3) {
-                                        $status = [
-                                            'color' => 'text-bg-success',
-                                            'info' => 'NO PRAZO',
-                                        ];
-                                    }
-                                }
-
-                                $block = null;
-                                $color = 'grey';
-                                // $days_left = (new DaysLeft($viability?->Note?))->getDaysLeft();
-                                $count = 0;
-
-                                if ($viability?->approved) {
-                                    $count++;
-                                    $block = [
-                                        'color' => 'success',
-                                        'command' => true,
-                                    ];
-
-                                    $color = 'green';
-                                } elseif ($viability?->rejected) {
-                                    $count++;
-                                    $block = [
-                                        'color' => 'danger',
-                                        'command' => true,
-                                    ];
-
-                                    $color = 'red';
-                                }
-
-                                if (($viability?->rejected || $viability?->approved) && !$viability?->completed) {
-                                    $status = [
-                                        'color' => 'text-bg-primary',
-                                        'info' => 'EM AVALIAÇÂO',
-                                    ];
-                                }
-
-                                $color = '';
-
-                                if ($viability?->approved && !$viability?->rejected && !$viability?->tacit) {
-                                    $color = 'green';
-                                } elseif (!$viability?->approved && $viability?->rejected && !$viability?->tacit) {
-                                    $color = 'red';
-                                } elseif ($viability?->tacit) {
-                                    $color = 'yellow';
-                                }
-
-                                $tcolor = '';
-
-                                if ($viability?->hired) {
-                                    $tcolor = 'table-success';
-                                }
-                            @endphp
-                            <tr wire:key="viability-{{ $viability?->id }}"
-                                wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $viability }})"
-                                style="cursor: pointer; border-left: 8px solid {{ $color }};"
-                                data-bs-toggle="tooltip" data-bs-placement="left"
-                                data-bs-title="Duplo Clique para mais Opções">
-                                <td>
-                                </td>
-                                <td class="text-center align-middle">{{ $viability?->Note?->note }}</td>
-                                <td class="text-center align-middle">
-                                    {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                    @if ($viability?->Note?->Files?->isNotEmpty())
-                                        <x-files.select-download-list :files="$viability?->Note?->Files" />
-                                    @endif
-                                </td>
-                                <td class="text-center align-middle">
-                                    @if ($viability?->Orders->isNotEmpty())
-                                        @foreach ($viability?->Orders as $order)
-                                            <p class="p-0 m-1">
-                                                {{ $order->ordem }}
-                                            </p>
-                                        @endforeach
-                                    @elseif ($viability?->Note?->Orders?->isNotEmpty())
-                                        @foreach ($viability?->Note?->Orders?->filter(function ($order) {
-        return !(strpos($order->statusSist, 'ENT') === 0 || strpos($order->statusSist, 'ENC') === 0);
-    }) as $order)
-                                            <p class="p-0 m-1">
-                                                {{ $order->ordem }}
-                                            </p>
-                                        @endforeach
-                                    @endif
-                                </td>
-
-                                <td class="text-center align-middle">
-                                    {{ $viability?->hired ? 'SIM' : 'NÃO' }}</td>
-                                <td class="text-center align-middle fw-bold">
-                                    {{ Carbon::parse($viability?->sended_at)->format('d/m/Y') }}
-                                </td>
-                                <td class="text-center align-middle fw-bold">
-                                    {{ isset($viability?->returned_at) ? Carbon::parse($viability?->returned_at)->format('d/m/Y') : '---' }}
-                                </td>
-                                <td class="text-center align-middle fw-bold">
-                                    {{ isset($viability?->completed_at) ? Carbon::parse($viability?->completed_at)->format('d/m/Y') : '---' }}
-                                </td>
-                                <td class="text-center align-middle">{{ $viability?->Note?->rubrica }}</td>
-                                {{-- <td class="text-center align-middle">
-                                    {{ $cities->Where('rdMunicipio', $viability?->nexp) ? $cities->Where('rdMunicipio', $viability?->nexp)->regiao : '' }}
-                                </td> --}}
-                                <td class="text-center align-middle">{{ $viability?->Note?->lexp }}</td>
-
-                                <td class="text-center align-middle">
-                                    @if ($viability?->Justification)
-                                        @if ($viability?->Justification->granted && !$viability?->Justification->dismissed)
-                                            <span class="badge bg-success"
-                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability?->id }}')"
-                                                style="cursos: pointer;">DEFERIDO</span>
-                                        @elseif ($viability?->Justification->dismissed && !$viability?->Justification->granted)
-                                            <span class="badge bg-danger"
-                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability?->id }}')"
-                                                style="cursos: pointer;">INDEFERIDO</span>
-                                        @elseif (!$viability?->Justification->dismissed && !$viability?->Justification->granted)
-                                            <span class="badge bg-primary"
-                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability?->id }}')"
-                                                style="cursos: pointer;">EM AVALIAÇÃO</span>
-                                        @else
-                                            <span class="badge bg-warning"
-                                                wire:click="$emitTo('partner.show.tacitjusfy-show','getTacitInfo', '{{ $viability?->id }}')"
-                                                style="cursos: pointer;">INCONSISTÊNCIA</span>
-                                        @endif
-                                    @else
-                                        @if ($viability?->tacit)
-                                            <span class="badge bg-secondary">SEM JUSTIFICATIVA</span>
-                                        @else
-                                            ---
-                                        @endif
-                                    @endif
-                                </td>
-
-                                <td class="text-center align-middle"><span
-                                        class="badge {{ Viabilitiesstatus::status($viability?->status)->colorbg }} word-wrap">{{ Viabilitiesstatus::status($viability?->status)->status }}</span>
-                                </td>
-                                <td class="text-center align-middle">{{ $viability?->Company->name }}</span>
-                                </td>
-                                <td class="text-center align-middle">
-                                    <a href="{{ route('pdf.checklist', ['id' => $viability?->id]) }}" target="_BLANK"
-                                        class="text-primary"><i class="bx bx-printer text-primary fs-4 me-2"
-                                            role="group" aria-label="Basic example" tabindex="0"
-                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="right" data-bs-title="Imprimir Check-List FTVEO"
-                                            data-bs-content="<p>Abre para impressão a Ficha Técnica de Viabilidade e Execução de Obras.</p>"></i></a>
-                                </td>
+        <div wire:loading.delay.class="d-none">
+            @if ($lists->isEmpty())
+                <x-closure.empty-state icon="ri-history-line"
+                    :title="$hasCriteria ? 'Nenhuma viabilidade com esses filtros' : 'Nenhuma atividade encontrada'"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais viabilidades.' : 'As viabilidades da sua empresa aparecem aqui conforme forem recebidas.'" />
+            @else
+                <div class="table-responsive">
+                    <table class="table mp-table align-middle mb-0">
+                        <colgroup>
+                            <col style="width: 110px">
+                            <col style="width: 70px">
+                            <col style="width: 110px">
+                            <col style="width: 100px">
+                            <col style="width: 120px">
+                            <col style="width: 120px">
+                            <col style="width: 120px">
+                            <col style="width: 110px">
+                            <col>
+                            <col style="width: 140px">
+                            <col style="width: 150px">
+                            <col style="width: 16%">
+                            <col style="width: 70px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Nota/OV</th>
+                                <th class="text-center">Arquivos</th>
+                                <th>Ordem</th>
+                                <th>Contratado</th>
+                                <th>Recebido</th>
+                                <th>Viabilizado</th>
+                                <th>Completado em</th>
+                                <th>Rubrica</th>
+                                <th>Município</th>
+                                <th>Justificativa tácita</th>
+                                <th>Status</th>
+                                <th>Empreiteira</th>
+                                <th><span class="visually-hidden">Ações</span></th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-
-
-        </div>
-
-        {{-- Paginador --}}
-        <div class="row mt-3">
-            <div class="col-6">
-                {{ $lists->links() }}
-            </div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                    {{ $lists->lastItem() }}
-                    de {{ $lists->total() }}
-                    registros.</span>
-            </div>
-        </div>
-        {{-- FIM Paginador --}}
-    @endif
-    {{-- END LIST --}}
-
-
-    {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="modal_multi_notas" tabindex="-1"
-        aria-labelledby="exampleModalLabel" aria-hidden="true">
-
-
-        <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
+                        </thead>
+                        <tbody>
+                            @foreach ($lists as $viability)
+                                @php
+                                    $status = Row::status($viability);
+                                    $orders = Row::orders($viability);
+                                    $tacit  = Row::tacit($viability);
+                                @endphp
+                                <tr class="ops-clickable" wire:key="viability-{{ $viability->id }}"
+                                    wire:dblclick="$emitTo('partner.actions.responserviab', 'getInfoResponse', {{ $viability->id }})"
+                                    title="Duplo clique para mais opções">
+                                    <td><x-ops.note :note="$viability->Note?->note" /></td>
+                                    <td class="text-center">
+                                        @if ($viability->Note?->Files?->isNotEmpty())
+                                            <x-files.select-download-list :files="$viability->Note->Files" :tacit-file-ids="$tacitFileIds" />
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @forelse ($orders as $order)
+                                            <div>{{ $order }}</div>
+                                        @empty
+                                            <span class="ops-empty">—</span>
+                                        @endforelse
+                                    </td>
+                                    <td><x-ops.badge sm :tone="$viability->hired ? 'green' : 'muted'" :label="$viability->hired ? 'Sim' : 'Não'" hint="Se a obra desta viabilidade já foi contratada" /></td>
+                                    <td><x-ops.date :date="$viability->sended_at" hint="Data em que a viabilidade chegou à parceira" /></td>
+                                    <td><x-ops.date :date="$viability->returned_at" hint="Data em que a parceira devolveu a viabilidade" /></td>
+                                    <td><x-ops.date :date="$viability->completed_at" hint="Data em que a viabilidade foi concluída" /></td>
+                                    <td>{{ $viability->Note?->rubrica ?: '—' }}</td>
+                                    <td>{{ $viability->Note?->lexp ?: '—' }}</td>
+                                    <td>
+                                        @if ($tacit && $tacit['open'])
+                                            <x-ops.badge class="ops-clickable" :tone="$tacit['tone']" :label="$tacit['label']" :hint="$tacit['hint']"
+                                                wire:click="$emitTo('partner.show.tacitjusfy-show', 'getTacitInfo', '{{ $viability->id }}')" />
+                                        @elseif ($tacit)
+                                            <x-ops.badge :tone="$tacit['tone']" :label="$tacit['label']" :hint="$tacit['hint']" />
+                                        @else
+                                            <span class="ops-empty">—</span>
+                                        @endif
+                                    </td>
+                                    <td><x-ops.badge :tone="$status['tone']" :label="$status['label']" /></td>
+                                    <td>{{ $viability->Company?->name ?? '—' }}</td>
+                                    <td class="text-end">
+                                        <a class="btn btn-outline-primary btn-sm ops-action" href="{{ route('pdf.checklist', ['id' => $viability->id]) }}" target="_blank" rel="noopener"
+                                            title="Imprimir a Ficha Técnica de Viabilidade e Execução de Obras"><i class="ri-printer-line" aria-hidden="true"></i> Checklist</a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"
-                        placeholder="Separar valores, por linha, virgula ou ponto e virgula. Colar direto do excel também funciona."></textarea>
+
+                <x-ops.pager :paginator="$lists" :per-page="$perPage" :sizes="[25, 50, 100, 250, 500]" />
+            @endif
+        </div>
+    </section>
+
+    {{-- Busca por várias notas ou ordens (cola direto do Excel). --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="partnerViabMultiNotes" tabindex="-1" aria-labelledby="partnerViabMultiNotesTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Busca em massa</span>
+                        <h5 class="modal-title" id="partnerViabMultiNotesTitle">Várias notas ou ordens</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="ops-modal-note">Informe um valor por linha, ou separe por vírgula ou ponto e vírgula. Colar direto do Excel também funciona.</p>
+                    <label class="form-label fw-semibold text-uppercase small" for="partnerViabMultiNotesText">Notas ou ordens</label>
+                    <textarea class="form-control" id="partnerViabMultiNotesText" rows="10" wire:model.defer="advanceSearch"></textarea>
                 </div>
                 <div class="modal-footer">
-
-                    <button type="button" class="btn btn-primary" wire:click="buscarMultinotas">OK</button>
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click="buscarMultinotas"><i class="ri-search-line" aria-hidden="true"></i> Buscar</button>
                 </div>
             </div>
-
         </div>
-
     </div>
 
     {{-- Livewire Components --}}
     @livewire('partner.actions.responserviab', key('reesponser_modal_viab'))
     @livewire('partner.show.tacitjusfy-show', key('tacitjusfy-show'))
-
-
-
-
-    {{-- Scripts --}}
-    <script>
-        document.addEventListener('livewire:load', function() {
-            const dateIn = document.getElementById('date_in');
-            const dateOut = document.getElementById('date_out');
-
-            dateIn.addEventListener('change', function() {
-                dateOut.min = dateIn.value;
-            });
-
-            // Optionally, you can also set the initial state on page load
-            if (dateIn.value) {
-                dateOut.min = dateIn.value;
-            }
-
-            // Prevent manual date entry
-            dateIn.addEventListener('keydown', function(e) {
-                e.preventDefault();
-            });
-
-            dateOut.addEventListener('keydown', function(e) {
-                e.preventDefault();
-            });
-        });
-    </script>
 </div>

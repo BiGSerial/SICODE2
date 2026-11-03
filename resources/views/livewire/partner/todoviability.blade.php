@@ -1,300 +1,160 @@
 @php
-    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+    use App\Services\Partner\ViabilityListRowPresenter as Row;
+
+    $canExport  = $this->can('viability.export');
+    $canRespond = $this->can('viability.respond');
+    $canReturn  = $this->can('viability.return');
 @endphp
 
-@push('css')
-    <style>
-        .item {
-            animation: slideIn 0.5s forwards;
-            opacity: 0;
-        }
+{{-- VIABILIDADES A EXECUTAR (lista de controle da parceira). Padrão: docs/PADRAO_LISTAS_OPERACIONAIS.md §10. --}}
+<div class="closure-dash my-panel ops-list ops-control">
 
-        .item.hidden {
-            animation: slideOut 0.5s forwards;
-        }
-
-        .detail-item {
-            opacity: 0;
-            animation: growDown 0.5s forwards;
-            transform-origin: top;
-        }
-
-        @keyframes growDown {
-            from {
-                transform: scaleY(0);
-            }
-
-            to {
-                transform: scaleY(1);
-            }
-        }
-
-        @keyframes slideIn {
-            0% {
-                opacity: 0;
-                transform: translateX(100%);
-            }
-
-            100% {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-
-        @keyframes blink {
-            0% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0;
-            }
-
-            100% {
-                opacity: 1;
-            }
-        }
-
-        .blink {
-            animation: blink 2s infinite;
-        }
-    </style>
-@endpush
-
-<div>
-    <x-show-loading />
-    @include('livewire.partner.partials.company-filter')
-
-    {{-- Filtros / Busca --}}
-    <div class="card mb-3">
-        <div class="card-body">
-            <div class="row g-2">
-                <div class="col-1">
-                    <select class="form-select border border-secondary" wire:model="perPage">
-                        <option value="25">25</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                        <option value="250">250</option>
-                        <option value="500">500</option>
-                    </select>
-                </div>
-                <div class="col-2">
-                    <input type="text" class="form-control border border-secondary" placeholder="Buscar"
-                        wire:model.debounce.600ms="search">
-                </div>
-                <div class="col-3"></div>
-                <div class="col-6 d-flex justify-content-end">
-                    @livewire('components.filter.filter', ['myKey' => 'txpriority', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'txpriority', 'filter' => 'Criticidade', 'group_filter' => 'partner', 'values' => 'txpriority', 'direction' => 'ASC', 'query' => ''], key('criticidade'))
-                    @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'partner', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-                    @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'partner', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-                    @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'partner', 'values' => 'municipio', 'direction' => 'ASC', 'query' => ''], key('city'))
-                    @livewire('components.filter.remove-all', ['group_filter' => 'partner'], key('removeAll'))
-                </div>
-            </div>
+    <x-ops.hero class="ops-hero--control" eyebrow="Portal da parceira · Viabilidade" title="Viabilidades a executar"
+        subtitle="Viabilidades que chegaram à sua parceira: execute a vistoria, imprima o checklist e devolva os informes da obra.">
+        <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+            <a href="{{ route('pdf.checklist', ['id' => 0]) }}" target="_blank" rel="noopener" class="btn btn-light btn-sm btn-dash"
+                title="Abre para impressão a Ficha Técnica de Viabilidade e Execução de Obras (obrigatório anexar no Sicode ao retornar a viabilidade)">
+                <i class="ri-printer-line" aria-hidden="true"></i> Checklist FTVEO (genérica)
+            </a>
+            @if ($canExport)
+                <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="export_excel" wire:loading.attr="disabled" wire:target="export_excel">
+                    <i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel
+                </button>
+            @endif
         </div>
-    </div>
+    </x-ops.hero>
 
-    {{-- Lista --}}
-    @if (!$lists->count())
-        <div class="text-center my-5 py-3">
-            <h3>NENHUMA ATIVIDADE ENCONTRADA</h3>
-        </div>
-    @else
-        <div class="row mt-3">
-            <div class="col-6">{{ $lists->links() }}</div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle">
-                    Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de {{ $lists->total() }} registros.
-                </span>
+    @include('livewire.partner.partials.viability-toolbar', ['placeholder' => 'Buscar por nota ou ordem…'])
+
+    <section class="mp-panel" aria-label="Viabilidades a executar">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Viabilidades a executar</h2>
+                <div class="mp-panel-sub">{{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'viabilidade' : 'viabilidades' }}@if ($hasCriteria) com os filtros atuais @endif · duplo clique na linha abre os detalhes</div>
             </div>
         </div>
 
-        <div class="card mb-2 edp-bg-gray">
-            <div class="card-header edp-bg-seoweedgreen-100 text-white">
-                <div class="row">
-                    <div class="col">
-                        <h4 class="my-0">VIABILIDADE A EXECUTAR</h4>
-                    </div>
-                    <div class="col-3 d-flex justify-content-end">
-                        <a href="{{ route('pdf.checklist', ['id' => 0]) }}" target="_BLANK"
-                            class="btn btn-sm btn-primary">
-                            <i class="bx bx-printer fs-4 ms-2 align-middle" data-bs-toggle="popover"
-                                data-bs-trigger="hover focus" data-bs-placement="right"
-                                data-bs-title="Imprimir Check-List FTVEO (Genérica)"
-                                data-bs-content="<p>Abre para impressão a Ficha Técnica de Viabilidade e Execução de Obras (Obrigatório Anexar no Sicode ao Retornar a Viabilidade).</p>"></i>
-                        </a>
-                        @if ($partnerCan('viability.export'))
-                            <button class="btn btn-sm btn-primary ms-2" wire:click.prevent="export_excel">
-                                <i class="ri-file-excel-2-line align-middle"></i> Exportar
-                            </button>
-                        @endif
-                    </div>
-                </div>
-            </div>
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="8" :cols="10" />
 
-            <div class="table-responsive">
-                <table class="table table-sm table-condensed table-striped table-hover">
-                    <thead>
-                        <tr>
-                            <th class="text-center align-middle" style="width: 10px;"></th>
-                            <th class="text-center align-middle">Nota/OV</th>
-                            <th class="text-center align-middle">Criticidade</th>
-                            <th class="text-center align-middle">Arquivos</th>
-                            <th class="text-center align-middle">Ordem</th>
-                            <th class="text-center align-middle">Contratado</th>
-                            <th class="text-center align-middle">Recebido</th>
-                            <th class="text-center align-middle">Prazo Viab</th>
-                            <th class="text-center align-middle">Prazo Obra</th>
-                            <th class="text-center align-middle">Rubrica</th>
-                            <th class="text-center align-middle">Material</th>
-                            <th class="text-center align-middle">Regiao</th>
-                            <th class="text-center align-middle">Municipio</th>
-                            <th class="text-center align-middle">Status</th>
-                            <th class="text-center align-middle">Empreiteira</th>
-                            <th class="text-center align-middle"></th>
-                            <th class="text-center align-middle"></th>
-                        </tr>
-                    </thead>
-
-                    <tbody class="table-group-divider">
-                        @foreach ($lists as $viability)
-                            @php
-                                $orders = $viability->Note->orders->reject(function ($order) {
-                                    return str_starts_with($order->statusSist, 'ENT') ||
-                                        str_starts_with($order->statusSist, 'ENC');
-                                });
-
-                                $dueDate = $viability->sended_at
-                                    ? $viability->sended_at->addDays($viability->getDays() + 7)
-                                    : null;
-
-                                $lastDate = new \App\Helpers\DaysLeft($viability->Note);
-
-                                if ($viability->tacit) {
-                                    $color = 'yelow';
-                                } elseif ($viability->rejected) {
-                                    $color = 'red';
-                                } elseif ($viability->approved) {
-                                    $color = 'green';
-                                } elseif (!$viability->approved && !$viability->rejected && !$viability->completed) {
-                                    $color = 'blue';
-                                } else {
-                                    $color = 'gray';
-                                }
-                            @endphp
-                            <tr wire:key="viability-{{ $viability->id }}"
-                                wire:dblclick="$emitTo('partner.actions.responserviab','getInfoResponse', {{ $viability->id }})"
-                                style="cursor:pointer; border-left: 8px solid {{ $color }};">
-                                <td></td>
-                                <td
-                                    class="text-center align-middle @if ($viability->Note->is45) text-bg-warning @endif">
-                                    {{ $viability->Note->note }}
-                                    @if ($viability->Note->is45)
-                                        <span tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="top" data-bs-title="NOTA EXPRESSA"
-                                            data-bs-content="Nota com prazo de execução de 45 dias"
-                                            style="z-index:9999;">
-                                            <i class="ri-fire-line text-danger fw-bold"
-                                                style="display:inline-block; animation:flame 1s steps(1) infinite;"></i>
-                                        </span>
-                                    @endif
-                                </td>
-                                <td class="text-center align-middle fw-bold">
-                                    {{ $viability->Note->txpriority ?? 'Normal' }}
-                                </td>
-                                <td class="text-center align-middle">
-                                    @if ($viability?->Note?->Files?->isNotEmpty())
-                                        <x-files.select-download-list :files="$viability?->Note?->Files" />
-                                    @endif
-
-                                </td>
-
-
-                                <td class="text-center align-middle">
-                                    @forelse($orders as $order)
-                                        <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                    @empty
-                                        ---
-                                    @endforelse
-                                </td>
-                                <td class="text-center align-middle">
-                                    {{ $viability->hired ? 'SIM' : 'NÃO' }}
-                                </td>
-                                <td class="text-center align-middle fw-bold">
-                                    {{ $viability->sended_at?->format('d/m/Y') }}
-                                </td>
-                                <td class="text-center align-middle text-danger fw-bold">
-                                    {{ $dueDate?->format('d/m/Y') }}
-                                </td>
-                                <td class="text-center align-middle fw-bold text-primary">
-                                    {{ $lastDate->getLastDate() }}
-                                </td>
-                                <td class="text-center align-middle">
-                                    {{ $viability->note->rubrica }}
-                                </td>
-                                <td class="text-center align-middle">
-                                    {{ $viability->note->material }}
-                                </td>
-                                <td class="text-center align-middle">
-                                    {{ $viability->note->City?->regiao }}
-                                </td>
-                                <td class="text-center align-middle">
-                                    {{ $viability->note->lexp }}
-                                </td>
-                                <td class="text-center align-middle">
-                                    <span
-                                        class="badge {{ \App\Custom\Viabilitiesstatus::status($viability->status)->colorbg }}">{{ \App\Custom\Viabilitiesstatus::status($viability->status)->status }}</span>
-                                </td>
-                                <td class="text-center align-middle">
-                                    {{ $viability->company?->name }}
-                                </td>
-
-                                <td class="text-center align-middle">
-                                    <a href="{{ route('pdf.checklist', ['id' => $viability->id]) }}" target="_BLANK"
-                                        class="text-primary">
-                                        <i class="bx bx-printer text-primary fs-4 me-2" data-bs-toggle="popover"
-                                            data-bs-trigger="hover focus" data-bs-placement="right"
-                                            data-bs-title="Imprimir Check-List FTVEO"
-                                            data-bs-content="<p>Abre para impressão a Ficha Técnica de Viabilidade e Execução de Obras (Obrigatório Anexar no Sicode ao Retornar a Viabilidade).</p>"></i>
-                                    </a>
-
-                                    @php
-                                        $blockCmd = $viability->approved || $viability->rejected;
-                                    @endphp
-
-                                    @if (!$blockCmd && $partnerCan('viability.return'))
-                                        <i class="bx bxs-badge-check text-success fs-4 me-2" style="cursor:pointer;"
-                                            wire:click.prevent="$emitTo('partner.forms.return-viability', 'openViability', '{{ $viability->id }}')"
-                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="right" data-bs-title="Encerrar Atividade"
-                                            data-bs-content="<p>Entrega os informes da Obra.</p>"></i>
-                                    @endif
-                                </td>
-
-                                <td class="align-middle">
-                                    @if ($partnerCan('viability.respond'))
-                                        <input class="form-check-input border border-secondary" type="checkbox"
-                                            wire:click.prevent="putInActivity({{ $viability->id }})"
-                                            @checked($this->checkInActivity($viability))>
-                                    @endif
-                                </td>
+        <div wire:loading.delay.class="d-none">
+            @if ($lists->isEmpty())
+                <x-closure.empty-state icon="ri-checkbox-circle-line"
+                    :title="$hasCriteria ? 'Nenhuma viabilidade com esses filtros' : 'Nenhuma atividade encontrada'"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais viabilidades.' : 'Quando uma viabilidade chegar à sua parceira, ela aparece aqui.'" />
+            @else
+                <div class="table-responsive">
+                    <table class="table mp-table align-middle mb-0">
+                        <colgroup>
+                            <col style="width: 130px">
+                            <col style="width: 110px">
+                            <col style="width: 70px">
+                            <col style="width: 110px">
+                            <col style="width: 100px">
+                            <col style="width: 120px">
+                            <col style="width: 120px">
+                            <col style="width: 120px">
+                            <col style="width: 110px">
+                            <col>
+                            <col style="width: 110px">
+                            <col style="width: 130px">
+                            <col style="width: 150px">
+                            <col style="width: 15%">
+                            <col style="width: 90px">
+                            <col style="width: 110px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Nota/OV</th>
+                                <th>Criticidade</th>
+                                <th class="text-center">Arquivos</th>
+                                <th>Ordem</th>
+                                <th>Contratado</th>
+                                <th>Recebido</th>
+                                <th>Prazo viab.</th>
+                                <th>Prazo obra</th>
+                                <th>Rubrica</th>
+                                <th>Material</th>
+                                <th>Região</th>
+                                <th>Município</th>
+                                <th>Status</th>
+                                <th>Empreiteira</th>
+                                <th class="text-center">Em atividade</th>
+                                <th><span class="visually-hidden">Ações</span></th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        </div>
+                        </thead>
+                        <tbody>
+                            @foreach ($lists as $viability)
+                                @php
+                                    $note     = $viability->Note;
+                                    $orders   = Row::orders($viability, false);
+                                    $due      = Row::due($viability);
+                                    $workDate = Row::workDate($viability);
+                                    $status   = Row::status($viability);
+                                    $blocked  = $viability->approved || $viability->rejected;
+                                @endphp
+                                <tr class="ops-clickable" wire:key="viability-{{ $viability->id }}"
+                                    wire:dblclick="$emitTo('partner.actions.responserviab', 'getInfoResponse', {{ $viability->id }})">
+                                    <td>
+                                        <x-ops.note :note="$note->note">
+                                            @if ($note->is45)
+                                                <x-ops.badge sm tone="amber" icon="ri-fire-line" label="Expressa" hint="Nota expressa: prazo de execução de 45 dias" />
+                                            @endif
+                                        </x-ops.note>
+                                    </td>
+                                    <td class="fw-semibold">{{ $note->txpriority ?: 'Normal' }}</td>
+                                    <td class="text-center">
+                                        @if ($note->Files->isNotEmpty())
+                                            <x-files.select-download-list :files="$note->Files" :tacit-file-ids="$tacitFileIds" />
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @forelse ($orders as $order)
+                                            <div>{{ $order }}</div>
+                                        @empty
+                                            <span class="ops-empty">—</span>
+                                        @endforelse
+                                    </td>
+                                    <td><x-ops.badge sm :tone="$viability->hired ? 'green' : 'muted'" :label="$viability->hired ? 'Sim' : 'Não'" hint="Se a obra desta viabilidade já foi contratada" /></td>
+                                    <td><x-ops.date :date="$viability->sended_at" hint="Data em que a viabilidade chegou à parceira" /></td>
+                                    <td><x-ops.date :date="$due['date']" :tone="$due['tone']" :hint="$due['hint']" /></td>
+                                    <td><x-ops.date :date="$workDate" hint="Data limite da obra, pela mensalização da nota ou vencimento da OV" /></td>
+                                    <td>{{ $note->rubrica ?: '—' }}</td>
+                                    <td>{{ $note->material ?: '—' }}</td>
+                                    <td>{{ $note->City?->regiao ?: '—' }}</td>
+                                    <td>{{ $note->lexp ?: '—' }}</td>
+                                    <td><x-ops.badge :tone="$status['tone']" :label="$status['label']" /></td>
+                                    <td>{{ $viability->Company?->name ?? '—' }}</td>
+                                    <td class="text-center">
+                                        @if ($canRespond)
+                                            <input class="form-check-input" type="checkbox" wire:click.prevent="putInActivity({{ $viability->id }})"
+                                                @checked($this->checkInActivity($viability)) aria-label="Marcar a nota {{ $note->note }} como em atividade">
+                                        @else
+                                            <span class="ops-empty">—</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="dropdown ops-row-actions">
+                                            <button class="btn btn-outline-secondary btn-sm ops-row-menu dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Mais ações para a nota {{ $note->note }}"><i class="ri-more-2-fill" aria-hidden="true"></i></button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><button type="button" class="dropdown-item" wire:click="$emitTo('partner.actions.responserviab', 'getInfoResponse', {{ $viability->id }})"><i class="ri-eye-line text-primary align-middle"></i> Ver detalhes</button></li>
+                                                <li><a class="dropdown-item" href="{{ route('pdf.checklist', ['id' => $viability->id]) }}" target="_blank" rel="noopener" title="Abre a Ficha Técnica de Viabilidade e Execução de Obras para impressão"><i class="ri-printer-line text-primary align-middle"></i> Imprimir checklist FTVEO</a></li>
+                                                @if (!$blocked && $canReturn)
+                                                    <li><hr class="dropdown-divider"></li>
+                                                    <li><button type="button" class="dropdown-item" wire:click="$emitTo('partner.forms.return-viability', 'openViability', '{{ $viability->id }}')" title="Entrega os informes da obra"><i class="ri-checkbox-circle-line text-success align-middle"></i> Encerrar atividade</button></li>
+                                                @endif
+                                            </ul>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
 
-        <div class="row mt-3">
-            <div class="col-6">{{ $lists->links() }}</div>
-            <div class="col-6 d-flex justify-content-end align-middle">
-                <span class="align-middle">
-                    Exibindo {{ $lists->firstItem() }} até {{ $lists->lastItem() }} de {{ $lists->total() }}
-                    registros.
-                </span>
-            </div>
+                <x-ops.pager :paginator="$lists" :per-page="$perPage" :sizes="[25, 50, 100, 250, 500]" />
+            @endif
         </div>
-    @endif
+    </section>
 
     {{-- Modais Livewire --}}
     @livewire('partner.actions.responserviab', key('responser_modal_viab'))

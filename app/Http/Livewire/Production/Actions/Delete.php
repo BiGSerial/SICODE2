@@ -2,8 +2,7 @@
 
 namespace App\Http\Livewire\Production\Actions;
 
-use App\Models\SicodeSql\Production as SicodeSqlProduction;
-use App\Models\{Analise, Notetimeline, Prodtransfer, Production, Wpa};
+use App\Models\{Production};
 use Livewire\Component;
 
 class Delete extends Component
@@ -45,9 +44,7 @@ class Delete extends Component
     {
         if ($chave === $this->chave) {
 
-            $production = $this->production;
-
-            if ($this->production->delete()) {
+            if (app(\App\Services\Production\ProductionActions::class)->remove($this->production)) {
 
                 $this->dispatchBrowserEvent('swal', [
                     'position' => 'center',
@@ -55,38 +52,6 @@ class Delete extends Component
                     'title'    => 'Produção removida com sucesso',
                     'timer'    => 2500,
                 ]);
-
-                //Verifica se existe alguma analise e remove
-                if ($analise = Analise::Where('production_id', $production->id)->first()) {
-                    $analise->delete();
-                }
-
-                //Verifica se existe algum Wpa e remove
-                if ($wpa = Wpa::Where('production_id', $production->id)->first()) {
-                    $wpa->update(['production_id' => null]);
-                }
-
-                if ($transfer = Prodtransfer::Where('production_id', $production->id)->first()) {
-                    $transfer->delete();
-                }
-
-                if ($production) {
-                    Notetimeline::Create([
-                        'note_id'      => $production->note_id,
-                        'service_id'   => $production->service_id,
-                        'user_id'      => Auth()->User()->id,
-                        'info'         => 'Produção REMOVIDA',
-                        'status'       => 2,
-                        'production_id' => $production->id,
-                    ]);
-                }
-
-                //Só exscuta caso o servidor esteja configurado produção.
-                if (Env('APP_ENV') === 'production' && !Env('APP_QA')) {
-                    if ($sqlLog = SicodeSqlProduction::Where('production_id', $production->id)->first()) {
-                        $sqlLog->delete();
-                    }
-                }
 
                 $this->emit('refresh_list');
 

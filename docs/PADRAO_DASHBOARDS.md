@@ -2,7 +2,7 @@
 
 **Referência: a Home** ("Meu painel", `/home`) e a sua versão da gerência, **Serviços → Relatórios → Painel da equipe**. Toda tela analítica nova (relatório gerencial, dashboard, acompanhamento) parte delas. Não se inventa layout, CSS ou contrato de gráfico por tela.
 
-Detalhes de cada referência: [home/MEU_PAINEL.md](home/MEU_PAINEL.md) e [reports/PAINEL_DA_EQUIPE.md](reports/PAINEL_DA_EQUIPE.md). Tokens, componentes `<x-closure.*>` e regras de JS/formulário: [encerramento/PADRAO_UI_ENCERRAMENTO.md](encerramento/PADRAO_UI_ENCERRAMENTO.md).
+Detalhes de cada referência: [home/MEU_PAINEL.md](home/MEU_PAINEL.md), [reports/PAINEL_DA_EQUIPE.md](reports/PAINEL_DA_EQUIPE.md) e, para dashboards de atividade (pilha, atribuição, prazo, aderência), [dashboards/DASHBOARD_ATIVIDADE.md](dashboards/DASHBOARD_ATIVIDADE.md). Tokens, componentes `<x-closure.*>` e regras de JS/formulário: [encerramento/PADRAO_UI_ENCERRAMENTO.md](encerramento/PADRAO_UI_ENCERRAMENTO.md).
 
 ## 1. Camadas (uma responsabilidade por arquivo)
 

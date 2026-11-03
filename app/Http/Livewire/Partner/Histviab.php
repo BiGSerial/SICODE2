@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Partner;
 
 use App\Exports\Viability\HistoricReport;
 use App\Helpers\TextFormatter;
-use App\Models\City;
+use App\Http\Livewire\Partner\Concerns\{AuthorizesPartnerAccess, WithViabilityListFilters};
 use App\Models\{File, Viability};
 use App\Services\Files\FileStorageService;
 use Carbon\Carbon;
@@ -14,20 +14,23 @@ use ZipArchive;
 
 class Histviab extends Component
 {
-    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
-    use WithPagination;
+    use AuthorizesPartnerAccess;
     use TextFormatter;
+    use WithPagination;
+    use WithViabilityListFilters;
+
+    /** Colunas de data aceitas no filtro por período. */
+    private const DATE_COLUMNS = ['sended_at', 'returned_at', 'completed_at'];
 
     protected $paginationTheme = 'bootstrap';
 
     public $perPage = 50;
 
-    public $cities;
-
     public $files_selected = [];
 
-    public $search;
+    public $search = '';
 
+    /** '' = Nota e OV | 1 = só notas | 2 = só OVs */
     public $typeNote = '';
 
     public $advanceSearch = '';
@@ -43,15 +46,15 @@ class Histviab extends Component
 
     public $dateBy = 'sended_at';
 
-    // Filters
-    private $filter_group = 'partner_hist';
-
-    private $filter;
-
     protected $queryString = [
-        'search'  => ['except' => '', 'as' => 'buscar'],
-        'page'    => ['except' => 1, 'as' => 'p'],
-        'perPage' => ['as' => 'pp'],
+        'search'   => ['except' => '', 'as' => 'buscar'],
+        'page'     => ['except' => 1, 'as' => 'p'],
+        'perPage'  => ['as' => 'pp'],
+        'typeNote' => ['except' => '', 'as' => 'tipo'],
+        'dateBy'   => ['except' => 'sended_at', 'as' => 'por'],
+        'date_in'  => ['except' => '', 'as' => 'de'],
+        'date_out' => ['except' => '', 'as' => 'ate'],
+        'filters'  => ['except' => [], 'as' => 'f'],
     ];
 
     protected $listeners = [
@@ -60,7 +63,40 @@ class Histviab extends Component
 
     public function mount()
     {
-        $this->cities = City::orderBy('cidade')->get();
+        $this->filters = $this->normalizeFilters($this->filters);
+        $this->dateBy  = in_array($this->dateBy, self::DATE_COLUMNS, true) ? $this->dateBy : 'sended_at';
+    }
+
+    protected function viabilityFilterKeys(): array
+    {
+        return ['company', 'rubrica', 'region', 'regional', 'city'];
+    }
+
+    public function can(string $permission): bool
+    {
+        return \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+    }
+
+    public function updatedTypeNote()
+    {
+        $this->typeNote = in_array((string) $this->typeNote, ['1', '2'], true) ? (string) $this->typeNote : '';
+        $this->resetPage();
+    }
+
+    public function updatedDateBy()
+    {
+        $this->dateBy = in_array($this->dateBy, self::DATE_COLUMNS, true) ? $this->dateBy : 'sended_at';
+        $this->resetPage();
+    }
+
+    public function updatedDateIn()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateOut()
+    {
+        $this->resetPage();
     }
 
     public function export_excel()
@@ -72,6 +108,7 @@ class Histviab extends Component
 
     public function updatedPerPage()
     {
+        $this->perPage = in_array((int) $this->perPage, [25, 50, 100, 250, 500], true) ? (int) $this->perPage : 50;
         $this->gotoPage(1);
     }
 
@@ -204,12 +241,24 @@ class Histviab extends Component
         }
     }
 
-    public function cleanAll()
+    /** Limpa busca, multinotas, tipo, período e filtros. */
+    public function clearAllCriteria(): void
     {
-        $this->date_in  = "";
-        $this->date_out = "";
-        $this->dateBy   = 'sended_at';
-        $this->search   = '';
+        $this->search        = '';
+        $this->multinotas    = [];
+        $this->advanceSearch = '';
+        $this->typeNote      = '';
+        $this->month         = '';
+        $this->date_in       = '';
+        $this->date_out      = '';
+        $this->dateBy        = 'sended_at';
+        $this->clearListFilters();
+    }
+
+    /** Há algum critério além do padrão (para mostrar "Limpar filtros" e a mensagem de vazio). */
+    private function hasHistoryCriteria(): bool
+    {
+        return $this->hasViabilityCriteria() || $this->multinotas || $this->typeNote !== '' || $this->date_in || $this->date_out;
     }
 
     public function updatedMonth()
@@ -225,21 +274,7 @@ class Histviab extends Component
 
     public function getListsProperty()
     {
-
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) {
-                session()->start();
-            }
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
-
-        $query = Viability::Query();
-        // ->where('completed', true)
-        // ->where('approved', true)
-        // ->where('hired', true);
+        $query = Viability::query();
 
         $this->applyPartnerCompanyScope($query);
 
@@ -263,31 +298,47 @@ class Histviab extends Component
             });
         }
 
+        $column = in_array($this->dateBy, self::DATE_COLUMNS, true) ? $this->dateBy : 'sended_at';
+
         if ($this->date_in || $this->date_out) {
-            $query->where(function ($q) {
+            $query->where(function ($q) use ($column) {
                 if ($this->date_in && !$this->date_out) {
 
-                    $q->where($this->dateBy, '>=', $this->date_in);
+                    $q->where($column, '>=', $this->date_in);
 
                 } elseif (!$this->date_in && $this->date_out) {
 
-                    $q->where($this->dateBy, '<=', $this->date_out);
+                    $q->where($column, '<=', $this->date_out);
 
                 } elseif ($this->date_in && $this->date_out) {
 
-                    $q->whereBetween($this->dateBy, [$this->date_in, $this->date_out]);
+                    $q->whereBetween($column, [$this->date_in, $this->date_out]);
                 }
             });
         }
 
-        return $query->orderBy('completed_at', 'DESC');
+        return $this->applyViabilityFilters($query)->orderBy('completed_at', 'DESC');
     }
 
     public function render()
     {
+        $lists = $this->lists
+            ->with([
+                'Note:id,note,rubrica,lexp,type_note',
+                'Note.Orders:id,note_id,ordem,statusSist',
+                'Note.Files:id,note_id,service_id,file_name,ext,path',
+                'Note.Files.service:uuid,service',
+                'Note.Files.note:id,note',
+                'Orders:id,note_id,ordem',
+                'Justification',
+                'Company:id,name',
+            ])
+            ->paginate($this->perPage);
+
         return view('livewire.partner.histviab', [
-            'lists'  => $this->lists->paginate($this->perPage),
-            'cities' => $this->cities,
+            'lists'        => $lists,
+            'tacitFileIds' => $this->tacitFileIdsFor($lists),
+            'hasCriteria'  => $this->hasHistoryCriteria(),
         ]);
     }
 }

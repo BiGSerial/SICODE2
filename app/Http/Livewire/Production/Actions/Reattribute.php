@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Production\Actions;
 
-use App\Models\{Notetimeline, Production};
+use App\Models\{Production};
 use Livewire\Component;
 
 class Reattribute extends Component
@@ -40,7 +40,7 @@ class Reattribute extends Component
     public function confirm_reatt($chave)
     {
         if ($this->chave === $chave) {
-            if ($this->production->update(['status' => 2, 'completed' => false])) {
+            if (app(\App\Services\Production\ProductionActions::class)->reattribute($this->production)) {
                 $this->emit('refresh_list');
 
                 $this->dispatchBrowserEvent('swal', [
@@ -49,19 +49,6 @@ class Reattribute extends Component
                     'title'    => 'Nota/Ov Re-atribuída com sucesso!',
                     'timer'    => 2500,
                 ]);
-
-                $production = $this->production;
-
-                if ($production) {
-                    Notetimeline::Create([
-                        'note_id'      => $production->note_id,
-                        'service_id'   => $production->service_id,
-                        'user_id'      => Auth()->User()->id,
-                        'info'         => 'A nota foi reatribuída.',
-                        'status'       => 26,
-                        'production_id' => $production->id,
-                    ]);
-                }
 
             } else {
                 $this->dispatchBrowserEvent('swal', [

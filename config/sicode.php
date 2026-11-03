@@ -52,6 +52,13 @@ return [
                     'business_days' => true,
                 ],
             ],
+            'publication' => [
+                // Prazo para publicar após a entrega do INFORME (dias corridos por padrão; `business_days` troca para úteis).
+                'deadline' => [
+                    'days'          => 2,
+                    'business_days' => false,
+                ],
+            ],
             'payment' => [
                 'measurement_deadline' => [
                     'days'          => 15,
@@ -118,6 +125,13 @@ return [
                 // Prazo de entrega da ADS: dias úteis (true) ou corridos (false).
                 'delivery_deadline' => [
                     'days'          => 3,
+                    'business_days' => false,
+                ],
+            ],
+            'publication' => [
+                // Prazo para publicar após a entrega do INFORME (dias corridos por padrão; `business_days` troca para úteis).
+                'deadline' => [
+                    'days'          => 2,
                     'business_days' => false,
                 ],
             ],

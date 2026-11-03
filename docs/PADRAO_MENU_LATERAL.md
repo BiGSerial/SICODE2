@@ -23,8 +23,19 @@
 | Atividades de **serviço** | `ServiceNav` | Contexto: `service` + `variant`. Arquivos `services/**/menu.blade.php` |
 | **Administração** (admin + configurações + sistema) | `AdminNav` | Módulos Cadastros, Dados, Configurações e Sistema; o dropdown do topo sai de `AdminNav::topNodes()`. Arquivos `admin/**/menu`, `config/*menu` |
 | **Reclamações** (protests) | `ProtestNav` | Contexto: `variant` (`dispatch`, `services`, `partner`). Arquivos `protest/*/menu.blade.php` |
+| **Relatórios** | `ReportsNav` | Contexto: `variant` (`informes`, `cancelamentos`, `reclamacoes`, `notas-d5`, `analise-projetos`, `retorno-interno`). Arquivos `reports/*menu.blade.php`; a lista do dropdown do topo é `ReportsNav::topLinks()` (com o gate de cada relatório) |
+| **Jurídico** | `LegalNav` | Um módulo, três grupos com gate (Controlador, Executante, Gestão); `LegalNav::topSections()` alimenta o dropdown do topo |
+| **Qualidade** | `QualityNav` | Grupos pelo papel (contexto `mode`: `manager`, ou `member` com `n1`/`n2`). Abas e filas compartilham a rota: o item ativo vem da chave `rota:parâmetro` (`QualityNav::routeKey()`). Pílulas por `quality.menu-count`; o perfil de quem olha vai no slot do rodapé |
+| **BT Zero** | `BtzeroNav` | `BtzeroNav::topItems()` alimenta o dropdown "SMC" do topo |
+| **Contratação** | `HiringNav` | Contexto: `service` (a atividade aberta) |
+| **Análise de projetos** | `ProjectReviewNav` | Contadores no componente `project-review.menu-counts` |
+| **ADS** | `AdsNav` | `AdsNav::topItems()` alimenta o item no dropdown "BUSCAR" do topo |
+| **Cancelamentos** (quem solicita) | `CancellationNav` | A aprovação é da Engenharia (`EngineerNav`) |
+| **Portal da parceira** | `PartnerNav` | **Tema próprio** (`THEME = 'partner'`, ver §7). Permissões da parceira (`PartnerAccessGate`), não gates: o `can` guarda a chave (ex.: `viability.list`). Condição de perfil (engenheiro que só atua pela parceira) decide-se em `modules()`. Dropdown "BUSCAR" do topo: `PartnerNav::topItems()` |
 
-Ainda no desenho antigo (a migrar, um por vez): Relatórios, Jurídico, Qualidade, Parceiro, BTZero, Contratação, Project Review, Anúncios (ads) e Cancelamentos (menus próprios).
+Todas as áreas estão no padrão. A `home` e o `profile` têm só a coluna vazia do menu.
+
+Menus de uma área só (um módulo, poucos grupos) montam módulo e grupos com o trait `Concerns\NavBuilders`; os de atividade usam `Concerns\ActivityNavHelpers`.
 
 ## 2. Como cada nível deve ser
 
@@ -78,3 +89,14 @@ Ainda no desenho antigo (a migrar, um por vez): Relatórios, Jurídico, Qualidad
 - Contador de outro item reaproveitado por engano (ex.: o de parciais no menu de D5).
 - Mesmo ícone para todos os grupos, ícones `bi-*` misturados com `ri-*`.
 - Dropdown com a mesma aparência de um item (o cabeçalho de grupo tem cor própria justamente para isso).
+
+## 7. Temas (a parceira é diferente da empresa)
+
+O menu da **empresa** é escuro, em verde-petróleo, com acento verde: é a identidade do sistema interno. O **portal da parceira** tem tema próprio, para quem entra nele saber que está em outro ambiente, e mais sóbrio: não deve chamar mais atenção que o trabalho.
+
+- **Declarar o tema:** `public const THEME = 'partner'` no `*Nav`. O componente `<x-nav.sidebar>` troca o fundo verde padrão pela classe `snav--partner` (`snav--<tema>`). Sem `THEME`, vale o da empresa. Tema novo só com justificativa de produto, como este.
+- **Onde vive:** `resources/sass/partner/_partner.scss` (menu `snav--partner` **e** o layout da parceira, `body.partner-shell`, em `layouts/company`). O tema sobrepõe os tokens `--snav-*` e os poucos seletores com cor fixa; nunca copia o menu nem cria markup próprio.
+- **Princípios do tema da parceira:** composição **tom sobre tom em azul cobalto EDP**: o topo é o cobalto profundo e a coluna é o mesmo cobalto em véu claro, então os dois se leem como uma peça só. O brasão do portal é o único bloco cheio de cor da coluna; o cabeçalho de grupo usa o véu mais denso com texto cobalto profundo (continua diferente dos itens); o item ativo é um **cartão branco que salta do véu**, com a barra cobalto à esquerda. Texto em marine blue; vermelho só para pendência, sem sombra forte; **sem verde neon** (a marca do topo é branca + azul-gelo). Migalhas em cartão branco com filete cobalto. O topo em "visão de outro usuário" continua vermelho.
+- **Cor só por token:** variáveis `--ptn-*` declaradas num bloco de tokens a partir das variáveis EDP de `_variables.scss`; fora dele, nada de `#hex` (o teste confere). Precisa de uma cor nova? Crie o token, com nome pelo papel.
+- **Sem CSS inline no layout:** os popovers e o avatar que estavam em `<style>` no `layouts/company` agora são do tema.
+- **Permissão própria:** uma área com outro modelo de permissão sobrescreve `SidebarNav::allows()` (a parceira usa `PartnerAccessGate`); `can` continua sendo a chave do grupo/item.

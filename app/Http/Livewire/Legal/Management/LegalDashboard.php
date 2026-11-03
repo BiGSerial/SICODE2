@@ -80,7 +80,7 @@ class LegalDashboard extends Component
             // active = externallyActive + filtros globais; closed = externally OR internally closed
             $active = fn () => $this->applyGlobalFilters(
                 LegalDemand::externallyActive()
-                    
+
                     ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
             );
             $closed = fn () => $this->applyGlobalFilters(LegalDemand::query())->where(function ($q) {
@@ -107,7 +107,7 @@ class LegalDashboard extends Component
             // SLAs operacionais do fluxo (base em assignments no período)
             $assignmentsBase = LegalDemandAssignment::query()
                 ->join('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
-                
+
                 ->whereBetween('legal_demand_assignments.sent_at', [$from, $to]);
 
             $this->applyGlobalFilters($assignmentsBase);
@@ -125,8 +125,8 @@ class LegalDashboard extends Component
                 ->get();
 
             $totalAssignments = max(1, $assignments->count());
-            $receivedCount = $assignments->filter(fn ($a) => !empty($a->received_at))->count();
-            $answeredCount = $assignments->filter(fn ($a) => !empty($a->answered_at))->count();
+            $receivedCount    = $assignments->filter(fn ($a) => !empty($a->received_at))->count();
+            $answeredCount    = $assignments->filter(fn ($a) => !empty($a->answered_at))->count();
 
             $controllerDispatchAvgHours = $assignments
                 ->filter(fn ($a) => !empty($a->first_seen_at) && !empty($a->sent_at))
@@ -148,33 +148,36 @@ class LegalDashboard extends Component
 
             $onTimeByAssignmentDue = $assignments
                 ->filter(function ($a) {
-                    $meta = is_array($a->metadata) ? $a->metadata : (json_decode((string) ($a->metadata ?? ''), true) ?: []);
+                    $meta  = is_array($a->metadata) ? $a->metadata : (json_decode((string) ($a->metadata ?? ''), true) ?: []);
                     $dueAt = data_get($meta, 'due_at');
+
                     return !empty($a->answered_at) && !empty($dueAt);
                 })
                 ->filter(function ($a) {
-                    $meta = is_array($a->metadata) ? $a->metadata : (json_decode((string) ($a->metadata ?? ''), true) ?: []);
+                    $meta  = is_array($a->metadata) ? $a->metadata : (json_decode((string) ($a->metadata ?? ''), true) ?: []);
                     $dueAt = data_get($meta, 'due_at');
+
                     return \Carbon\Carbon::parse($a->answered_at)->lte(\Carbon\Carbon::parse($dueAt));
                 })
                 ->count();
 
             $withDue = $assignments->filter(function ($a) {
                 $meta = is_array($a->metadata) ? $a->metadata : (json_decode((string) ($a->metadata ?? ''), true) ?: []);
+
                 return !empty(data_get($meta, 'due_at'));
             })->count();
 
-            $controllerCloseRate = $active()->whereNotNull('closed_at')->count();
+            $controllerCloseRate    = $active()->whereNotNull('closed_at')->count();
             $controllerTotalManaged = max(1, $active()->count() + $closed()->count());
 
             $slaOps = [
                 'controller_dispatch_avg_h' => $controllerDispatchAvgHours !== null ? round($controllerDispatchAvgHours / 60, 1) : null,
-                'executor_receive_avg_h' => $executorReceiveAvgHours !== null ? round($executorReceiveAvgHours / 60, 1) : null,
-                'executor_answer_avg_h' => $executorAnswerAvgHours !== null ? round($executorAnswerAvgHours / 60, 1) : null,
-                'executor_receive_rate' => round(($receivedCount / $totalAssignments) * 100),
-                'executor_answer_rate' => round(($answeredCount / $totalAssignments) * 100),
-                'answer_on_due_rate' => $withDue > 0 ? round(($onTimeByAssignmentDue / $withDue) * 100) : null,
-                'controller_close_rate' => round(($controllerCloseRate / $controllerTotalManaged) * 100),
+                'executor_receive_avg_h'    => $executorReceiveAvgHours !== null ? round($executorReceiveAvgHours / 60, 1) : null,
+                'executor_answer_avg_h'     => $executorAnswerAvgHours !== null ? round($executorAnswerAvgHours / 60, 1) : null,
+                'executor_receive_rate'     => round(($receivedCount / $totalAssignments) * 100),
+                'executor_answer_rate'      => round(($answeredCount / $totalAssignments) * 100),
+                'answer_on_due_rate'        => $withDue > 0 ? round(($onTimeByAssignmentDue / $withDue) * 100) : null,
+                'controller_close_rate'     => round(($controllerCloseRate / $controllerTotalManaged) * 100),
             ];
 
             // Funil por status (ativos excluem externamente encerrados)
@@ -217,7 +220,7 @@ class LegalDashboard extends Component
             $executors = LegalDemandAssignment::query()
                 ->join('users', 'users.id', '=', 'legal_demand_assignments.to_user_id')
                 ->join('legal_demands', 'legal_demands.id', '=', 'legal_demand_assignments.legal_demand_id')
-                
+
                 ->selectRaw('users.id, users.name, COUNT(*) as active_count, SUM(CASE WHEN legal_demands.source_due_at < NOW() AND legal_demands.source_decision_at IS NULL THEN 1 ELSE 0 END) as overdue_count')
                 ->whereNotIn('legal_demand_assignments.status', ['cancelled', 'closed', 'answered'])
                 ->whereNotIn('legal_demands.source_status_group', ['closed_done', 'closed_cancelled'])
@@ -257,7 +260,7 @@ class LegalDashboard extends Component
             }
 
             $funnelLabels = ['Novas', 'Triagem', 'Em Campo', 'Retornadas', 'Prontas Fechar', 'Encerradas'];
-            $funnelData = [
+            $funnelData   = [
                 (int) ($statusFunnel['new_imported'] ?? 0),
                 (int) ($statusFunnel['triage'] ?? 0),
                 (int) ($statusFunnel['in_field'] ?? 0),
@@ -267,14 +270,14 @@ class LegalDashboard extends Component
             ];
 
             $typeLabels = ['Liminar', 'Sentença', 'Subsídio'];
-            $typeData = [
+            $typeData   = [
                 (int) ($byType['injunction'] ?? 0),
                 (int) ($byType['sentence'] ?? 0),
                 (int) ($byType['subsidy'] ?? 0),
             ];
 
             $areaLabels = $topAreas->pluck('origin_area_name')->map(fn ($v) => (string) ($v ?: '—'))->values()->all();
-            $areaData = $topAreas->pluck('total')->map(fn ($v) => (int) $v)->values()->all();
+            $areaData   = $topAreas->pluck('total')->map(fn ($v) => (int) $v)->values()->all();
 
             return compact(
                 'kpis',

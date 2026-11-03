@@ -17,6 +17,9 @@ abstract class SidebarNav
     /** Módulo aberto quando a rota não pertence a nenhum item. */
     public const DEFAULT_MODULE = '';
 
+    /** Tema visual (classe `snav--<tema>` no menu). `null` = o da empresa; a área da parceira usa `partner` (docs/PADRAO_MENU_LATERAL.md). */
+    public const THEME = null;
+
     /**
      * @param array<string, mixed> $context
      *
@@ -44,7 +47,7 @@ abstract class SidebarNav
     public static function resolve(array $context = []): array
     {
         $user    = auth()->user();
-        $allowed = fn (array $node) => empty($node['can']) || ($user && $user->can($node['can']));
+        $allowed = fn (array $node) => static::allows($node, $user);
 
         $modules = [];
 
@@ -69,6 +72,17 @@ abstract class SidebarNav
         }
 
         return $modules;
+    }
+
+    /**
+     * Se o usuário pode ver o grupo ou o item (`can`). Por padrão `can` é o nome de um gate; uma área com outro modelo de permissão
+     * (ex.: a parceira, que tem permissões próprias) sobrescreve este método.
+     *
+     * @param array<string, mixed> $node
+     */
+    protected static function allows(array $node, ?object $user): bool
+    {
+        return empty($node['can']) || ($user && $user->can($node['can']));
     }
 
     /**

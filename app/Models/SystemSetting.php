@@ -19,9 +19,27 @@ class SystemSetting extends Model
         'updated_by' => 'string',
     ];
 
+    /** Valores já lidos nesta requisição (`SicodeRules` consulta a mesma regra por linha da lista). Zerado ao salvar/excluir. */
+    private static array $requestMemo = [];
+
+    protected static function booted(): void
+    {
+        static::saved(fn () => self::$requestMemo = []);
+        static::deleted(fn () => self::$requestMemo = []);
+    }
+
     public static function getValue(string $key, ?string $default = null): ?string
     {
-        return static::query()->where('key', $key)->value('value') ?? $default;
+        // Console (testes, filas, tinker): sem memo. O banco é revertido entre testes e workers vivem muito tempo; só a requisição web memoiza.
+        if (app()->runningInConsole()) {
+            return static::query()->where('key', $key)->value('value') ?? $default;
+        }
+
+        if (!array_key_exists($key, self::$requestMemo)) {
+            self::$requestMemo[$key] = static::query()->where('key', $key)->value('value');
+        }
+
+        return self::$requestMemo[$key] ?? $default;
     }
 
     public static function getBool(string $key, bool $default = false): bool

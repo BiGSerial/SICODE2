@@ -8,17 +8,22 @@ use Carbon\Carbon;
 
 class MeasurementDeadlinePolicy
 {
-    private array $holidaysByDate = [];
+    /** Feriados do estado como conjunto `Y-m-d => true`, carregados numa consulta só (antes era 1 consulta por dia percorrido). */
+    private ?array $holidaySet = null;
+
+    private ?bool $usesBusinessDays = null;
+
+    private ?int $deadlineDays = null;
 
     public function dueAt(Carbon $informedAt): Carbon
     {
         $date = $informedAt->copy()->startOfDay();
 
-        if (!SicodeRules::paymentMeasurementDeadlineUsesBusinessDays()) {
-            return $date->addDays(SicodeRules::paymentMeasurementDeadlineDays());
+        if (!$this->usesBusinessDays()) {
+            return $date->addDays($this->deadlineDays());
         }
 
-        $remaining = SicodeRules::paymentMeasurementDeadlineDays();
+        $remaining = $this->deadlineDays();
 
         while ($remaining > 0) {
             $date->addDay();
@@ -36,7 +41,7 @@ class MeasurementDeadlinePolicy
         $referenceAt = ($referenceAt ?: now())->copy()->startOfDay();
         $dueAt       = $dueAt->copy()->startOfDay();
 
-        if (!SicodeRules::paymentMeasurementDeadlineUsesBusinessDays()) {
+        if (!$this->usesBusinessDays()) {
             return $referenceAt->diffInDays($dueAt, false);
         }
 
@@ -68,21 +73,28 @@ class MeasurementDeadlinePolicy
         };
     }
 
+    private function usesBusinessDays(): bool
+    {
+        return $this->usesBusinessDays ??= SicodeRules::paymentMeasurementDeadlineUsesBusinessDays();
+    }
+
+    private function deadlineDays(): int
+    {
+        return $this->deadlineDays ??= SicodeRules::paymentMeasurementDeadlineDays();
+    }
+
     private function isBusinessDay(Carbon $date): bool
     {
         if ($date->isWeekend()) {
             return false;
         }
 
-        $key = $date->toDateString();
+        $this->holidaySet ??= Holiday::query()
+            ->where('state', strtoupper(SicodeRules::ruleset()))
+            ->pluck('date')
+            ->mapWithKeys(fn ($day) => [Carbon::parse($day)->toDateString() => true])
+            ->all();
 
-        if (!array_key_exists($key, $this->holidaysByDate)) {
-            $this->holidaysByDate[$key] = Holiday::query()
-                ->where('state', strtoupper(SicodeRules::ruleset()))
-                ->whereDate('date', $key)
-                ->exists();
-        }
-
-        return !$this->holidaysByDate[$key];
+        return !isset($this->holidaySet[$date->toDateString()]);
     }
 }

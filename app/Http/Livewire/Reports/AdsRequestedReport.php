@@ -3,532 +3,367 @@
 namespace App\Http\Livewire\Reports;
 
 use App\Enum\AdsRequestStatus;
+use App\Jobs\Ads\AdsDashboardExportJob;
 use App\Models\Company;
-use App\Services\Reports\AdsRequestedReportService;
-use Illuminate\Support\Facades\Artisan;
+use App\Services\Ads\{AdsConnectionProbe, AdsDashboardAnalytics, AdsDashboardCharts};
 use Illuminate\Support\Carbon;
-use Livewire\Component;
-use Livewire\WithPagination;
+use Illuminate\Support\Facades\{Artisan, Cache};
+use Livewire\{Component, WithPagination};
 
+/**
+ * Painel de ADS solicitadas (Engenharia): só filtros e orquestração. Os dados vêm de AdsDashboardAnalytics (a mesma fonte do Excel) e os
+ * gráficos de AdsDashboardCharts (mesmo `my-panel.js` da Home). Cada parte depende de uma conexão (banco local ou SQL Server); a que estiver
+ * sem conexão fica desabilitada com o motivo, e as demais continuam funcionando.
+ */
 class AdsRequestedReport extends Component
 {
     use WithPagination;
 
+    public const PRESETS = [
+        '7d'  => 'Últimos 7 dias',
+        '30d' => 'Últimos 30 dias',
+        '12m' => 'Últimos 12 meses',
+    ];
+
+    /** Maior intervalo personalizado (dias): acima disso o gráfico diário vira um borrão. */
+    public const MAX_DAYS = 93;
+
+    public const QUEUE_PAGE = 'queue_page';
+
     protected $paginationTheme = 'bootstrap';
 
-    public int $perPage = 50;
-    public string $statusFilter = 'all';
-    public ?string $statusExact = null;
-    public ?string $date_in = null;
-    public ?string $date_out = null;
-    public ?string $completed_in = null;
-    public ?string $completed_out = null;
-    public ?string $search = null;
-    public array $companyIds = [];
-    public $companies;
-    public array $statusExactOptions = [];
-    public string $chartPeriod = '7d'; // 7d | 30d | 12m | custom
-    public string $chartGranularity = 'day'; // day | month
-    private bool $syncingChartPeriod = false;
+    public int $perPage = 25;
 
-    protected $listeners = [
-        'adsChartFilterByDay' => 'applyChartDayFilter',
-        'adsChartFilterByQueueStatus' => 'applyChartQueueStatusFilter',
-    ];
+    public string $statusFilter = 'all';
+
+    public ?string $statusExact = null;
+
+    public ?string $company = null;
+
+    /** Origem da solicitação automática: `reused` (reaproveitou ADS já disponível) ou `new` (entrou na fila). Vem do clique na rosca. */
+    public ?string $origin = null;
+
+    public ?string $search = null;
+
+    /** `request` filtra o período pela data da solicitação; `completed`, pela data de conclusão. */
+    public string $dateBy = 'request';
+
+    public string $preset = '7d';
+
+    public ?string $dt_in = null;
+
+    public ?string $dt_out = null;
 
     protected $queryString = [
         'statusFilter' => ['except' => 'all', 'as' => 'status'],
-        'statusExact' => ['except' => '', 'as' => 'sx'],
-        'date_in' => ['except' => '', 'as' => 'din'],
-        'date_out' => ['except' => '', 'as' => 'dout'],
-        'completed_in' => ['except' => '', 'as' => 'cin'],
-        'completed_out' => ['except' => '', 'as' => 'cout'],
-        'search' => ['except' => '', 'as' => 'q'],
-        'companyIds' => ['except' => [], 'as' => 'company'],
-        'perPage' => ['except' => 50, 'as' => 'pp'],
-        'chartPeriod' => ['except' => '7d', 'as' => 'cp'],
-        'chartGranularity' => ['except' => 'day', 'as' => 'cg'],
+        'statusExact'  => ['except' => '', 'as' => 'sx'],
+        'company'      => ['except' => '', 'as' => 'empresa'],
+        'origin'       => ['except' => '', 'as' => 'origem'],
+        'search'       => ['except' => '', 'as' => 'q'],
+        'dateBy'       => ['except' => 'request', 'as' => 'por'],
+        'preset'       => ['except' => '7d', 'as' => 'cp'],
+        'dt_in'        => ['except' => '', 'as' => 'din'],
+        'dt_out'       => ['except' => '', 'as' => 'dout'],
+        'perPage'      => ['except' => 25, 'as' => 'pp'],
     ];
 
     public function mount(): void
     {
-        if (!$this->isValidChartPeriod($this->chartPeriod)) {
-            $this->chartPeriod = '7d';
+        Carbon::setLocale('pt_BR');
+
+        $this->dateBy  = $this->dateBy === 'completed' ? 'completed' : 'request';
+        $this->preset  = in_array($this->preset, [...array_keys(self::PRESETS), 'custom'], true) ? $this->preset : '7d';
+        $this->perPage = in_array($this->perPage, [25, 50, 100], true) ? $this->perPage : 25;
+
+        if ($this->preset !== 'custom') {
+            $this->applyPreset($this->preset);
+        } elseif (!$this->dt_in || !$this->dt_out) {
+            $this->applyPreset('7d');
         }
-
-        if (!$this->isValidChartGranularity($this->chartGranularity)) {
-            $this->chartGranularity = 'day';
-        }
-
-        $hasIncomingDateFilter = $this->hasAnyDateFilter();
-        $hasIncomingChartPeriod = request()->query->has('cp');
-        if ($hasIncomingDateFilter && !$hasIncomingChartPeriod && $this->chartPeriod !== 'custom') {
-            $this->chartPeriod = 'custom';
-        }
-
-        $activeDateType = $this->resolveActiveDateType();
-        if ($activeDateType === 'completed') {
-            $this->date_in = null;
-            $this->date_out = null;
-        } else {
-            $this->completed_in = null;
-            $this->completed_out = null;
-        }
-
-        if ($this->chartPeriod === 'custom') {
-            $this->ensureCustomHasAnchorDate($activeDateType);
-            $this->syncGranularityFromDateRange();
-        } else {
-            $this->applyChartPeriod($this->chartPeriod, $activeDateType);
-        }
-
-        $this->companies = Company::query()
-            ->join('ads_requests as ar', 'ar.company_id', '=', 'companies.id')
-            ->select('companies.id', 'companies.name')
-            ->distinct()
-            ->orderBy('companies.name')
-            ->get();
-
-        $this->statusExactOptions = array_map(function (AdsRequestStatus $status) {
-            $label = $status->label();
-            if ($status === AdsRequestStatus::IN_PROGRESS) {
-                $label = 'Em execução';
-            }
-
-            return [
-                'value' => $status->value,
-                'label' => $label,
-            ];
-        }, AdsRequestStatus::cases());
-
-        $this->dispatchFiltersToCharts('top');
     }
 
-    public function updating($name): void
+    public function hydrate(): void
     {
-        if ($name !== 'page') {
-            $this->resetPage();
-        }
+        Carbon::setLocale('pt_BR');
     }
 
     public function updated($name): void
     {
-        if ($name !== 'page') {
-            $this->dispatchFiltersToCharts('top');
+        if ($name === 'page' || $name === self::QUEUE_PAGE) {
+            return;
         }
+
+        if ($name === 'dt_in' || $name === 'dt_out') {
+            $this->preset = 'custom';
+        }
+
+        $this->resetPage();
+        $this->resetPage(self::QUEUE_PAGE);
+        $this->refreshCharts();
+    }
+
+    public function setPreset(string $preset): void
+    {
+        $this->applyPreset($preset);
+        $this->resetPage();
+        $this->resetPage(self::QUEUE_PAGE);
+        $this->refreshCharts();
     }
 
     public function clearFilters(): void
     {
-        $this->statusFilter = 'all';
-        $this->statusExact = null;
-        $this->search = null;
-        $this->companyIds = [];
-        $this->chartPeriod = '7d';
-        $this->applyChartPeriod('7d');
-        $this->completed_in = null;
-        $this->completed_out = null;
-        $this->perPage = 50;
+        $this->reset(['statusFilter', 'statusExact', 'company', 'origin', 'search', 'dateBy', 'perPage']);
+        $this->applyPreset('7d');
         $this->resetPage();
-        $this->dispatchFiltersToCharts('top');
+        $this->resetPage(self::QUEUE_PAGE);
+        $this->refreshCharts();
     }
 
-    public function applyChartDayFilter(string $date): void
+    /**
+     * Clique num gráfico: filtra as tabelas (e o resto do painel) para o que compõe aquele ponto, barra ou fatia.
+     * Dia/mês das linhas e barras viram o período (a barra "Concluídas" filtra pela data de conclusão, as demais pela de solicitação);
+     * a rosca da fila filtra o status exato; a de reaproveitamento, a origem da solicitação.
+     */
+    public function applyChartFilter(string $chart, string $key, int $dataset = 0): void
     {
-        $this->completed_in = null;
-        $this->completed_out = null;
+        if (in_array($chart, ['backlog', 'flow'], true)) {
+            $range = $this->rangeFromChartKey($key);
 
-        if (preg_match('/^\d{4}\-\d{2}$/', $date) === 1) {
-            $monthStart = Carbon::createFromFormat('Y-m', $date)->startOfMonth();
-            $monthEnd = $monthStart->copy()->endOfMonth();
-            $today = now()->endOfDay();
-            if ($monthEnd->gt($today)) {
-                $monthEnd = $today;
+            if (!$range) {
+                return;
             }
 
-            $this->date_in = $monthStart->toDateString();
-            $this->date_out = $monthEnd->toDateString();
-            $this->chartPeriod = 'custom';
-            $this->chartGranularity = 'day';
-            $this->resetPage();
-            $this->dispatchFiltersToCharts('chart');
+            [$this->dt_in, $this->dt_out] = $range;
+            $this->preset                 = 'custom';
+            $this->dateBy                 = $chart === 'flow' && $dataset === 1 ? 'completed' : 'request';
+        } elseif ($chart === 'queue' && in_array($key, AdsRequestStatus::values(), true)) {
+            $this->statusExact = $key;
+        } elseif ($chart === 'reuse' && in_array($key, ['reused', 'new'], true)) {
+            $this->origin = $key;
+        } else {
             return;
         }
 
-        if (!$this->isValidDate($date)) {
-            return;
-        }
-
-        $this->date_in = $date;
-        $this->date_out = $date;
-        $this->chartPeriod = 'custom';
-        $this->chartGranularity = 'day';
         $this->resetPage();
-        $this->dispatchFiltersToCharts('chart');
+        $this->resetPage(self::QUEUE_PAGE);
+        $this->refreshCharts();
     }
 
-    public function applyChartQueueStatusFilter(string $status): void
+    /** Testa as conexões na hora (ignora o cache) e atualiza o que voltou. */
+    public function recheck(): void
     {
-        $status = trim($status);
-        if ($status === '') {
-            return;
-        }
+        $health = app(AdsConnectionProbe::class)->status(true);
 
-        $this->statusExact = $status;
-        $this->resetPage();
-        $this->dispatchFiltersToCharts('chart');
+        $this->refreshCharts();
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => collect($health)->every(fn (array $c) => $c['up']) ? 'success' : 'warning',
+            'title'    => collect($health)->every(fn (array $c) => $c['up']) ? 'CONEXÕES OK' : 'HÁ CONEXÃO FORA DO AR',
+            'html'     => collect($health)->map(fn (array $c) => '<div><strong>' . e($c['label']) . ':</strong> ' . ($c['up'] ? 'online' : 'sem conexão') . '</div>')->implode(''),
+            'timer'    => 4000,
+        ]);
     }
 
-    public function updatedChartPeriod(string $value): void
+    /** Chamado pelo `wire:poll`: os gráficos se atualizam in-place; a fila em tempo real volta sozinha quando a conexão voltar. */
+    public function refreshCharts(): void
     {
-        if (!$this->isValidChartPeriod($value)) {
-            $this->chartPeriod = '7d';
-            $value = '7d';
-        }
-
-        $activeDateType = $this->resolveActiveDateType();
-
-        if ($value === 'custom') {
-            $this->ensureCustomHasAnchorDate($activeDateType);
-            $this->syncGranularityFromDateRange();
-            $this->dispatchFiltersToCharts('top');
-            return;
-        }
-
-        $this->applyChartPeriod($value, $activeDateType);
-        $this->dispatchFiltersToCharts('top');
-    }
-
-    public function updatedDateIn(): void
-    {
-        $this->completed_in = null;
-        $this->completed_out = null;
-
-        if (blank($this->date_out) && filled($this->date_in)) {
-            $this->date_out = $this->date_in;
-        }
-
-        $this->markCustomPeriod();
-        $this->dispatchFiltersToCharts('top');
-    }
-
-    public function updatedDateOut(): void
-    {
-        $this->completed_in = null;
-        $this->completed_out = null;
-
-        $this->markCustomPeriod();
-        $this->dispatchFiltersToCharts('top');
-    }
-
-    public function updatedCompletedIn(): void
-    {
-        $this->date_in = null;
-        $this->date_out = null;
-
-        if (blank($this->completed_out) && filled($this->completed_in)) {
-            $this->completed_out = $this->completed_in;
-        }
-
-        $this->markCustomPeriod();
-        $this->dispatchFiltersToCharts('top');
-    }
-
-    public function updatedCompletedOut(): void
-    {
-        $this->date_in = null;
-        $this->date_out = null;
-
-        $this->markCustomPeriod();
-        $this->dispatchFiltersToCharts('top');
-    }
-
-    public function getRowsProperty()
-    {
-        return app(AdsRequestedReportService::class)
-            ->paginate($this->filters(), $this->perPage);
-    }
-
-    public function getQueueRowsProperty()
-    {
-        return app(AdsRequestedReportService::class)
-            ->paginateQueue($this->filters(), 20, 'queue_page');
-    }
-
-    public function getFiltersForChildrenProperty(): array
-    {
-        return $this->filters();
+        $this->dispatchBrowserEvent('my-panel:charts', ['charts' => AdsDashboardCharts::live($this->snapshot)]);
     }
 
     public function syncLast40Days(): void
     {
-        $since = now()->subDays(40)->startOfDay()->toDateTimeString();
+        if (!app(AdsConnectionProbe::class)->up(AdsConnectionProbe::LIVE)) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'SEM CONEXÃO COM O SQL SERVER',
+                'text'     => 'A sincronização lê do SQL Server. Tente de novo quando a conexão voltar.',
+                'timer'    => 6000,
+            ]);
+
+            return;
+        }
 
         try {
-            Artisan::call('sicode:sync_ads_requests', [
-                '--since' => $since,
-            ]);
+            Artisan::call('sicode:sync_ads_requests', ['--since' => now()->subDays(40)->startOfDay()->toDateTimeString()]);
 
             $output = trim((string) Artisan::output());
-            $message = $output !== ''
-                ? 'Sincronização concluída. ' . mb_substr($output, 0, 240)
-                : 'Sincronização concluída com sucesso.';
 
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'success',
-                'title' => 'SYNC ADS CONCLUÍDO',
-                'text' => $message,
-                'timer' => 5000,
+                'icon'     => 'success',
+                'title'    => 'SYNC ADS CONCLUÍDO',
+                'text'     => $output !== '' ? 'Sincronização concluída. ' . mb_substr($output, 0, 240) : 'Sincronização concluída com sucesso.',
+                'timer'    => 5000,
             ]);
         } catch (\Throwable $e) {
+            report($e);
+
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
-                'icon' => 'error',
-                'title' => 'SYNC ADS FALHOU',
-                'text' => mb_substr($e->getMessage(), 0, 280),
-                'timer' => 7000,
+                'icon'     => 'error',
+                'title'    => 'SYNC ADS FALHOU',
+                'text'     => mb_substr($e->getMessage(), 0, 280),
+                'timer'    => 7000,
             ]);
         }
 
         $this->resetPage();
+        $this->refreshCharts();
     }
 
-    private function filters(): array
+    public function exportToExcel(): void
     {
-        $isCustom = $this->chartPeriod === 'custom';
-        $effectiveGranularity = $this->chartPeriod === '12m' ? 'month' : 'day';
-        $activeDateType = $this->resolveActiveDateType();
-        $dateIn = null;
-        $dateOut = null;
-        $completedIn = null;
-        $completedOut = null;
+        AdsDashboardExportJob::dispatch($this->filters(), auth()->id())
+            ->onConnection((string) config('queue.channels.exports.connection', 'database'))
+            ->onQueue((string) config('queue.channels.exports.queue', 'exports'));
 
-        if ($activeDateType === 'completed') {
-            $anchor = $this->resolveAnchorDate('completed');
-            $normalizedIn = $this->normalizeDateOrNull($this->completed_in);
-            $normalizedOut = $this->normalizeDateOrNull($this->completed_out);
-            if ($isCustom) {
-                $completedIn = $normalizedIn ?? $anchor->toDateString();
-                $completedOut = $normalizedOut ?? $anchor->toDateString();
-            } else {
-                if ($normalizedIn && $normalizedOut) {
-                    $completedIn = $normalizedIn;
-                    $completedOut = $normalizedOut;
-                } else {
-                    [$start, $end] = $this->resolvePeriodRange($this->chartPeriod, $anchor);
-                    $completedIn = $start;
-                    $completedOut = $end;
-                }
-            }
-        } else {
-            $anchor = $this->resolveAnchorDate('request');
-            $normalizedIn = $this->normalizeDateOrNull($this->date_in);
-            $normalizedOut = $this->normalizeDateOrNull($this->date_out);
-            if ($isCustom) {
-                $dateIn = $normalizedIn ?? $anchor->toDateString();
-                $dateOut = $normalizedOut ?? $anchor->toDateString();
-            } else {
-                if ($normalizedIn && $normalizedOut) {
-                    $dateIn = $normalizedIn;
-                    $dateOut = $normalizedOut;
-                } else {
-                    [$start, $end] = $this->resolvePeriodRange($this->chartPeriod, $anchor);
-                    $dateIn = $start;
-                    $dateOut = $end;
-                }
-            }
-        }
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO EM ANDAMENTO.',
+            'html'     => "<div class='card'><div class='card-body'><p>O relatório do painel de ADS está sendo gerado em Excel. Você será notificado quando o arquivo estiver pronto para download.</p><p class='fw-bold'>Verifique sua Central de Notificação.</p></div></div>",
+            'timer'    => 5000,
+        ]);
+    }
 
-        return [
-            'statusFilter' => $this->statusFilter,
-            'status_exact' => $this->statusExact,
-            'date_in' => $dateIn,
-            'date_out' => $dateOut,
-            'completed_in' => $completedIn,
-            'completed_out' => $completedOut,
-            'search' => $this->search,
-            'companyIds' => $this->companyIds,
-            'chart_period' => $this->chartPeriod,
-            'chart_granularity' => $effectiveGranularity,
-        ];
+    /** @return array<string, mixed> resultado do AdsDashboardAnalytics, calculado uma vez por requisição */
+    public function getSnapshotProperty(): array
+    {
+        return app(AdsDashboardAnalytics::class)->snapshot($this->filters());
     }
 
     public function render()
     {
-        $rows = $this->rows;
-        $queueRows = $this->queueRows;
-        $summary = app(AdsRequestedReportService::class)->summarize($this->filters());
+        $analytics = app(AdsDashboardAnalytics::class);
+        $filters   = $this->filters();
+        $snapshot  = $this->snapshot;
+
+        $queue   = $analytics->queueRows($filters, 20, self::QUEUE_PAGE);
+        $history = $analytics->historyRows($filters, $this->perPage);
 
         return view('livewire.reports.ads-requested-report', [
-            'rows' => $rows,
-            'queueRows' => $queueRows,
-            'summary' => $summary,
+            's'       => $snapshot,
+            'charts'  => AdsDashboardCharts::all($snapshot),
+            'queue'   => $queue,
+            'history' => $history,
+            'options' => $this->options(),
+            'period'  => $this->periodLabel($filters),
+            'live'    => $snapshot['health'][AdsConnectionProbe::LIVE]['up'],
         ]);
     }
 
-    private function isValidDate(string $date): bool
-    {
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
-            return false;
-        }
-
-        [$year, $month, $day] = array_map('intval', explode('-', $date));
-
-        return checkdate($month, $day, $year);
-    }
-
-    private function dispatchFiltersToCharts(string $source = 'top'): void
-    {
-        $filters = $this->filters();
-        $filters['__source'] = $source;
-        $filters['__issued_at'] = (string) microtime(true);
-
-        $this->dispatchBrowserEvent('ads-filters-updated', $filters);
-    }
-
-    private function applyChartPeriod(string $period, string $activeDateType = 'request'): void
-    {
-        $this->syncingChartPeriod = true;
-        $anchor = $this->resolveAnchorDate($activeDateType);
-        [$start, $end, $granularity] = $this->resolvePeriodRange($period, $anchor, true);
-
-        if ($activeDateType === 'completed') {
-            $this->date_in = null;
-            $this->date_out = null;
-            $this->completed_in = $start;
-            $this->completed_out = $end;
-        } else {
-            $this->completed_in = null;
-            $this->completed_out = null;
-            $this->date_in = $start;
-            $this->date_out = $end;
-        }
-
-        $this->chartGranularity = $granularity;
-        $this->syncingChartPeriod = false;
-    }
-
-    private function markCustomPeriod(): void
-    {
-        if ($this->syncingChartPeriod) {
-            return;
-        }
-
-        $this->chartPeriod = 'custom';
-        $this->syncGranularityFromDateRange();
-    }
-
-    private function syncGranularityFromDateRange(): void
-    {
-        $this->chartGranularity = $this->chartPeriod === '12m' ? 'month' : 'day';
-    }
-
-    private function resolveActiveDateType(): string
-    {
-        $hasRequestDates = filled($this->date_in) || filled($this->date_out);
-        $hasCompletedDates = filled($this->completed_in) || filled($this->completed_out);
-
-        if ($hasCompletedDates && !$hasRequestDates) {
-            return 'completed';
-        }
-
-        if ($hasRequestDates && !$hasCompletedDates) {
-            return 'request';
-        }
-
-        if ($hasCompletedDates && $hasRequestDates) {
-            if (filled($this->completed_out) && blank($this->date_out)) {
-                return 'completed';
-            }
-
-            return 'request';
-        }
-
-        return 'request';
-    }
-
-    private function hasAnyDateFilter(): bool
-    {
-        return filled($this->date_in)
-            || filled($this->date_out)
-            || filled($this->completed_in)
-            || filled($this->completed_out)
-            || filled(request()->query('din'))
-            || filled(request()->query('dout'))
-            || filled(request()->query('cin'))
-            || filled(request()->query('cout'));
-    }
-
-    private function ensureCustomHasAnchorDate(string $activeDateType): void
-    {
-        $today = now()->toDateString();
-        if ($activeDateType === 'completed') {
-            if (blank($this->completed_in) && blank($this->completed_out)) {
-                $this->completed_in = $today;
-                $this->completed_out = $today;
-            }
-            $this->date_in = null;
-            $this->date_out = null;
-            return;
-        }
-
-        if (blank($this->date_in) && blank($this->date_out)) {
-            $this->date_in = $today;
-            $this->date_out = $today;
-        }
-        $this->completed_in = null;
-        $this->completed_out = null;
-    }
-
-    private function resolveAnchorDate(string $activeDateType): Carbon
-    {
-        $candidate = $activeDateType === 'completed'
-            ? $this->normalizeDateOrNull($this->completed_out)
-            : $this->normalizeDateOrNull($this->date_out);
-
-        return $candidate ? Carbon::parse($candidate)->startOfDay() : now()->startOfDay();
-    }
-
     /**
-     * @return array{0:string,1:string}|array{0:string,1:string,2:string}
+     * Filtros no formato do AdsRequestedReportService. O período vale para a data da solicitação ou da conclusão, conforme `dateBy`.
+     *
+     * @return array<string, mixed>
      */
-    private function resolvePeriodRange(string $period, Carbon $anchor, bool $withGranularity = false): array
+    public function filters(): array
     {
-        if ($period === '7d') {
-            $start = $anchor->copy()->subDays(6)->toDateString();
-            $end = $anchor->toDateString();
-            return $withGranularity ? [$start, $end, 'day'] : [$start, $end];
-        }
+        [$from, $to] = $this->range();
+        $byCompleted = $this->dateBy === 'completed';
 
-        if ($period === '12m') {
-            $start = $anchor->copy()->subMonthsNoOverflow(11)->startOfMonth()->toDateString();
-            $end = $anchor->toDateString();
-            return $withGranularity ? [$start, $end, 'month'] : [$start, $end];
-        }
-
-        $start = $anchor->copy()->subDays(29)->toDateString();
-        $end = $anchor->toDateString();
-        return $withGranularity ? [$start, $end, 'day'] : [$start, $end];
+        return [
+            'statusFilter'      => $this->statusFilter,
+            'status_exact'      => $this->statusExact,
+            'date_in'           => $byCompleted ? null : $from,
+            'date_out'          => $byCompleted ? null : $to,
+            'completed_in'      => $byCompleted ? $from : null,
+            'completed_out'     => $byCompleted ? $to : null,
+            'search'            => $this->search,
+            'origin'            => $this->origin,
+            'companyIds'        => $this->company ? [$this->company] : [],
+            'chart_period'      => $this->preset,
+            'chart_granularity' => $this->preset === '12m' ? 'month' : 'day',
+        ];
     }
 
-    private function normalizeDateOrNull(?string $date): ?string
+    /** @return array{0: string, 1: string}|null dia (Y-m-d) ou mês (Y-m) do eixo do gráfico, como intervalo; null se a chave não for válida */
+    private function rangeFromChartKey(string $key): ?array
     {
-        $value = trim((string) $date);
-        if ($value === '') {
-            return null;
+        try {
+            if (preg_match('/^\d{4}-\d{2}$/', $key)) {
+                $start = Carbon::createFromFormat('Y-m', $key)->startOfMonth();
+                $end   = $start->copy()->endOfMonth()->min(now());
+
+                return [$start->toDateString(), $end->toDateString()];
+            }
+
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $key)) {
+                $day = Carbon::createFromFormat('Y-m-d', $key)->toDateString();
+
+                return [$day, $day];
+            }
+        } catch (\Throwable) {
         }
 
-        return $this->isValidDate($value) ? $value : null;
+        return null;
     }
 
-    private function isValidChartPeriod(string $period): bool
+    /** @return array{0: string, 1: string} intervalo (Y-m-d) do período, já limitado a MAX_DAYS no personalizado */
+    private function range(): array
     {
-        return in_array($period, ['7d', '30d', '12m', 'custom'], true);
+        if ($this->preset !== 'custom') {
+            return $this->presetRange($this->preset);
+        }
+
+        try {
+            $from = Carbon::parse($this->dt_in)->startOfDay();
+            $to   = Carbon::parse($this->dt_out)->startOfDay();
+        } catch (\Throwable) {
+            return $this->presetRange('7d');
+        }
+
+        if ($from->gt($to)) {
+            [$from, $to] = [$to, $from];
+        }
+
+        if ($from->diffInDays($to) >= self::MAX_DAYS) {
+            $from = $to->copy()->subDays(self::MAX_DAYS - 1);
+        }
+
+        return [$from->toDateString(), $to->toDateString()];
     }
 
-    private function isValidChartGranularity(string $granularity): bool
+    /** @return array{0: string, 1: string} */
+    private function presetRange(string $preset): array
     {
-        return in_array($granularity, ['day', 'month'], true);
+        $today = now();
+
+        return match ($preset) {
+            '30d'   => [$today->copy()->subDays(29)->toDateString(), $today->toDateString()],
+            '12m'   => [$today->copy()->subMonthsNoOverflow(11)->startOfMonth()->toDateString(), $today->toDateString()],
+            default => [$today->copy()->subDays(6)->toDateString(), $today->toDateString()],
+        };
+    }
+
+    private function applyPreset(string $preset): void
+    {
+        $this->preset = array_key_exists($preset, self::PRESETS) ? $preset : '7d';
+
+        [$this->dt_in, $this->dt_out] = $this->presetRange($this->preset);
+    }
+
+    /** @param array<string, mixed> $filters */
+    private function periodLabel(array $filters): string
+    {
+        $from = $filters['date_in'] ?? $filters['completed_in'];
+        $to   = $filters['date_out'] ?? $filters['completed_out'];
+
+        return Carbon::parse($from)->format('d/m/Y') . ' a ' . Carbon::parse($to)->format('d/m/Y');
+    }
+
+    /** @return array{companies: \Illuminate\Support\Collection, statuses: array<int, array{value: string, label: string}>} */
+    private function options(): array
+    {
+        return [
+            'companies' => Cache::remember('ads-dashboard:companies', now()->addMinutes(10), fn () => Company::query()
+                ->join('ads_requests as ar', 'ar.company_id', '=', 'companies.id')
+                ->select('companies.id', 'companies.name')->distinct()->orderBy('companies.name')->get()),
+            'statuses' => array_map(fn (AdsRequestStatus $status) => [
+                'value' => $status->value,
+                'label' => $status === AdsRequestStatus::IN_PROGRESS ? 'Em execução' : $status->label(),
+            ], AdsRequestStatus::cases()),
+        ];
     }
 }

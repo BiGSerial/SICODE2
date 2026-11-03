@@ -1,488 +1,208 @@
-<div class="user-activity-page protocol-activity-page">
-    @php
-        use Carbon\Carbon;
-        use App\Helpers\DaysLeft;
-        use App\Helpers\SelectOptions;
-    @endphp
+@php
+    $hasCriteria = $this->hasCriteria();
+@endphp
 
-    {{-- Carrega o Loading da pagina --}}
-    <x-show-loading />
-    @include('livewire.services.partials.user-activity-list-style')
+{{-- Lista operacional de Serviços: padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md. Hero → ferramentas (busca, tipo, status, filtros) → painel com a tabela. --}}
+<div class="closure-dash my-panel ops-list">
 
-    <div class="container-fluid">
-        @include('livewire.services.partials.user-activity-hero', [
-            'context' => 'Entrada de órgão externo',
-            'subtitle' => 'Notas e OVs disponíveis para iniciar uma nova tratativa',
-            'total' => $lists->total(),
-            'accent' => '#0f766e',
-            'extraLabel' => $update ? 'Última atualização' : null,
-            'extraValue' => $update ? Carbon::parse($last_update)->diffForHumans() : null,
-        ])
-
-        {{-- START SearchBar and Filters --}}
-        <div class="mb-3">
-            <div class="row g-3 protocol-filters-grid">
-                    <div class="col-12 col-lg-6 col-xl-5">
-                        <div class="activity-filter-card">
-                            <div class="activity-filter-title mb-2">Pesquisa de Nota/OV</div>
-                            <div class="small text-muted mb-2">
-                                Busca em qualquer nota com status 11/20 ou que já passou por entidade externa.
-                            </div>
-                            <div class="row g-2">
-                                <div class="col-12 col-sm-4">
-                                    <div class="form-floating w-100">
-                                        <select class="form-select border border-secondary" wire:model="perPage"
-                                            id="perPageSelect">
-                                            <option value="25">25</option>
-                                            <option value="50">50</option>
-                                            <option value="100">100</option>
-                                            <option value="200">200</option>
-                                            <option value="500">500</option>
-                                        </select>
-                                        <label for="perPageSelect">Registros por página</label>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-sm-8">
-                                    <div class="form-floating w-100 position-relative">
-                                        <input wire:model.debounce.500ms="search" type="text"
-                                            class="form-control border border-secondary" id="search"
-                                            placeholder="Buscar nota, pedido, material, protocolo...">
-                                        <label for="search">Buscar nota / pedido / protocolo</label>
-                                        <button
-                                            class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
-                                            data-bs-toggle="modal" data-bs-target="#buscar_multi">
-                                            <i class="ri-checkbox-multiple-blank-line"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-lg-3 col-xl-3">
-                        <div class="activity-filter-card">
-                            <div class="activity-filter-title mb-2">Classificação rápida</div>
-                            <div class="mb-3">
-                                <small class="text-muted d-block mb-2">Tipo de nota</small>
-                                <div class="btn-group w-100" role="group" aria-label="Tipo de Nota">
-                                    <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote"
-                                        value="1" id="typeNote1">
-                                    <label class="btn btn-outline-primary" for="typeNote1">Nota</label>
-
-                                    <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote"
-                                        value="2" id="typeNote2">
-                                    <label class="btn btn-outline-primary" for="typeNote2">OV</label>
-
-                                    <input type="radio" class="btn-check" name="typeNote" wire:model="typeNote"
-                                        value="" id="typeNote3">
-                                    <label class="btn btn-outline-primary" for="typeNote3">Ambos</label>
-                                </div>
-                            </div>
-                            <div>
-                                <small class="text-muted d-block mb-2">Status</small>
-                                <div class="btn-group w-100" role="group" aria-label="Status">
-                                    <input type="radio" class="btn-check" name="statusFilter"
-                                        wire:model="statusFilter" value="" id="statusAll">
-                                    <label class="btn btn-outline-secondary" for="statusAll">Todos</label>
-
-                                    <input type="radio" class="btn-check" name="statusFilter"
-                                        wire:model="statusFilter" value="11" id="status11">
-                                    <label class="btn btn-outline-secondary" for="status11">11</label>
-
-                                    <input type="radio" class="btn-check" name="statusFilter"
-                                        wire:model="statusFilter" value="20" id="status20">
-                                    <label class="btn btn-outline-secondary" for="status20">20</label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="col-12 col-lg-3 col-xl-4">
-                        <div class="activity-filter-card h-100">
-                            <div class="d-flex align-items-center justify-content-between mb-3">
-                                <div class="activity-filter-title">Filtros adicionais</div>
-                                @livewire('components.filter.remove-all', ['group_filter' => 'oexterno'], key('removeAll'))
-                            </div>
-                            <div class="d-flex flex-wrap chip-filters">
-                                @livewire(
-                                    'components.filter.filter2',
-                                    [
-                                        'myKey' => 'entityTypes',
-                                        'sendFilter' => 'entities',
-                                        'modelClass' => \App\Models\EntityType::class,
-                                        'column' => 'id',
-                                        'filterLabel' => 'Tipos de Entidade',
-                                        'groupFilter' => 'oexterno',
-                                        'displayColumn' => 'name',
-                                        'direction' => 'ASC',
-                                        'searchColumn' => 'name',
-                                        'sendSearchColumn' => 'entity_type_id',
-                                    ],
-                                    key('entityTypes')
-                                )
-
-                                @livewire(
-                                    'components.filter.filter2',
-                                    [
-                                        'myKey' => 'entities',
-                                        'sendFilter' => '',
-                                        'modelClass' => \App\Models\Entity::class,
-                                        'column' => 'id',
-                                        'filterLabel' => 'Entidades',
-                                        'groupFilter' => 'oexterno',
-                                        'displayColumn' => 'name',
-                                        'direction' => 'ASC',
-                                        'searchColumn' => 'name',
-                                        'sendSearchColumn' => 'entity_id',
-                                    ],
-                                    key('entities')
-                                )
-
-                                @livewire(
-                                    'components.filter.filter2',
-                                    [
-                                        'myKey' => 'rubrica',
-                                        'sendFilter' => '',
-                                        'modelClass' => \App\Models\Note::class,
-                                        'column' => 'rubrica',
-                                        'filterLabel' => 'Rubrica',
-                                        'groupFilter' => 'oexterno',
-                                        'displayColumn' => 'rubrica',
-                                        'direction' => 'ASC',
-                                        'searchColumn' => 'rubrica',
-                                        'sendSearchColumn' => 'rubrica',
-                                    ],
-                                    key('rubrica')
-                                )
-
-                                @livewire(
-                                    'components.filter.filter2',
-                                    [
-                                        'myKey' => 'region',
-                                        'sendFilter' => 'city',
-                                        'modelClass' => \App\Models\City::class,
-                                        'column' => 'regiao',
-                                        'filterLabel' => 'Região',
-                                        'groupFilter' => 'oexterno',
-                                        'displayColumn' => 'regiao',
-                                        'direction' => 'ASC',
-                                        'searchColumn' => 'regiao',
-                                        'sendSearchColumn' => 'regiao',
-                                    ],
-                                    key('region')
-                                )
-
-                                @livewire(
-                                    'components.filter.filter2',
-                                    [
-                                        'myKey' => 'city',
-                                        'sendFilter' => '',
-                                        'modelClass' => \App\Models\City::class,
-                                        'column' => 'cidade',
-                                        'filterLabel' => 'Município',
-                                        'groupFilter' => 'oexterno',
-                                        'displayColumn' => 'municipio',
-                                        'direction' => 'ASC',
-                                        'searchColumn' => 'municipio',
-                                        'sendSearchColumn' => 'cidade',
-                                    ],
-                                    key('city')
-                                )
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    <x-ops.hero
+        :eyebrow="'Serviços · ' . $service->service"
+        title="Entidade externa a protocolar"
+        subtitle="Notas e OVs prontas para iniciar ou consultar a tratativa com o órgão externo. Duplo clique na linha abre a nota."
+        :updated-at="$updatedAt">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel">
+                <i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel
+            </button>
         </div>
-        {{-- END SearchBar and Filters --}}
+    </x-ops.hero>
 
-        @if ($lists->isNotEmpty())
-            <div class="user-activity-summary mb-3">
-                <div class="row align-items-center g-2">
-                    <div class="col-12 col-lg-6">
-                        {{ $lists->onEachSide(1)->links() }}
-                    </div>
-                    <div class="col-12 col-lg-6 text-lg-end">
-                        <div class="activity-summary-text">
-                            Exibindo <strong>{{ $lists->firstItem() }}</strong> até
-                            <strong>{{ $lists->lastItem() }}</strong> de
-                            <strong>{{ $lists->total() }}</strong> registros.
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endif
+    <section class="ops-toolbar" aria-label="Filtros da lista">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar nota, pedido, material ou protocolo" label="Buscar nota, pedido, material ou protocolo">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#buscar_multi" title="Buscar várias notas de uma vez" aria-label="Buscar várias notas de uma vez">
+                    <i class="ri-list-check-2" aria-hidden="true"></i>
+                </button>
+            </x-ops.search>
 
-        <div class="user-activity-table-card position-relative">
-            @if (!$lists->count())
-                <div class="protocol-empty-state">
-                    <i class="ri-inbox-line"></i>
-                    <h5>Nenhuma nota disponível para protocolar</h5>
-                    <p>Revise os filtros ou aguarde novas notas nesta etapa.</p>
-                </div>
-            @else
-                <div
-                    class="user-activity-table-header protocol-table-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
-                    <div>
-                        <h5 class="user-activity-table-title">
-                            <i class="ri-file-add-line me-2"></i>Entidade externa a protocolar
-                        </h5>
-                        <div class="user-activity-table-subtitle">
-                            Selecione uma nota para iniciar ou consultar a tratativa externa.
-                        </div>
-                    </div>
-                    <button wire:click="exportToExcel" class="btn btn-light">
-                        <i class="ri-file-excel-2-line me-2"></i>Exportar
-                    </button>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="table-dark">
-                            <tr>
-                                <th scope="col" class="fw-bold text-center">Nota</th>
-                                <th scope="col" class="fw-bold text-center">Arquivos</th>
-                                <th scope="col" class="fw-bold text-center">Protocolo</th>
-                                <th scope="col" class="fw-bold text-center">Último protocolo</th>
-                                <th scope="col" class="fw-bold text-center">Entidade</th>
-                                <th scope="col" class="fw-bold text-center">Rubrica</th>
-                                <th scope="col" class="fw-bold text-center">Grp 2</th>
-                                <th scope="col" class="fw-bold text-center">Município</th>
-                                <th scope="col" class="fw-bold text-center">Pedido</th>
-                                <th scope="col" class="fw-bold text-center">Status</th>
-                                <th scope="col" class="fw-bold text-center">Pasta atual</th>
-                                <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_status')"
-                                    style="cursor: pointer;">Dias no Status
-                                    @if ($column == 'dt_status')
-                                        <i
-                                            class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
-                                    @endif
-                                </th>
-                                <th scope="col" class="fw-bold text-center" wire:click="setColumn('dt_created')"
-                                    style="cursor: pointer;">Total Dias
-                                    @if ($column == 'dt_created')
-                                        <i
-                                            class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}"></i>
-                                    @endif
-                                </th>
-                                <th scope="col" class="fw-bold text-end">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                @php
-                                    $daysleft = new DaysLeft($list);
-                                    $daysleft = $daysleft->getDaysLeft();
-                                    $color = 'text-bg-secondary';
-                                    $color2 = 'text-bg-secondary';
-                                    $statusDays = $list->dt_status?->startOfDay()->diffInDays() ?? 0;
-                                    $countDays = $list->dt_created->startOfDay()->diffInDays(now()->startOfDay());
+            <x-ops.segmented name="oexternoTypeNote" label="Tipo de nota" wire:model="typeNote" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
+            <x-ops.segmented name="oexternoStatus" label="Status SAP" wire:model="statusFilter" :options="['' => 'Todos', '11' => 'Status 11', '20' => 'Status 20']" />
 
-                                    if ($countDays > 30) {
-                                        $color2 = 'text-bg-danger';
-                                    } elseif ($countDays < 27) {
-                                        $color2 = 'text-bg-success';
-                                    } else {
-                                        $color2 = 'text-bg-warning';
-                                    }
+            <span class="ops-toolbar-spacer"></span>
 
-                                    if ($statusDays > 120) {
-                                        $color = 'text-bg-danger';
-                                    } elseif ($statusDays <= 60) {
-                                        $color = 'text-bg-success';
-                                    } else {
-                                        $color = 'text-bg-warning';
-                                    }
-                                @endphp
-                                <tr class="align-middle" wire:key="{{ $list->id }}"
-                                    wire:dblclick="navigateTo('{{ $list->note }}')">
-                                    <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
-                                        {{ $list->note }}
-                                    </td>
-
-
-                                    <td class="text-center align-middle">
-                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                        <x-files.select-download-list :files='$list->Files' />
-                                    </td>
-                                    <td class="text-center align-middle">
-
-                                        @if ($list->externals->isNotEmpty())
-                                            @php
-                                                $completed = $list->externals->where('completed', true)->count();
-                                                $total = $list->externals->count();
-                                            @endphp
-                                            <span
-                                                class="badge @if ($completed == $total) text-bg-success @else text-bg-danger @endif">
-                                                {{ $completed }} / {{ $total }}</span>
-                                        @else
-                                            <span class="badge text-bg-dark">0/0</span>
-                                        @endif
-                                    </td>
-                                    <td class="fw-light text-center">
-                                        <p class="my-0 py-0">{{ $list->externals?->last()?->protocols?->last()?->protocol }}</p>
-                                        <p class="my-0 py-0">{{ $list->externals?->last()?->protocols?->last()?->created_at?->format('d/m/Y H:i:s') }}</p>
-                                    </td>
-                                    <td class="fw-light text-center">
-                                        {{ $list->externals?->last()?->entidade }}
-                                    </td>
-
-                                    <td class="fw-light text-center">{{ $list->rubrica }}</td>
-                                    <td class="fw-light text-center">{{ $list->group2 }}</td>
-                                    <td class="fw-light text-center">{{ $list->lexp }}</td>
-
-
-                                    <td class="fw-light text-center">{{ $list->numPedido }}</td>
-
-
-                                    <td class="fw-light text-center">
-                                        <p class="my-0 py-0">{{ $list->nstats }}</p>
-                                        <p class="my-0 py-0"><span class="test">{{ $list->centerjob }}</span></p>
-                                    </td>
-                                    <td class="fw-light text-center">
-                                        @php($folder = $this->resolveFolderLabel($list))
-                                        <span class="badge {{ $folder['badge'] }}">{{ $folder['label'] }}</span>
-                                    </td>
-
-                                    <td class="fw-light text-center {{ $color }}">
-
-                                        <p class="my-0 py-0 fw-bold">
-                                            {{ $statusDays }} dias</p>
-                                        <p class="my-0 py-0">{{ $list->dt_status->format('d/m/Y') }}</p>
-
-                                    </td>
-                                    <td class="fw-light text-center {{ $color2 }}">
-
-                                        <p class="my-0 py-0 fw-bold">
-                                            {{ $list->dt_created->startOfDay()->diffInDays() }} dias</p>
-                                        <p class="my-0 py-0">{{ $list->dt_created->format('d/m/Y') }}</p>
-
-                                    </td>
-                                    <td class="text-end">
-                                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                            wire:click.prevent="navigateTo('{{ $list->note }}')"
-                                            data-bs-toggle="tooltip" data-bs-title="Abrir nota para protocolar">
-                                            <i class="ri-external-link-line"></i>
-                                        </button>
-                                    </td>
-
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar tudo</button>
             @endif
         </div>
 
-        @if ($lists->isNotEmpty())
-            <div class="user-activity-summary mt-3">
-                <div class="row align-items-center g-2">
-                    <div class="col-12 col-lg-6">
-                        {{ $lists->onEachSide(1)->links() }}
-                    </div>
-                    <div class="col-12 col-lg-6 text-lg-end">
-                        <div class="activity-summary-text">
-                            Exibindo <strong>{{ $lists->firstItem() }}</strong> até
-                            <strong>{{ $lists->lastItem() }}</strong> de
-                            <strong>{{ $lists->total() }}</strong> registros.
-                        </div>
-                    </div>
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
+        </div>
+
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
+        @endif
+    </section>
+
+    <section class="mp-panel" aria-label="Entidade externa a protocolar">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Entidade externa a protocolar</h2>
+                <div class="mp-panel-sub">
+                    {{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'registro' : 'registros' }} · sem busca, só notas nos status 11 e 20 que ainda não estão nas caixas de Taxa, Retorno ou Pagamento
                 </div>
+            </div>
+            <span class="mp-pill" wire:loading.delay>Atualizando…</span>
+        </div>
+
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="12" />
+
+        @if ($rows->isEmpty())
+            <div class="mp-panel-body">
+                <x-closure.empty-state
+                    :title="$hasCriteria ? 'Nenhum resultado para os filtros escolhidos' : 'Nenhuma nota disponível para protocolar'"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais notas.' : 'Aguarde novas notas nesta etapa.'"
+                    icon="ri-inbox-line" />
+                @if ($hasCriteria)
+                    <div class="text-center mt-2"><button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearAllCriteria">Limpar filtros</button></div>
+                @endif
+            </div>
+        @else
+            <div class="ops-table-wrap" wire:loading.delay.class="d-none">
+                <table class="table ops-table">
+                    <colgroup>
+                        <col style="width: 116px">
+                        <col style="width: 70px">
+                        <col style="width: 80px">
+                        <col style="width: 130px">
+                        <col style="width: 130px">
+                        <col style="width: 92px">
+                        <col style="width: 70px">
+                        <col style="width: 120px">
+                        <col style="width: 96px">
+                        <col style="width: 80px">
+                        <col style="width: 140px">
+                        <col style="width: 108px">
+                        <col style="width: 108px">
+                        <col style="width: 96px">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Nota</th>
+                            <th>Arquivos</th>
+                            <th>Protocolo</th>
+                            <th>Último protocolo</th>
+                            <th class="is-left">Entidade</th>
+                            <th>Rubrica</th>
+                            <th>Grupo 2</th>
+                            <th class="is-left">Município</th>
+                            <th>Pedido</th>
+                            <th>Status</th>
+                            <th>Pasta atual</th>
+                            <th class="ops-clickable" wire:click="setColumn('dt_status')" title="Ordenar por dias no status">
+                                Dias no status
+                                @if ($column == 'dt_status')
+                                    <i class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}" aria-hidden="true"></i>
+                                @endif
+                            </th>
+                            <th class="ops-clickable" wire:click="setColumn('dt_created')" title="Ordenar por total de dias">
+                                Total de dias
+                                @if ($column == 'dt_created')
+                                    <i class="{{ $direction == 'asc' ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line' }}" aria-hidden="true"></i>
+                                @endif
+                            </th>
+                            <th><span class="visually-hidden">Ação</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rows as $row)
+                            <tr wire:key="note-{{ $row['id'] }}" wire:dblclick="navigateTo('{{ $row['note'] }}')">
+                                <td><x-ops.note :note="$row['note']" /></td>
+
+                                <td>
+                                    {{-- Lista de arquivos da nota (componente compartilhado) --}}
+                                    <x-files.select-download-list :files="$row['files']" />
+                                </td>
+
+                                <td>
+                                    <x-ops.badge :tone="$row['proto']['tone']" :label="$row['proto']['done'] . ' / ' . $row['proto']['total']" hint="Protocolos concluídos / total de protocolos da nota" />
+                                </td>
+
+                                <td>
+                                    @if ($row['lastProto'])
+                                        <div class="ops-cell-stack is-center">
+                                            <span class="fw-semibold">{{ $row['lastProto'] }}</span>
+                                            <x-ops.date :date="$row['lastProtoAt']" time hint="Data do último protocolo" />
+                                        </div>
+                                    @else
+                                        <span class="ops-empty">—</span>
+                                    @endif
+                                </td>
+
+                                <td class="is-left"><span class="d-block text-truncate" title="{{ $row['entity'] }}">{{ $row['entity'] ?: '—' }}</span></td>
+                                <td>{{ $row['rubrica'] ?: '—' }}</td>
+                                <td>{{ $row['group2'] ?: '—' }}</td>
+                                <td class="is-left">{{ $row['city'] ?: '—' }}</td>
+                                <td>{{ $row['order'] ?: '—' }}</td>
+
+                                <td>
+                                    <div class="ops-cell-stack is-center">
+                                        <span>{{ $row['status'] ?: '—' }}</span>
+                                        @if ($row['centerjob'])
+                                            <span class="ops-sub">{{ $row['centerjob'] }}</span>
+                                        @endif
+                                    </div>
+                                </td>
+
+                                <td><x-ops.badge :tone="$row['folder']['tone']" :label="$row['folder']['label']" hint="Pasta em que a nota está hoje na Entidade Externa" /></td>
+
+                                <td><x-ops.date :date="$row['statusAt']" :tone="$row['statusTone']" :sub="$row['statusDays'] . ' dias'" hint="Dias no status atual (verde até 60 dias, âmbar de 61 a 120, vermelho acima de 120)" /></td>
+                                <td><x-ops.date :date="$row['createdAt']" :tone="$row['totalTone']" :sub="($row['totalDays'] ?? 0) . ' dias'" hint="Dias desde a criação da nota (verde abaixo de 27 dias, âmbar de 27 a 30, vermelho acima de 30)" /></td>
+
+                                <td>
+                                    <button type="button" class="btn btn-primary btn-sm ops-action"
+                                        wire:click.prevent="navigateTo('{{ $row['note'] }}')"
+                                        title="Abrir a nota para protocolar">
+                                        <i class="ri-external-link-line" aria-hidden="true"></i> Abrir
+                                    </button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
 
-        {{-- MODALS --}}
-        <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1"
-            aria-labelledby="exampleModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content edp-bg-stategrey-50">
-                    <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                        Buscar Multi-Notas
-                    </div>
+        <x-ops.pager :paginator="$lists" :per-page="$perPage" :sizes="[25, 50, 100, 200, 500]" />
+    </section>
+
+    {{-- MODAIS --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="buscar_multi" tabindex="-1" aria-labelledby="buscarMultiLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
                     <div>
-                        <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                            wire:model.defer="advanceSearch"></textarea>
+                        <span class="modal-eyebrow">Busca em massa</span>
+                        <h5 class="modal-title" id="buscarMultiLabel">Buscar várias notas</h5>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
-                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="ops-modal-note">Cole uma nota por linha, ou separe por espaço, vírgula ou ponto e vírgula. A busca também confere pedido, material, grupo 2 e protocolo.</p>
+                    <label class="form-label" for="advanceSearch">Notas ou ordens</label>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" rows="8" wire:model.defer="advanceSearch"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click="buscarMulti"><i class="ri-search-line" aria-hidden="true"></i> Aplicar busca</button>
                 </div>
             </div>
         </div>
-
-        {{-- Livewire Components --}}
-        @livewire('services.oexterno.actions.protocols', key('external_protocols'))
-
-        @push('css')
-            <style>
-                .protocol-filters-grid .activity-filter-card {
-                    height: 100%;
-                }
-
-                .protocol-filters-grid .btn-group .btn {
-                    min-width: 4.5rem;
-                }
-
-                .protocol-filters-grid .chip-filters {
-                    gap: .5rem;
-                }
-
-                .protocol-filters-grid .chip-filters > div {
-                    margin: 0 !important;
-                }
-
-                .protocol-filters-grid .chip-filters .position-absolute {
-                    z-index: 1080 !important;
-                }
-
-                .protocol-table-header {
-                    background: linear-gradient(120deg, #0f5f66, #0f766e);
-                }
-
-                .protocol-empty-state {
-                    color: var(--activity-muted);
-                    padding: 3rem 1rem;
-                    text-align: center;
-                }
-
-                .protocol-empty-state i {
-                    color: #0f766e;
-                    display: block;
-                    font-size: 2.5rem;
-                    margin-bottom: .75rem;
-                }
-
-                .protocol-empty-state h5 {
-                    color: var(--activity-ink);
-                    font-weight: 600;
-                }
-
-                .protocol-empty-state p {
-                    margin: 0;
-                }
-            </style>
-        @endpush
-
-        @push('script')
-            <script>
-                const copyTextCells = document.querySelectorAll('.copy-text');
-
-                copyTextCells.forEach(cell => {
-                    cell.addEventListener('click', () => {
-                        const value = cell.getAttribute('data-value');
-                        copyToClipboard(value);
-                        livewire.emit('getCopy',
-                            `Valor "${value}" copiado para a area de transferencia.`);
-                    });
-                });
-
-                function copyToClipboard(text) {
-                    const textArea = document.createElement('textarea');
-                    textArea.value = text;
-                    document.body.appendChild(textArea);
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-                }
-            </script>
-        @endpush
     </div>
+
+    {{-- Livewire Components --}}
+    @livewire('services.oexterno.actions.protocols', key('external_protocols'))
 </div>

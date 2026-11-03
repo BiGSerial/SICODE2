@@ -1,0 +1,275 @@
+// Menu superior (docs/MenuSuperior.md): painel dos dropdowns da topbar. UM arquivo para todos os menus (antes cada dropdown repetia ~500 linhas
+// de <style> e um <script>). Cor, raio e sombra só como token `--tb-*` aqui; o gatilho (`.nav-link`) continua o da topbar.
+
+.tb-menu {
+    --tb-bg: #fff;
+    --tb-ink: #0f172a;
+    --tb-soft: #475569;
+    --tb-muted: #64748b;
+    --tb-line: #e2e8f0;
+    --tb-hover: #f1f5f9;
+    --tb-group: #263cc8;
+    --tb-group-bg: rgba(38, 60, 200, .08);
+    --tb-danger: #e32c2c;
+    --tb-danger-bg: rgba(227, 44, 44, .1);
+    --tb-accent: #0891b2;
+    --tb-accent-bg: rgba(8, 145, 178, .12);
+    --tb-header-bg: linear-gradient(120deg, #0f172a 0%, #0f766e 60%, #0891b2 100%);
+    --tb-on-dark: #f8fafc;
+    --tb-count-bg: #e32c2c;
+    --tb-count-ink: #fff;
+    --tb-focus: #0891b2;
+    --tb-radius: 12px;
+    --tb-shadow: 0 18px 44px rgba(15, 23, 42, .28);
+    --tb-row-h: 38px;
+
+    background: var(--tb-bg);
+    border: 1px solid var(--tb-line);
+    border-radius: var(--tb-radius);
+    box-shadow: var(--tb-shadow);
+    color: var(--tb-ink);
+    font-size: .84rem;
+    line-height: 1.35;
+    margin-top: 10px !important;
+    max-height: calc(100vh - 96px);
+    max-width: calc(100vw - 24px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0 0 6px;
+    scrollbar-color: var(--tb-muted) transparent;
+    scrollbar-width: thin;
+
+    // ---------- Cabeçalho + busca ----------
+    .tb-head {
+        align-items: center;
+        background: var(--tb-header-bg);
+        color: var(--tb-on-dark);
+        display: flex;
+        gap: 10px;
+        justify-content: space-between;
+        padding: 10px 14px;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+    }
+
+    .tb-title {
+        font-size: .72rem;
+        font-weight: 800;
+        letter-spacing: .12em;
+        text-transform: uppercase;
+    }
+
+    .tb-search {
+        background: rgba(255, 255, 255, .14);
+        border: 1px solid rgba(255, 255, 255, .28);
+        border-radius: 8px;
+        color: var(--tb-on-dark);
+        flex: 0 1 160px;
+        font-size: .78rem;
+        padding: 3px 9px;
+
+        &::placeholder { color: rgba(248, 250, 252, .7); }
+        &:focus { background: rgba(255, 255, 255, .22); outline: 2px solid var(--tb-focus); outline-offset: 1px; }
+    }
+
+    .tb-list { list-style: none; margin: 0; padding: 6px 6px 0; }
+
+    .tb-header-row {
+        color: var(--tb-muted);
+        font-size: .66rem;
+        font-weight: 800;
+        letter-spacing: .1em;
+        padding: 10px 10px 4px;
+        text-transform: uppercase;
+    }
+
+    // ---------- Linha (link + ações rápidas) ----------
+    .tb-row {
+        align-items: center;
+        border-radius: 8px;
+        display: flex;
+        gap: 6px;
+        min-height: var(--tb-row-h);
+        padding-right: 4px;
+
+        &:hover { background: var(--tb-hover); }
+        &[hidden] { display: none; }
+    }
+
+    .tb-link {
+        align-items: center;
+        border-radius: 8px;
+        color: var(--tb-ink);
+        display: flex;
+        flex: 1 1 auto;
+        font-weight: 700;
+        gap: 10px;
+        min-height: var(--tb-row-h);
+        min-width: 0;
+        padding: 0 10px;
+        text-decoration: none;
+    }
+
+    .tb-icon {
+        align-items: center;
+        background: var(--tb-accent-bg);
+        border-radius: 8px;
+        color: var(--tb-accent);
+        display: inline-flex;
+        flex: 0 0 26px;
+        font-size: 1rem;
+        height: 26px;
+        justify-content: center;
+        width: 26px;
+    }
+
+    .tb-icon.is-danger { background: var(--tb-danger-bg); color: var(--tb-danger); }
+
+    .tb-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .tb-count,
+    .tb-count-agg {
+        background: var(--tb-count-bg);
+        border-radius: 999px;
+        color: var(--tb-count-ink);
+        font-size: .68rem;
+        font-weight: 800;
+        line-height: 1;
+        min-width: 20px;
+        padding: 3px 7px;
+        text-align: center;
+    }
+
+    .tb-count[hidden],
+    .tb-count-agg[hidden] { display: none; }
+
+    // Ações rápidas da atividade (Fila · Despacho · Controle · Painel)
+    .tb-chip {
+        align-items: center;
+        background: var(--tb-group-bg);
+        border-radius: 999px;
+        color: var(--tb-group);
+        display: inline-flex;
+        font-size: .7rem;
+        font-weight: 800;
+        gap: 4px;
+        min-height: 26px;
+        padding: 0 9px;
+        text-decoration: none;
+        white-space: nowrap;
+
+        &:hover { filter: brightness(.94); }
+        &.is-danger { background: var(--tb-danger-bg); color: var(--tb-danger); }
+    }
+
+    // ---------- Grupo recolhível ----------
+    .tb-group-toggle {
+        align-items: center;
+        background: var(--tb-group-bg);
+        border: 0;
+        border-radius: 8px;
+        color: var(--tb-group);
+        display: flex;
+        font-size: .72rem;
+        font-weight: 800;
+        gap: 8px;
+        justify-content: space-between;
+        letter-spacing: .08em;
+        margin-top: 6px;
+        min-height: 32px;
+        padding: 0 10px;
+        text-align: left;
+        text-transform: uppercase;
+        width: 100%;
+
+        &:hover { filter: brightness(.96); }
+    }
+
+    .tb-group.is-danger > .tb-group-toggle { background: var(--tb-danger-bg); color: var(--tb-danger); }
+
+    // Hierarquia: o módulo (nível 0) aberto vira faixa sólida; o grupo dentro dele (nível 1) é um cartão branco com barra lateral; os
+    // filhos de cada um ficam recuados atrás de um trilho vertical. Assim se lê de quem é cada submenu.
+    .tb-group.tb-depth-0.is-open > .tb-group-toggle { background: var(--tb-group); color: #fff; }
+
+    .tb-group.tb-depth-0.is-open > .tb-group-toggle .tb-count-agg { background: #fff; color: var(--tb-group); }
+
+    .tb-group.tb-depth-0.is-danger.is-open > .tb-group-toggle { background: var(--tb-danger); color: #fff; }
+
+    .tb-group.tb-depth-1 > .tb-group-toggle,
+    .tb-group.tb-depth-2 > .tb-group-toggle {
+        background: var(--tb-bg);
+        border: 1px solid var(--tb-line);
+        border-left: 4px solid var(--tb-group);
+        color: var(--tb-ink);
+        font-size: .7rem;
+        letter-spacing: .05em;
+        margin-top: 4px;
+        min-height: 30px;
+    }
+
+    .tb-group.tb-depth-1.is-open > .tb-group-toggle,
+    .tb-group.tb-depth-2.is-open > .tb-group-toggle { background: var(--tb-group-bg); border-color: var(--tb-group); color: var(--tb-group); }
+
+    .tb-group.is-open > .tb-group-body > ul {
+        border-left: 2px solid var(--tb-group-bg);
+        margin-left: 12px;
+        padding: 2px 0 4px 8px;
+    }
+
+    .tb-group.tb-depth-1.is-open > .tb-group-body > ul { border-left-color: var(--tb-group); }
+
+    .tb-chevron { transition: transform .18s; }
+    .tb-group.is-open > .tb-group-toggle .tb-chevron { transform: rotate(90deg); }
+
+    .tb-group-body {
+        display: grid;
+        grid-template-rows: 0fr;
+        transition: grid-template-rows .2s ease;
+
+        > ul { list-style: none; margin: 0; min-height: 0; overflow: hidden; padding: 0 0 0 6px; }
+    }
+
+    .tb-group.is-open > .tb-group-body { grid-template-rows: 1fr; }
+
+    .tb-empty { color: var(--tb-muted); padding: 12px; text-align: center; }
+
+    a:focus-visible,
+    button:focus-visible { outline: 2px solid var(--tb-focus); outline-offset: -2px; }
+}
+
+// Gatilho do menu: nome, contagem e seta na mesma linha, centralizados (a contagem não pode empurrar a seta nem subir).
+.tb-trigger {
+    align-items: center;
+    display: inline-flex;
+    gap: 6px;
+
+    &::after { margin-left: 0; }
+}
+
+// Contagem no gatilho do menu (soma dos itens), ao lado do nome.
+.tb-trigger-count {
+    align-items: center;
+    background: var(--tb-count-bg, #e32c2c);
+    border-radius: 999px;
+    color: #fff;
+    display: inline-flex;
+    font-size: .66rem;
+    font-weight: 800;
+    height: 18px;
+    justify-content: center;
+    line-height: 1;
+    min-width: 18px;
+    padding: 0 5px;
+
+    &[hidden] { display: none; }
+}
+
+@media (max-width: 575.98px) {
+    .tb-menu .tb-chip { padding: 0 7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tb-menu .tb-group-body,
+    .tb-menu .tb-chevron { transition: none; }
+}

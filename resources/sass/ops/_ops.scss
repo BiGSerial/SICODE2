@@ -1,0 +1,641 @@
+// Listas operacionais (docs/PADRAO_LISTAS_OPERACIONAIS.md): a mesma linguagem visual das dashboards (hero, painéis, tokens `--mp-*`),
+// pensada para trabalhar em cima de linhas. Wrapper obrigatório: `<div class="closure-dash my-panel ops-list">`.
+// Cor só por tom semântico (`tone-green|blue|amber|red|teal|muted`, definidos em closure/_tones.scss). Nada de CSS por tela.
+
+.ops-list {
+    [x-cloak] { display: none !important; }
+
+    // ---------- Hero ----------
+    .ops-hero-side {
+        align-items: flex-end;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .ops-hero-updated {
+        color: var(--ops-on-dark-muted);
+        font-size: .8rem;
+    }
+
+    .ops-hero-updated strong { color: var(--ops-surface); }
+
+    // ---------- Barra de ferramentas (busca, segmentado, atalhos, filtros) ----------
+    .ops-toolbar {
+        background: var(--ops-surface);
+        border: 1px solid var(--ops-line);
+        border-radius: 12px;
+        box-shadow: var(--ops-shadow-card);
+        margin-bottom: 14px;
+        padding: 14px var(--ops-edge);
+    }
+
+    .ops-toolbar-row {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 14px;
+    }
+
+    .ops-toolbar-row + .ops-toolbar-row {
+        border-top: 1px dashed var(--ops-line);
+        margin-top: 12px;
+        padding-top: 12px;
+    }
+
+    .ops-toolbar-spacer { flex: 1 1 auto; }
+
+    .ops-toolbar-label {
+        color: var(--ops-muted);
+        font-size: .68rem;
+        font-weight: 800;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+    }
+
+    .ops-search {
+        align-items: center;
+        display: flex;
+        flex: 1 1 280px;
+        gap: 6px;
+        max-width: 420px;
+        position: relative;
+
+        .form-control { padding-left: 32px; }
+    }
+
+    .ops-search-icon {
+        color: var(--ops-muted);
+        left: 11px;
+        pointer-events: none;
+        position: absolute;
+    }
+
+    .ops-segmented {
+        background: var(--ops-surface-segment);
+        border-radius: 999px;
+        display: inline-flex;
+        gap: 2px;
+        padding: 3px;
+    }
+
+    .ops-segmented-item {
+        border-radius: 999px;
+        color: var(--ops-muted);
+        cursor: pointer;
+        font-size: .78rem;
+        font-weight: 700;
+        margin: 0;
+        padding: 5px 14px;
+        transition: background .15s, color .15s;
+        user-select: none;
+    }
+
+    .ops-segmented-item:hover { color: var(--ops-ink); }
+
+    .ops-segmented .btn-check:checked + .ops-segmented-item {
+        background: var(--ops-accent-gradient);
+        box-shadow: 0 4px 10px var(--ops-accent-glow);
+        color: var(--ops-surface);
+    }
+
+    .ops-segmented .btn-check:focus-visible + .ops-segmented-item { outline: 2px solid var(--ops-accent); outline-offset: 2px; }
+
+    .ops-toggle {
+        align-items: center;
+        background: var(--ops-surface);
+        border: 1px solid var(--ops-line);
+        border-radius: 999px;
+        color: var(--ops-ink);
+        display: inline-flex;
+        font-size: .78rem;
+        font-weight: 700;
+        gap: 6px;
+        padding: 5px 13px;
+        transition: background .15s, border-color .15s, color .15s;
+
+        &:hover { border-color: var(--ops-accent); }
+
+        &.is-on {
+            background: var(--ops-accent-soft);
+            border-color: var(--ops-accent);
+            color: var(--ops-accent-ink);
+        }
+
+        &.is-on::before {
+            background: var(--ops-accent);
+            border-radius: 50%;
+            content: '';
+            height: 8px;
+            width: 8px;
+        }
+    }
+
+    // ---------- Filtros ----------
+    .ops-filters {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .ops-filter-btn {
+        align-items: center;
+        background: var(--ops-surface);
+        border: 1px solid var(--ops-line);
+        border-radius: 999px;
+        color: var(--ops-ink);
+        display: inline-flex;
+        font-size: .78rem;
+        font-weight: 700;
+        gap: 4px;
+        padding: 5px 8px 5px 13px;
+        transition: background .15s, border-color .15s;
+
+        &:hover { border-color: var(--ops-accent); }
+
+        &.is-active {
+            background: var(--ops-accent-soft);
+            border-color: var(--ops-accent);
+            color: var(--ops-accent-ink);
+        }
+    }
+
+    .ops-filter-count {
+        background: var(--ops-accent);
+        border-radius: 999px;
+        color: var(--ops-surface);
+        font-size: .68rem;
+        font-weight: 800;
+        min-width: 18px;
+        padding: 1px 6px;
+        text-align: center;
+    }
+
+    .ops-filter .dropdown-menu { min-width: 270px; }
+
+    .ops-filter-list {
+        max-height: 260px;
+        overflow-y: auto;
+
+        .dropdown-item {
+            font-size: .85rem;
+            padding: 4px 8px;
+        }
+    }
+
+    .ops-chips {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .ops-chip {
+        align-items: center;
+        background: var(--ops-surface-chip);
+        border: 1px solid var(--ops-line);
+        border-radius: 999px;
+        color: var(--ops-ink);
+        display: inline-flex;
+        font-size: .75rem;
+        font-weight: 600;
+        gap: 4px;
+        padding: 2px 6px 2px 10px;
+
+        .btn-close { font-size: .55rem; }
+    }
+
+    .ops-chips-clear {
+        background: none;
+        border: 0;
+        color: var(--ops-muted);
+        font-size: .75rem;
+        font-weight: 700;
+        padding: 0 4px;
+
+        &:hover { color: var(--ops-danger-ink); }
+    }
+
+    // ---------- Selos, datas e valores (iguais em toda lista) ----------
+    .ops-badge {
+        align-items: center;
+        background: var(--tone-soft);
+        border-radius: 999px;
+        color: var(--tone);
+        display: inline-flex;
+        font-size: .72rem;
+        font-weight: 800;
+        gap: 4px;
+        letter-spacing: .02em;
+        line-height: 1;
+        min-height: 22px;
+        padding: 0 10px;
+        white-space: nowrap;
+    }
+
+    .ops-badge--sm {
+        font-size: .66rem;
+        min-height: 18px;
+        padding: 0 7px;
+    }
+
+    .ops-badge--mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: .7rem;
+        letter-spacing: 0;
+    }
+
+    .ops-date {
+        align-items: center;
+        border-radius: 8px;
+        color: var(--ops-ink);
+        display: inline-flex;
+        flex-direction: column;
+        font-variant-numeric: tabular-nums;
+        font-size: .8rem;
+        font-weight: 600;
+        line-height: 1.2;
+        padding: 3px 5px;
+        white-space: nowrap;
+
+        &.is-alert {
+            background: var(--tone-soft);
+            color: var(--tone);
+            font-weight: 800;
+        }
+    }
+
+    .ops-date-time {
+        font-size: .68rem;
+        font-weight: 600;
+        opacity: .7;
+    }
+
+    .ops-money {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        white-space: nowrap;
+
+        &[class*='tone-'] { color: var(--tone); }
+    }
+
+    .ops-empty { color: var(--ops-faint); }
+
+    .ops-sub {
+        color: var(--ops-muted);
+        display: block;
+        font-size: .7rem;
+        font-weight: 600;
+        line-height: 1.3;
+    }
+
+    .ops-cell-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .ops-cell-stack.is-center { align-items: center; }
+
+    // Nota com D5: o número fica dentro do selo (azul = 1º ciclo, verde = 2º ciclo, cinza = já despachada).
+    .ops-note-badge {
+        font-size: .9rem;
+        gap: 5px;
+        min-height: 26px;
+        padding: 0 11px;
+
+        strong { font-size: .68rem; opacity: .8; }
+    }
+
+    // Nota com D5: o mesmo selo em toda lista que tenha D5.
+    .ops-note {
+        align-items: center;
+        display: inline-flex;
+        font-size: .95rem;
+        font-weight: 800;
+        gap: 6px;
+    }
+
+    // ---------- Tabela ----------
+    .ops-table-wrap {
+        overflow-x: auto;
+        scrollbar-color: var(--ops-scroll-thumb) var(--ops-scroll-track);
+        scrollbar-width: thin;
+    }
+
+    .ops-table {
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0;
+        table-layout: fixed;
+        width: 100%;
+
+        thead th {
+            background: var(--ops-surface-soft);
+            border-bottom: 2px solid var(--ops-line);
+            color: var(--ops-muted);
+            font-size: .68rem;
+            font-weight: 800;
+            letter-spacing: .05em;
+            padding: 10px 6px;
+            position: sticky;
+            text-align: center;
+            text-transform: uppercase;
+            top: 0;
+            white-space: nowrap;
+            z-index: 2;
+        }
+
+        td {
+            background-color: transparent;
+            border-bottom: 1px solid var(--ops-line-soft);
+            font-size: .86rem;
+            height: var(--ops-row-h);
+            padding: 8px 6px;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        td:first-child,
+        th:first-child { padding-left: var(--ops-edge); }
+
+        td:last-child,
+        th:last-child { padding-right: var(--ops-edge); }
+
+        tbody tr { transition: background .12s; }
+        tbody tr:not([class*='ops-row-']):hover { background: var(--ops-hover); }
+        tbody tr[class*='ops-row-']:hover { filter: brightness(.97); }
+
+        tfoot td {
+            background: var(--ops-surface-soft);
+            border-top: 2px solid var(--ops-line);
+            font-weight: 800;
+            height: auto;
+        }
+
+        // Nome comprido (responsável, empresa) corta com reticências em vez de vazar para a coluna ao lado.
+        .ops-badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+        .is-left { text-align: left; }
+        .is-right { text-align: right; }
+    }
+
+    // Cor da linha (RowState): barra de acento à esquerda + fundo suave. O significado é fixo e vem da legenda.
+    .ops-table tbody tr[class*='ops-row-'] td:first-child { box-shadow: inset 5px 0 0 var(--row-accent); }
+    .ops-row-assigned { --row-accent: var(--ops-row-assigned); background: var(--ops-row-assigned-bg); }
+    .ops-row-stack    { --row-accent: var(--ops-row-stack); background: var(--ops-row-stack-bg); }
+    .ops-row-done     { --row-accent: var(--ops-row-done); background: var(--ops-row-done-bg); }
+    .ops-row-late     { --row-accent: var(--ops-row-late); background: var(--ops-row-late-bg); }
+
+    .ops-row-swatch {
+        border-radius: 4px;
+        box-shadow: inset 4px 0 0 var(--row-accent, var(--ops-row-free-swatch));
+        display: inline-block;
+        flex: 0 0 22px;
+        height: 22px;
+        width: 22px;
+    }
+
+    .ops-row-swatch.ops-row-free { background: var(--ops-surface); border: 1px solid var(--ops-line); }
+
+    .ops-legend { .dropdown-menu { min-width: 300px; } }
+
+    .ops-legend-title {
+        color: var(--ops-muted);
+        font-size: .68rem;
+        font-weight: 800;
+        letter-spacing: .06em;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+    }
+
+    .ops-legend-row {
+        align-items: center;
+        display: flex;
+        font-size: .82rem;
+        gap: 10px;
+        line-height: 1.25;
+        margin-bottom: 8px;
+
+        small { color: var(--ops-muted); }
+    }
+
+    // Ação de linha: botão compacto, nunca ícone solto.
+    .ops-action {
+        align-items: center;
+        border-radius: 999px;
+        display: inline-flex;
+        font-size: .76rem;
+        font-weight: 800;
+        gap: 4px;
+        padding: 4px 12px;
+        white-space: nowrap;
+    }
+
+    // ---------- Paginação ----------
+    .ops-pager {
+        align-items: center;
+        border-top: 1px solid var(--ops-line);
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px 16px;
+        justify-content: space-between;
+        padding: 10px var(--ops-edge);
+
+        .pagination { margin: 0; }
+    }
+
+    .ops-pager-info {
+        align-items: center;
+        color: var(--ops-muted);
+        display: flex;
+        font-size: .8rem;
+        gap: 10px;
+
+        strong { color: var(--ops-ink); }
+    }
+
+    .ops-pager-size { margin: 0; }
+
+    // ---------- Seleção em lote ----------
+    .ops-selection {
+        align-items: center;
+        background: var(--ops-bar-bg);
+        border-radius: 14px;
+        bottom: 18px;
+        box-shadow: var(--ops-shadow-bar);
+        color: var(--ops-surface-soft);
+        display: flex;
+        gap: 14px;
+        left: 50%;
+        padding: 10px 14px 10px 18px;
+        position: fixed;
+        transform: translateX(-50%);
+        z-index: 1040;
+    }
+
+    .ops-selection-count { font-size: .88rem; }
+    .ops-selection-count strong { font-size: 1.1rem; }
+    .ops-selection-actions { display: flex; gap: 8px; }
+
+    .ops-selection-clear {
+        background: var(--ops-glass-fill);
+        border: 0;
+        border-radius: 50%;
+        color: var(--ops-surface);
+        height: 30px;
+        width: 30px;
+
+        &:hover { background: var(--ops-glass-hover); }
+    }
+
+    // ---------- Carregando / vazio ----------
+    .ops-skeleton { padding: 8px var(--ops-edge) 14px; }
+
+    .ops-skeleton-row {
+        align-items: center;
+        border-bottom: 1px solid var(--ops-line-soft);
+        display: flex;
+        gap: 18px;
+        height: var(--ops-row-h);
+    }
+
+    .ops-skeleton-cell {
+        animation: ops-shimmer 1.2s ease-in-out infinite;
+        background: linear-gradient(90deg, var(--ops-skel-a) 25%, var(--ops-skel-b) 50%, var(--ops-skel-a) 75%);
+        background-size: 200% 100%;
+        border-radius: 6px;
+        flex: 1 1 0;
+        height: 14px;
+        max-width: var(--w);
+    }
+
+    @keyframes ops-shimmer {
+        from { background-position: 200% 0; }
+        to { background-position: -200% 0; }
+    }
+
+    // ---------- Lista de CONTROLE (docs/PADRAO_LISTAS_OPERACIONAIS.md §10) ----------
+    // Mesma base visual, mas inconfundível com a lista operacional: hero índigo, selo "Lista de controle", painel de
+    // situação em cima e linhas SEM fundo de situação (cor de linha é só da lista operacional). Prioridade = barra e texto vermelhos.
+    &.ops-control .mp-hero {
+        background: var(--ops-hero-bg-control);
+    }
+
+    &.ops-control .mp-eyebrow { color: var(--ops-eyebrow-control); }
+
+    .ops-mode-pill {
+        align-items: center;
+        background: var(--ops-glass);
+        border: 1px solid var(--ops-glass-border);
+        border-radius: 999px;
+        color: var(--ops-surface);
+        display: inline-flex;
+        font-size: .72rem;
+        font-weight: 800;
+        gap: 5px;
+        letter-spacing: .05em;
+        padding: 4px 11px;
+        text-transform: uppercase;
+    }
+
+    .ops-stats {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        margin-bottom: 14px;
+    }
+
+    .ops-stat {
+        align-items: center;
+        background: var(--ops-surface);
+        border: 1px solid var(--ops-line);
+        border-left: 4px solid var(--tone);
+        border-radius: 10px;
+        color: var(--ops-ink);
+        display: grid;
+        gap: 0 10px;
+        grid-template-areas: 'icon value' 'icon label';
+        grid-template-columns: auto 1fr;
+        padding: 9px 14px;
+        text-align: left;
+        transition: box-shadow .15s, background .15s;
+
+        &:not(:disabled):hover { box-shadow: var(--ops-shadow-card); }
+        &:disabled { cursor: default; opacity: 1; }
+
+        &.is-active {
+            background: var(--tone-soft);
+            border-color: var(--tone);
+            box-shadow: 0 0 0 1px var(--tone) inset;
+        }
+    }
+
+    .ops-stat-icon { color: var(--tone); font-size: 1.4rem; grid-area: icon; }
+    .ops-stat-value { font-size: 1.25rem; font-variant-numeric: tabular-nums; font-weight: 800; grid-area: value; line-height: 1.1; }
+    .ops-stat-label { color: var(--ops-muted); font-size: .72rem; font-weight: 700; grid-area: label; letter-spacing: .03em; text-transform: uppercase; }
+
+    .ops-table tbody tr.ops-row-priority td:first-child { box-shadow: inset 5px 0 0 var(--ops-row-priority); }
+    .ops-table tbody tr.ops-row-priority { background: var(--ops-row-priority-bg); }
+
+    // Elemento clicável que não é botão/link (selo, número de PEP): cursor de mão, sem style inline.
+    .ops-clickable { cursor: pointer; }
+
+    // Menu de ações da linha: o dropdown não pode ser cortado pela rolagem da tabela.
+    .ops-row-actions { position: inherit; }
+
+    .ops-row-menu { border-radius: 8px; padding: 2px 8px; }
+
+    // Pessoa: iniciais em círculo + nome/e-mail em duas linhas (lista de usuários da parceira).
+    .ops-person {
+        align-items: center;
+        display: flex;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .ops-avatar {
+        align-items: center;
+        background: var(--ops-accent-soft);
+        border-radius: 50%;
+        color: var(--ops-accent-ink);
+        display: inline-flex;
+        flex: 0 0 var(--ops-avatar-size);
+        font-size: .78rem;
+        font-weight: 800;
+        height: var(--ops-avatar-size);
+        justify-content: center;
+        width: var(--ops-avatar-size);
+    }
+
+    .ops-person-name { color: var(--ops-ink); font-weight: 700; line-height: 1.2; }
+
+    .ops-person-sub { color: var(--ops-muted); font-size: .78rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .ops-mass-menu { min-width: 340px; padding: 6px; }
+
+    .ops-mass-menu .dropdown-item {
+        align-items: flex-start;
+        border-radius: 8px;
+        display: flex;
+        gap: 10px;
+        white-space: normal;
+
+        > i { font-size: 1.15rem; margin-top: 2px; }
+        strong { display: block; font-size: .86rem; }
+        small { color: var(--ops-muted); display: block; font-size: .72rem; line-height: 1.3; }
+    }
+
+    .ops-mass-force {
+        color: var(--ops-muted);
+        display: block;
+        font-size: .75rem;
+        padding: 0 12px 6px 40px;
+    }
+
+    @media (max-width: 767.98px) {
+        .ops-search { max-width: none; }
+        .ops-selection { left: 12px; right: 12px; transform: none; }
+    }
+}

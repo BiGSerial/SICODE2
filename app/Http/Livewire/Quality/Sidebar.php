@@ -2,11 +2,13 @@
 
 namespace App\Http\Livewire\Quality;
 
-use App\Services\Quality\{QualityBoard, QualityRoles};
+use App\Services\Quality\QualityRoles;
+use App\Support\Menu\QualityNav;
 use Livewire\Component;
 
 /**
- * Menu lateral da Qualidade com badges de contagem que se atualizam sozinhos (polling).
+ * Menu lateral da Qualidade: monta o contexto do papel de quem olha e entrega ao `<x-nav.sidebar>`; a estrutura vive em
+ * App\Support\Menu\QualityNav e as contagens em `quality.menu-count` (padrão em docs/PADRAO_MENU_LATERAL.md).
  * A rota ativa chega por props porque, nas atualizações do Livewire, `request()` já não é a da página.
  */
 class Sidebar extends Component
@@ -26,23 +28,18 @@ class Sidebar extends Component
 
     public function render()
     {
-        $roles = app(QualityRoles::class);
-        $user  = auth()->user();
-        $board = app(QualityBoard::class);
-
+        $roles     = app(QualityRoles::class);
+        $user      = auth()->user();
         $isManager = $roles->canManage($user);
-        $showN1    = !$isManager && $roles->isN1($user);
-        $showN2    = !$isManager && $roles->isN2($user);
 
         return view('livewire.quality.sidebar', [
             'roles'     => $roles,
             'user'      => $user,
             'isManager' => $isManager,
-            'showN1'    => $showN1,
-            'showN2'    => $showN2,
-            'n1Tabs'    => $showN1 ? $board->tabs($user, QualityBoard::N1_TABS) : [],
-            'n2Tabs'    => $showN2 ? $board->tabs($user, QualityBoard::N2_TABS) : [],
-            'mgmt'      => $isManager ? $board->managementCounts($user) : [],
+            'routeKey'  => QualityNav::routeKey($this->route, $this->tab, $this->fila),
+            'context'   => $isManager
+                ? ['mode' => 'manager']
+                : ['mode' => 'member', 'n1' => $roles->isN1($user), 'n2' => $roles->isN2($user)],
         ]);
     }
 }

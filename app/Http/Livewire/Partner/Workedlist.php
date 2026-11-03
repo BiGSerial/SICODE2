@@ -3,73 +3,109 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Exports\Partner\WorkInformsExport;
-use App\Models\{Company, File, WorkReport};
-use App\Models\City;
+use App\Http\Livewire\Concerns\WithListFilters;
+use App\Http\Livewire\Partner\Concerns\{AuthorizesPartnerAccess, PartnerListToolkit};
+use App\Models\{File, WorkReport};
 use App\Services\Files\FileStorageService;
 use App\Services\WorkReports\WorkReportStatusResolver;
+use App\Support\Ops\Tone;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Livewire\{Component, WithPagination};
 
+/**
+ * Obras informadas (lista de controle do portal da parceira: docs/PADRAO_LISTAS_OPERACIONAIS.md §10).
+ * Escopo por empresa vem de `applyPartnerCompanyScope`; o filtro Empresa só reduz esse escopo.
+ */
 class Workedlist extends Component
 {
-    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+    use AuthorizesPartnerAccess;
+    use PartnerListToolkit;
+    use WithListFilters;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
 
+    /** Situação do informe: chave do filtro => rótulo. */
+    private const SITUATIONS = [
+        'informed' => 'Informado',
+        'rejected' => 'Rejeitado',
+        'canceled' => 'Cancelado',
+    ];
+
     public $perPage = 50;
 
-    public $cities;
+    public $search = '';
 
-    public $files_selected = [];
+    public $multiSearch = '';
 
-    public $search;
+    // Busca por data de informe
+    public $month = '';
 
-    public $multiSearch;
+    public $date_in = '';
 
-    public $companyId = '';
-
-    public $companyOptions = [];
-
-    public $currentStatus = '';
-
-    public $currentStatusOptions = [];
-
-    // search by date
-    public $month;
-
-    public $date_in;
-
-    public $date_out;
-    // public $dateBy = 'sended_at';
-
-    // Filters
-    private $filter_group = 'partner_forms';
-
-    private $filter;
+    public $date_out = '';
 
     protected $queryString = [
-        'search'    => ['except' => '', 'as' => 'buscar'],
-        'page'      => ['except' => 1, 'as' => 'p'],
-        'perPage'   => ['as' => 'pp'],
-        'month'     => ['except' => '', 'as' => 'mes_referencia'],
-        'companyId' => ['except' => '', 'as' => 'empreiteira'],
-        'currentStatus' => ['except' => '', 'as' => 'status_atual'],
+        'search'   => ['except' => '', 'as' => 'buscar'],
+        'page'     => ['except' => 1, 'as' => 'p'],
+        'perPage'  => ['as' => 'pp'],
+        'month'    => ['except' => '', 'as' => 'mes_referencia'],
+        'date_in'  => ['except' => '', 'as' => 'data_inicial'],
+        'date_out' => ['except' => '', 'as' => 'data_final'],
+        'filters'  => ['except' => [], 'as' => 'f'],
     ];
 
     protected $listeners = [
-        'refresh_list'   => '$refresh',
-        'refresh_filter' => 'refreshFilters',
+        'refresh_list' => '$refresh',
     ];
 
-    public function mount()
+    public function mount(): void
     {
-        $this->cities         = City::orderBy('cidade')->get();
-        $this->companyOptions = $this->loadCompanyOptions();
-        $this->currentStatusOptions = $this->loadCurrentStatusOptions();
-        // $this->month = !$this->month ? Carbon::now()->format('Y-m') : $this->month;
-        // $this->date_in = Carbon::parse($this->month)->startOfMonth()->format('Y-m-d');
-        // $this->date_out = Carbon::parse($this->month)->endOfMonth()->format('Y-m-d');
+        $this->perPage = in_array((int) $this->perPage, [25, 50, 100, 250, 500], true) ? (int) $this->perPage : 50;
+        $this->filters = $this->normalizeFilters($this->filters);
+    }
+
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'company'   => ['label' => 'Empreiteira'],
+            'situation' => ['label' => 'Situação'],
+            'status'    => ['label' => 'Status atual'],
+            'rubrica'   => ['label' => 'Rubrica'],
+            'region'    => ['label' => 'Região'],
+            'city'      => ['label' => 'Município', 'depends' => ['region']],
+        ];
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return [
+            'company'   => $this->companyFilterOptions(),
+            'situation' => collect(self::SITUATIONS)->map(fn ($label, $key) => ['v' => $key, 'l' => $label])->values()->all(),
+            'status'    => collect($this->currentStatusOptions())->map(fn ($label, $key) => ['v' => $key, 'l' => $label])->values()->all(),
+        ] + $this->reportLocationFilterOptions();
+    }
+
+    /** @return array<string, string> chave => rótulo do status atual do informe */
+    private function currentStatusOptions(): array
+    {
+        return [
+            'inform'                   => WorkReportStatusResolver::INFORM,
+            'waiting_fiscalization'    => WorkReportStatusResolver::WAITING_FISCALIZATION,
+            'fiscalization'            => WorkReportStatusResolver::FISCALIZATION,
+            'waiting_payment'          => WorkReportStatusResolver::WAITING_PAYMENT,
+            'payment'                  => 'Em Medição',
+            'payment_finished'         => 'Medição Finalizada',
+            'finalized'                => WorkReportStatusResolver::FINALIZED,
+            'inconsistent_payment'     => WorkReportStatusResolver::INCONSISTENT_PAYMENT,
+            'waiting_d5_dispatch'      => WorkReportStatusResolver::WAITING_D5_DISPATCH,
+            'waiting_d5_resolution'    => WorkReportStatusResolver::WAITING_D5_RESOLUTION,
+            'waiting_d5_fiscalization' => WorkReportStatusResolver::WAITING_D5_FISCALIZATION,
+            'd5_fiscalization'         => WorkReportStatusResolver::D5_FISCALIZATION,
+            'waiting_d5_payment'       => WorkReportStatusResolver::WAITING_D5_PAYMENT,
+            'releasing_letter'         => WorkReportStatusResolver::RELEASING_LETTER,
+        ];
     }
 
     public function exportToExcel()
@@ -78,60 +114,71 @@ class Workedlist extends Component
             ->download(date('Ymd_his') . '-ListaObrasInformadas.xlsx');
     }
 
-    public function updatedMonth()
+    public function updatedMonth(): void
     {
-        $date           = Carbon::createFromFormat('Y-m', $this->month);
-        $this->date_in  = $date->startOfMonth()->format('Y-m-d');
-        $this->date_out = $date->endOfMonth()->format('Y-m-d');
+        if ($this->month) {
+            $date           = Carbon::createFromFormat('Y-m', $this->month);
+            $this->date_in  = $date->copy()->startOfMonth()->format('Y-m-d');
+            $this->date_out = $date->copy()->endOfMonth()->format('Y-m-d');
+        } else {
+            $this->date_in  = '';
+            $this->date_out = '';
+        }
+
+        $this->resetPage();
     }
 
-    public function updatedDateIn()
+    public function updatedDateIn(): void
     {
-        $this->month = Carbon::parse($this->date_in)->format('Y-m');
+        $this->month = $this->date_in ? Carbon::parse($this->date_in)->format('Y-m') : '';
+        $this->resetPage();
     }
 
-    public function cleanAll()
+    public function updatedDateOut(): void
+    {
+        $this->resetPage();
+    }
+
+    /** "Limpar filtros": busca, datas e filtros. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
     {
         $this->search      = '';
         $this->multiSearch = '';
         $this->date_in     = '';
         $this->date_out    = '';
         $this->month       = '';
-        $this->companyId   = '';
-        $this->currentStatus = '';
+        $this->clearListFilters();
     }
 
-    public function applyMultiSearch()
+    /** Cartões-resumo clicam como filtro rápido de situação (um por vez; clicar de novo desmarca). */
+    public function quickSituation(string $situation): void
     {
-        $terms = $this->parseSearchTerms($this->multiSearch);
+        $current = $this->filterValues('situation');
 
-        $this->search = implode(' ', $terms);
+        $this->applyListFilters(array_merge($this->filters, ['situation' => $current === [$situation] ? [] : [$situation]]));
+    }
+
+    public function applyMultiSearch(): void
+    {
+        $this->search = implode(' ', $this->parseSearchTerms($this->multiSearch));
         $this->resetPage();
     }
 
-    public function updatedSearch()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedPerPage()
-    {
-        $this->resetPage();
-    }
-
-    public function updatedCompanyId()
+    public function updatingSearch(): void
     {
         $this->resetPage();
     }
 
-    public function updatedCurrentStatus()
+    public function updatedPerPage(): void
     {
+        $this->perPage = in_array((int) $this->perPage, [25, 50, 100, 250, 500], true) ? (int) $this->perPage : 50;
         $this->resetPage();
     }
 
-    public function refreshFilters(...$payload): void
+    /** Tom semântico (`green|blue|amber|red|teal|muted`) da classe de cor guardada no informe (`text-bg-*`). */
+    public function classTone(?string $class): string
     {
-        $this->resetPage();
+        return Tone::fromBootstrap($class ? str_replace('text-bg-', '', $class) : null);
     }
 
     public function downloadFile($id)
@@ -141,68 +188,43 @@ class Workedlist extends Component
 
             if ($storage->exists($file)) {
                 return $storage->download($file, $file->file_name);
-            } else {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'error',
-                    'title'    => 'ARQUIVO INEXISTENTE!',
-                    'timer'    => 5000,
-                ]);
-
-                return;
             }
+
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'error',
+                'title'    => 'ARQUIVO INEXISTENTE!',
+                'timer'    => 5000,
+            ]);
         }
     }
 
-    public function getListsProperty()
+    /** Informes no escopo de permissão da parceira, sem busca nem filtros (base da lista e dos cartões). */
+    private function scopedQuery()
     {
-        $this->filter = $this->loadFilters();
-
         $query = WorkReport::query();
 
-        // $query->where('rejected', false);
+        $this->applyPartnerCompanyScope($query);
 
-        $visibleCompanyIds = collect(\App\Services\PartnerAccess\PartnerAccessGate::visibleCompanyIdsFor(auth()->user()));
+        return $this->applyPartnerBranchScopeToNoteRelation($query);
+    }
 
-        if (!auth()->user()->superadm) {
-            if ($visibleCompanyIds->isNotEmpty()) {
-                $query->whereIn('company_id', $visibleCompanyIds->all());
-            } else {
-                $query->whereRaw('0 = 1');
-            }
+    /** Mesma consulta da tela, do Excel e (sem o filtro de situação) dos cartões. */
+    public function getListsProperty()
+    {
+        $query = $this->applyCompanyFilter($this->scopedQuery());
+
+        if ($this->date_in) {
+            $query->whereDate('informed_at', '>=', $this->date_in);
         }
 
-        if ($this->companyId) {
-            if (auth()->user()->superadm || $visibleCompanyIds->contains($this->companyId)) {
-                $query->where('company_id', $this->companyId);
-            } else {
-                $query->whereRaw('0 = 1');
-            }
+        if ($this->date_out) {
+            $query->whereDate('informed_at', '<=', $this->date_out);
         }
 
-        $this->applyPartnerBranchScopeToNoteRelation($query, $this->companyId ?: null);
-
-        if (($this->date_in || $this->date_out)) {
-
-            if ($this->date_in && !$this->date_out) {
-                $query->whereDate('informed_at', '>=', $this->date_in);
-            }
-
-            if (!$this->date_in && $this->date_out) {
-                $query->whereDate('informed_at', '<=', $this->date_out);
-            }
-
-            if ($this->date_in && $this->date_out) {
-                $query->whereDate('informed_at', '>=', $this->date_in)
-                    ->whereDate('informed_at', '<=', $this->date_out);
-            }
-        }
-
-        $searchTerms = $this->parseSearchTerms($this->search);
-
-        if (!empty($searchTerms)) {
-            $query->where(function ($q) {
-                foreach ($this->parseSearchTerms($this->search) as $term) {
+        if ($terms = $this->parseSearchTerms($this->search)) {
+            $query->where(function ($q) use ($terms) {
+                foreach ($terms as $term) {
                     $q->orWhereRelation('Note', 'note', 'like', "%{$term}%")
                         ->orWhereRelation('Note', 'numPedido', 'like', "%{$term}%")
                         ->orWhereRelation('Orders', 'ordem', 'like', "%{$term}%");
@@ -210,135 +232,74 @@ class Workedlist extends Component
             });
         }
 
-        if (!empty($this->filter['city'])) {
-            $query->whereRelation('Note', function ($q) {
-                $q->whereIn('lexp', $this->filter['city']);
+        $this->applyNoteLocationFilters($query);
+
+        if ($status = $this->filterValues('status')) {
+            $query->whereIn('current_status_key', $status);
+        }
+
+        if ($situation = $this->filterValues('situation')) {
+            $query->where(function ($q) use ($situation) {
+                foreach ($situation as $key) {
+                    match ($key) {
+                        'canceled' => $q->orWhere('canceled', true),
+                        'rejected' => $q->orWhere(fn ($x) => $x->where('canceled', false)->where('rejected', true)),
+                        'informed' => $q->orWhere(fn ($x) => $x->where('canceled', false)->where('rejected', false)),
+                        default    => null,
+                    };
+                }
             });
         }
 
-        if (!empty($this->filter['region'])) {
-            $query->whereRelation('Note.City', function ($q) {
-                $q->whereIn('regiao', $this->filter['region']);
-            });
-        }
-
-        if (!empty($this->filter['rubrica'])) {
-            $query->whereRelation('Note', function ($q) {
-                $q->whereIn('rubrica', $this->filter['rubrica']);
-            });
-        }
-
-        if ($this->currentStatus !== '') {
-            $query->where('current_status_key', $this->currentStatus);
-        }
-
-        $query->with([
-            'Note.Files',
-            'Note.OldAds' => function ($q) {
-                $q->orderBy('date', 'asc');
-            },
-            'Orders',
-            'Equipment',
-            'Company',
-            'Adsform',
-        ]);
-
-        $query->orderByRaw('COALESCE(informed_at, created_at) DESC')
+        return $query
+            ->with([
+                'Note.Files.service',
+                'Note.OldAds' => fn ($q) => $q->orderBy('date', 'asc'),
+                'Orders',
+                'Equipment:id,work_report_id',
+                'Company:id,name',
+                'Adsform',
+            ])
+            ->orderByRaw('COALESCE(informed_at, created_at) DESC')
             ->orderByDesc('id');
-
-        return $query;
     }
 
-    private function loadFilters(): array
+    /** Contagens do cabeçalho em uma só consulta agrupada (retrato do escopo da parceira; ignoram busca e filtros). Cache de 60 s. */
+    private function counts(): array
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) {
-                session()->start();
-            }
-        }
+        $key = 'partner-worked-counts:' . auth()->id() . ':' . md5(json_encode($this->filterValues('company')));
 
-        $sessionFilters = session('filter.' . $this->filter_group);
+        return Cache::remember($key, 60, function () {
+            $row = $this->applyCompanyFilter($this->scopedQuery())
+                ->selectRaw('SUM(canceled = 0 AND rejected = 0) as informed')
+                ->selectRaw('SUM(canceled = 0 AND rejected = 1) as rejected')
+                ->selectRaw('SUM(canceled = 1) as canceled')
+                ->first();
 
-        if (is_array($sessionFilters)) {
-            return $sessionFilters;
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
-            return $_SESSION['filter'][$this->filter_group];
-        }
-
-        return [];
-    }
-
-    private function parseSearchTerms(?string $value): array
-    {
-        if (!filled($value)) {
-            return [];
-        }
-
-        return collect(preg_split('/[\s,;]+/', trim($value)))
-            ->map(fn ($term) => trim($term))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+            return [
+                'informed' => (int) $row->informed,
+                'rejected' => (int) $row->rejected,
+                'canceled' => (int) $row->canceled,
+            ];
+        });
     }
 
     public function render()
     {
+        $lists = $this->lists->paginate($this->perPage);
+
+        // O componente de arquivos lê `$file->note`/`$file->service`: reaproveita a nota já carregada em vez de consultar por arquivo.
+        $files = $lists->getCollection()->flatMap(function ($report) {
+            $report->Note?->Files->each(fn ($file) => $file->setRelation('note', $report->Note));
+
+            return $report->Note?->Files ?? collect();
+        });
+
         return view('livewire.partner.workedlist', [
-            'lists'          => $this->lists->paginate($this->perPage),
-            'companyOptions' => $this->companyOptions,
+            'lists'       => $lists,
+            'counts'      => $this->counts(),
+            'tacitFiles'  => $this->tacitFileIdsFor($files->pluck('id')),
+            'hasCriteria' => $this->hasListFilters() || trim((string) $this->search) !== '' || $this->date_in || $this->date_out,
         ]);
-    }
-
-    private function loadCompanyOptions()
-    {
-        $query = Company::query();
-
-        if (!auth()->user()->superadm) {
-            $companyIds = $this->visibleCompanyIds();
-
-            if ($companyIds->isEmpty()) {
-                return collect();
-            }
-
-            $query->whereIn('id', $companyIds->all());
-        }
-
-        return $query
-            ->orderByRaw('LOWER(name)')
-            ->get(['id', 'name']);
-    }
-
-    private function loadCurrentStatusOptions()
-    {
-        return collect([
-            ['key' => 'inform', 'label' => WorkReportStatusResolver::INFORM],
-            ['key' => 'waiting_fiscalization', 'label' => WorkReportStatusResolver::WAITING_FISCALIZATION],
-            ['key' => 'fiscalization', 'label' => WorkReportStatusResolver::FISCALIZATION],
-            ['key' => 'waiting_payment', 'label' => WorkReportStatusResolver::WAITING_PAYMENT],
-            ['key' => 'payment', 'label' => 'Em Medição'],
-            ['key' => 'payment_finished', 'label' => 'Medição Finalizada'],
-            ['key' => 'finalized', 'label' => WorkReportStatusResolver::FINALIZED],
-            ['key' => 'inconsistent_payment', 'label' => WorkReportStatusResolver::INCONSISTENT_PAYMENT],
-            ['key' => 'waiting_d5_dispatch', 'label' => WorkReportStatusResolver::WAITING_D5_DISPATCH],
-            ['key' => 'waiting_d5_resolution', 'label' => WorkReportStatusResolver::WAITING_D5_RESOLUTION],
-            ['key' => 'waiting_d5_fiscalization', 'label' => WorkReportStatusResolver::WAITING_D5_FISCALIZATION],
-            ['key' => 'd5_fiscalization', 'label' => WorkReportStatusResolver::D5_FISCALIZATION],
-            ['key' => 'waiting_d5_payment', 'label' => WorkReportStatusResolver::WAITING_D5_PAYMENT],
-            ['key' => 'releasing_letter', 'label' => WorkReportStatusResolver::RELEASING_LETTER],
-        ]);
-    }
-
-    private function visibleCompanyIds()
-    {
-        $user = auth()->user();
-
-        if (!$user) {
-            return collect();
-        }
-
-        return collect(\App\Services\PartnerAccess\PartnerAccessGate::visibleCompanyIdsFor($user));
     }
 }

@@ -19,21 +19,26 @@ class NoteFilter
      *
      * Filtros adicionais:
      *  - busca simples ($search)
-     *  - rubrica / city (vindos de $_SESSION['filter'][$filterGroup])
+     *  - company / rubrica / region / regional / city: de `$explicitFilters` quando informado; senão de $_SESSION['filter'][$filterGroup]
      *
      * As relações são carregadas pelos componentes após a paginação para manter a lista leve.
      */
-    public function filter(?string $search, string $filterGroup): Builder
+    public function filter(?string $search, string $filterGroup, ?array $explicitFilters = null): Builder
     {
-        // Carrega filtros de sessão se existirem
-        if (\PHP_SESSION_ACTIVE !== session_status()) {
-            if (!session()->isStarted()) {
-                session()->start();
+        if ($explicitFilters !== null) {
+            // Telas no padrão de listas operacionais (WithListFilters) passam a seleção direto, sem sessão.
+            $this->filters = $explicitFilters;
+        } else {
+            // Carrega filtros de sessão se existirem
+            if (\PHP_SESSION_ACTIVE !== session_status()) {
+                if (!session()->isStarted()) {
+                    session()->start();
+                }
             }
-        }
 
-        if (isset($_SESSION['filter'][$filterGroup]) && is_array($_SESSION['filter'][$filterGroup])) {
-            $this->filters = $_SESSION['filter'][$filterGroup];
+            if (isset($_SESSION['filter'][$filterGroup]) && is_array($_SESSION['filter'][$filterGroup])) {
+                $this->filters = $_SESSION['filter'][$filterGroup];
+            }
         }
 
         $companyIds = $this->filters['company'] ?? null;

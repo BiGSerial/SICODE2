@@ -4,14 +4,24 @@ namespace App\Http\Livewire\Dispatchs\AnalisesPre;
 
 use App\Custom\RuleBuilder;
 use App\Exports\DispatchDesenhoMain;
-use App\Models\City;
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
+use App\Models\City;
 use App\Services\Design\BlockEvaluator;
+use App\Services\Dispatch\PreAnalysisListRowPresenter;
 use App\Support\SicodeRules;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Cache;
 use Livewire\{Component, WithPagination};
 
+/**
+ * Despacho -> Lista para Análises Pré (lista operacional, padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md).
+ * A Parceira (`PartnerMain`) herda tudo e só troca a exportação.
+ */
 class Main extends Component
 {
+    use WithListFilters;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -22,10 +32,6 @@ class Main extends Component
 
     public $search;
 
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
     public $note;
 
     public $last_update;
@@ -34,7 +40,7 @@ class Main extends Component
 
     public $multiSearch = [];
 
-    public $selectall;
+    public $selectall = false;
 
     public $selected = [];
 
@@ -54,43 +60,9 @@ class Main extends Component
 
     public $enter_dd;
 
-    public $filteredLists;
-
     public $search_user;
 
-    public $note_type = '';
-
-    // Filtros
-    public $region_l;
-
-    public $region_s = [];
-
-    public $district_l;
-
-    public $district_s = [];
-
-    public $city_l;
-
-    public $city_s = [];
-
-    public $group1_l;
-
-    public $group1_s = [];
-
-    public $group2_l;
-
-    public $group2_s = [];
-
-    public $group5_l;
-
-    public $group5_s = [];
-
     public $not_assigned = false;
-
-    // Filters
-    private $filter_group = 'analises_pre';
-
-    private $filter;
 
     protected $listeners = [
         'refresh_dispatch'  => '$refresh',
@@ -100,17 +72,101 @@ class Main extends Component
         'confirm_dispatch'  => 'confirmed_att',
     ];
 
+    protected $queryString = [
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['as' => 'pp'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'filters'      => ['except' => [], 'as' => 'f'],
+    ];
+
+    /** @var array<string, array> Memo de `rowDispatchState()` (zerado a cada render). */
+    private array $dispatchStateMemo = [];
+
+    private ?LengthAwarePaginator $listsMemo = null;
+
     public function mount($service)
     {
-
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
+        $this->last_update = Cache::remember('pre-analysis-dispatch:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
+    }
 
-        $this->group1_l = $this->lists->orderBy('group1')->get()->pluck('group1')->unique();
-        $this->group2_l = $this->lists->orderBy('group2')->get()->pluck('group2')->unique();
-        $this->group5_l = $this->lists->orderBy('group5')->get()->pluck('group5')->unique();
+    // ---------- Filtros (WithListFilters): Rubrica, Região, Regional e Município, como na tela anterior ----------
 
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'rubrica'  => ['label' => 'Rubrica'],
+            'region'   => ['label' => 'Região'],
+            'regional' => ['label' => 'Regional', 'depends' => ['region']],
+            'city'     => ['label' => 'Município', 'depends' => ['region', 'regional']],
+        ];
+    }
 
+    protected function listFilterOptions(): array
+    {
+        return [
+            'rubrica' => $this->rememberFilterOptions('rubrica', fn () => Note::query()
+                ->whereNotNull('rubrica')->where('rubrica', '!=', '')
+                ->distinct()->orderBy('rubrica')->pluck('rubrica')
+                ->map(fn ($r) => ['v' => (string) $r, 'l' => (string) $r])->all()),
+        ] + $this->locationFilterOptions();
+    }
+
+    /** Opções de Região / Regional / Município (com os valores-pai para a cascata). */
+    protected function locationFilterOptions(): array
+    {
+        $cities = $this->rememberFilterOptions('cities', fn () => City::query()
+            ->whereNotNull('rdMunicipio')
+            ->orderBy('municipio')
+            ->get(['rdMunicipio', 'municipio', 'regiao', 'baseConstrucao'])
+            ->map(fn ($c) => [
+                'v' => (string) $c->rdMunicipio,
+                'l' => (string) ($c->municipio ?: $c->rdMunicipio),
+                'p' => ['region' => (string) $c->regiao, 'regional' => (string) $c->baseConstrucao],
+            ])->unique('v')->values()->all());
+
+        return [
+            'region' => collect($cities)->pluck('p.region')->filter()->unique()->sort()->values()
+                ->map(fn ($r) => ['v' => $r, 'l' => $r])->all(),
+            'regional' => collect($cities)->map(fn ($c) => $c['p'])->filter(fn ($p) => $p['regional'] !== '')
+                ->unique('regional')->sortBy('regional')->values()
+                ->map(fn ($p) => ['v' => $p['regional'], 'l' => $p['regional'], 'p' => ['region' => $p['region']]])->all(),
+            'city' => $cities,
+        ];
+    }
+
+    protected function listFilterCacheScope(): string
+    {
+        return 'pre-analysis-dispatch';
+    }
+
+    /** "Limpar tudo": filtros, busca (simples e em massa) e atalho. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters       = [];
+        $this->search        = '';
+        $this->multiSearch   = [];
+        $this->advanceSearch = '';
+        $this->not_assigned  = false;
+        $this->afterListFiltersChanged();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected  = [];
+        $this->selectall = false;
+    }
+
+    public function updatedSearch()
+    {
+        $this->multiSearch = [];
+        $this->gotoPage(1);
+    }
+
+    public function updatedPerPage()
+    {
+        $this->gotoPage(1);
     }
 
     public function export_excel()
@@ -130,30 +186,46 @@ class Main extends Component
         $this->user_s = '';
     }
 
-    public function updatedSelectall($val)
+    /** Marca/desmarca as linhas da página que podem ser atribuídas. */
+    public function setSelectAll()
     {
+        $items       = $this->paginatedLists()->items();
+        $selectedSet = array_fill_keys(array_map('strval', $this->selected), true);
 
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
+        foreach ($items as $note) {
+            $id = (string) $note->id;
 
-        if ($val) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($idsToKeep as $id) {
-                if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
+            if ($this->selectall) {
+                if ($this->canDispatchNote($note)) {
+                    $selectedSet[$id] = true;
                 }
+            } else {
+                unset($selectedSet[$id]);
             }
-        } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $idsToKeep)) {
-                    $newSelected[] = $id;
-                }
-            }
-            $this->selected = $newSelected;
         }
 
+        $this->selected = array_map(strval(...), array_keys($selectedSet));
+    }
+
+    /** "Selecionar todas" fica marcado quando todas as linhas atribuíveis da página estão selecionadas. */
+    public function checkAllSelect($items): bool
+    {
+        $this->recomputeSelectAllFor($items instanceof LengthAwarePaginator ? $items->items() : $items);
+
+        return $this->selectall;
+    }
+
+    protected function recomputeSelectAllFor(iterable $items): void
+    {
+        $eligible = [];
+
+        foreach ($items as $note) {
+            if ($this->canDispatchNote($note)) {
+                $eligible[] = (string) $note->id;
+            }
+        }
+
+        $this->selectall = $eligible !== [] && array_diff($eligible, array_map('strval', $this->selected)) === [];
     }
 
     public function copy($msg)
@@ -163,8 +235,6 @@ class Main extends Component
             'menssage' => $msg,
         ]);
     }
-
-
 
     public function get_single_note($note)
     {
@@ -309,11 +379,11 @@ class Main extends Component
 
                     if ($production) {
                         Notetimeline::Create([
-                            'note_id'      => $production->note_id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "Usuário {$user} {$user_info}",
-                            'status'       => 2,
+                            'note_id'       => $production->note_id,
+                            'service_id'    => $production->service_id,
+                            'user_id'       => Auth()->User()->id,
+                            'info'          => "Usuário {$user} {$user_info}",
+                            'status'        => 2,
                             'production_id' => $production->id,
                         ]);
                     }
@@ -345,11 +415,11 @@ class Main extends Component
 
                     if ($production) {
                         Notetimeline::Create([
-                            'note_id'      => $production->note_id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "Usuário {$user} {$user_info}",
-                            'status'       => 1,
+                            'note_id'       => $production->note_id,
+                            'service_id'    => $production->service_id,
+                            'user_id'       => Auth()->User()->id,
+                            'info'          => "Usuário {$user} {$user_info}",
+                            'status'        => 1,
                             'production_id' => $production->id,
                         ]);
                     }
@@ -457,17 +527,9 @@ class Main extends Component
 
     }
 
-    public function getListsProperty()
+    /** Consulta única da lista, do Excel e da exportação da Parceira: o mesmo recorte nas três. */
+    public function getListsProperty(): Builder
     {
-
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
-
         $query = Note::query()->excludeCanceledFullDone();
 
         SicodeRules::applyContractDispatchMainVisibility(
@@ -492,8 +554,6 @@ class Main extends Component
         }
 
         $query->when($this->search, function ($q, $s) {
-            $this->gotoPage(1);
-
             return $q->where(function ($query) use ($s) {
                 $query->where('note', 'like', '%' . $s . '%')
                     ->orWhere('material', 'like', '%' . $s . '%')
@@ -503,114 +563,84 @@ class Main extends Component
             });
         });
 
-        $activeFilters = is_array($this->filter) ? $this->filter : [];
-
-        if (isset($activeFilters['rubrica'])) {
-            $query->whereIn('rubrica', $activeFilters['rubrica']);
+        if ($rubricas = $this->filterValues('rubrica')) {
+            $query->whereIn('rubrica', $rubricas);
         }
 
-        $regionValues = collect((array) ($activeFilters['region'] ?? []))
-            ->filter(fn ($v) => filled($v))
-            ->map(fn ($v) => trim((string) $v))
-            ->values();
-        $regionalValues = collect((array) ($activeFilters['regional'] ?? []))
-            ->filter(fn ($v) => filled($v))
-            ->map(fn ($v) => trim((string) $v))
-            ->values();
-        $cityValues = collect((array) ($activeFilters['city'] ?? []))
-            ->filter(fn ($v) => filled($v))
-            ->map(fn ($v) => trim((string) $v))
-            ->values();
-
-        if ($regionValues->isNotEmpty() || $regionalValues->isNotEmpty() || $cityValues->isNotEmpty()) {
-            $nexpCodes = collect();
-            $nexpCodes = $nexpCodes->merge(
-                $cityValues->filter(fn ($v) => preg_match('/^\d+$/', $v) === 1)->values()
-            );
-
-            $mappedQuery = City::query();
-            if ($regionValues->isNotEmpty()) {
-                $mappedQuery->where(function ($sq) use ($regionValues) {
-                    $sq->whereIn('regiao', $regionValues->all())
-                        ->orWhereIn('baseConstrucao', $regionValues->all());
-                });
-            }
-            if ($regionalValues->isNotEmpty()) {
-                $mappedQuery->whereIn('baseConstrucao', $regionalValues->all());
-            }
-            if ($cityValues->isNotEmpty()) {
-                $mappedQuery->where(function ($sq) use ($cityValues) {
-                    $sq->whereIn('cidade', $cityValues->all())
-                        ->orWhereIn('municipio', $cityValues->all())
-                        ->orWhereIn('rdMunicipio', $cityValues->all());
-                });
-            }
-
-            $mappedCodes = $mappedQuery->pluck('rdMunicipio')
-                ->filter(fn ($v) => filled($v))
-                ->map(fn ($v) => trim((string) $v))
-                ->values();
-
-            $query->whereIn('nexp', $nexpCodes->merge($mappedCodes)->unique()->values()->all());
+        if ($codes = $this->locationCodes()) {
+            $query->whereIn('nexp', $codes);
         }
 
-
-        $query->with(['Productions.User', 'Productions.Company'])
-            ->orderBy('type_note', 'DESC')
+        return $query->orderBy('type_note', 'DESC')
             ->orderBy('dt_created');
+    }
 
-        return $query;
+    /**
+     * Códigos de município (`notes.nexp`) dos filtros Região / Regional / Município. Região casa com `regiao` ou
+     * `baseConstrucao`, Regional com `baseConstrucao`, Município com cidade, município ou código (regra da tela anterior).
+     */
+    private function locationCodes(): ?array
+    {
+        $regions   = $this->filterValues('region');
+        $regionals = $this->filterValues('regional');
+        $cities    = $this->filterValues('city');
 
+        if (!$regions && !$regionals && !$cities) {
+            return null;
+        }
+
+        $mapped = City::query()
+            ->when($regions, fn ($q) => $q->where(fn ($w) => $w->whereIn('regiao', $regions)->orWhereIn('baseConstrucao', $regions)))
+            ->when($regionals, fn ($q) => $q->whereIn('baseConstrucao', $regionals))
+            ->when($cities, fn ($q) => $q->where(fn ($w) => $w->whereIn('cidade', $cities)->orWhereIn('municipio', $cities)->orWhereIn('rdMunicipio', $cities)))
+            ->pluck('rdMunicipio')
+            ->filter(fn ($v) => filled($v))
+            ->map(fn ($v) => trim((string) $v));
+
+        $numeric = collect($cities)->filter(fn ($v) => preg_match('/^\d+$/', $v) === 1);
+
+        return $numeric->merge($mapped)->unique()->values()->all();
+    }
+
+    /**
+     * Página atual, com as relações que a view usa (sem consulta por linha). Uma paginação só por requisição.
+     * Parte de um builder novo: `$this->lists` é cacheado pelo Livewire na requisição e o `paginate()` o alteraria.
+     */
+    public function paginatedLists(): LengthAwarePaginator
+    {
+        return $this->listsMemo ??= $this->getListsProperty()
+            ->with(['Productions.User:id,name', 'Productions.Company:id,name'])
+            ->paginate($this->perPage);
     }
 
     public function needBlock(Note $note): array
     {
-        return app(BlockEvaluator::class)->evaluate($note, $this->service);
+        return $this->rowDispatchState($note)['eval'];
+    }
+
+    /**
+     * Avaliação de bloqueio + pilha da empresa de uma linha, feita UMA vez por requisição (a tela, o "selecionar todas"
+     * e a verificação de cada ação liam isso várias vezes por linha, com consulta em cada uma).
+     *
+     * @return array{eval: array, stack: ?Production, canDispatch: bool}
+     */
+    public function rowDispatchState(Note $note): array
+    {
+        return $this->dispatchStateMemo[$note->id] ??= (function () use ($note) {
+            $eval  = app(BlockEvaluator::class)->evaluate($note, $this->service);
+            $stack = SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
+
+            return [
+                'eval'        => $eval,
+                'stack'       => $stack,
+                'canDispatch' => !$eval['block'] || (bool) ($eval['command'] ?? false) || (bool) $stack,
+            ];
+        })();
     }
 
     private function canDispatchNote(Note $note): bool
     {
-        $eval = $this->needBlock($note);
-
-        return !$eval['block']
-            || (bool) ($eval['command'] ?? false)
-            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
-    }
-
-    public function getBaseProperty()
-    {
-        try {
-            $query          = City::query();
-            $filtersApplied = false;
-
-            if (!empty($this->region_s)) {
-                $query->whereIn('regiao', $this->region_s);
-                $filtersApplied = true;
-            }
-
-            if (!empty($this->district_s)) {
-                $query->whereIn('baseConstrucao', $this->district_s);
-                $filtersApplied = true;
-            }
-
-            if (!empty($this->city_s)) {
-                $query->whereIn('cidade', $this->city_s);
-                $filtersApplied = true;
-            }
-
-            if (!$filtersApplied) {
-                return [];
-            }
-
-            $result = $query->orderBy('cidade')
-                ->get()
-                ->pluck('rdMunicipio')
-                ->toArray();
-
-            return $result;
-        } catch (\Throwable $th) {
-            return [];
-        }
+        return $this->rowDispatchState($note)['canDispatch'];
     }
 
     private function dispatchRecipientInfo(): string
@@ -643,82 +673,28 @@ class Main extends Component
         return "{$note} => Desconhecido";
     }
 
+    /** Nome da view; a Parceira usa a mesma (as duas telas são idênticas). */
+    protected function viewName(): string
+    {
+        return 'livewire.dispatchs.analises-pre.main';
+    }
+
     public function render()
     {
-        $this->filteredLists = $this->lists->paginate($this->perPage)->filter(fn ($list) => $this->canDispatchNote($list));
+        $this->dispatchStateMemo = [];
+        $this->listsMemo         = null;
 
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-            $this->selectall = true;
-        } else {
-            $this->selectall = false;
-        }
+        $lists = $this->paginatedLists();
+        $this->recomputeSelectAllFor($lists->items());
 
-        // if (!Auth()->User()->usesContractDispatch()) {
-        //     $this->company_l = Company::orderBy('name', 'ASC')->get();
-        // } else {
+        $presenter = app(PreAnalysisListRowPresenter::class);
+        $legal     = $presenter->legalLinkedNoteIds($lists->pluck('id')->all());
+        $rows      = $lists->getCollection()->map(fn (Note $note) => $presenter->dispatch($note, $this->rowDispatchState($note), isset($legal[$note->id])));
 
-        //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
-        // }
-
-        // $this->user_l = User::when($this->search_user, function ($q) {
-        //     return $q->where('name', 'like', '%' . $this->search_user . '%');
-        // })->whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
-
-        $this->company_l = Company::whereHas('toUsers', function ($query) {
-            $query->whereRelation('ToServices', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->where('service', true);
-            });
-        })
-            ->orderBy('name', 'ASC')
-            ->get();
-
-        $this->user_l = User::whereRelation('ToServices', function ($q) {
-            $q->where('service_id', $this->service->uuid)
-                ->where('service', true);
-        })
-         ->where(function ($q) {
-             $q->whereRelation('Company', 'company_id', $this->company_s)
-                 ->orWhere('company_id', $this->company_s);
-         })
-        ->when($this->search_user, function ($q) {
-            return $q->where('name', 'like', '%' . $this->search_user . '%');
-        })
-        ->orderBy('name', 'ASC')->get();
-
-
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
-
-        // Municipios Filtros
-        try {
-
-            $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
-
-            $this->district_l = City::when($this->region_s, function ($q) {
-                return $q->whereIn('regiao', $this->region_s);
-
-            })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
-            $this->city_l = City::when($this->region_s, function ($q) {
-                return $q->whereIn('regiao', $this->region_s);
-            })
-                ->when($this->district_s, function ($q) {
-                    return $q->whereIn('baseConstrucao', $this->district_s);
-                })
-                ->select('rdMunicipio', 'cidade', 'municipio')
-                ->orderBy('cidade')
-                ->groupBy('rdMunicipio', 'cidade', 'municipio')
-                ->get();
-
-        } catch (\Illuminate\Database\QueryException $e) {
-
-            $this->region_l   = [];
-            $this->district_l = [];
-            $this->city_l     = [];
-        }
-
-        return view('livewire.dispatchs.analises-pre.main', [
-            'lists'  => $this->lists->paginate($this->perPage),
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+        return view($this->viewName(), [
+            'lists'  => $lists,
+            'rows'   => $rows,
+            'update' => Cache::remember('pre-analysis-dispatch:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
         ]);
     }
 }

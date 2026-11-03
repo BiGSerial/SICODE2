@@ -2,6 +2,7 @@
 
 namespace App\Exports\Dispatchs;
 
+use App\Custom\Notestatus;
 use Maatwebsite\Excel\Concerns\{
     Exportable,
     FromQuery,
@@ -13,21 +14,21 @@ use Maatwebsite\Excel\Concerns\{
 };
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use App\Custom\Notestatus;
 
 class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
 {
     use Exportable;
 
     protected $exports;
+
     protected $service;
+
     protected $serviceUuid;
 
     public function __construct($data)
     {
         $this->exports = $data;
     }
-
 
     public function query()
     {
@@ -43,32 +44,30 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
     public function headings(): array
     {
         return [
-            'Tipo','Nota/OV', 'DD', 'Sts WPA', 'MMGD', 'Rubrica', 'Municipio', 'Descrição', 'Despachado Por',
+            'Tipo', 'Nota/OV', 'DD', 'Sts WPA', 'MMGD', 'Rubrica', 'Municipio', 'Descrição', 'Despachado Por',
             'Emp Despachante', 'Atribuído Por', 'Emp Atribuidor', 'Fiscal', 'Emp Fiscal', 'Dt Despacho',
-            'Dt Atribuição', 'Dt Fiscalização', 'Dt Informe', 'Dt ADS', 'Entrega ADS Tácita', 'Empresa Informe', 'Informado Por', 'Status Informe', 'Motivo Rejeição Informe', 'Observação Informe', 'Status Produção'
+            'Dt Atribuição', 'Dt Fiscalização', 'Dt Informe', 'Dt ADS', 'Entrega ADS Tácita', 'Empresa Informe', 'Informado Por', 'Status Informe', 'Motivo Rejeição Informe', 'Observação Informe', 'Status Produção',
         ];
     }
 
     public function map($row): array
     {
-        $adsInfomed = '';
+        $adsInfomed       = '';
         $tacitDeliveredAt = '';
-        $workForm = $row->Note->WorkForm ?: $row->Note->WorkFormAny;
+        $workForm         = $row->Note->WorkForm ?: $row->Note->WorkFormAny;
 
         if ($row->partial) {
             $informed_at = $row->Note->Partials?->where('supervision_id', $row->user_id)->last()?->supervision_at ?? '';
         } else {
             $informed_at = $workForm?->informed_at?->format('d/m/Y H:i') ?? '';
-            $adsForm = $workForm?->Adsform;
-            $adsInfomed = $adsForm
+            $adsForm     = $workForm?->Adsform;
+            $adsInfomed  = $adsForm
                 ? $adsForm->created_at?->format('d/m/Y H:i')
                 : '';
             $tacitDeliveredAt = $adsForm?->tacit
                 ? $adsForm->tacit_delivered_at?->format('d/m/Y H:i')
                 : '';
         }
-
-
 
         return [
             $row->partial ? 'Parcial' : 'Final',
@@ -101,7 +100,6 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
         ];
     }
 
-
     public function properties(): array
     {
         return [
@@ -121,8 +119,8 @@ class SupervisionExportStack implements FromQuery, WithEvents, WithProperties, W
     {
         return [
             AfterSheet::class => function (AfterSheet $event) {
-                $sheet = $event->sheet->getDelegate();
-                $highestRow = $sheet->getHighestRow();
+                $sheet         = $event->sheet->getDelegate();
+                $highestRow    = $sheet->getHighestRow();
                 $highestColumn = $sheet->getHighestColumn();
 
                 // Centraliza verticalmente e horizontalmente apenas as células com dados

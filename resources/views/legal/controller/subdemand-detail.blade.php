@@ -9,7 +9,7 @@
 @endsection
 
 @section('menu')
-    @livewire('legal.menu', ['activeSection' => 'controlador'], key('legal-menu'))
+    @livewire('legal.menu', key('legal-menu'))
 @endsection
 
 @section('content')

@@ -282,9 +282,6 @@ Route::prefix('/wall/v1')->controller(ReportsController::class)->name('wall.v1.'
 
 Route::prefix('/ads')->controller(AdsController::class)->name('ads.')->middleware('auth')->group(function () {
     Route::get('/dashboard', 'dashboard')->name('dashboard');
-    Route::get('/realtime/queue-donut', 'realtimeQueueDonut')->name('realtime.queue_donut');
-    Route::get('/realtime/reuse-economy-donut', 'realtimeReuseEconomyDonut')->name('realtime.reuse_economy_donut');
-    Route::get('/realtime/demand-delivery', 'realtimeDemandDelivery')->name('realtime.demand_delivery');
 });
 
 Route::prefix('/forms')->name('forms.')->middleware('auth')->group(function () {
@@ -451,6 +448,7 @@ Route::prefix('/partner/admin')
         Route::put('/users/{user}', 'updateUser')->middleware('partner.permission:admin_users.update')->name('users.update');
         Route::post('/users/{user}/reset-password', 'resetUserPassword')->middleware('partner.permission:admin_users.update')->name('users.reset_password');
         Route::delete('/users/{user}', 'disableUser')->middleware('partner.permission:admin_users.disable')->name('users.disable');
+        Route::post('/users/{user}/restore', 'restoreUser')->middleware('partner.permission:admin_users.disable')->name('users.restore');
         Route::get('/audit', 'auditEvents')->middleware('partner.permission:admin_audit.view')->name('audit');
     });
 

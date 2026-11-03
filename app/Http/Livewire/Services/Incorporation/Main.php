@@ -2,218 +2,52 @@
 
 namespace App\Http\Livewire\Services\Incorporation;
 
-use App\Custom\RuleBuilder;
-use App\Models\{Bancoupdate, Note, Notetimeline, Production, Service, User};
+use App\Http\Livewire\Services\Concerns\IsActivityNoteList;
+use App\Models\Note;
+use App\Support\Ops\RowState;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
     use WithPagination;
+    use IsActivityNoteList;
 
     protected $paginationTheme = 'bootstrap';
 
-    public $service;
-
-    public $perPage = 100;
-
-    public $search;
-
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
-    public $note;
-
-    public $last_update;
-
-    protected $listeners = [
-        'refresh_service'   => '$refresh',
-        'getCopy'           => 'copy',
-        'confirm_accompany' => 'add_to_accompany',
-    ];
-
-    public function mount($service)
+    protected function searchColumns(): array
     {
-        $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
-
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filtro']['rubrica']) && $_SESSION['filtro']['rubrica']) {
-            $this->rubrica_s = $_SESSION['filtro']['rubrica'];
-        }
+        return ['note', 'material', 'numPedido', 'group2'];
     }
 
-    public function copy($msg)
+    /** Linha da tela: com Produção aberta para o mesmo status e data da nota, a linha fica "Com usuário". */
+    protected function rowFor(Note $note): array
     {
-        $this->dispatchBrowserEvent('torrada', [
-            'status'   => 'success',
-            'menssage' => $msg,
-        ]);
-    }
+        $block = $note->Productions
+            ->where('status_note', $note->nstats)
+            ->where('dt_note', $note->dt_status)
+            ->first();
 
-    public function to_accompany(Note $note)
-    {
-        $this->note = $note;
-
-        $this->dispatchBrowserEvent('alertar', [
-            'title' => 'Atribuir Tarefa',
-            'msg'   => "
-            Você deseja atribuir a NOTA/OV para você?</br></br>
-            <div class='card card-light'>
-            <div class='card-body'>
-            <p><strong>NOTA/OV estará disponível em acompanhamento como
-            sua tarefa e nenhum outro usuário poderá atribuir pra si.</p> 
-            </div>
-            </div>  
-            ",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Atribua!',
-            'btnCanceltxt'  => 'Não, Cancele!',
-            'action'        => 'confirm_accompany',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhum serviço foi atribuído.',
-
-        ]);
-    }
-
-    public function add_to_accompany()
-    {
-        $user = User::find(Auth()->User()->id);
-
-        $check = Production::where('note_id', $this->note->id)->where(function ($q) {
-            return $q->where('completed', false)
-                ->orWhere('dt_note', $this->note->dt_status);
-        })->with('User', 'Company', 'Service')->first();
-
-        if ($check) {
-            $name = $check->User?->name ?? ($check->Company ? "{$check->Company->name} (sem usuário atribuído)" : 'Desconhecido');
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => 'OOOOPS! NOTA/OV TRATADA OU EM TRATAMENTO',
-                'html'     => "<strong>{$this->note->note}</strong> foi ou está em Tratamento em {$check->Service->service} por <strong>{$name}</strong>",
-
-            ]);
-
-            return;
-        }
-
-        $production = Production::Create([
-            'note_id'     => $this->note->id,
-            'service_id'  => $this->service->uuid,
-            'user_id'     => $user->id,
-            'company_id'  => $user->company_id,
-            'dispatch_by' => $user->id,
-            'att_by'      => $user->id,
-            'dt_note'     => $this->note->dt_status,
-            'status_note' => $this->note->nstats,
-            'dispatch_at' => date('Y-m-d H:i:s'),
-            'att_at'      => date('Y-m-d H:i:s'),
-            'status'      => 2,
-            'dhstats'     => $this->note->dt_status,
-        ]);
-
-        if ($production) {
-
-            Notetimeline::Create([
-                'note_id'      => $this->note->id,
-                'service_id'   => $production->service_id,
-                'user_id'      => Auth()->User()->id,
-                'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
-                'status'       => 2,
-                'production_id' => $production->id,
-            ]);
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => "{$this->note->note} foi atribuído a você com sucesso.",
-                'timer'    => 2500,
-            ]);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'error',
-                'title'    => "Erro ao tentar atribuir {$this->note->note}.",
-                'timer'    => 2500,
-            ]);
-        }
-    }
-
-    public function filter_save()
-    {
-        // session()->put('filtro', $this->rubrica_s);
-        if (!session()->isStarted()) { session()->start(); }
-        $_SESSION['filtro']['rubrica'] = $this->rubrica_s;
-        $this->emit('refresh_service');
-
-    }
-
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-
-        if (!session()->isStarted()) { session()->start(); }
-
-        if (isset($_SESSION['filtro'])) {
-            unset($_SESSION['filtro']);
-        }
-
-        $this->emit('refresh_service');
-    }
-
-    public function getListsProperty()
-    {
-        // $query = Note::whereIn('nstats', [4,2])
-        //         ->when($this->search, function ($q, $s) {
-        //             return $q->where(function ($query) use ($s) {
-        //                 $query->where('note', 'like', '%' . $s . '%')
-        //                     ->orWhere('material', 'like', '%' . $s . '%')
-        //                     ->orWhere('numPedido', 'like', '%' . $s . '%');
-        //             });
-        //         })
-        //         ->when($this->rubrica_s, function ($q, $s) {
-        //             return $q->whereIn('rubrica', $s);
-        //         })
-        //         ->where('note', 'NOT LIKE', '8000%')
-        //         ->with('Productions.User')
-        //         ->orderBy('pze_parecer', 'DESC')
-        //         ->orderBy('dt_status')
-        //         ->paginate($this->perPage);
-
-        $query = Note::query()->excludeCanceledFullDone();
-
-        RuleBuilder::applyRules($query, $this->service->Status);
-
-        $query->when($this->search, function ($q, $s) {
-            return $q->where(function ($query) use ($s) {
-                $query->where('note', 'like', '%' . $s . '%')
-                    ->orWhere('material', 'like', '%' . $s . '%')
-                    ->orWhere('numPedido', 'like', '%' . $s . '%')
-                    ->orWhere('group2', 'like', '%' . $s . '%');
-            });
-        })->when($this->rubrica_s, function ($q, $s) {
-            return $q->whereIn('rubrica', $s);
-        })
-            ->with('Productions.User')
-            ->orderBy('pze_parecer', 'DESC')
-            ->orderBy('dt_created');
-
-        return $query->paginate($this->perPage);
-
+        return [
+            'id'        => $note->id,
+            'note'      => $note->note,
+            'createdAt' => $note->dt_created,
+            'order'     => mb_strtoupper((string) $note->numPedido),
+            'rubrica'   => $note->rubrica,
+            'city'      => $note->lexp,
+            'group1'    => $note->group1,
+            'group2'    => $note->group2,
+            'material'  => $note->material,
+            'status'    => $note->nstats,
+            'statusAt'  => $note->dt_status,
+            'age'       => $this->createdAge($note),
+            'parecer'   => $this->parecerBadge($note->pze_parecer),
+            'state'     => $block ? RowState::ASSIGNED : RowState::FREE,
+            'assignee'  => $block ? $this->shortAssigneeName($block) : null,
+        ];
     }
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
-
-        return view('livewire.services.incorporation.main', [
-            'lists'  => $this->lists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
-        ]);
+        return view('livewire.services.incorporation.main', $this->listViewData());
     }
 }

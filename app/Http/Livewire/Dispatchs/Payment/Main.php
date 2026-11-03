@@ -7,16 +7,17 @@ use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User};
 use App\Models\City;
 use App\Services\D5\{D5WorkReportAssociationResolver, D5WorkflowService};
-use App\Services\Payment\{BlockEvaluator, NoteFilter};
+use App\Services\Payment\{BlockEvaluator, NoteFilter, PaymentListRowPresenter};
 use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{Cache, DB};
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
+    use Concerns\HasPaymentListFilters;
     use WithPagination;
     use TextFormatter;
 
@@ -117,10 +118,13 @@ class Main extends Component
     ];
 
     protected $queryString = [
-        'search'   => ['except' => '', 'as' => 'buscar'],
-        'page'     => ['except' => 1, 'as' => 'p'],
-        'perPage'  => ['as' => 'pp'],
-        'typeNote' => ['except' => '', 'as' => 'tipo'],
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['as' => 'pp'],
+        'typeNote'     => ['except' => '', 'as' => 'tipo'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'filter_d5'    => ['except' => false, 'as' => 'd5'],
+        'filters'      => ['except' => [], 'as' => 'f'],
     ];
 
     protected $noteFilter;
@@ -165,8 +169,13 @@ class Main extends Component
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = optional(Note::orderByDesc('dt_status')->first())->dt_status;
-        $this->company_l   = Company::whereHas('toUsers', function ($query) {
+        $this->last_update = Cache::remember('payment-dispatch:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
+        $this->company_l   = $this->companiesOfService();
+    }
+
+    private function companiesOfService()
+    {
+        return Company::whereHas('toUsers', function ($query) {
             $query->whereRelation('ToServices', function ($q) {
                 $q->where('service_id', $this->service->uuid)
                   ->where('service', true);
@@ -205,13 +214,7 @@ class Main extends Component
      */
     public function export_excel()
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) {
-                session()->start();
-            }
-        }
-
-        $filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
+        $filters = $this->filters;
 
         $params = [
             'source'                     => 'dispatch',
@@ -301,23 +304,6 @@ class Main extends Component
         }
     }
 
-    public function needBlock(Note $note): array
-    {
-        $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
-
-        // retorna estrutura pra view usar diretamente
-        return $eval;
-    }
-
-    private function canDispatchNote(Note $note): bool
-    {
-        $eval = $this->needBlock($note);
-
-        return !$eval['block']
-            || (bool) ($eval['command'] ?? false)
-            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
-    }
-
     /**
      * Selecionar todos os itens visíveis na página atual, desde que NÃO tenham produção aberta
      */
@@ -351,7 +337,7 @@ class Main extends Component
             }
         }
 
-        $this->selected = array_values(array_keys($selectedSet));
+        $this->selected = array_map(strval(...), array_keys($selectedSet));
 
     }
 
@@ -982,7 +968,7 @@ class Main extends Component
 
         $base = ($useAnySituationFromMassSearch
             ? Note::query()
-            : $this->noteFilter->filter(null, $this->filter_group));
+            : $this->noteFilter->filter(null, $this->filter_group, $this->filters));
 
         SicodeRules::applyContractDispatchMainVisibility(
             $base,
@@ -1519,12 +1505,18 @@ class Main extends Component
         //     $this->city_l     = [];
         // }
 
+        $this->dispatchStateMemo = [];
+
         $lists = $this->lists;
         $this->recomputeSelectAllFor($lists?->items() ?? []);
 
+        $presenter = app(PaymentListRowPresenter::class);
+        $rows      = $lists->getCollection()->map(fn (Note $note) => $presenter->present($note, $this->rowDispatchState($note)));
+
         return view('livewire.dispatchs.payment.main', [
             'lists'  => $lists,
-            'update' => Bancoupdate::orderByDesc('created_at')->first(),
+            'rows'   => $rows,
+            'update' => Cache::remember('payment-dispatch:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
         ]);
     }
 }

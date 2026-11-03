@@ -2,12 +2,16 @@
 
 namespace App\Http\Livewire\Services\Supervision;
 
+use App\Custom\Notestatus;
+use App\Http\Livewire\Concerns\WithNoteListFilters;
 use App\Http\Livewire\Services\Concerns\{BuildsCanceledWorkReportTags, BuildsLegalNoteTags};
 use App\Jobs\Services\ExportSupervisionProductionListJob;
-use App\Models\{File, Production, Service, User};
+use App\Models\{City, File, Production, Service};
 use App\Models\WorkReportFlowProduction;
 use App\Services\Files\FileStorageService;
+use App\Support\Ops\{Deadline, Tone};
 use App\Support\SicodeRules;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
@@ -15,6 +19,7 @@ use Livewire\{Component, WithPagination};
 class Main extends Component
 {
     use WithPagination;
+    use WithNoteListFilters;
     use BuildsLegalNoteTags;
     use BuildsCanceledWorkReportTags;
 
@@ -22,27 +27,28 @@ class Main extends Component
 
     public $service;           // Service (objeto)
 
-    public $perPage = 30;
+    public $perPage = 25;
 
     public $search;
 
     public $note_type = '';
 
-    public $rubrica_s = [];
-
     public $limit_pause = 50;
 
-    public $user_l;            // lista de usuários p/ filtro
-
-    public $user_s;            // usuário selecionado
-
-    public $user_search;       // busca do usuário
+    public $user_s;            // usuário selecionado (a tela não oferece o filtro; o Excel aceita)
 
     public $analise;
 
-    private string $filter_group = 'supervision';
+    /** A aba "Transferências" só é montada quando alguém a abre: a lista dela é pesada e quase ninguém precisa dela a cada carga. */
+    public bool $transfersLoaded = false;
 
-    private array $filter = [];
+    protected $queryString = [
+        'search'    => ['except' => '', 'as' => 'buscar'],
+        'page'      => ['except' => 1, 'as' => 'p'],
+        'perPage'   => ['as' => 'pp'],
+        'note_type' => ['except' => '', 'as' => 'tipo'],
+        'filters'   => ['except' => [], 'as' => 'f'],
+    ];
 
     protected $listeners = [
         'refresh_accomany'   => '$refresh',
@@ -60,23 +66,71 @@ class Main extends Component
                 $q->where('exclusion', false)->select('service_id', 'value');
             }])
             ->firstOrFail();
-
-        $this->loadFilters();
     }
 
-    private function loadFilters(): void
+    // ---------- Filtros (WithListFilters): Região → Regional → Município ----------
+
+    protected function listFilterDefinitions(): array
     {
-        if (!session()->isStarted()) {
-            session()->start();
+        return [
+            'region'   => ['label' => 'Região'],
+            'regional' => ['label' => 'Regional', 'depends' => ['region']],
+            'city'     => ['label' => 'Município', 'depends' => ['region', 'regional']],
+        ];
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return $this->locationFilterOptions();
+    }
+
+    protected function listFilterCacheScope(): string
+    {
+        return 'supervision-service';
+    }
+
+    /** Códigos de município (`notes.nexp`) dos filtros de localidade; vazio sem filtro. */
+    protected function cityCodes(): array
+    {
+        $region   = $this->filterValues('region');
+        $regional = $this->filterValues('regional');
+        $city     = $this->filterValues('city');
+
+        if (!$region && !$regional && !$city) {
+            return [];
         }
 
-        $filters = session("filter.{$this->filter_group}", []);
+        return City::query()
+            ->when($region, fn ($q) => $q->whereIn('regiao', $region))
+            ->when($regional, fn ($q) => $q->whereIn('baseConstrucao', $regional))
+            ->when($city, fn ($q) => $q->whereIn('rdMunicipio', $city))
+            ->pluck('rdMunicipio')->filter()->unique()->values()->all() ?: ['__sem_municipio__'];
+    }
 
-        if ((!is_array($filters) || $filters === []) && isset($_SESSION['filter'][$this->filter_group]) && is_array($_SESSION['filter'][$this->filter_group])) {
-            $filters = $_SESSION['filter'][$this->filter_group];
-        }
+    /** "Limpar filtros": filtros, busca e tipo. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters   = [];
+        $this->search    = '';
+        $this->note_type = '';
+        $this->afterListFiltersChanged();
+    }
 
-        $this->filter = is_array($filters) ? $filters : [];
+    public function updatedSearch()
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage()
+    {
+        $this->resetPage();
+    }
+
+    /** Abre a aba "Transferências" (monta a lista na primeira vez). */
+    public function openTransfers(): void
+    {
+        $this->transfersLoaded = true;
+        $this->emit('refresh_translist');
     }
 
     public function exportToExcel()
@@ -185,20 +239,9 @@ class Main extends Component
         return $waitingForm && (int)$status !== 27;
     }
 
-    public function filter_save()
-    {
-        $this->emit('refresh_service');
-    }
-
     public function updatedNoteType()
     {
         $this->resetPage();
-    }
-
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-        $this->emit('refresh_service');
     }
 
     public function downloadFile($id)
@@ -228,11 +271,7 @@ class Main extends Component
      */
     protected function baseQuery(): Builder
     {
-        $this->loadFilters();
-        $cityFilter = collect((array) ($this->filter['city'] ?? []))
-            ->filter(fn ($city) => filled($city))
-            ->values()
-            ->all();
+        $cityFilter = $this->cityCodes();
 
         // Cálculos (MariaDB)
         $daysAssignedExpr  = "DATEDIFF(CURDATE(), productions.att_at)";
@@ -270,6 +309,10 @@ class Main extends Component
                                 'WorkReport.FiveNote:id,note_id,work_report_id,note_d5,is_completed,is_supervisioned',
                             ]),
                         'Note.Files:id,service_id,note_id,file_name,path,ext',
+                        'Note.Partials:id,note_id',
+                        'Note.Files.note:id,note',
+                        'Note.Files.service:uuid,service',
+                        'measurementContext.fiveNote',
                     ])
 
             // JOIN necessário para created_at e days_left, sem multiplicar por todos os informes da nota.
@@ -339,25 +382,79 @@ class Main extends Component
 
     public function getListsProperty()
     {
-        // Lista de usuários p/ filtro (somente o que é necessário)
-        $this->user_l = User::select('id', 'name')
-            ->when(auth()->user()?->contract, function ($q) {
-                $companyIds = SicodeRules::visibleCompanyIdsFor(auth()->user());
-
-                return count($companyIds)
-                    ? $q->where(function ($users) use ($companyIds) {
-                        $users->whereIn('company_id', $companyIds)
-                            ->orWhereIn('company_id', $companyIds)
-                            ->orWhereHas('Companies', fn ($company) => $company->whereIn('companies.id', $companyIds));
-                    })
-                    : $q->whereRaw('0 = 1');
-            })
-            ->when($this->user_search, fn ($q) => $q->where('name', 'like', '%' . $this->user_search . '%'))
-            ->orderBy('name')
-            ->get();
-
         // Retorna a query base (sem paginate)
         return $this->baseQuery();
+    }
+
+    /**
+     * Tudo o que uma linha mostra, já com tom semântico (a view só desenha). Regras de cor (as mesmas de antes):
+     * Informe: verde até 20 dias, âmbar de 21 a 27, vermelho a partir de 28; ADS: verde até 6 dias, âmbar até 9, vermelho acima.
+     */
+    private function presentRow(Production $list): array
+    {
+        $note         = $list->Note;
+        $flowWorkForm = $list->WorkReportFlowProductions
+            ->firstWhere('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
+            ?->WorkReport;
+        $workForm = $flowWorkForm ?? $note->WorkForm;
+        $five     = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($list);
+        $adsForm  = $note->Adsform ?? $workForm?->Adsform;
+        $adsDate  = $adsForm ? $adsForm->created_at : $note->OldAds?->sortByDesc('date')->first()?->date;
+        $adsDate  = $adsDate ? Carbon::parse($adsDate) : null;
+        $adsDays  = $adsDate ? (int) $adsDate->copy()->startOfDay()->diffInDays(Carbon::now()->startOfDay()) : null;
+        $tacit    = (bool) ($adsForm?->tacit ?? false);
+        $rejected = (bool) $workForm?->rejected;
+        $informed = $list->work_informed_at ? Carbon::parse($list->work_informed_at) : null;
+        $lastWpa  = $list->Wpas->last();
+
+        $showActions = !$list->block && !$list->block_wpa && !$this->blockWaiting($list->status);
+        $partialId   = $list->partial && $note->Partials && $note->Partials->isNotEmpty() ? $note->Partials->last()->id : null;
+
+        $status = match (true) {
+            $list->transferred && $list->block_wpa => ['tone' => 'amber', 'label' => 'Aguardando despacho', 'hint' => 'Transferida; aguardando o despacho', 'history' => false],
+            $rejected                              => ['tone' => 'amber', 'label' => 'Informe em revisão', 'hint' => 'O informe foi rejeitado e está em revisão', 'history' => false],
+            default                                => ['tone' => Tone::forProductionStatus($list->status), 'label' => Notestatus::status($list->status)->status, 'hint' => 'Clique para ver o histórico de status', 'history' => true],
+        };
+
+        return [
+            'id'           => (int) $list->id,
+            'noteId'       => (int) $list->note_id,
+            'note'         => $note->note,
+            'isPartial'    => (bool) $list->partial,
+            'isConnection' => $workForm ? collect($workForm->finalScopeBadges())->pluck('scope')->contains('connection') : false,
+            'priority'     => (bool) $list->priority,
+            'rejected'     => $rejected,
+            'd5'           => ($five?->is_completed && !$five?->is_supervisioned),
+            'workReportId' => $workForm?->id,
+            'orders'       => $workForm?->Orders ? $workForm->Orders->pluck('ordem')->filter()->values()->all() : [],
+            'dd'           => $lastWpa?->dd,
+            'files'        => $note->Files,
+            'mmgd'         => (bool) $note->mmgd,
+            'postes'       => $note->postes,
+            'rubrica'      => $note->rubrica,
+            'city'         => $note->lexp,
+            'material'     => $note->material,
+            'dispatchAt'   => $list->dispatch_at ? Carbon::parse($list->dispatch_at) : null,
+            'dispatchDays' => $list->dispatch_at ? max(0, (int) $list->days_dispatch) : null,
+            'attAt'        => $list->att_at ? Carbon::parse($list->att_at) : null,
+            'attDays'      => $list->att_at ? max(0, (int) $list->days_assigned) : null,
+            'informedAt'   => $informed,
+            'informedDays' => (int) $list->days_left,
+            'informedTone' => $informed ? Deadline::age((int) $list->days_left, 20, 27) : 'muted',
+            'adsAt'        => $adsDate,
+            'adsDays'      => $adsDays !== null ? max(0, $adsDays) : null,
+            'adsTone'      => Deadline::age($adsDays, 6, 9),
+            'adsTacit'     => $tacit,
+            'adsDelivered' => (bool) ($adsForm?->tacit_delivered_at ?? false),
+            'adsLegacy'    => !$tacit && $note->OldAds && $note->OldAds->isNotEmpty(),
+            'status'       => $status,
+            'statusCode'   => (int) $list->status,
+            'canPlay'      => $showActions && !$list->completed,
+            'canReturn'    => $showActions && $workForm && !$workForm->rejected && !$list->dfive,
+            'dblclick'     => $workForm
+                ? ['component' => 'partner.show.show-work-form', 'id' => $workForm->id]
+                : ($partialId ? ['component' => 'partner.show.show-partial-info', 'id' => $partialId] : null),
+        ];
     }
 
     public function render()
@@ -366,6 +463,7 @@ class Main extends Component
 
         return view('livewire.services.supervision.main', [
             'lists'                => $lists,
+            'rows'                 => $lists->getCollection()->map(fn (Production $list) => $this->presentRow($list)),
             'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds(collect($lists->items())->pluck('id')->all()),
             'legalTagsByNoteId'    => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
         ]);

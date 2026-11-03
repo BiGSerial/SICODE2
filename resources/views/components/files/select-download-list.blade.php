@@ -1,9 +1,11 @@
-@props(['allowTacit' => false])
+{{-- `tacitFileIds`: ids (chave => qualquer) dos arquivos de ADS tácita, já calculados para a página inteira. Listas com muitas linhas passam
+     isto para evitar uma consulta por linha; sem ele o componente consulta sozinho (comportamento antigo). --}}
+@props(['allowTacit' => false, 'tacitFileIds' => null])
 
 @if ($files?->isNotEmpty())
 @php
     $canViewTacit  = (bool) $allowTacit || (auth()->user()?->superadm ?? false);
-    $adsTacitFileIds = \Illuminate\Support\Facades\DB::table('adsforms_files as af')
+    $adsTacitFileIds = $tacitFileIds ?? \Illuminate\Support\Facades\DB::table('adsforms_files as af')
         ->join('adsforms as a', 'a.id', '=', 'af.adsform_id')
         ->whereIn('af.file_id', $files->pluck('id')->all())
         ->where('a.tacit', true)

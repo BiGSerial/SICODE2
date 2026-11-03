@@ -1,153 +1,73 @@
-# Menu Superior (Topbar)
+# Menu superior (topbar)
 
-Este documento explica como o menu superior do SICODE2 funciona e como adicionar novos itens.
+Como o menu superior funciona e como mexer nele. O lateral tem o seu padrão em [PADRAO_MENU_LATERAL.md](PADRAO_MENU_LATERAL.md); os dois leem **a mesma definição** quando o assunto é o mesmo (`App\Support\Menu\*Nav`).
 
-## Arquivos principais
+## Estrutura (em ordem de fluxo)
 
-- Montagem dos menus da topbar: `resources/views/layouts/menu_itens.blade.php`
-- Componente base de dropdown: `resources/views/components/menu/dynamic-dropdown.blade.php`
-- Render recursivo de nós (layout inline): `resources/views/components/menu/partials/dynamic-dropdown-node.blade.php`
-- Menus especializados:
-  - `resources/views/components/menu/activities-dropdown.blade.php`
-  - `resources/views/components/menu/services-dropdown.blade.php`
-  - `resources/views/components/menu/engineer-dropdown.blade.php`
-  - `resources/views/components/menu/responsible-dropdown.blade.php`
+`ATIVIDADES · OCORRÊNCIAS · ENGENHARIA · RESPONSÁVEL · JURÍDICO · CONSULTAS · RELATÓRIOS · ADMINISTRAÇÃO`
 
-## Como o menu é montado
+| Menu | O que tem | Regra de organização |
+|---|---|---|
+| ATIVIDADES | Fases PROJETO · CONSTRUÇÃO · PÓS-OBRA; Qualidade e Análise de projeto no topo de Projeto | **Uma linha por atividade**, com o contador da fila e as ações rápidas (Despacho, Controle, Dashboard). Ordem do fluxo em `TopbarNav::FLOW_ORDER` |
+| OCORRÊNCIAS | Reclamações (Despacho / Minha fila), Ocorrências, Cancelamento de notas | O que foge do fluxo normal |
+| ENGENHARIA / RESPONSÁVEL | Viabilidade, Validação de projetos, Informes (+ Cancelamentos na Engenharia, Informe SMC para superadm) | Filas de aprovação por papel; mesma estrutura nos dois |
+| JURÍDICO | Controlador · Executante · Gestão | `LegalNav` |
+| CONSULTAS | Notas (Notas/OVs, Consulta D5, Busca avançada) · Informes (Informes, Rejeitados, ADS solicitadas, Equipamentos) · Contratação | Só leitura e localização |
+| RELATÓRIOS | Gestão · Projeto · Execução · Atendimento | Gerencial (`management`) |
+| ADMINISTRAÇÃO | Cadastros · Dados · Configurações · Sistema | `AdminNav` |
 
-O `menu_itens.blade.php` define os blocos da navegação superior (ex.: `ADMINISTRAÇÃO`, `RECLAMAÇÕES`, `ATIVIDADES`, `SERVIÇOS`) e chama `<x-menu.dynamic-dropdown ... />`.
+Cada assunto mora **em um lugar**. Antes havia um menu "SERVIÇOS" (que não era a fila das atividades) com Cancelamento, Ocorrências e Relatórios; agora Cancelamento e Ocorrências estão em OCORRÊNCIAS e os relatórios têm menu próprio.
 
-O `dynamic-dropdown` aceita duas formas de estrutura:
+## Arquivos
 
-1. `sections` (formato mais simples para menus em blocos)
-2. `nodes` (formato recursivo, com grupos e subgrupos)
+| Peça | Arquivo |
+|---|---|
+| Definição única dos menus | `app/Support/Menu/TopbarNav.php` (`menus($user)`) |
+| Montagem | `resources/views/layouts/menu_itens.blade.php` (só um `@foreach`) |
+| Dropdown | `resources/views/components/menu/dynamic-dropdown.blade.php` + `partials/dynamic-dropdown-node.blade.php` |
+| Estilo (tokens `--tb-*`) | `resources/sass/nav/_topbar.scss` |
+| Comportamento | `resources/js/nav/topbar.js` |
+| Contadores | `app/Services/Menu/TopbarCounts.php` + Livewire `components.menu.topbar-counts` |
+| Testes | `tests/Feature/TopbarMenuTest.php` |
 
-No layout atual da topbar, o padrão predominante é `layout="inline"`.
+## Como o dropdown funciona
 
-## Estrutura de dados suportada
+- **Sem submenu lateral.** Grupos abrem **no próprio lugar** (acordeão): não são cortados pela borda da tela, funcionam no toque e no teclado. `open => true` no grupo abre por padrão.
+- **Busca.** Menu com 9 ou mais itens ganha o campo "Filtrar…" no cabeçalho: filtra por nome e pelas ações da linha, abre os grupos com resultado e `Enter` abre o primeiro. O foco vai para a busca ao abrir.
+- **Teclado.** `↑ ↓` percorrem links, ações e grupos; `← →` fecham/abrem o grupo; `Home/End`; `Esc` fecha.
+- **Contadores em uma chamada.** Itens com `count => 'chave'` mostram um selo preenchido por **um** componente Livewire (`TopbarCounts`), depois que a página carrega e a cada 2 minutos. O gatilho do menu e o cabeçalho de cada grupo mostram a soma. O último valor fica em `sessionStorage` para o número não piscar ao navegar. Chaves: `service:{uuid}`, `protests`, `engineer.informes`, `engineer.cancellations`. Antes cada item era um componente com `wire:poll` próprio.
+- **CSS e JS uma vez só** (antes cada dropdown repetia ~500 linhas de `<style>` e um `<script>`).
 
-### Item simples
+## Estrutura de dados
 
 ```php
-[
-    'label' => 'OCORRÊNCIAS',
-    'route' => 'occurrences.index', // ou 'href' => '...'
-    'icon' => 'ri-alarm-warning-line',
-    'can' => 'occ.access', // opcional (Gate/Policy)
-]
-```
+// Item simples
+['label' => 'OCORRÊNCIAS', 'route' => 'occurrences.index', 'icon' => 'ri-alarm-warning-line', 'can' => 'occ.access']
 
-### Grupo (submenu)
-
-```php
+// Item com contador e ações rápidas (atividade)
 [
-    'kind' => 'group',
-    'label' => 'RELATÓRIOS',
-    'open' => 'side', // 'side' ou 'down'
-    'nodes' => [
-        ['label' => 'RELATÓRIO DE PRODUÇÃO', 'route' => 'reports.productions', 'icon' => 'ri-file-chart-line'],
+    'label' => 'LEVANTAMENTO', 'route' => 'services.main', 'routeParams' => ['service' => $uuid], 'icon' => 'ri-…',
+    'count' => 'service:' . $uuid,
+    'actions' => [
+        ['label' => 'Despacho', 'route' => 'dispatch.main', 'routeParams' => [...], 'icon' => 'ri-send-plane-line', 'tone' => 'danger'],
+        ['label' => 'Controle', 'route' => 'dispatch.stack', 'routeParams' => [...], 'icon' => 'ri-radar-line', 'iconOnly' => true],
     ],
 ]
+
+// Grupo (acordeão) e título de seção
+['kind' => 'group', 'label' => 'PROJETO', 'open' => true, 'nodes' => [...]]
+['kind' => 'header', 'label' => 'Notas']
 ```
 
-### Header (somente com `nodes`)
+Campos: `label`, `route` + `routeParams` (ou `href`), `icon`, `iconClass => 'is-danger'` (ícone vermelho de despacho), `can` (Gate/Policy), `visible` (`false` oculta), `count`, `actions`. O dropdown também aceita `sections` (um nível) além de `nodes`. Cabeçalho sem item visível depois dele e grupo sem filhos visíveis somem sozinhos; menu sem nada visível não aparece.
 
-```php
-[
-    'kind' => 'header',
-    'label' => 'SEÇÃO',
-]
-```
+## Como adicionar
 
-## Campos úteis de item/nó
+1. Item em menu existente: edite o método do menu em `TopbarNav` (ou o `*Nav` do módulo, se ele já for compartilhado com o lateral).
+2. Menu novo: crie o método em `TopbarNav`, adicione em `menus()` na posição do fluxo e dê um `key` único.
+3. Contador novo: some a chave em `TopbarCounts::for()` (uma consulta agrupada, nunca um componente por item) e use `count => 'chave'`.
+4. Atividade nova: ela aparece sozinha na fase certa; para posicioná-la no fluxo, acrescente a pasta em `TopbarNav::FLOW_ORDER`.
 
-- `label`: texto exibido
-- `route`: nome da rota Laravel (preferencial)
-- `routeParams`: parâmetros da rota
-- `href`: URL direta (fallback)
-- `icon`: classe do ícone (RemixIcon/Bootstrap Icons)
-- `iconClass`: cor/classe extra do ícone no layout inline
-  - Exemplo usado para despacho: `text-danger`
-- `can`: permissão avaliada com `auth()->user()->can(...)`
-- `visible`: força ocultar/exibir (`false` oculta)
-- `countComponent`, `countParams`, `countKey`: contador Livewire ao lado do item
+## Checklist
 
-## Regras de visibilidade
-
-A visibilidade é tratada no `dynamic-dropdown`:
-
-- Se `visible === false`, o nó não renderiza.
-- Se existir `can` e o usuário não possuir permissão, o nó não renderiza.
-- Grupos vazios (sem filhos visíveis) são removidos automaticamente.
-
-## Como adicionar novos itens
-
-### 1) Item direto em menu existente
-
-Exemplo em `resources/views/layouts/menu_itens.blade.php`, dentro de `$protests_nodes`:
-
-```php
-[
-    'kind' => 'group',
-    'label' => 'SERVIÇO',
-    'open' => 'side',
-    'nodes' => [
-        [
-            'label' => 'NOVA TELA',
-            'route' => 'protests.services.nova_rota',
-            'icon' => 'ri-add-circle-line',
-        ],
-    ],
-]
-```
-
-### 2) Item com permissão
-
-```php
-[
-    'label' => 'CONFIG AVANÇADA',
-    'route' => 'admin.advanced',
-    'icon' => 'ri-settings-3-line',
-    'can' => 'superadm',
-]
-```
-
-### 3) Item com contador Livewire
-
-```php
-[
-    'label' => 'RECLAMAÇÕES',
-    'route' => 'protests.services.main',
-    'icon' => 'ri-account-pin-box-fill',
-    'countComponent' => 'components.count.protest.count-protests',
-    'countKey' => 'menu_protests_count',
-]
-```
-
-### 4) Ícone vermelho para itens de Despacho
-
-Se o item for de despacho e precisar destacar em vermelho:
-
-```php
-[
-    'label' => 'RECLAMAÇÕES',
-    'route' => 'protests.dispatch.lists',
-    'icon' => 'ri-account-pin-box-fill',
-    'iconClass' => 'text-danger',
-]
-```
-
-Observação: no renderer inline (`dynamic-dropdown-node.blade.php`), o sistema remove automaticamente classes `text-*` vindas em `icon` e aplica `iconClass` (ou `text-primary` por padrão).
-
-## Quando usar `sections` vs `nodes`
-
-- Use `sections` para menus simples com 1 nível de agrupamento.
-- Use `nodes` quando precisar de estrutura recursiva (grupo dentro de grupo) e maior controle.
-
-## Checklist antes de finalizar
-
-1. A rota existe em `routes/*.php` e abre corretamente.
-2. A permissão (`can`) está correta e consistente com policies/gates.
-3. O item aparece para o perfil certo e some para quem não tem acesso.
-4. Se houver contador Livewire, validar render e chave (`countKey`) única.
-5. Para despacho, validar cor do ícone com `iconClass => text-danger`.
+1. A rota existe e abre. 2. `can` consistente com os gates. 3. Aparece para o perfil certo e some para os outros (teste renderizando como o perfil). 4. Sem `<style>`/`<script>` no menu. 5. Contador novo entra no `TopbarCounts`. 6. Conferido no navegador (largura estreita inclusive).

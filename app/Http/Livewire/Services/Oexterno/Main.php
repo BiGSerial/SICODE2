@@ -2,11 +2,12 @@
 
 namespace App\Http\Livewire\Services\Oexterno;
 
-use App\Custom\RuleBuilder;
 use App\Exports\oexterno\ProtocolsList;
 use App\Helpers\TextFormatter;
-use App\Models\{Bancoupdate, File, Note, Notetimeline, Production, Service, User};
+use App\Http\Livewire\Concerns\WithListFilters;
+use App\Models\{Bancoupdate, City, Entity, EntityType, File, Note, Notetimeline, Production, Service, User};
 use App\Services\Files\FileStorageService;
+use Illuminate\Support\Facades\Cache;
 use Livewire\{Component, WithPagination};
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Facades\Excel;
@@ -17,6 +18,7 @@ class Main extends Component
     use WithPagination;
     use Exportable;
     use TextFormatter;
+    use WithListFilters;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -30,10 +32,6 @@ class Main extends Component
 
     public $multisearch = [];
 
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
     public $note;
 
     public $last_update;
@@ -43,30 +41,28 @@ class Main extends Component
     public $waiting;
 
     public $typeNote = "";
+
     public $statusFilter = '';
 
     public $column = 'dt_created';
+
     public $direction = 'asc';
 
-    // Filters
-    private $filter_group = 'oexterno';
-
-    private $filter;
-
     protected $listeners = [
-        'refresh_list'      => '$refresh',
-        'refresh_service'   => '$refresh',
-        'getCopy'           => 'copy',
-        'confirm_accompany' => 'add_to_accompany',
-        'refresh_All_Filter' => 'cleanAll'
+        'refresh_list'       => '$refresh',
+        'refresh_service'    => '$refresh',
+        'getCopy'            => 'copy',
+        'confirm_accompany'  => 'add_to_accompany',
+        'refresh_All_Filter' => 'cleanAll',
     ];
 
     protected $queryString = [
-        'typeNote' => ['except' => '', 'as' => 'tipo'],
+        'typeNote'     => ['except' => '', 'as' => 'tipo'],
         'statusFilter' => ['except' => '', 'as' => 'status'],
-        'search'  => ['except' => '', 'as' => 'buscar'],
-        'page'    => ['except' => 1, 'as' => 'p'],
-        'perPage' => ['as' => 'pp'],
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['as' => 'pp'],
+        'filters'      => ['except' => [], 'as' => 'f'],
     ];
 
     public function navigateTo($note)
@@ -92,7 +88,7 @@ class Main extends Component
         if ($this->column === $column) {
             $this->direction = $this->direction === 'asc' ? 'desc' : 'asc';
         } else {
-            $this->column = $column;
+            $this->column    = $column;
             $this->direction = 'asc';
         }
     }
@@ -100,8 +96,8 @@ class Main extends Component
     public function buscarMulti()
     {
         if ($this->advanceSearch) {
-            $this->multisearch = $this->formatTextToArray($this->advanceSearch);
-            $this->search = '';
+            $this->multisearch   = $this->formatTextToArray($this->advanceSearch);
+            $this->search        = '';
             $this->advanceSearch = '';
             $this->resetPage();
             $this->dispatchBrowserEvent('hideModal');
@@ -110,13 +106,12 @@ class Main extends Component
 
     public function cleanAll()
     {
-        $this->search = '';
+        $this->search        = '';
         $this->advanceSearch = '';
-        $this->multisearch = [];
+        $this->multisearch   = [];
         $this->resetPage();
         $this->dispatchBrowserEvent('hideModal');
     }
-
 
     public function mount($service)
     {
@@ -125,17 +120,104 @@ class Main extends Component
             ->where('uuid', $service)
             ->with('Status')
             ->first();
-        $this->last_update = Note::query()
-            ->orderByDesc('dt_status')
-            ->value('dt_status');
+        $this->last_update = Cache::remember('ops-last-note-status-date', 60, fn () => Note::query()->max('dt_status'));
+    }
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
+    // ---------- Filtros (WithListFilters) ----------
+
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'entityType' => ['label' => 'Tipo de entidade'],
+            'entity'     => ['label' => 'Entidade', 'depends' => ['entityType']],
+            'rubrica'    => ['label' => 'Rubrica'],
+            'region'     => ['label' => 'Região'],
+            'regional'   => ['label' => 'Regional', 'depends' => ['region']],
+            'city'       => ['label' => 'Município', 'depends' => ['region', 'regional']],
+        ];
+    }
+
+    protected function listFilterOptions(): array
+    {
+        $cities = $this->rememberFilterOptions('cities', fn () => City::query()
+            ->whereNotNull('rdMunicipio')
+            ->orderBy('municipio')
+            ->get(['rdMunicipio', 'municipio', 'regiao', 'baseConstrucao'])
+            ->map(fn ($c) => [
+                'v' => (string) $c->rdMunicipio,
+                'l' => (string) ($c->municipio ?: $c->rdMunicipio),
+                'p' => ['region' => (string) $c->regiao, 'regional' => (string) $c->baseConstrucao],
+            ])->unique('v')->values()->all());
+
+        return [
+            'entityType' => $this->rememberFilterOptions('entityType', fn () => EntityType::query()
+                ->orderBy('name')->get(['id', 'name'])
+                ->map(fn ($t) => ['v' => (string) $t->id, 'l' => (string) $t->name])->all()),
+            'entity' => $this->rememberFilterOptions('entity', fn () => Entity::query()
+                ->orderBy('name')->get(['id', 'name', 'entity_type_id'])
+                ->map(fn ($e) => ['v' => (string) $e->id, 'l' => (string) $e->name, 'p' => ['entityType' => (string) $e->entity_type_id]])->all()),
+            'rubrica' => $this->rememberFilterOptions('rubrica', fn () => Note::query()
+                ->whereNotNull('rubrica')->where('rubrica', '!=', '')
+                ->distinct()->orderBy('rubrica')->pluck('rubrica')
+                ->map(fn ($r) => ['v' => (string) $r, 'l' => (string) $r])->all()),
+            'region' => collect($cities)->pluck('p.region')->filter()->unique()->sort()->values()
+                ->map(fn ($r) => ['v' => $r, 'l' => $r])->all(),
+            'regional' => collect($cities)->map(fn ($c) => $c['p'])->filter(fn ($p) => $p['regional'] !== '')
+                ->unique('regional')->sortBy('regional')->values()
+                ->map(fn ($p) => ['v' => $p['regional'], 'l' => $p['regional'], 'p' => ['region' => $p['region']]])->all(),
+            'city' => $cities,
+        ];
+    }
+
+    public function hasCriteria(): bool
+    {
+        return $this->hasListFilters() || filled(trim((string) $this->search)) || !empty($this->multisearch)
+            || $this->typeNote !== '' || $this->statusFilter !== '';
+    }
+
+    /** "Limpar tudo": filtros, busca (simples e em massa), tipo e status. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters       = [];
+        $this->search        = '';
+        $this->advanceSearch = '';
+        $this->multisearch   = [];
+        $this->typeNote      = '';
+        $this->statusFilter  = '';
+        $this->afterListFiltersChanged();
+    }
+
+    public function updatedTypeNote(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
+
+    /** Códigos de município (rdMunicipio) escolhidos por Região, Regional e/ou Município. */
+    private function cityCodes(): array
+    {
+        $cities    = $this->filterValues('city');
+        $regions   = $this->filterValues('region');
+        $regionals = $this->filterValues('regional');
+
+        if (!$cities && !$regions && !$regionals) {
+            return [];
         }
 
-        if (isset($_SESSION['filtro']['rubrica']) && $_SESSION['filtro']['rubrica']) {
-            $this->rubrica_s = $_SESSION['filtro']['rubrica'];
-        }
+        return City::query()
+            ->when($cities, fn ($q) => $q->whereIn('rdMunicipio', $cities))
+            ->when($regions, fn ($q) => $q->whereIn('regiao', $regions))
+            ->when($regionals, fn ($q) => $q->whereIn('baseConstrucao', $regionals))
+            ->pluck('rdMunicipio')->filter()->unique()->values()->all();
     }
 
     public function exportToExcel()
@@ -147,7 +229,7 @@ class Main extends Component
             'timer'    => 2000,
         ]);
 
-        return Excel::download(new ProtocolsList($this->notes), date('Ymd_his').'_protocols.xlsx');
+        return Excel::download(new ProtocolsList($this->notes), date('Ymd_his') . '_protocols.xlsx');
     }
 
     public function copy($msg)
@@ -193,7 +275,6 @@ class Main extends Component
 
     public function downloadFile($id)
     {
-
 
         if ($file = File::find($id)) {
 
@@ -271,11 +352,11 @@ class Main extends Component
         if ($production) {
 
             Notetimeline::Create([
-                'note_id'      => $this->note->id,
-                'service_id'   => $production->service_id,
-                'user_id'      => Auth()->User()->id,
-                'info'         => "Usuário {$user->name} atribuiu a Nota/OV.",
-                'status'       => 2,
+                'note_id'       => $this->note->id,
+                'service_id'    => $production->service_id,
+                'user_id'       => Auth()->User()->id,
+                'info'          => "Usuário {$user->name} atribuiu a Nota/OV.",
+                'status'        => 2,
                 'production_id' => $production->id,
             ]);
 
@@ -295,18 +376,8 @@ class Main extends Component
         }
     }
 
-
-
     public function getNotesProperty()
     {
-
-        if (!session()->isStarted()) {
-            session()->start();
-        }
-        $this->filter = session("filter.{$this->filter_group}", []);
-
-
-
 
         $query = Note::query()
             ->select([
@@ -341,8 +412,8 @@ class Main extends Component
 
         $allowedStatuses = $this->statusFilter ? [(int) $this->statusFilter] : [20, 11];
         $hasDirectSearch = filled(trim((string) $this->search));
-        $hasMultiSearch = !empty($this->multisearch);
-        $hasAnySearch = $hasDirectSearch || $hasMultiSearch;
+        $hasMultiSearch  = !empty($this->multisearch);
+        $hasAnySearch    = $hasDirectSearch || $hasMultiSearch;
 
         if (!$hasAnySearch) {
             $query->where(function ($q) use ($allowedStatuses) {
@@ -394,37 +465,41 @@ class Main extends Component
             });
         });
 
-
         if ($this->typeNote) {
             $query->where('type_note', $this->typeNote);
         }
 
-        if (isset($this->filter['rubrica'])) {
-
-            $query->whereIn('rubrica', $this->filter['rubrica']);
+        if ($rubricas = $this->filterValues('rubrica')) {
+            $query->whereIn('rubrica', $rubricas);
         }
 
-        if (isset($this->filter['city'])) {
-
-            $query->whereIn('lexp', $this->filter['city']);
+        if ($this->filterValues('city') || $this->filterValues('region') || $this->filterValues('regional')) {
+            // Município da nota = código SAP (nexp) das cidades escolhidas; sem nenhuma correspondente, a lista fica vazia.
+            $codes = $this->cityCodes();
+            $codes ? $query->whereIn('nexp', $codes) : $query->whereRaw('1 = 0');
         }
 
+        // Entidade: as marcadas, ou todas do(s) tipo(s) de entidade marcado(s) (era o filtro "Tipos de Entidade" que repassava ao de Entidades).
+        $entityIds = $this->filterValues('entity');
 
-        if (isset($this->filter['entities']) && count($this->filter['entities'])) {
+        if (!$entityIds && ($types = $this->filterValues('entityType'))) {
+            $entityIds = Entity::query()->whereIn('entity_type_id', $types)->pluck('id')->map(fn ($id) => (string) $id)->all() ?: ['0'];
+        }
 
-            $query->whereHas('externals', function ($q) {
-                $q->whereIn('entity_id', $this->filter['entities']);
+        if ($entityIds) {
+            $query->whereHas('externals', function ($q) use ($entityIds) {
+                $q->whereIn('entity_id', $entityIds);
             });
         }
 
-
         $query->with([
             'Files:id,note_id,service_id,file_name,path,ext',
+            'Files.Note:id,note',
+            'Files.Service:id,uuid,service',
             'Externals:id,note_id,entidade,status,completed,updated_at',
             'Externals.Protocols:id,external_id,protocol,created_at',
             'Externals.Comments:id,external_id,title,created_at,updated_at',
         ])->orderBy($this->column, $this->direction);
-
 
         return $query;
 
@@ -432,42 +507,79 @@ class Main extends Component
 
     public function render()
     {
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
+        $lists = $this->notes->paginate($this->perPage);
 
         return view('livewire.services.oexterno.main', [
-            'lists'  => $this->notes->paginate($this->perPage),
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'     => $lists,
+            'rows'      => $lists->getCollection()->map(fn (Note $note) => $this->rowFor($note))->values(),
+            'updatedAt' => Cache::remember('ops-bancoupdate-exists', 60, fn () => Bancoupdate::query()->exists()) ? $this->last_update : null,
         ]);
+    }
+
+    /** A Nota vira a linha da tela: totais de protocolo, tons de idade e pasta atual já prontos (a view só desenha). */
+    private function rowFor(Note $note): array
+    {
+        $externals = $note->Externals;
+        $last      = $externals->last();
+        $lastProto = $last?->protocols?->last();
+        $total     = $externals->count();
+        $done      = $externals->where('completed', true)->count();
+
+        $statusDays = $note->dt_status?->copy()->startOfDay()->diffInDays() ?? 0;
+        $totalDays  = $note->dt_created ? $note->dt_created->copy()->startOfDay()->diffInDays(now()->startOfDay()) : null;
+
+        return [
+            'id'          => $note->id,
+            'note'        => $note->note,
+            'files'       => $note->Files,
+            'proto'       => ['done' => $done, 'total' => $total, 'tone' => $total === 0 ? 'muted' : ($done === $total ? 'green' : 'red')],
+            'lastProto'   => $lastProto?->protocol,
+            'lastProtoAt' => $lastProto?->created_at,
+            'entity'      => $last?->entidade,
+            'rubrica'     => $note->rubrica,
+            'group2'      => $note->group2,
+            'city'        => $note->lexp,
+            'order'       => $note->numPedido,
+            'status'      => $note->nstats,
+            'centerjob'   => $note->centerjob,
+            'folder'      => $this->resolveFolderLabel($note),
+            'statusAt'    => $note->dt_status,
+            'statusDays'  => $statusDays,
+            'statusTone'  => $statusDays > 120 ? 'red' : ($statusDays <= 60 ? 'green' : 'amber'),
+            'createdAt'   => $note->dt_created,
+            'totalDays'   => $totalDays,
+            'totalTone'   => $totalDays === null ? 'muted' : ($totalDays > 30 ? 'red' : ($totalDays < 27 ? 'green' : 'amber')),
+        ];
     }
 
     public function resolveFolderLabel(Note $note): array
     {
-        $hasExternal = $note->externals && $note->externals->isNotEmpty();
+        $hasExternal     = $note->Externals && $note->Externals->isNotEmpty();
         $pendingExternal = $hasExternal
-            && $note->externals->contains(fn ($external) => (bool) !$external->completed);
+            && $note->Externals->contains(fn ($external) => (bool) !$external->completed);
 
         if (!$pendingExternal) {
-            return ['label' => 'A PROTOCOLAR', 'badge' => 'text-bg-success'];
+            return ['label' => 'A PROTOCOLAR', 'tone' => 'green'];
         }
 
-        $pendingStatuses = collect($note->externals)
+        $pendingStatuses = collect($note->Externals)
             ->filter(fn ($external) => (bool) !$external->completed)
             ->pluck('status')
             ->filter()
             ->values();
 
         if ($pendingStatuses->contains('AGUARDANDO_PAGAMENTO')) {
-            return ['label' => 'AGUARDANDO PAGAMENTO', 'badge' => 'text-bg-danger'];
+            return ['label' => 'AGUARDANDO PAGAMENTO', 'tone' => 'red'];
         }
 
         if ($pendingStatuses->contains('AGUARDANDO_TAXA')) {
-            return ['label' => 'AGUARDANDO TAXA', 'badge' => 'text-bg-info'];
+            return ['label' => 'AGUARDANDO TAXA', 'tone' => 'teal'];
         }
 
         if ($pendingStatuses->contains('AGUARDANDO_ORGAO')) {
-            return ['label' => 'AGUARDANDO ORGAO EXTERNO', 'badge' => 'text-bg-warning'];
+            return ['label' => 'AGUARDANDO ORGAO EXTERNO', 'tone' => 'amber'];
         }
 
-        return ['label' => 'STATUS INDEFINIDO', 'badge' => 'text-bg-dark'];
+        return ['label' => 'STATUS INDEFINIDO', 'tone' => 'muted'];
     }
 }

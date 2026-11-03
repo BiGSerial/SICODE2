@@ -2,8 +2,7 @@
 
 namespace App\Services\Partner;
 
-use App\Models\Equipment;
-use App\Models\User;
+use App\Models\{Equipment, User};
 use App\Services\PartnerAccess\PartnerAccessGate;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -25,7 +24,7 @@ class DeclaredEquipmentQueryService
             });
         }
 
-        $dateIn = $params['date_in'] ?? null;
+        $dateIn  = $params['date_in'] ?? null;
         $dateOut = $params['date_out'] ?? null;
 
         if ($dateIn && $dateOut) {
@@ -40,6 +39,7 @@ class DeclaredEquipmentQueryService
         }
 
         $search = trim((string) ($params['search'] ?? ''));
+
         if ($search !== '') {
             $query->where(function ($query) use ($search) {
                 $query->where('patrimony', 'like', '%' . $search . '%')
@@ -78,12 +78,25 @@ class DeclaredEquipmentQueryService
             $query->where('type', $params['equipType']);
         }
 
+        // Seleção múltipla da tela (filtros do portal da parceira): listas de tipos, movimentos (1 = instalação, 0 = desinstalação) e empresas.
+        if (!empty($params['equipTypes'])) {
+            $query->whereIn('type', (array) $params['equipTypes']);
+        }
+
         if (($params['moviment'] ?? '') !== '') {
             $query->where('installed', (bool) $params['moviment']);
         }
 
+        if (!empty($params['moviments']) && count((array) $params['moviments']) === 1) {
+            $query->where('installed', (bool) ((array) $params['moviments'])[0]);
+        }
+
         if (!empty($params['companySelected'])) {
             $query->whereRelation('WorkReport', 'company_id', $params['companySelected']);
+        }
+
+        if (!empty($params['companyIds'])) {
+            $query->whereRelation('WorkReport', fn ($q) => $q->whereIn('company_id', (array) $params['companyIds']));
         }
 
         return $query->orderBy('patrimony');

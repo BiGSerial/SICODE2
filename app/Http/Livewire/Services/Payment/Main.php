@@ -4,19 +4,21 @@ namespace App\Http\Livewire\Services\Payment;
 
 use App\Helpers\TextFormatter;
 use App\Http\Livewire\Concerns\Services\BulkSelfAssignable;
+use App\Http\Livewire\Concerns\WithNoteListFilters;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\{Bancoupdate, Company, Note, Production, Service, User, WorkReport};
 use App\Services\D5\D5WorkReportAssociationResolver;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
-use App\Services\Payment\{BlockEvaluator, NoteFilter};
+use App\Services\Payment\{BlockEvaluator, NoteFilter, PaymentListRowPresenter};
 use App\Services\WorkReports\{WorkReportFinalScopeOptions};
 use Carbon\Carbon;
-use Illuminate\Support\Facades\{Auth, DB};
+use Illuminate\Support\Facades\{Auth, Cache, DB};
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
     use WithPagination;
+    use WithNoteListFilters;
     use TextFormatter;
     use BulkSelfAssignable;
     use \App\Http\Livewire\Services\Concerns\BuildsCanceledWorkReportTags;
@@ -43,7 +45,7 @@ class Main extends Component
 
     public $last_update;
 
-    public $typeNote;
+    public $typeNote = '';
 
     public $partial = false;
 
@@ -79,9 +81,12 @@ class Main extends Component
     ];
 
     protected $queryString = [
-        'search'   => ['except' => '', 'as' => 'buscar'],
-        'typeNote' => ['except' => '', 'as' => 'tipo'],
-        'partials' => ['except' => false, 'as' => 'parciais'],
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'typeNote'     => ['except' => '', 'as' => 'tipo'],
+        'partials'     => ['except' => false, 'as' => 'parciais'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'filter_d5'    => ['except' => false, 'as' => 'd5'],
+        'filters'      => ['except' => [], 'as' => 'f'],
     ];
 
     protected $noteFilter;
@@ -188,8 +193,7 @@ class Main extends Component
     public function mount($service)
     {
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = optional(Note::orderByDesc('dt_status')->first())->dt_status;
-
+        $this->last_update = Cache::remember('payment-dispatch:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
     }
 
     public function filterD5()
@@ -271,11 +275,7 @@ class Main extends Component
 
     public function export_excel()
     {
-        if (\PHP_SESSION_ACTIVE !== session_status() && !session()->isStarted()) {
-            session()->start();
-        }
-
-        $filters = $_SESSION['filter'][$this->filter_group] ?? session('filter.' . $this->filter_group, []);
+        $filters = $this->filters;
 
         ExportDispatchPaymentJob::dispatch([
             'source'                     => 'service',
@@ -629,7 +629,7 @@ class Main extends Component
 
         $base = ($useAnySituationFromMassSearch
             ? Note::query()
-            : $this->noteFilter->filter(null, $this->filter_group))
+            : $this->noteFilter->filter(null, $this->filter_group, $this->filters))
             ->select([
                 'notes.id',
                 'notes.note',
@@ -1102,10 +1102,18 @@ class Main extends Component
     {
         $lists = $this->lists;
 
+        $presenter = app(PaymentListRowPresenter::class);
+        $rows      = $lists->getCollection()->map(function (Note $note) use ($presenter) {
+            $eval = $this->needBlock($note);
+
+            return $presenter->present($note, ['eval' => $eval, 'stack' => null, 'canDispatch' => !$eval['block']], 'service');
+        });
+
         return view('livewire.services.payment.main', [
             'lists'                => $lists,
+            'rows'                 => $rows,
             'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds($this->serviceProductionIds($lists instanceof \Illuminate\Contracts\Pagination\Paginator ? $lists->items() : $lists, $this->service->uuid)),
-            'update'               => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'update'               => Cache::remember('payment-dispatch:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
         ]);
     }
 }

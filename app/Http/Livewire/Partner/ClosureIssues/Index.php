@@ -2,9 +2,10 @@
 
 namespace App\Http\Livewire\Partner\ClosureIssues;
 
-use App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+use App\Http\Livewire\Concerns\WithListFilters;
+use App\Http\Livewire\Partner\Concerns\{AuthorizesPartnerAccess, PartnerListToolkit};
 use App\Models\{Centerjob};
-use App\Models\Closure\{ClosureIssue, ClosurePartnerSignal};
+use App\Models\Closure\{ClosureIssue, ClosureIssueCategory, ClosurePartnerSignal};
 use App\Services\Closure\{ClosureOrderWorkflowException, ClosurePartnerSignalService};
 use App\Services\PartnerAccess\PartnerAccessGate;
 use Livewire\{Component, WithPagination};
@@ -12,13 +13,14 @@ use Livewire\{Component, WithPagination};
 class Index extends Component
 {
     use AuthorizesPartnerAccess;
+    use PartnerListToolkit;
+    use WithListFilters;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
 
+    /** Situação da pendência (abas da lista); vazio = todas. */
     public string $status = '';
-
-    public string $categoryId = '';
 
     public string $search = '';
 
@@ -29,40 +31,78 @@ class Index extends Component
     public string $releaseNote = '';
 
     protected $queryString = [
-        'status'     => ['except' => ''],
-        'categoryId' => ['except' => '', 'as' => 'categoria'],
-        'search'     => ['except' => '', 'as' => 'buscar'],
-        'page'       => ['except' => 1, 'as' => 'p'],
+        'status'  => ['except' => ''],
+        'search'  => ['except' => '', 'as' => 'buscar'],
+        'filters' => ['except' => [], 'as' => 'f'],
+        'page'    => ['except' => 1, 'as' => 'p'],
     ];
+
+    /** Situações que viram aba (a pendência "Aberta" ainda não foi pedida à parceira). */
+    public const STATUS_TABS = ['REQUESTED', 'RETURNED', 'RESPONDED', 'VALIDATING', 'RESOLVED'];
 
     public function mount(): void
     {
         $this->authorizePartnerAccess('closure.issues.list');
+
+        $this->status  = in_array($this->status, self::STATUS_TABS, true) ? $this->status : '';
+        $this->filters = $this->normalizeFilters($this->filters);
+    }
+
+    protected function listFilterDefinitions(): array
+    {
+        return array_filter([
+            'company'  => count($this->companyFilterOptionsCached()) > 1 ? ['label' => 'Empresa'] : null,
+            'category' => ['label' => 'Categoria'],
+        ]);
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return [
+            'company'  => $this->companyFilterOptionsCached(),
+            'category' => $this->rememberFilterOptions('category', fn () => ClosureIssueCategory::query()
+                ->whereIn('id', $this->visibleIssues()->select('closure_issue_category_id'))
+                ->orderBy('name')
+                ->get(['id', 'name', 'active'])
+                ->map(fn ($category) => ['v' => (string) $category->id, 'l' => $category->name . (!$category->active ? ' (inativa)' : '')])
+                ->all()),
+        ];
+    }
+
+    private ?array $companyOptionsMemo = null;
+
+    private function companyFilterOptionsCached(): array
+    {
+        return $this->companyOptionsMemo ??= $this->rememberFilterOptions('company', fn () => $this->companyFilterOptions());
+    }
+
+    protected function listFilterCacheScope(): string
+    {
+        return static::class . ':' . auth()->id() . ':' . $this->partnerCompanyFilter;
+    }
+
+    protected function listFilterCacheTtl(): int
+    {
+        return 60;
     }
 
     public function updated($property): void
     {
-        if (in_array($property, ['status', 'categoryId', 'search', 'partnerCompanyFilter'], true)) {
+        if (in_array($property, ['status', 'search', 'partnerCompanyFilter'], true)) {
             $this->resetPage();
         }
     }
 
-    public function removeFilter(string $kind): void
+    public function setStatus(string $status): void
     {
-        match ($kind) {
-            'search'   => $this->search               = '',
-            'status'   => $this->status               = '',
-            'category' => $this->categoryId           = '',
-            'company'  => $this->partnerCompanyFilter = '',
-            default    => null,
-        };
+        $this->status = in_array($status, self::STATUS_TABS, true) && $this->status !== $status ? $status : '';
         $this->resetPage();
     }
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'status', 'categoryId', 'partnerCompanyFilter');
-        $this->resetPage();
+        $this->reset('search', 'status', 'partnerCompanyFilter');
+        $this->clearListFilters();
     }
 
     // ------------------------------------------------ Depósito bloqueado (por empresa)
@@ -117,6 +157,10 @@ class Index extends Component
         $selected = (string) ($this->partnerCompanyFilter ?? '');
         $scope    = $selected !== '' && ($ids === null || $ids->contains($selected)) ? [$selected] : ($ids?->all());
 
+        if ($companies = $this->filterValues('company')) {
+            $scope = $scope === null ? $companies : array_values(array_intersect(array_map('strval', $scope), $companies));
+        }
+
         if ($scope !== null) {
             $query->where(fn ($q) => $q->whereIn('company_id', $scope)
                 ->orWhereIn('deposit_code', Centerjob::query()->whereIn('company_id', $scope)->whereNotNull('deposit')->select('deposit')));
@@ -133,39 +177,31 @@ class Index extends Component
         $this->authorizePartnerAccess('closure.issues.list');
 
         $issues = $this->filteredIssues()
-            ->with(['Order.Note', 'Category', 'Subcategory', 'Events.Actor'])
+            ->with(['Order:id,ordem,note_id', 'Order.Note:id,note', 'Category:id,name', 'Subcategory:id,name'])
+            ->withMax('Events as last_event_at', 'created_at')
             ->latest('updated_at')
             ->paginate(25);
-
-        $categories = $this->visibleIssues()
-            ->with('Category:id,name,active')
-            ->get(['closure_issue_category_id'])
-            ->pluck('Category')
-            ->filter()
-            ->unique('id')
-            ->sortBy('name')
-            ->values();
 
         $counts = $this->visibleIssues()->selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
         $signals = $this->visibleSignals()->active()->latest()->get();
 
         return view('livewire.partner.closure-issues.index', [
-            'issues'     => $issues,
-            'categories' => $categories,
-            'counts'     => $counts,
-            'signals'    => $signals,
-            'canRelease' => PartnerAccessGate::allows(auth()->user(), 'closure.signals.manage'),
-            'canRespond' => PartnerAccessGate::allows(auth()->user(), 'closure.issues.respond'),
+            'issues'      => $issues,
+            'counts'      => $counts,
+            'signals'     => $signals,
+            'hasCriteria' => $this->hasListFilters() || trim($this->search) !== '' || $this->status !== '' || (string) $this->partnerCompanyFilter !== '',
+            'canRelease'  => PartnerAccessGate::allows(auth()->user(), 'closure.signals.manage'),
+            'canRespond'  => PartnerAccessGate::allows(auth()->user(), 'closure.issues.respond'),
         ]);
     }
 
     /** Pendências da empresa com os filtros da tela (a mesma consulta alimenta a lista e a exportação). */
     private function filteredIssues()
     {
-        return $this->visibleIssues()
+        return $this->applyCompanyFilter($this->visibleIssues(), 'destination_company_id')
             ->when($this->status !== '', fn ($query) => $query->where('status', $this->status))
-            ->when($this->categoryId !== '', fn ($query) => $query->where('closure_issue_category_id', $this->categoryId))
+            ->when($this->filterValues('category'), fn ($query, $ids) => $query->whereIn('closure_issue_category_id', $ids))
             ->when($this->search !== '', function ($query) {
                 $search = trim($this->search);
                 $query->where(function ($query) use ($search) {
@@ -190,7 +226,7 @@ class Index extends Component
         \App\Jobs\Closure\ExportPartnerClosureListJob::dispatch(static::class, [
             'search'               => $this->search,
             'status'               => $this->status,
-            'categoryId'           => $this->categoryId,
+            'filters'              => $this->filters,
             'partnerCompanyFilter' => (string) $this->partnerCompanyFilter,
         ], (string) auth()->id());
 

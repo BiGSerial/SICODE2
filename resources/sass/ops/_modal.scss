@@ -1,0 +1,139 @@
+// Modais no padrão das listas operacionais (docs/PADRAO_LISTAS_OPERACIONAIS.md §11). Global: os modais ficam fora do `.ops-list`
+// (no layout ou no fim da tela). Para usar selos/tons dentro do modal, o `.modal-content` leva `closure-dash ops-list`.
+//   <div class="modal fade ops-modal"><div class="modal-dialog …"><div class="modal-content closure-dash ops-list">
+//     header(.modal-header > .modal-title + .btn-close-white) · body(.modal-body) · footer(.modal-footer)
+
+.ops-modal {
+    .modal-content {
+        background: var(--ops-surface-app);
+        border: 0;
+        border-radius: 14px;
+        box-shadow: var(--ops-shadow-modal);
+        color: var(--ops-ink);
+        overflow: hidden;
+    }
+
+    .modal-header {
+        align-items: center;
+        background: var(--ops-hero-bg);
+        border: 0;
+        color: var(--ops-surface-soft);
+        gap: 12px;
+        padding: 16px var(--ops-edge);
+    }
+
+    .modal-title {
+        align-items: center;
+        display: flex;
+        flex-wrap: wrap;
+        font-size: 1.05rem;
+        font-weight: 800;
+        gap: 4px 10px;
+        margin: 0;
+    }
+
+    .modal-eyebrow {
+        color: var(--ops-eyebrow);
+        display: block;
+        font-size: .68rem;
+        font-weight: 800;
+        letter-spacing: .1em;
+        text-transform: uppercase;
+        width: 100%;
+    }
+
+    // Selo no cabeçalho escuro: fundo claro para manter a leitura em qualquer tom.
+    .modal-header .ops-badge { background: var(--ops-glass-badge); }
+
+    .modal-body { padding: 18px var(--ops-edge); }
+
+    .modal-footer {
+        background: var(--ops-surface);
+        border-top: 1px solid var(--ops-line);
+        gap: 8px;
+        padding: 12px var(--ops-edge);
+    }
+
+    .modal-footer .btn,
+    .ops-modal-btn {
+        border-radius: 8px;
+        font-size: .84rem;
+        font-weight: 700;
+    }
+
+    .form-label {
+        color: var(--ops-muted);
+        font-size: .72rem;
+        font-weight: 800;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+    }
+
+    .form-control { border-color: var(--ops-line); border-radius: 8px; }
+
+    // Caixa de aviso/explicação (tom neutro por padrão; `tone-amber|red|blue|green` via classe no elemento).
+    .ops-modal-note {
+        background: var(--ops-accent-soft-weak);
+        border: 1px solid var(--ops-accent-border);
+        border-radius: 10px;
+        color: var(--ops-accent-note-ink);
+        font-size: .84rem;
+        line-height: 1.45;
+        margin-bottom: 16px;
+        padding: 10px 14px;
+    }
+
+    // Cartão de informação com cabeçalho no tom do assunto (ex.: status).
+    .ops-modal-card {
+        background: var(--ops-surface);
+        border: 1px solid var(--ops-line);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+
+    .ops-modal-card-head {
+        align-items: center;
+        background: var(--tone-soft);
+        border-bottom: 1px solid var(--ops-line);
+        color: var(--tone);
+        display: flex;
+        font-size: .72rem;
+        font-weight: 800;
+        gap: 8px;
+        letter-spacing: .06em;
+        padding: 10px var(--ops-edge);
+        text-transform: uppercase;
+    }
+
+    .ops-modal-card-body {
+        font-size: .95rem;
+        padding: 14px var(--ops-edge);
+        white-space: pre-line;
+    }
+
+    .ops-modal-meta {
+        border-top: 1px solid var(--ops-line);
+        color: var(--ops-muted);
+        display: grid;
+        font-size: .8rem;
+        gap: 6px;
+        padding: 12px var(--ops-edge);
+
+        i { color: var(--ops-muted); margin-right: 6px; }
+        strong { color: var(--ops-ink); }
+    }
+
+}
+
+// Aviso de risco (ex.: "buscar em qualquer status"): vale dentro de modal e na página da lista.
+.ops-list,
+.ops-modal {
+    .ops-warning {
+        background: var(--ops-warn-bg);
+        border: 1px solid var(--ops-warn-border);
+        border-radius: 8px;
+        color: var(--ops-warn-ink);
+        font-size: .86rem;
+        padding: 10px 12px;
+    }
+}

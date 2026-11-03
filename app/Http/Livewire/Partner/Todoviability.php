@@ -3,48 +3,37 @@
 namespace App\Http\Livewire\Partner;
 
 use App\Exports\Partner\ExportViabilityToExcel;
-use App\Models\City;
-use App\Models\{File, Note, Viability};
+use App\Http\Livewire\Partner\Concerns\{AuthorizesPartnerAccess, WithViabilityListFilters};
+use App\Models\{File, Viability};
 use App\Services\Files\FileStorageService;
-use Illuminate\Support\Facades\{Auth, Crypt};
+use App\Services\PartnerAccess\PartnerAccessGate;
+use Illuminate\Support\Facades\Crypt;
 use Livewire\{Component, WithPagination};
 use Maatwebsite\Excel\Facades\Excel;
 use ZipArchive;
 
 class Todoviability extends Component
 {
-    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+    use AuthorizesPartnerAccess;
     use WithPagination;
+    use WithViabilityListFilters;
 
     protected $paginationTheme = 'bootstrap';
 
     /** @var int */
     public $perPage = 50;
 
-    /** @var \Illuminate\Support\Collection */
-    public $cities;
-
     /** @var array<int> */
     public $files_selected = [];
 
-    /** @var array<int> */
-    public $inActivity = [];
-
     /** @var string|null */
     public $search = '';
-
-    /**
-     * Grupo chave dos filtros (componentes filhos salvam na sessão com essa chave)
-     */
-    private string $filter_group = 'partner';
-
-    /** @var array<string,mixed>|null */
-    private $filter = null;
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1,  'as' => 'p'],
         'perPage' => ['as' => 'pp'],
+        'filters' => ['except' => [], 'as' => 'f'],
     ];
 
     protected $listeners = [
@@ -53,16 +42,28 @@ class Todoviability extends Component
 
     public function mount(): void
     {
-        // só o necessário pra view de filtros
-        $this->cities = City::query()
-            ->select(['rdMunicipio', 'regiao', 'cidade'])
-            ->orderBy('cidade')
-            ->get();
+        $this->filters = $this->normalizeFilters($this->filters);
+    }
+
+    protected function viabilityFilterKeys(): array
+    {
+        return ['company', 'txpriority', 'rubrica', 'region', 'city'];
+    }
+
+    public function updatingSearch(): void
+    {
+        $this->resetPage();
     }
 
     public function updatedPerPage(): void
     {
+        $this->perPage = in_array((int) $this->perPage, [25, 50, 100, 250, 500], true) ? (int) $this->perPage : 50;
         $this->resetPage();
+    }
+
+    public function can(string $permission): bool
+    {
+        return PartnerAccessGate::allows(auth()->user(), $permission);
     }
 
     /**
@@ -200,33 +201,16 @@ class Todoviability extends Component
     }
 
     /**
-     * Atualiza os IDs de notas em atividade (checkbox "em atividade")
-     */
-    public function inActivityUpdate(): array
-    {
-        $user = Auth::user();
-
-        $this->inActivity = Note::query()
-            ->whereHas('Viabilities', function ($q) use ($user) {
-                $q->where('canceled', false)
-                  ->where('inActivity', true)
-                  ->where('completed', false)
-                  ->where('tacit', false);
-
-                $this->applyPartnerCompanyScope($q);
-            })
-            ->pluck('id')
-            ->toArray();
-
-        return $this->inActivity;
-    }
-
-    /**
      * Alterna inActivity direto na viabilidade
      */
     public function putInActivity(int $id): void
     {
-        if ($viab = Viability::find($id)) {
+        $this->authorizePartnerAccess('viability.respond');
+
+        $query = Viability::query()->whereKey($id);
+        $this->applyPartnerCompanyScope($query);
+
+        if ($viab = $query->first()) {
             $viab->inActivity = !$viab->inActivity;
             $viab->save();
         }
@@ -241,37 +225,15 @@ class Todoviability extends Component
     }
 
     /**
-     * Lê filtros salvos pelos componentes de filtro (na sessão nativa PHP)
-     */
-    protected function getFilterFromSession(): void
-    {
-        if (session_status() !== PHP_SESSION_ACTIVE) {
-            if (!session()->isStarted()) {
-                session()->start();
-            }
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        } else {
-            $this->filter = null;
-        }
-    }
-
-    /**
      * Monta a query base SEM paginação e SEM orderBy/select final.
      * Aqui vai:
      *  - regras de visibilidade
-     *  - eager loading mínimo
+     *  - eager loading do que a view usa
      *  - busca textual
-     *  - filtros avançados
+     *  - filtros (WithViabilityListFilters)
      */
     protected function baseQuery()
     {
-        $this->getFilterFromSession();
-
-        $user = Auth::user();
-
         $query = Viability::query()
             ->where('viabilities.canceled', false)
             ->where('viabilities.completed', false)
@@ -283,18 +245,20 @@ class Todoviability extends Component
 
         $this->applyPartnerBranchScopeToNoteRelation($query);
 
-        // Carrega só o que a view usa
+        // Carrega só o que a view e a exportação usam (dt_vencimento evita uma consulta por OV no "Prazo Obra").
         $query->with([
-            'Note:id,client,material,rubrica,txpriority,lexp,note,is45,days_left,mesalization,type_note',
+            'Note:id,client,material,rubrica,txpriority,lexp,nexp,note,is45,days_left,mesalization,type_note,dt_vencimento',
             'Note.Orders:id,note_id,ordem,statusSist',
-            'Note.Files:id,note_id,service_id,file_name,ext,path', // só pra contar arquivos via relacionamento de Note->Files
+            'Note.Files:id,note_id,service_id,file_name,ext,path',
+            'Note.Files.service:uuid,service',
+            'Note.Files.note:id,note',
             'Company:id,name',
             'Files:id,note_id,file_name,ext,path',
             'comments:id,user_id,message,created_at',
             'comments.User:id,name,email',
             'Form:id,viability_id,reason,changes,responsible,description',
             'Engineer:id,name,email',
-            'Note.City:id,regiao,cidade', // pra região/município
+            'Note.City:rdMunicipio,regiao,cidade',
         ]);
 
         // Busca rápida nota / OV (ordem)
@@ -306,25 +270,7 @@ class Todoviability extends Component
             });
         }
 
-        // Filtro Criticidade (txpriority)
-        if (!empty($this->filter['txpriority']) && is_array($this->filter['txpriority'])) {
-            $txpriorities = $this->filter['txpriority'];
-            $query->whereHas('Note', fn ($qq) => $qq->whereIn('txpriority', $txpriorities));
-        }
-
-        // Filtro Rubrica
-        if (!empty($this->filter['rubrica']) && is_array($this->filter['rubrica'])) {
-            $rubricas = $this->filter['rubrica'];
-            $query->whereHas('Note', fn ($qq) => $qq->whereIn('rubrica', $rubricas));
-        }
-
-        // Filtro Cidade (lexp)
-        if (!empty($this->filter['city']) && is_array($this->filter['city'])) {
-            $cities = $this->filter['city'];
-            $query->whereHas('Note', fn ($qq) => $qq->whereIn('lexp', $cities));
-        }
-
-        return $query;
+        return $this->applyViabilityFilters($query);
     }
 
     /**
@@ -338,19 +284,18 @@ class Todoviability extends Component
             ->orderByDesc('notes.is45')
             ->orderBy('viabilities.sended_at', 'asc')
             ->orderBy('viabilities.id', 'asc')
-            ->select('viabilities.*');
+            ->select('viabilities.*')
+            ->withSum('Days as days_sum', 'days');
     }
 
     public function render()
     {
-        // atualiza quem está "em atividade"
-        $this->inActivityUpdate();
-
-        $paginated = $this->listsQuery()->paginate($this->perPage);
+        $lists = $this->listsQuery()->paginate($this->perPage);
 
         return view('livewire.partner.todoviability', [
-            'lists'  => $paginated,
-            'cities' => $this->cities,
+            'lists'        => $lists,
+            'tacitFileIds' => $this->tacitFileIdsFor($lists),
+            'hasCriteria'  => $this->hasViabilityCriteria(),
         ]);
     }
 }

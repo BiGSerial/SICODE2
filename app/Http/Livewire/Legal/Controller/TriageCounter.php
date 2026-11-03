@@ -21,10 +21,10 @@ class TriageCounter extends Component
             ->where('controller_user_id', auth()->id());
 
         return match ($this->metric) {
-            'new' => (clone $base)->where('internal_status', 'new_imported')->count(),
-            'triage' => (clone $base)->whereIn('internal_status', ['triage', 'waiting_controller_action'])->count(),
+            'new'     => (clone $base)->where('internal_status', 'new_imported')->count(),
+            'triage'  => (clone $base)->whereIn('internal_status', ['triage', 'waiting_controller_action'])->count(),
             'pending' => (clone $base)->count(),
-            default => 0,
+            default   => 0,
         };
     }
 

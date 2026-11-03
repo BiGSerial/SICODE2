@@ -3,14 +3,17 @@
 namespace App\Http\Livewire\Services\Desenho;
 
 use App\Custom\Notestatus;
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
-use App\Models\{File, Note, Production, Service, User};
+use App\Models\{File, Production, Service};
+use App\Services\Dispatchs\DesignListRowPresenter;
 use App\Services\Files\FileStorageService;
-use Illuminate\Support\Facades\{Auth, DB};
+use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
+    use WithListFilters;
     use WithPagination;
     use BuildsLegalNoteTags;
 
@@ -22,21 +25,13 @@ class Main extends Component
 
     public $search;
 
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
-    public $note_type;
+    public $note_type = '';
 
     public $limit_pause = 3;
 
     public $analise;
 
-    public $user_l;
-
     public $user_s;
-
-    public $user_search;
 
     public $production;
 
@@ -44,17 +39,18 @@ class Main extends Component
 
     public $statusFilter = '';
 
-    public array $noteStatusFilters = [];
-
-    public array $locationFilters = [];
-
-    public array $rubricaFilters = [];
-
     public bool $reviewCanFinish = false;
 
     public bool $notificationReviewHandled = false;
 
     public bool $showProjectReviewInProgress = false;
+
+    protected $queryString = [
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'note_type'    => ['except' => '', 'as' => 'tipo'],
+        'statusFilter' => ['except' => '', 'as' => 'status'],
+        'filters'      => ['except' => [], 'as' => 'f'],
+    ];
 
     protected $listeners = [
         'refresh_accomany'                  => '$refresh',
@@ -165,7 +161,7 @@ class Main extends Component
     private function openActiveProductionModal(bool $showLimitWarning): bool
     {
         $check = Production::where('service_id', $this->service->uuid)
-            ->where('user_id', Auth()->user()->id)
+            ->where('user_id', Auth()->id())
             ->where('status', 3)
             ->first();
 
@@ -353,27 +349,6 @@ class Main extends Component
         ]);
     }
 
-    public function filter_save()
-    {
-        // session()->put('filtro', $this->rubrica_s);
-        // if (!session()->isStarted()) { session()->start(); }
-        // $_SESSION['filtro'] = $this->rubrica_s;
-        $this->emit('refresh_service');
-
-    }
-
-    public function filter_clean()
-    {
-        $this->rubrica_s = [];
-
-        // if (!session()->isStarted()) { session()->start(); }
-        // if (isset($_SESSION['filtro'])) {
-        //     unset($_SESSION['filtro']);
-        // }
-
-        $this->emit('refresh_service');
-    }
-
     public function updatedStatusFilter(): void
     {
         $this->resetPage();
@@ -397,17 +372,65 @@ class Main extends Component
         $this->resetPage();
     }
 
-    public function applyFilters(): void
+    public function updatedSearch(): void
     {
         $this->resetPage();
     }
 
-    public function clearAdvancedFilters(): void
+    public function updatedNoteType(): void
     {
-        $this->noteStatusFilters = [];
-        $this->locationFilters   = [];
-        $this->rubricaFilters    = [];
         $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
+
+    /** "Limpar tudo": filtros, busca, tipo e status. Não mexe na quantidade por página nem no "mostrar em análise". */
+    public function clearAllCriteria(): void
+    {
+        $this->filters      = [];
+        $this->search       = '';
+        $this->note_type    = '';
+        $this->statusFilter = '';
+        $this->afterListFiltersChanged();
+    }
+
+    // ---------- Filtros (WithListFilters) ----------
+
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'noteStatus' => ['label' => 'Status da nota'],
+            'location'   => ['label' => 'Localização'],
+            'rubrica'    => ['label' => 'Rubrica'],
+        ];
+    }
+
+    protected function listFilterCacheScope(): string
+    {
+        return static::class . $this->service->uuid . Auth()->id();
+    }
+
+    /** Opções vindas da própria pilha de quem está logado (sem cache: mudam a cada atividade que entra ou sai). */
+    protected function listFilterOptions(): array
+    {
+        $options = fn (string $expression, array $except) => (clone $this->baseListQuery(true, $except))
+            ->selectRaw($expression . ' as value')
+            ->whereRaw($expression . ' IS NOT NULL')
+            ->whereRaw($expression . " <> ''")
+            ->groupBy(DB::raw($expression))
+            ->orderBy('value')
+            ->pluck('value')
+            ->map(fn ($value) => ['v' => (string) $value, 'l' => (string) $value])
+            ->all();
+
+        return [
+            'noteStatus' => $options($this->noteStatusExpression(), ['noteStatus']),
+            'location'   => $options('notes.lexp', ['location']),
+            'rubrica'    => $options('notes.rubrica', ['rubrica']),
+        ];
     }
 
     public function getStatusFilterOptionsProperty(): array
@@ -429,10 +452,10 @@ class Main extends Component
             $statusId   = (int) $status;
             $statusMeta = Notestatus::status($statusId);
             $options[]  = [
-                'value'   => (string) $statusId,
-                'label'   => $statusMeta?->status ?? ('Status ' . $statusId),
-                'count'   => $count,
-                'colorbg' => $statusMeta?->colorbg ?? 'text-bg-secondary',
+                'value' => (string) $statusId,
+                'label' => $statusMeta?->status ?? ('Status ' . $statusId),
+                'count' => $count,
+                'tone'  => \App\Support\Ops\Tone::forProductionStatus($statusId),
             ];
         }
 
@@ -441,51 +464,13 @@ class Main extends Component
         });
 
         array_unshift($options, [
-            'value'   => '',
-            'label'   => 'Todos',
-            'count'   => array_sum($counts),
-            'colorbg' => 'text-bg-dark',
+            'value' => '',
+            'label' => 'Todos',
+            'count' => array_sum($counts),
+            'tone'  => 'teal',
         ]);
 
         return $options;
-    }
-
-    public function getNoteStatusFilterOptionsProperty(): array
-    {
-        $statusExpression = $this->noteStatusExpression();
-
-        return $this->filterOptions(
-            (clone $this->baseListQuery(true, ['noteStatusFilters']))
-                ->selectRaw($statusExpression . ' as value, COUNT(*) as total')
-                ->whereRaw($statusExpression . " IS NOT NULL")
-                ->whereRaw($statusExpression . " <> ''")
-                ->groupBy(DB::raw($statusExpression)),
-            'noteStatusFilters'
-        );
-    }
-
-    public function getLocationFilterOptionsProperty(): array
-    {
-        return $this->filterOptions(
-            (clone $this->baseListQuery(true, ['locationFilters']))
-                ->selectRaw('notes.lexp as value, COUNT(*) as total')
-                ->whereNotNull('notes.lexp')
-                ->where('notes.lexp', '<>', '')
-                ->groupBy('notes.lexp'),
-            'locationFilters'
-        );
-    }
-
-    public function getRubricaFilterOptionsProperty(): array
-    {
-        return $this->filterOptions(
-            (clone $this->baseListQuery(true, ['rubricaFilters']))
-                ->selectRaw('notes.rubrica as value, COUNT(*) as total')
-                ->whereNotNull('notes.rubrica')
-                ->where('notes.rubrica', '<>', '')
-                ->groupBy('notes.rubrica'),
-            'rubricaFilters'
-        );
     }
 
     public function getProjectReviewInProgressCountProperty(): int
@@ -501,7 +486,7 @@ class Main extends Component
             ->when($this->user_s, function ($q) {
                 return $q->where('user_id', $this->user_s);
             }, function ($q) {
-                return $q->where('user_id', Auth()->user()->id);
+                return $q->where('user_id', Auth()->id());
             })
             ->join('notes', 'productions.note_id', '=', 'notes.id')
             ->where(function ($q) {
@@ -560,14 +545,14 @@ class Main extends Component
             ->when($applyStatusFilter && $this->statusFilter !== '', function ($q) {
                 return $q->where('productions.status', (int) $this->statusFilter);
             })
-            ->when(!in_array('noteStatusFilters', $exceptFilters, true) && count($this->selectedFilterValues($this->noteStatusFilters)), function ($q) {
-                return $q->whereIn(DB::raw($this->noteStatusExpression()), $this->selectedFilterValues($this->noteStatusFilters));
+            ->when(!in_array('noteStatus', $exceptFilters, true) && $this->filterValues('noteStatus'), function ($q) {
+                return $q->whereIn(DB::raw($this->noteStatusExpression()), $this->filterValues('noteStatus'));
             })
-            ->when(!in_array('locationFilters', $exceptFilters, true) && count($this->selectedFilterValues($this->locationFilters)), function ($q) {
-                return $q->whereIn('notes.lexp', $this->selectedFilterValues($this->locationFilters));
+            ->when(!in_array('location', $exceptFilters, true) && $this->filterValues('location'), function ($q) {
+                return $q->whereIn('notes.lexp', $this->filterValues('location'));
             })
-            ->when(!in_array('rubricaFilters', $exceptFilters, true) && count($this->selectedFilterValues($this->rubricaFilters)), function ($q) {
-                return $q->whereIn('notes.rubrica', $this->selectedFilterValues($this->rubricaFilters));
+            ->when(!in_array('rubrica', $exceptFilters, true) && $this->filterValues('rubrica'), function ($q) {
+                return $q->whereIn('notes.rubrica', $this->filterValues('rubrica'));
             });
     }
 
@@ -576,75 +561,15 @@ class Main extends Component
         return 'CASE WHEN notes.type_note = 1 THEN notes.centerjob ELSE notes.nstats END';
     }
 
-    private function selectedFilterValues(array $values): array
-    {
-        return collect($values)
-            ->map(fn ($value) => trim((string) $value))
-            ->filter(fn ($value) => $value !== '')
-            ->unique()
-            ->values()
-            ->all();
-    }
-
-    private function filterOptions($query, string $selectedProperty): array
-    {
-        $selected = $this->selectedFilterValues($this->{$selectedProperty});
-
-        return $query
-            ->orderBy('value')
-            ->pluck('total', 'value')
-            ->map(function ($total, $value) use ($selected) {
-                return [
-                    'value'    => (string) $value,
-                    'count'    => (int) $total,
-                    'selected' => in_array((string) $value, $selected, true),
-                ];
-            })
-            ->values()
-            ->all();
-    }
-
     public function getListsProperty()
     {
-
-        $this->user_l = User::when($this->user_search, function ($q) {
-            return $q->where('name', 'like', '%' . $this->user_search . '%');
-        })->orderBy('name')->get();
-
-        // return Production::Where('service_id', $this->service->uuid)
-
-        //                 ->where('user_id', Auth()->User()->id)
-        //                 ->where('completed', false)
-        //                 ->when($this->search, function ($q, $s) {
-        //                     return $q->where(function ($query) use ($s) {
-        //                         $query->whereRelation('Note', 'note', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'material', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'group1', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'group2', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'group3', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'group4', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'group5', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'lexp', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'rubrica', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'numPedido', 'like', '%'.$s.'%')
-        //                             ->orWhereRelation('Note', 'centerjob', 'like', '%'.$s.'%');
-        //                     });
-        //                 })
-        //                 ->when($this->note_type, function ($q) {
-        //                     return $q->whereRelation('Note', 'type_note', $this->note_type);
-        //                 })
-        //                 ->with(['Note' => function ($query) {
-        //                     $query->orderBy('dt_status', 'asc');
-        //                 }])
-        //                 ->orderBy('priority', 'DESC')
-
-        //                 ->paginate($this->perPage);
-
         return $this->baseListQuery(true)
-            ->with(['Note' => function ($query) {
-                $query->orderBy('dt_status', 'asc')
-                    ->orderBy('type_note', 'desc');
-            }])
+            ->with([
+                'Note',
+                'Note.Files.Note:id,note',
+                'Note.Files.Service:uuid,service',
+                'activeQualityProcess',
+            ])
             ->orderBy('priority', 'desc')
             ->orderByRaw('CASE WHEN productions.status = ? THEN 1 ELSE 0 END ASC', [Production::STATUS_IN_PROJECT_REVIEW])
             ->orderBy('d5', 'desc')
@@ -654,20 +579,18 @@ class Main extends Component
             ->select('productions.*', 'notes.dt_status', 'notes.is45', 'notes.type_note', 'notes.days_left')
             ->withExists(['ProjectReviewCycles as has_project_review_cycle'])
             ->paginate($this->perPage);
-
     }
 
     public function render()
     {
-        $lists = $this->lists;
+        $lists     = $this->lists;
+        $presenter = app(DesignListRowPresenter::class);
 
         return view('livewire.services.desenho.main', [
-            'lists'                   => $lists,
-            'legalTagsByNoteId'       => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
-            'statusFilterOptions'     => $this->statusFilterOptions,
-            'noteStatusFilterOptions' => $this->noteStatusFilterOptions,
-            'locationFilterOptions'   => $this->locationFilterOptions,
-            'rubricaFilterOptions'    => $this->rubricaFilterOptions,
+            'lists'               => $lists,
+            'rows'                => $lists->getCollection()->map(fn (Production $production) => $presenter->mine($production)),
+            'legalTagsByNoteId'   => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
+            'statusFilterOptions' => $this->statusFilterOptions,
         ]);
     }
 

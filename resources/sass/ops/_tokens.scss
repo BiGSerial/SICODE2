@@ -1,0 +1,84 @@
+// Tokens das listas operacionais (docs/PADRAO_LISTAS_OPERACIONAIS.md §12). ÚNICO lugar com cor, degradê, sombra e raio dos
+// componentes `ops-*`: `_ops.scss` e `_modal.scss` só usam `var(--ops-*)`. Trocar o visual = editar aqui.
+// Escopo `.ops-list` (telas) e `.ops-modal` (modais ficam fora da tela). O significado das cores é fixo:
+//   tons semânticos (green|blue|amber|red|teal|muted) vêm de `closure/_tones.scss`; situação da linha = `--ops-row-*`.
+
+.ops-list,
+.ops-modal {
+    // ---------- Texto e linhas ----------
+    --ops-ink: #0f172a;
+    --ops-muted: #64748b;
+    --ops-faint: #94a3b8;
+    --ops-line: #dbe2ea;
+    --ops-line-soft: #eef2f6;
+    --ops-scroll-thumb: #0f766e;
+    --ops-scroll-track: #e2e8f0;
+
+    // ---------- Pessoa (iniciais na lista de usuários) ----------
+    --ops-avatar-size: 36px;
+
+    // ---------- Superfícies ----------
+    --ops-surface: #fff;
+    --ops-surface-soft: #f1f5f9;
+    --ops-surface-app: #f4f7fb;
+    --ops-surface-chip: #eef5f6;
+    --ops-surface-segment: #eef3f8;
+    --ops-hover: #f3f8fb;
+
+    // ---------- Acento (filtros ativos, segmentado, foco) ----------
+    --ops-accent: #0891b2;
+    --ops-accent-strong: #0f766e;
+    --ops-accent-ink: #0e6f86;
+    --ops-accent-soft: rgba(8, 145, 178, .12);
+    --ops-accent-soft-weak: rgba(8, 145, 178, .09);
+    --ops-accent-border: rgba(8, 145, 178, .25);
+    --ops-accent-note-ink: #0e5f73;
+    --ops-accent-glow: rgba(8, 145, 178, .35);
+    --ops-accent-gradient: linear-gradient(135deg, var(--ops-accent-strong), var(--ops-accent));
+
+    // ---------- Hero e barras escuras ----------
+    --ops-hero-bg: linear-gradient(120deg, #0f172a 0%, #0f766e 55%, #0891b2 100%);
+    --ops-hero-bg-control: linear-gradient(120deg, #111827 0%, #312e81 58%, #4f46e5 100%);
+    --ops-eyebrow: #67e8f9;
+    --ops-eyebrow-control: #c7d2fe;
+    --ops-bar-bg: linear-gradient(120deg, #0f172a, #0f766e);
+    --ops-on-dark: #fff;
+    --ops-on-dark-muted: rgba(248, 250, 252, .82);
+    --ops-glass: rgba(255, 255, 255, .14);
+    --ops-glass-hover: rgba(255, 255, 255, .25);
+    --ops-glass-border: rgba(255, 255, 255, .35);
+    --ops-glass-fill: rgba(255, 255, 255, .12);
+    --ops-glass-badge: rgba(255, 255, 255, .92);
+
+    // ---------- Cor da linha por situação (RowState): barra de acento + fundo ----------
+    --ops-row-assigned: #263cc8;
+    --ops-row-assigned-bg: rgba(38, 60, 200, .14);
+    --ops-row-stack: #d9b400;
+    --ops-row-stack-bg: rgba(247, 210, 0, .26);
+    --ops-row-done: #0f8a77;
+    --ops-row-done-bg: rgba(15, 138, 119, .18);
+    --ops-row-late: #e32c2c;
+    --ops-row-late-bg: rgba(227, 44, 44, .16);
+    --ops-row-priority: var(--ops-row-late);
+    --ops-row-priority-bg: rgba(227, 44, 44, .05);
+    --ops-row-free-swatch: #cbd5e1;
+
+    // ---------- Avisos ----------
+    --ops-warn-bg: rgba(247, 210, 0, .18);
+    --ops-warn-border: #d9b400;
+    --ops-warn-ink: #7a5d00;
+    --ops-danger-ink: #a11d1d;
+
+    // ---------- Esqueleto de carregamento ----------
+    --ops-skel-a: #dbe4ec;
+    --ops-skel-b: #eef3f7;
+
+    // ---------- Forma e profundidade ----------
+    --ops-radius: 10px;
+    --ops-radius-lg: 14px;
+    --ops-shadow-card: 0 16px 34px rgba(15, 23, 42, .08);
+    --ops-shadow-bar: 0 18px 40px rgba(15, 23, 42, .35);
+    --ops-shadow-modal: 0 22px 60px rgba(15, 23, 42, .28);
+    --ops-row-h: 56px;
+    --ops-edge: 18px; // respiro entre o texto e a borda do card/tabela/modal
+}

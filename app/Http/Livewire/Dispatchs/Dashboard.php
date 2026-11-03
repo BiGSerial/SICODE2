@@ -2,864 +2,155 @@
 
 namespace App\Http\Livewire\Dispatchs;
 
-use App\Custom\RuleBuilder;
-use App\Models\{Note, Service};
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\{Carbon, Str};
-use Illuminate\Support\Facades\DB;
+use App\Jobs\Dispatchs\ActivityDashboardExportJob;
+use App\Models\Service;
+use App\Services\Dispatch\Dashboard\{ActivityDashboardAnalytics, ActivityDashboardCharts};
+use Illuminate\Support\Carbon;
 use Livewire\Component;
 
+/**
+ * Dashboard de atividade (docs/dashboards/DASHBOARD_ATIVIDADE.md; padrão em docs/PADRAO_DASHBOARDS.md). O componente só guarda os
+ * filtros e orquestra; os números vêm de `ActivityDashboardAnalytics` e os gráficos de `ActivityDashboardCharts`.
+ */
 class Dashboard extends Component
 {
-    public $service;
+    public const PRESETS = [
+        'month' => 'Mês atual',
+        'prev'  => 'Mês anterior',
+        '90d'   => 'Últimos 90 dias',
+        'year'  => 'Ano',
+    ];
+
+    public string $serviceId = '';
 
     public string $noteType = '2';
 
     public bool $includeTrackingRubric = false;
 
-    public string $statusChartId;
+    public string $rangeFrom = '';
 
-    public string $deadlineChartId;
-
-    public string $userChartId;
-
-    public string $rangeFrom;
-
-    public string $rangeTo;
+    public string $rangeTo = '';
 
     public string $adherenceDays = '8';
 
-    public string $bandSatelChartId;
-
-    public string $bandOwnChartId;
+    protected $queryString = [
+        'noteType'              => ['except' => '2', 'as' => 'tipo'],
+        'includeTrackingRubric' => ['except' => false, 'as' => 'acomp'],
+        'rangeFrom'             => ['except' => '', 'as' => 'de'],
+        'rangeTo'               => ['except' => '', 'as' => 'ate'],
+        'adherenceDays'         => ['except' => '8', 'as' => 'aderencia'],
+    ];
 
     public function mount($service): void
     {
-        $this->service = Service::query()
-            ->with('Status')
-            ->where('uuid', $service)
-            ->firstOrFail();
+        $this->serviceId = (string) Service::query()->where('uuid', $service)->firstOrFail()->uuid;
 
-        $suffix                 = Str::random(8);
-        $this->statusChartId    = 'dispatchStatusAge-' . $suffix;
-        $this->deadlineChartId  = 'dispatchDeadline-' . $suffix;
-        $this->userChartId      = 'dispatchUsers-' . $suffix;
-        $this->bandSatelChartId = 'dispatchBandSatel-' . $suffix;
-        $this->bandOwnChartId   = 'dispatchBandOwn-' . $suffix;
+        Carbon::setLocale('pt_BR');
 
-        $this->rangeFrom = now()->startOfMonth()->toDateString();
-        $this->rangeTo   = now()->endOfMonth()->toDateString();
-    }
-
-    public function updatedAdherenceDays(): void
-    {
-        $this->adherenceDays = $this->adherenceDays === '6' ? '6' : '8';
-
-        $this->refreshBandCharts();
-    }
-
-    public function updatedRangeFrom(): void
-    {
-        $this->normalizeRange();
-        $this->refreshBandCharts();
-    }
-
-    public function updatedRangeTo(): void
-    {
-        $this->normalizeRange();
-        $this->refreshBandCharts();
-    }
-
-    protected function normalizeRange(): void
-    {
-        try {
-            $from = Carbon::parse($this->rangeFrom)->startOfDay();
-            $to   = Carbon::parse($this->rangeTo)->startOfDay();
-        } catch (\Throwable $e) {
-            $from = now()->startOfMonth();
-            $to   = now()->endOfMonth();
+        if (blank($this->rangeFrom) || blank($this->rangeTo)) {
+            $this->applyPreset('month');
         }
 
-        if ($to->lt($from)) {
-            $to = $from->copy();
+        $this->normalize();
+    }
+
+    public function hydrate(): void
+    {
+        Carbon::setLocale('pt_BR');
+    }
+
+    public function setPreset(string $preset): void
+    {
+        if (array_key_exists($preset, self::PRESETS)) {
+            $this->applyPreset($preset);
+            $this->refreshCharts();
         }
+    }
+
+    public function clearFilters(): void
+    {
+        $this->noteType              = '2';
+        $this->includeTrackingRubric = false;
+        $this->adherenceDays         = '8';
+        $this->applyPreset('month');
+        $this->refreshCharts();
+    }
+
+    public function updated($name): void
+    {
+        $this->normalize();
+        $this->refreshCharts();
+    }
+
+    public function exportToExcel(): void
+    {
+        ActivityDashboardExportJob::dispatch($this->serviceId, $this->filters(), auth()->id())
+            ->onConnection((string) config('queue.channels.exports.connection', 'database'))
+            ->onQueue((string) config('queue.channels.exports.queue', 'exports'));
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO EM ANDAMENTO.',
+            'html'     => "<div class='card'><div class='card-body'><p>O dashboard está sendo gerado em Excel. Você será notificado quando o arquivo estiver pronto para download.</p><p class='fw-bold'>Verifique sua Central de Notificação.</p></div></div>",
+            'timer'    => 5000,
+        ]);
+    }
+
+    public function getServiceProperty(): Service
+    {
+        return Service::query()->with('Status')->where('uuid', $this->serviceId)->firstOrFail();
+    }
+
+    public function getSnapshotProperty(): array
+    {
+        return ActivityDashboardAnalytics::for($this->service)->snapshot($this->service, $this->filters());
+    }
+
+    public function render()
+    {
+        $snapshot = $this->snapshot;
+
+        return view('livewire.dispatchs.dashboard', [
+            'service'  => $this->service,
+            'snapshot' => $snapshot,
+            'charts'   => ActivityDashboardCharts::all($snapshot),
+        ]);
+    }
+
+    /** @return array{type: string, tracking: bool, from: string, to: string, limit: string} */
+    private function filters(): array
+    {
+        return ['type' => $this->noteType, 'tracking' => $this->includeTrackingRubric, 'from' => $this->rangeFrom, 'to' => $this->rangeTo, 'limit' => $this->adherenceDays];
+    }
+
+    /** Valores inválidos da URL viram o padrão; datas trocadas são corrigidas. */
+    private function normalize(): void
+    {
+        $f = app(ActivityDashboardAnalytics::class)->normalize($this->filters());
+
+        $this->noteType      = $f['type'];
+        $this->rangeFrom     = $f['from']->toDateString();
+        $this->rangeTo       = $f['to']->toDateString();
+        $this->adherenceDays = (string) $f['limit'];
+    }
+
+    private function applyPreset(string $preset): void
+    {
+        [$from, $to] = match ($preset) {
+            'prev'  => [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()],
+            '90d'   => [now()->subDays(89), now()],
+            'year'  => [now()->startOfYear(), now()->endOfYear()],
+            default => [now()->startOfMonth(), now()->endOfMonth()],
+        };
 
         $this->rangeFrom = $from->toDateString();
         $this->rangeTo   = $to->toDateString();
     }
 
-    protected function refreshBandCharts(): void
+    /** Envia os gráficos novos; o JS (`my-panel.js`) os aplica in-place, sem recriar. */
+    private function refreshCharts(): void
     {
-        $charts = $this->bandCharts();
-
-        $this->dispatchBrowserEvent('grafico-atualizar-' . $this->bandSatelChartId, $charts['satel']);
-        $this->dispatchBrowserEvent('grafico-atualizar-' . $this->bandOwnChartId, $charts['own']);
-    }
-
-    /**
-     * Faixas de dias entre a data do status da nota (productions.dt_note) e a finalização,
-     * por mês de finalização, separadas por empresa (SATEL x PRÓPRIO). Somente OV (type_note = 2).
-     */
-    protected function bandCharts(): array
-    {
-        $limit = (int) $this->adherenceDays;
-
-        $from = Carbon::parse($this->rangeFrom)->startOfDay();
-        $to   = Carbon::parse($this->rangeTo)->endOfDay();
-
-        $rows = DB::table('productions as p')
-            ->join('notes', 'notes.id', '=', 'p.note_id')
-            ->leftJoin('companies', 'companies.id', '=', 'p.company_id')
-            ->where('p.service_id', $this->service->uuid)
-            ->where('p.completed', 1)
-            ->where(fn ($q) => $q->whereNull('p.returned')->orWhere('p.returned', 0))
-            ->where(fn ($q) => $q->whereNull('p.d5')->orWhere('p.d5', 0))
-            ->where(fn ($q) => $q->whereNull('p.dfive')->orWhere('p.dfive', 0))
-            ->where('notes.type_note', 2)
-            ->whereNotNull('p.dt_note')
-            ->whereNotNull('p.completed_at')
-            ->whereBetween('p.completed_at', [$from, $to])
-            ->selectRaw(
-                "DATE_FORMAT(p.completed_at, '%Y-%m') as ym,
-                LOWER(COALESCE(companies.name, '')) as company,
-                CASE
-                    WHEN GREATEST(DATEDIFF(p.completed_at, p.dt_note), 0) <= ? THEN 0
-                    WHEN GREATEST(DATEDIFF(p.completed_at, p.dt_note), 0) <= 15 THEN 1
-                    WHEN GREATEST(DATEDIFF(p.completed_at, p.dt_note), 0) <= 30 THEN 2
-                    ELSE 3
-                END as band,
-                COUNT(*) as total",
-                [$limit]
-            )
-            ->groupBy('ym', 'company', 'band')
-            ->get();
-
-        $months = [];
-
-        for ($cursor = $from->copy()->startOfMonth(); $cursor->lte($to); $cursor->addMonth()) {
-            $months[$cursor->format('Y-m')] = $cursor->copy();
-        }
-
-        $groups = ['satel' => [], 'own' => []];
-
-        foreach ($rows as $row) {
-            if (str_contains($row->company, 'satel')) {
-                $group = 'satel';
-            } elseif (str_contains($row->company, 'edp')) {
-                $group = 'own';
-            } else {
-                continue;
-            }
-
-            $groups[$group][$row->ym][(int) $row->band] = ($groups[$group][$row->ym][(int) $row->band] ?? 0) + (int) $row->total;
-        }
-
-        $second     = $limit + 1;
-        $bandLabels = ["0 a {$limit} dias", "{$second} a 15 dias", '16 a 30 dias', 'Acima de 30'];
-        $bandColors = ['#28FF52', '#BFC5C9', '#225E66', '#C00000'];
-
-        $charts = [];
-
-        foreach ($groups as $group => $data) {
-            $labels = [];
-            $series = array_fill(0, 4, []);
-
-            foreach ($months as $ym => $date) {
-                $counts = array_map(fn ($band) => $data[$ym][$band] ?? 0, range(0, 3));
-                $total  = array_sum($counts);
-                $pct    = $total > 0 ? number_format($counts[0] / $total * 100, 1, ',', '.') . '%' : '-';
-
-                $labels[] = [$date->locale('pt_BR')->translatedFormat('M/y'), "Total {$total}", $pct];
-
-                foreach ($counts as $band => $count) {
-                    $series[$band][] = $count;
-                }
-            }
-
-            $datasets = [];
-
-            foreach ($bandLabels as $band => $label) {
-                $datasets[] = [
-                    'label'           => $label,
-                    'data'            => $series[$band],
-                    'backgroundColor' => $bandColors[$band],
-                    'borderColor'     => $bandColors[$band],
-                    'borderRadius'    => 3,
-                    'stack'           => 'stack',
-                ];
-            }
-
-            $charts[$group] = [
-                'type'    => 'bar',
-                'data'    => ['labels' => $labels, 'datasets' => $datasets],
-                'options' => [
-                    'responsive'          => true,
-                    'maintainAspectRatio' => false,
-                    'plugins'             => [
-                        'legend'     => ['position' => 'top', 'labels' => ['usePointStyle' => true, 'boxWidth' => 8]],
-                        'tooltip'    => ['mode' => 'index', 'intersect' => false],
-                        'datalabels' => [
-                            'display' => '__VALUE_LABEL_NONZERO__',
-                            'font'    => ['weight' => '700', 'size' => 10],
-                        ],
-                    ],
-                    'scales' => [
-                        'x' => ['stacked' => true, 'grid' => ['display' => false]],
-                        'y' => ['stacked' => true, 'beginAtZero' => true, 'ticks' => ['precision' => 0]],
-                    ],
-                ],
-            ];
-        }
-
-        return $charts;
-    }
-
-    public function updatedNoteType(): void
-    {
-        $this->noteType = in_array((string) $this->noteType, ['1', '2', ''], true)
-            ? (string) $this->noteType
-            : '2';
-
-        $this->refreshCharts();
-    }
-
-    public function updatedIncludeTrackingRubric(): void
-    {
-        $this->refreshCharts();
-    }
-
-    protected function stackQuery(): Builder
-    {
-        $query = Note::query()->excludeCanceledFullDone();
-
-        RuleBuilder::applyRules($query, $this->service->Status);
-
-        if ($this->noteType !== '') {
-            $query->where('type_note', (int) $this->noteType);
-        }
-
-        if (!$this->includeTrackingRubric) {
-            $query->whereRaw("LOWER(TRIM(COALESCE(notes.rubrica, ''))) <> ?", ['acompanhamento']);
-        }
-
-        return $query;
-    }
-
-    protected function chartStackQuery(): Builder
-    {
-        return $this->stackQuery();
-    }
-
-    protected function assignedExistsSql(): string
-    {
-        return 'EXISTS (
-            SELECT 1
-            FROM productions p
-            WHERE p.note_id = notes.id
-              AND p.service_id = ?
-              AND p.confirmed = 0
-        )';
-    }
-
-    protected function statusBucketSql(): string
-    {
-        return "CASE
-            WHEN notes.dt_status IS NULL THEN 'Sem data'
-            WHEN DATEDIFF(CURDATE(), notes.dt_status) >= 30 THEN '30+'
-            WHEN DATEDIFF(CURDATE(), notes.dt_status) < 0 THEN '0'
-            ELSE CAST(DATEDIFF(CURDATE(), notes.dt_status) AS CHAR)
-        END";
-    }
-
-    protected function deadlineBucketSql(): string
-    {
-        return "CASE
-            WHEN notes.days_left IS NULL THEN 'Sem prazo'
-            WHEN (30 - notes.days_left) < 0 THEN '0'
-            ELSE CAST((30 - notes.days_left) AS CHAR)
-        END";
-    }
-
-    protected function labelsForStatusAge(): array
-    {
-        return array_merge(array_map('strval', range(0, 29)), ['30+', 'Sem data']);
-    }
-
-    protected function labelsForDeadline(): array
-    {
-        return array_merge(array_map('strval', range(30, 0)), ['Sem prazo']);
-    }
-
-    protected function aggregateStackedBuckets(string $bucketSql, array $labels): array
-    {
-        $rows = (clone $this->chartStackQuery())
-            ->selectRaw(
-                "{$bucketSql} as bucket,
-                CASE WHEN {$this->assignedExistsSql()} THEN 'assigned' ELSE 'unassigned' END as assignment,
-                COUNT(*) as total",
-                [$this->service->uuid]
-            )
-            ->groupBy('bucket', 'assignment')
-            ->get();
-
-        $filledBuckets = $rows
-            ->filter(fn ($row) => (int) $row->total > 0)
-            ->pluck('bucket')
-            ->map(fn ($bucket) => (string) $bucket)
-            ->unique()
-            ->values()
-            ->toArray();
-
-        $labels = array_values(array_filter(
-            $labels,
-            fn ($label) => in_array((string) $label, $filledBuckets, true)
-        ));
-
-        $assigned   = array_fill_keys($labels, 0);
-        $unassigned = array_fill_keys($labels, 0);
-
-        foreach ($rows as $row) {
-            $bucket = (string) $row->bucket;
-            $target = $row->assignment === 'assigned' ? 'assigned' : 'unassigned';
-
-            if (!array_key_exists($bucket, $assigned)) {
-                continue;
-            }
-
-            if ($target === 'assigned') {
-                $assigned[$bucket] = (int) $row->total;
-            } else {
-                $unassigned[$bucket] = (int) $row->total;
-            }
-        }
-
-        return [
-            'labels'     => $labels,
-            'assigned'   => array_values($assigned),
-            'unassigned' => array_values($unassigned),
-        ];
-    }
-
-    protected function aggregateDeadlineBucketsByCompany(): array
-    {
-        $bucketSql = $this->deadlineBucketSql();
-
-        $rows = (clone $this->chartStackQuery())
-            ->selectRaw(
-                "{$bucketSql} as bucket,
-                COALESCE((
-                    SELECT companies.name
-                    FROM productions p
-                    LEFT JOIN companies ON companies.id = p.company_id
-                    WHERE p.note_id = notes.id
-                      AND p.service_id = ?
-                      AND p.confirmed = 0
-                    ORDER BY p.created_at DESC
-                    LIMIT 1
-                ), 'Na pilha') as series,
-                COUNT(*) as total",
-                [$this->service->uuid]
-            )
-            ->groupBy('bucket', 'series')
-            ->get();
-
-        $numericBuckets = $rows
-            ->pluck('bucket')
-            ->filter(fn ($bucket) => is_numeric($bucket))
-            ->map(fn ($bucket) => (int) $bucket);
-
-        $maxBucket = max(30, (int) ($numericBuckets->max() ?? 30));
-        $labels    = array_map('strval', range($maxBucket, 0));
-
-        if ($rows->contains(fn ($row) => (string) $row->bucket === 'Sem prazo')) {
-            $labels[] = 'Sem prazo';
-        }
-
-        $filledBuckets = $rows
-            ->filter(fn ($row) => (int) $row->total > 0)
-            ->pluck('bucket')
-            ->map(fn ($bucket) => (string) $bucket)
-            ->unique()
-            ->values()
-            ->toArray();
-
-        $labels = array_values(array_filter(
-            $labels,
-            fn ($label) => in_array((string) $label, $filledBuckets, true)
-        ));
-
-        $series = [];
-
-        foreach ($rows as $row) {
-            $bucket = (string) $row->bucket;
-            $name   = (string) $row->series;
-
-            if (!in_array($bucket, $labels, true)) {
-                continue;
-            }
-
-            if (!array_key_exists($name, $series)) {
-                $series[$name] = array_fill_keys($labels, 0);
-            }
-
-            $series[$name][$bucket] = (int) $row->total;
-        }
-
-        $orderedSeries = [];
-
-        foreach ($series as $name => $values) {
-            if (str_contains(mb_strtolower($name), 'satel')) {
-                $orderedSeries[$name] = $values;
-            }
-        }
-
-        foreach ($series as $name => $values) {
-            $normalized = mb_strtolower($name);
-
-            if ($name !== 'Na pilha' && !str_contains($normalized, 'satel') && str_contains($normalized, 'edp')) {
-                $orderedSeries[$name] = $values;
-            }
-        }
-
-        foreach ($series as $name => $values) {
-            $normalized = mb_strtolower($name);
-
-            if ($name !== 'Na pilha' && !str_contains($normalized, 'satel') && !str_contains($normalized, 'edp')) {
-                $orderedSeries[$name] = $values;
-            }
-        }
-
-        if (array_key_exists('Na pilha', $series)) {
-            $orderedSeries['Na pilha'] = $series['Na pilha'];
-        }
-
-        return [
-            'labels' => $labels,
-            'series' => $orderedSeries,
-        ];
-    }
-
-    protected function summary(): array
-    {
-        $row = (clone $this->stackQuery())
-            ->selectRaw(
-                "COUNT(*) as total,
-                SUM(CASE WHEN {$this->assignedExistsSql()} THEN 1 ELSE 0 END) as assigned,
-                SUM(CASE WHEN notes.days_left < 0 THEN 1 ELSE 0 END) as overdue,
-                AVG(CASE
-                    WHEN notes.dt_status IS NULL THEN NULL
-                    WHEN DATEDIFF(CURDATE(), notes.dt_status) < 0 THEN 0
-                    ELSE DATEDIFF(CURDATE(), notes.dt_status)
-                END) as avg_status_days",
-                [$this->service->uuid]
-            )
-            ->first();
-
-        $total    = (int) ($row->total ?? 0);
-        $assigned = (int) ($row->assigned ?? 0);
-
-        return [
-            'total'           => $total,
-            'assigned'        => $assigned,
-            'unassigned'      => max(0, $total - $assigned),
-            'overdue'         => (int) ($row->overdue ?? 0),
-            'avg_status_days' => round((float) ($row->avg_status_days ?? 0), 1),
-        ];
-    }
-
-    protected function userDistribution(): array
-    {
-        $ageSql = "GREATEST(DATEDIFF(CURDATE(), COALESCE(productions.att_at, productions.dispatch_at, productions.created_at)), 0)";
-
-        $rows = (clone $this->chartStackQuery())
-            ->join('productions', 'productions.note_id', '=', 'notes.id')
-            ->join('users', 'users.id', '=', 'productions.user_id')
-            ->where('productions.service_id', $this->service->uuid)
-            ->where('productions.confirmed', false)
-            ->whereNotNull('productions.user_id')
-            ->selectRaw(
-                "users.name as user_name,
-                CASE
-                    WHEN {$ageSql} < 5 THEN 'Até 4 dias'
-                    WHEN {$ageSql} <= 8 THEN '5 a 8 dias'
-                    ELSE 'Mais de 8 dias'
-                END as age_bucket,
-                COUNT(DISTINCT notes.id) as total"
-            )
-            ->groupBy('user_name', 'age_bucket')
-            ->get();
-
-        $bucketLabels = ['Até 4 dias', '5 a 8 dias', 'Mais de 8 dias'];
-        $users        = $rows
-            ->groupBy('user_name')
-            ->map(fn ($items) => [
-                'total'   => (int) $items->sum('total'),
-                'buckets' => $items->pluck('total', 'age_bucket'),
-            ])
-            ->sortByDesc('total')
-            ->take(12);
-
-        return [
-            'labels'  => $users->keys()->values()->toArray(),
-            'buckets' => collect($bucketLabels)
-                ->mapWithKeys(fn ($bucket) => [
-                    $bucket => $users
-                        ->map(fn ($user) => (int) ($user['buckets'][$bucket] ?? 0))
-                        ->values()
-                        ->toArray(),
-                ])
-                ->toArray(),
-        ];
-    }
-
-    protected function criticalStackItems()
-    {
-        return $this->criticalStackQuery()
-            ->limit(15)
-            ->get();
-    }
-
-    protected function criticalStackQuery(): Builder
-    {
-        return (clone $this->stackQuery())
-            ->select('notes.id')
-            ->selectRaw("
-                notes.note as document_number,
-                CASE WHEN notes.type_note = 2 THEN 'OV' ELSE 'Nota' END as document_type,
-                notes.rubrica as category_name,
-                notes.lexp as city_name,
-                CASE
-                    WHEN notes.days_left IS NULL THEN NULL
-                    WHEN (30 - notes.days_left) < 0 THEN 0
-                    ELSE (30 - notes.days_left)
-                END as deadline_value,
-                CASE
-                    WHEN notes.dt_status IS NULL THEN NULL
-                    WHEN DATEDIFF(CURDATE(), notes.dt_status) < 0 THEN 0
-                    ELSE DATEDIFF(CURDATE(), notes.dt_status)
-                END as status_days
-            ")
-            ->selectRaw(
-                "CASE WHEN {$this->assignedExistsSql()} THEN 1 ELSE 0 END as assigned,
-                (
-                    SELECT users.name
-                    FROM productions p
-                    LEFT JOIN users ON users.id = p.user_id
-                    WHERE p.note_id = notes.id
-                      AND p.service_id = ?
-                      AND p.confirmed = 0
-                    ORDER BY p.created_at DESC
-                    LIMIT 1
-                ) as assigned_user",
-                [$this->service->uuid, $this->service->uuid]
-            )
-            ->orderByRaw('CASE WHEN notes.days_left IS NULL THEN 1 ELSE 0 END ASC')
-            ->orderByRaw('GREATEST(30 - notes.days_left, 0) DESC')
-            ->orderBy('notes.dt_status');
-    }
-
-    public function exportCriticalStack()
-    {
-        $fileName = 'pilha-critica-' . now()->format('Ymd-His') . '.csv';
-
-        return response()->streamDownload(function () {
-            $handle = fopen('php://output', 'w');
-            fwrite($handle, "\xEF\xBB\xBF");
-
-            fputcsv($handle, [
-                'Nota/OV',
-                'Tipo',
-                'Rubrica',
-                'Municipio',
-                'Status',
-                'Dias no status',
-                'Prazo',
-                'Usuario',
-            ], ';', '"', '');
-
-            $this->criticalStackQuery()
-                ->chunk(500, function ($items) use ($handle) {
-                    foreach ($items as $item) {
-                        fputcsv($handle, [
-                            $item->document_number,
-                            $item->document_type,
-                            $item->category_name ?: '-',
-                            $item->city_name ?: '-',
-                            (int) $item->assigned === 1 ? 'Em atribuicao' : 'Na pilha',
-                            $item->status_days ?? '-',
-                            $item->deadline_value ?? '-',
-                            $item->assigned_user ?: '-',
-                        ], ';', '"', '');
-                    }
-                });
-
-            fclose($handle);
-        }, $fileName, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
-    }
-
-    protected function stackedChart(array $bucketData, string $xTitle): array
-    {
-        return [
-            'type' => 'bar',
-            'data' => [
-                'labels'   => $bucketData['labels'],
-                'datasets' => [
-                    [
-                        'label'           => 'Em atribuição',
-                        'data'            => $bucketData['assigned'],
-                        'backgroundColor' => '#28FF52',
-                        'borderColor'     => '#28FF52',
-                        'borderRadius'    => 4,
-                        'stack'           => 'stack',
-                    ],
-                    [
-                        'label'           => 'Na pilha',
-                        'data'            => $bucketData['unassigned'],
-                        'backgroundColor' => '#A9FFBA',
-                        'borderColor'     => '#A9FFBA',
-                        'borderRadius'    => 4,
-                        'stack'           => 'stack',
-                    ],
-                ],
-            ],
-            'options' => [
-                'responsive'          => true,
-                'maintainAspectRatio' => false,
-                'plugins'             => [
-                    'legend' => [
-                        'position' => 'bottom',
-                        'labels'   => [
-                            'usePointStyle' => true,
-                            'boxWidth'      => 8,
-                        ],
-                    ],
-                    'tooltip' => [
-                        'mode'      => 'index',
-                        'intersect' => false,
-                    ],
-                    'datalabels' => [
-                        'display' => '__VALUE_LABEL_NONZERO__',
-                        'anchor'  => 'end',
-                        'align'   => 'top',
-                        'font'    => ['weight' => '700', 'size' => 10],
-                    ],
-                ],
-                'interaction' => [
-                    'mode'      => 'index',
-                    'intersect' => false,
-                ],
-                'scales' => [
-                    'x' => [
-                        'stacked' => true,
-                        'grid'    => ['display' => false],
-                        'title'   => ['display' => true, 'text' => $xTitle],
-                    ],
-                    'y' => [
-                        'stacked'     => true,
-                        'beginAtZero' => true,
-                        'ticks'       => ['precision' => 0],
-                        'title'       => ['display' => true, 'text' => 'Qtd'],
-                    ],
-                ],
-            ],
-        ];
-    }
-
-    protected function deadlineCompanyChart(array $bucketData): array
-    {
-        $palette = [
-            '#102033',
-            '#263CC8',
-            '#0CD3F8',
-            '#E32C2C',
-            '#F59E0B',
-            '#155F67',
-            '#7C9599',
-            '#F7D200',
-            '#225E66',
-            '#A8B1E9',
-        ];
-
-        $datasets = [];
-        $index    = 0;
-
-        foreach ($bucketData['series'] as $label => $values) {
-            $normalized = mb_strtolower($label);
-
-            if ($label === 'Na pilha') {
-                $color = '#BECACC';
-            } elseif (str_contains($normalized, 'satel')) {
-                $color = '#9EEDFC';
-            } elseif (str_contains($normalized, 'edp')) {
-                $color = '#C5ADFF';
-            } else {
-                $color = $palette[$index++ % count($palette)];
-            }
-
-            $datasets[] = [
-                'label'           => $label,
-                'data'            => array_values($values),
-                'backgroundColor' => $color,
-                'borderColor'     => $color,
-                'borderRadius'    => 4,
-                'stack'           => 'stack',
-            ];
-        }
-
-        return [
-            'type' => 'bar',
-            'data' => [
-                'labels'   => $bucketData['labels'],
-                'datasets' => $datasets,
-            ],
-            'options' => [
-                'responsive'          => true,
-                'maintainAspectRatio' => false,
-                'plugins'             => [
-                    'legend' => [
-                        'position' => 'bottom',
-                        'labels'   => [
-                            'usePointStyle' => true,
-                            'boxWidth'      => 8,
-                        ],
-                    ],
-                    'tooltip' => [
-                        'mode'      => 'index',
-                        'intersect' => false,
-                    ],
-                    'datalabels' => [
-                        'display' => '__VALUE_LABEL_NONZERO__',
-                        'anchor'  => 'end',
-                        'align'   => 'top',
-                        'font'    => ['weight' => '700', 'size' => 10],
-                    ],
-                ],
-                'interaction' => [
-                    'mode'      => 'index',
-                    'intersect' => false,
-                ],
-                'scales' => [
-                    'x' => [
-                        'stacked' => true,
-                        'grid'    => ['display' => false],
-                        'title'   => ['display' => true, 'text' => 'Prazo real'],
-                    ],
-                    'y' => [
-                        'stacked'     => true,
-                        'beginAtZero' => true,
-                        'ticks'       => ['precision' => 0],
-                        'title'       => ['display' => true, 'text' => 'Qtd'],
-                    ],
-                ],
-            ],
-        ];
-    }
-
-    protected function userChart(array $userData): array
-    {
-        return [
-            'type' => 'bar',
-            'data' => [
-                'labels'   => $userData['labels'],
-                'datasets' => [
-                    [
-                        'label'           => 'Até 4 dias',
-                        'data'            => $userData['buckets']['Até 4 dias'] ?? [],
-                        'backgroundColor' => '#A9FFBA',
-                        'borderColor'     => '#A9FFBA',
-                        'borderRadius'    => 5,
-                        'stack'           => 'stack',
-                    ],
-                    [
-                        'label'           => '5 a 8 dias',
-                        'data'            => $userData['buckets']['5 a 8 dias'] ?? [],
-                        'backgroundColor' => '#28FF52',
-                        'borderColor'     => '#28FF52',
-                        'borderRadius'    => 5,
-                        'stack'           => 'stack',
-                    ],
-                    [
-                        'label'           => 'Mais de 8 dias',
-                        'data'            => $userData['buckets']['Mais de 8 dias'] ?? [],
-                        'backgroundColor' => '#A8B1E9',
-                        'borderColor'     => '#A8B1E9',
-                        'borderRadius'    => 5,
-                        'stack'           => 'stack',
-                    ],
-                ],
-            ],
-            'options' => [
-                'indexAxis'           => 'y',
-                'responsive'          => true,
-                'maintainAspectRatio' => false,
-                'plugins'             => [
-                    'legend' => [
-                        'display'  => true,
-                        'position' => 'top',
-                        'labels'   => [
-                            'usePointStyle' => true,
-                            'boxWidth'      => 8,
-                        ],
-                    ],
-                    'datalabels' => [
-                        'display' => '__VALUE_LABEL_NONZERO__',
-                        'anchor'  => 'end',
-                        'align'   => 'right',
-                        'font'    => ['weight' => '700', 'size' => 10],
-                    ],
-                ],
-                'scales' => [
-                    'x' => [
-                        'stacked'     => true,
-                        'beginAtZero' => true,
-                        'ticks'       => ['precision' => 0],
-                        'grid'        => ['color' => 'rgba(148, 163, 184, .18)'],
-                    ],
-                    'y' => [
-                        'stacked' => true,
-                        'grid'    => ['display' => false],
-                    ],
-                ],
-            ],
-        ];
-    }
-
-    protected function chartPayloads(): array
-    {
-        $statusBuckets   = $this->aggregateStackedBuckets($this->statusBucketSql(), $this->labelsForStatusAge());
-        $deadlineBuckets = $this->aggregateDeadlineBucketsByCompany();
-        $userData        = $this->userDistribution();
-
-        return [
-            'statusAgeChart' => $this->stackedChart($statusBuckets, 'Tempo no status'),
-            'deadlineChart'  => $this->deadlineCompanyChart($deadlineBuckets),
-            'userChart'      => $this->userChart($userData),
-        ];
-    }
-
-    protected function refreshCharts(): void
-    {
-        $payloads = $this->chartPayloads();
-
-        $this->dispatchBrowserEvent('grafico-atualizar-' . $this->statusChartId, $payloads['statusAgeChart']);
-        $this->dispatchBrowserEvent('grafico-atualizar-' . $this->deadlineChartId, $payloads['deadlineChart']);
-        $this->dispatchBrowserEvent('grafico-atualizar-' . $this->userChartId, $payloads['userChart']);
-    }
-
-    public function render()
-    {
-        $payloads = $this->chartPayloads();
-
-        return view('livewire.dispatchs.dashboard', [
-            'summary'        => $this->summary(),
-            'statusAgeChart' => $payloads['statusAgeChart'],
-            'deadlineChart'  => $payloads['deadlineChart'],
-            'userChart'      => $payloads['userChart'],
-            'bandCharts'     => $this->bandCharts(),
-            'criticalItems'  => $this->criticalStackItems(),
-            'lastUpdatedAt'  => Carbon::now(),
-        ]);
+        $this->dispatchBrowserEvent('my-panel:charts', ['charts' => ActivityDashboardCharts::all($this->snapshot)]);
     }
 }

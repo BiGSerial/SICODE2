@@ -2,35 +2,32 @@
 
 namespace App\Exports\Dispatchs;
 
-use App\Custom\Notestatus;
-use App\Custom\WpaStatus;
+use App\Custom\{Notestatus, WpaStatus};
 use App\Helpers\DaysLeft;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Illuminate\Database\Eloquent\Builder;
+use Maatwebsite\Excel\Concerns\{Exportable, FromQuery, WithChunkReading, WithEvents, WithHeadings, WithMapping, WithProperties};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use Illuminate\Database\Eloquent\Builder;
 
 class SurveyProductionExport implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
 {
     use Exportable;
 
     protected $serviceUuid;
+
     protected $selectedIds;
+
     protected $daysLeftCache = [];
+
     protected $daysLeftCalculator;
+
     protected $query;
 
     public function __construct(Builder $query, $serviceUuid, array $selectedIds = [])
     {
-        $this->query = $query;
-        $this->serviceUuid = $serviceUuid;
-        $this->selectedIds = $selectedIds;
+        $this->query              = $query;
+        $this->serviceUuid        = $serviceUuid;
+        $this->selectedIds        = $selectedIds;
         $this->daysLeftCalculator = new DaysLeft(); // Initialize DaysLeft outside loop
     }
 
@@ -40,7 +37,6 @@ class SurveyProductionExport implements FromQuery, WithEvents, WithProperties, W
             return $q->whereIn('id', $this->selectedIds);
         })->with('note', 'dispatcher', 'att', 'service', 'user', 'company', 'wpas', 'analise');
     }
-
 
     public function chunkSize(): int
     {
@@ -80,16 +76,13 @@ class SurveyProductionExport implements FromQuery, WithEvents, WithProperties, W
     public function map($row): array
     {
         if (!isset($this->daysLeftCache[$row->note->id])) {
-            $this->daysLeftCalculator->note = $row->note;  // Assign row to the daysLeftCalculator
+            $this->daysLeftCalculator->note      = $row->note;  // Assign row to the daysLeftCalculator
             $this->daysLeftCache[$row->note->id] = 30 - $this->daysLeftCalculator->getDaysLeft();
         }
         $daysLeft = $this->daysLeftCache[$row->note->id];
 
-
-
-        $dd = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
+        $dd    = $row->wpas->isNotEmpty() ? $row->wpas->last()->dd : '---';
         $stsDD = $row->wpas->isNotEmpty() ? $row->wpas->last() : null;
-
 
         if ($stsDD) {
             $wpa = WpaStatus::status(

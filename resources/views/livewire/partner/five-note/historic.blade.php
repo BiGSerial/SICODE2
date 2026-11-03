@@ -1,355 +1,160 @@
 @php
-    $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
+    $canExport = \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), 'd5_notes.export');
+    $tabs      = [
+        'current' => 'Metas atuais (' . number_format($counts['current'], 0, ',', '.') . ')',
+        'passive' => 'Passivos (' . number_format($counts['passive'], 0, ',', '.') . ')',
+        'all'     => 'Tudo (' . number_format($counts['all'], 0, ',', '.') . ')',
+    ];
 @endphp
 
-<div class="five-list-page d-flex flex-column gap-3">
-    {{-- === CSS escopado === --}}
-    <style>
-        .five-list-page .card-soft {
-            border: 0;
-            border-radius: 16px;
-            box-shadow: 0 12px 28px rgba(0, 0, 0, .06);
-        }
+{{-- HISTÓRICO DE D5 DA PARCEIRA (lista de controle). Padrão: docs/PADRAO_LISTAS_OPERACIONAIS.md §10. Escopo por empresa: AuthorizesPartnerAccess. --}}
+<div class="closure-dash my-panel ops-list ops-control">
 
-        .five-list-page .card-header-slim {
-            background: #fff;
-            border-bottom: 1px solid rgba(0, 0, 0, .06);
-            border-top-left-radius: 16px;
-            border-top-right-radius: 16px;
-        }
+    <x-ops.hero class="ops-hero--control" eyebrow="Portal da parceira · Notas D5" title="Histórico de D5"
+        subtitle="D5 que a sua empresa já concluiu e em que etapa da medição elas estão agora.">
+        @if ($canExport)
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportExcel" wire:loading.attr="disabled" wire:target="exportExcel"><i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel</button>
+        @endif
+    </x-ops.hero>
 
-        .five-list-page .c-badge {
-            display: inline-block;
-            padding: .25rem .5rem;
-            font-size: .75rem;
-            border-radius: 999px;
-            background: #eef2ff;
-            color: #3730a3;
-        }
+    <section class="ops-toolbar" aria-label="Filtros do histórico de D5">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar por nota, ordem, PEP ou local…" label="Buscar D5">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#multiSearchModal" title="Busca em massa" aria-label="Busca em massa"><i class="ri-checkbox-multiple-blank-line" aria-hidden="true"></i></button>
+            </x-ops.search>
 
-        .five-list-page .toolbar .form-control,
-        .five-list-page .toolbar .form-select,
-        .five-list-page .toolbar .form-switch .form-check-input {
-            border-radius: 12px;
-        }
+            <x-ops.segmented name="d5HistoricShow" label="Mostrar" wire:model="passiveFilter" :options="$tabs" />
 
-        .five-list-page table thead th {
-            background: #0ea5e9;
-            color: #fff;
-            border: 0;
-            font-weight: 600;
-            vertical-align: middle;
-        }
+            <span class="ops-toolbar-spacer"></span>
 
-        .five-list-page table tbody tr {
-            transition: background .15s ease;
-        }
-
-        .five-list-page table tbody tr:hover:not(.passive-row) {
-            background: rgba(14, 165, 233, .08);
-        }
-
-        .five-list-page table tbody tr.passive-row {
-            background: rgba(251, 146, 60, .08);
-            box-shadow: inset 3px 0 0 #fb923c;
-        }
-
-        .five-list-page table tbody tr.passive-row:hover {
-            background: rgba(251, 146, 60, .15);
-        }
-
-        .five-list-page .badge-passive {
-            background: #fef3c7;
-            color: #92400e;
-            border-radius: 999px;
-            font-weight: 600;
-            padding: .15rem .6rem;
-            font-size: .7rem;
-            border: 1px solid #fdba74;
-        }
-
-        .five-list-page .legend-dot {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            display: inline-block;
-        }
-
-        .five-list-page .legend-dot.passive {
-            background: linear-gradient(135deg, #f97316, #facc15);
-            box-shadow: 0 0 0 1px rgba(249, 115, 22, .4);
-        }
-
-        .five-list-page .legend-pill {
-            border-radius: 999px;
-            padding: .1rem .6rem;
-            background: rgba(14, 165, 233, .1);
-            color: #0f172a;
-            font-size: .8rem;
-        }
-
-        .five-list-page .status-pill {
-            border-radius: 999px;
-            padding: .25rem .9rem;
-            font-size: .78rem;
-            font-weight: 600;
-            white-space: nowrap;
-            display: inline-block;
-            color: #fff !important;
-            text-shadow: 0 1px 1px rgba(0, 0, 0, .2);
-        }
-
-        .five-list-page .status-pill.status-success { background: #147d64; }
-        .five-list-page .status-pill.status-warning {
-            background: #f2b705;
-            color: #2d2100 !important;
-            text-shadow: none;
-        }
-        .five-list-page .status-pill.status-info { background: #2563a8; }
-        .five-list-page .status-pill.status-primary { background: #3046b8; }
-        .five-list-page .status-pill.status-secondary { background: #475569; }
-        }
-    </style>
-
-    <x-show-loading />
-    @include('livewire.partner.partials.company-filter')
-
-    {{-- === Barra de filtros === --}}
-    <div class="card card-soft my-2">
-        <div class="card-header card-header-slim">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                <h5 class="m-0 d-flex align-items-center gap-2">
-                    <i class="ri-history-line text-primary"></i>
-                    Histórico de D5 executadas
-                </h5>
-            </div>
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="toClean"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar filtros</button>
+            @endif
         </div>
-        <div class="card-body toolbar">
-            <div class="row g-2">
 
-                <div class="col-6 col-md-2">
-                    <select class="form-select" wire:model="perPage">
-                        <option value="10">10 por página</option>
-                        <option value="25">25 por página</option>
-                        <option value="50">50 por página</option>
-                        <option value="100">100 por página</option>
-                    </select>
-                </div>
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Período</span>
+            <input type="month" class="form-control form-control-sm w-auto" wire:model="month" aria-label="Mês de despacho">
+            <input type="date" class="form-control form-control-sm w-auto" wire:model="startDate" aria-label="Despachada a partir de">
+            <input type="date" class="form-control form-control-sm w-auto" wire:model="endDate" aria-label="Despachada até">
+            @if (count($this->listFilterPayload()['defs']))
+                <span class="ops-toolbar-label">Filtros</span>
+                <x-ops.filters :payload="$this->listFilterPayload()" />
+            @endif
+        </div>
 
-                <div class="col-12 col-md-4 position-relative">
-                    <input class="form-control" placeholder="Buscar por nota, PEP, motivo..." wire:model.defer="search"
-                        wire:keydown.enter="toSearch">
-                    <button type="button"
-                        class="btn btn-outline-secondary position-absolute end-0 top-50 translate-middle-y me-2"
-                        data-bs-toggle="modal" data-bs-target="#multiSearchModal" title="Busca múltipla">
-                        <i class="ri-checkbox-multiple-blank-line"></i>
-                    </button>
-                </div>
-
-                <div class="col-6 col-md-2">
-                    <input type="month" class="form-control" wire:model.defer="month">
-                </div>
-
-                <div class="col-6 col-md-2">
-                    <input type="date" class="form-control" wire:model.defer="startDate">
-                </div>
-                <div class="col-6 col-md-2">
-                    <input type="date" class="form-control" wire:model.defer="endDate">
-                </div>
-
-                <div class="col-6 col-md-2 d-flex gap-2">
-                    <button class="btn btn-primary flex-grow-1" wire:click="toSearch()">
-                        <i class="ri-search-line me-1"></i> Buscar
-                    </button>
-                    <button class="btn btn-outline-secondary" wire:click='toClean()'>
-                        <i class="ri-eraser-line"></i>
-                    </button>
-                </div>
-
-                <div class="col-12 col-md-3 ms-auto">
-                    <label for="passiveFilterHistoric" class="form-label small text-muted mb-1">Mostrar</label>
-                    <select id="passiveFilterHistoric" class="form-select" wire:model="passiveFilter">
-                        <option value="current">Metas atuais</option>
-                        <option value="passive">Passivos</option>
-                        <option value="all">Tudo</option>
-                    </select>
-                </div>
-            </div>
-            <div class="d-flex flex-wrap justify-content-between align-items-center mt-3 gap-2">
-                <div class="d-flex align-items-center gap-2 text-muted small flex-wrap">
-                    <span class="legend-dot passive"></span>
-                    Passivos destacados
-                    <span class="legend-pill">
-                        {{ $fives->total() }} registros no filtro atual
-                    </span>
-                </div>
-                @if ($partnerCan('d5_notes.export'))
-                    <button type="button" class="btn btn-outline-primary" wire:click="exportExcel">
-                        <i class="ri-download-2-line me-1"></i> Exportar Excel
-                    </button>
+        @if ($this->hasListFilters() || $multipleSearch)
+            <div class="ops-toolbar-row">
+                @if ($multipleSearch)
+                    <span class="ops-chip"><span><strong>Busca em massa:</strong> {{ count($multipleSearch) }} termo(s)</span></span>
                 @endif
-            </div>
-        </div>
-    </div>
-
-    {{-- === Lista === --}}
-    <div class="flex-grow-1 px-1 w-100">
-        @if ($fives->isNotEmpty())
-            <div class="card card-soft mt-2">
-                <div class="card-body p-0">
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead>
-                                <tr>
-                                    <th class="text-center" style="width:52px;"></th>
-                                    <th>Nota D5</th>
-                                    <th>Empresa</th>
-                                    <th>Note</th>
-                                    <th>Orders</th>
-                                    <th>PEP</th>
-                                    <th>Motivo</th>
-                                    <th>Codificação</th>
-                                    <th class="text-center">Despachado em</th>
-                                    <th class="text-center">Concluído em</th>
-                                    <th class="text-center">Status</th>
-                                    <th class="text-center" style="width:56px;">Ação</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-
-                                @if (!function_exists('historic_get_order'))
-                                    @php
-                                        function historic_get_order($note): ?string
-                                        {
-                                            return $note->Orders?->sortBy('ordem')->first()?->ordem;
-                                        }
-                                    @endphp
-                                @endif
-
-                                @foreach ($fives as $index => $five)
-                                    @php
-                                        $status = '';
-                                        $statusClass = 'status-secondary';
-
-                                        if ($five->is_payed) {
-                                            if ($five->is_archived) {
-                                                $status = 'Finalizada';
-                                                $statusClass = 'status-success';
-                                            } elseif ($five->is_supervisioned) {
-                                                $status = 'Aguardando Liberação Medição';
-                                                $statusClass = 'status-warning';
-                                            } elseif ($five->is_completed) {
-                                                $status = 'Aguardando Fiscalização';
-                                                $statusClass = 'status-info';
-                                            } elseif ($five->visible_partner) {
-                                                $status = 'Aguardando Conclusão Parceira';
-                                                $statusClass = 'status-primary';
-                                            }
-                                        } else {
-                                            $status = 'Aguardando Despacho Medição';
-                                            $statusClass = 'status-primary';
-                                        }
-                                    @endphp
-                                    <tr wire:key="historic-{{ $five->id }}"
-                                        @class(['passive-row' => $five->isPassive])>
-                                        <td class="text-center">
-                                            <span class="c-badge">#{{ $index + 1 }}</span>
-                                        </td>
-                                        <td class="cell-tight">
-                                            <div class="d-flex flex-column">
-                                                <div class="d-flex align-items-center gap-2">
-                                                    <span class="fw-semibold">{{ $five->note_d5 }}</span>
-                                                    @if ($five->isPassive)
-                                                        <span class="badge-passive" title="Registro passivo">
-                                                            Passivo
-                                                        </span>
-                                                    @endif
-                                                </div>
-                                                <small class="text-muted">{{ $five->loc_install }}</small>
-                                            </div>
-                                        </td>
-                                        <td class="cell-tight">{{ $five->company?->name ?? '—' }}</td>
-                                        <td class="cell-tight">{{ $five->note->note }}</td>
-                                        <td class="cell-tight">{{ historic_get_order($five->note) }}</td>
-                                        <td class="cell-tight">{{ $five->pep }}</td>
-                                        <td class="cell-tight">{{ $five->reason }}</td>
-                                        <td class="cell-tight">{{ $five->codify }}</td>
-                                        <td class="text-center cell-tight">
-                                            {{ $five->dispatch_at?->format('d/m/Y H:i') }}</td>
-                                        <td class="text-center">
-                                            {{ $five->completed_at?->format('d/m/Y H:i') }}
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="status-pill {{ $statusClass }}">{{ $status }}</span>
-                                        </td>
-                                        <td class="text-center">
-                                            <button class="btn btn-sm btn-primary"
-                                                wire:click="$emitTo('components.d5.d5details', 'openD5Details', {{ $five->note_id }})">
-                                                <i class="ri-eye-line"></i>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                @endforeach
-
-
-
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {{-- Paginação --}}
-                    <div class="d-flex justify-content-between align-items-center px-3 py-3">
-
-                        @if ($fives->links())
-                            <small class="text-muted">
-                                Exibindo {{ $fives->firstItem() }}–{{ $fives->lastItem() }} de
-                                {{ $fives->total() }} registros
-                            </small>
-                            <nav aria-label="Paginação D5 histórico">
-
-                                {{ $fives->links() }}
-
-                            </nav>
-                        @else
-                            <small class="text-muted">
-                                Exibindo {{ $fives->count() }} de {{ $fives->count() }} registros
-                            </small>
-                        @endif
-                    </div>
-                </div>
-            </div>
-        @else
-            <div class="card card-soft">
-                <div class="card-body p-0">
-                    <div class="text-center py-5 text-secondary">
-                        <i class="ri-folder-2-line d-block fs-2 mb-2"></i>
-                        <div>Sem registros no período.</div>
-                    </div>
-                </div>
+                <x-ops.chips :chips="$this->listFilterChips()" />
             </div>
         @endif
-    </div>
+    </section>
 
-    {{-- === Modal Busca múltipla (textarea 15 linhas) === --}}
-    <div wire:ignore.self class="modal fade" id="multiSearchModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content" style="border-radius:16px;">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="ri-file-search-line me-1"></i> Busca Multi-notas</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+    <section class="mp-panel" aria-label="Histórico de D5">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">D5 concluídas</h2>
+                <div class="mp-panel-sub">{{ number_format($fives->total(), 0, ',', '.') }} {{ $fives->total() === 1 ? 'registro' : 'registros' }}@if ($hasCriteria) com os filtros atuais @endif</div>
+            </div>
+        </div>
+
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="8" :cols="8" />
+
+        <div wire:loading.delay.class="d-none">
+            @if ($fives->isEmpty())
+                <x-closure.empty-state icon="ri-folder-2-line"
+                    :title="$hasCriteria ? 'Nenhuma D5 com esses filtros' : 'Sem registros no período'"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais D5.' : 'As D5 concluídas pela sua empresa aparecem aqui.'" />
+            @else
+                <div class="table-responsive">
+                    <table class="table mp-table align-middle mb-0">
+                        <colgroup>
+                            <col style="width: 150px">
+                            <col style="width: 16%">
+                            <col style="width: 110px">
+                            <col style="width: 120px">
+                            <col style="width: 130px">
+                            <col>
+                            <col style="width: 120px">
+                            <col style="width: 120px">
+                            <col style="width: 120px">
+                            <col style="width: 200px">
+                            <col style="width: 110px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Nota D5</th>
+                                <th>Empresa</th>
+                                <th>Nota</th>
+                                <th>Ordem</th>
+                                <th>PEP</th>
+                                <th>Motivo</th>
+                                <th>Codificação</th>
+                                <th>Despachada</th>
+                                <th>Concluída</th>
+                                <th>Situação</th>
+                                <th><span class="visually-hidden">Ações</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($fives as $five)
+                                <tr wire:key="historic-{{ $five->id }}">
+                                    <td>
+                                        <x-ops.note :note="$five->note_d5 ?: '—'" kind="d5" tone="muted" hint="D5 concluída" :sub="$five->loc_install">
+                                            @if ($five->isPassive)
+                                                <x-ops.badge sm tone="amber" label="Passivo" hint="Registro passivo: não conta como meta atual" />
+                                            @endif
+                                        </x-ops.note>
+                                    </td>
+                                    <td>{{ $five->company?->name ?? '—' }}</td>
+                                    <td>{{ $five->note?->note ?? '—' }}</td>
+                                    <td>{{ $five->list_order ?? '—' }}</td>
+                                    <td>{{ $five->pep ?: '—' }}</td>
+                                    <td>{{ $five->reason ?: '—' }}</td>
+                                    <td>{{ $five->codify ?: '—' }}</td>
+                                    <td><x-ops.date :date="$five->dispatch_at" :time="true" hint="Quando a D5 foi despachada" /></td>
+                                    <td><x-ops.date :date="$five->completed_at" :time="true" hint="Quando a sua empresa concluiu a D5" /></td>
+                                    <td><x-ops.badge :tone="$five->list_stage[1]" :label="$five->list_stage[0]" hint="Etapa da D5 na cadeia de medição" /></td>
+                                    <td class="text-end">
+                                        <button type="button" class="btn btn-outline-primary btn-sm ops-action" wire:click="$emitTo('components.d5.d5details', 'openD5Details', {{ $five->note_id }})"><i class="ri-eye-line" aria-hidden="true"></i> Ver D5</button>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-                <div class="modal-body p-0">
-                    <textarea class="form-control border-0" rows="15" wire:model.defer="multiSearch"
-                        placeholder="Cole aqui as notas/OV (uma por linha)"></textarea>
+
+                <x-ops.pager :paginator="$fives" :per-page="$perPage" :sizes="[25, 50, 100]" />
+            @endif
+        </div>
+    </section>
+
+    {{-- Busca em massa --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="multiSearchModal" tabindex="-1" aria-labelledby="multiSearchTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Busca em massa</span>
+                        <h5 class="modal-title" id="multiSearchTitle">Notas, ordens ou PEP</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="ops-modal-note">Cole uma nota, ordem ou PEP por linha.</p>
+                    <textarea class="form-control" rows="12" wire:model.defer="multiSearch" aria-label="Termos da busca em massa" placeholder="Cole aqui as notas/OV (uma por linha)"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button class="btn btn-primary" wire:click="multiSearch"><i class="ri-search-line me-1"></i>
-                        Buscar</button>
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click.prevent="multiSearch"><i class="ri-search-line" aria-hidden="true"></i> Buscar</button>
                 </div>
             </div>
         </div>
     </div>
 
-    {{-- LIVEWIRE COMPONENTS --}}
+    {{-- Detalhe da D5 (componente próprio) --}}
     @livewire('components.d5.d5details', key('partner-view-d5-details'))
 </div>

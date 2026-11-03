@@ -8,7 +8,11 @@ use Illuminate\View\Component;
 
 class SelectDownloadList extends Component
 {
-    public function __construct(public $files, public bool $latestOnly = true)
+    /**
+     * @param array<int, mixed>|null $tacitFileIds ids (chave) dos arquivos de ADS tácita, já calculados para a página inteira; listas com
+     *                                              muitas linhas passam isto para não consultar por linha. `null` = a view consulta sozinha.
+     */
+    public function __construct(public $files, public bool $latestOnly = true, public ?array $tacitFileIds = null)
     {
         if ($latestOnly && $files) {
             $this->files = $this->filterLatestRevisions($files);

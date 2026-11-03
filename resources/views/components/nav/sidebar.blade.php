@@ -11,11 +11,14 @@
      Estilo: resources/sass/nav/_sidebar.scss · comportamento: resources/js/nav/sidebar.js. Nada de CSS/JS inline. --}}
 @php
     $modules = $nav::resolve($context);
+    $theme   = $nav::THEME;
+    // Tema próprio (ex.: parceira): o fundo vem do tema, não do verde padrão da empresa.
+    $asideBg = $theme ? '' : 'edp-bg-sprucegreen-100';
 @endphp
 
 {{-- Sem nenhum item permitido, mantém só a coluna (o layout reserva o espaço do menu). --}}
 @if ($modules === [])
-    <div class="snav"><aside id="sidebar" class="sidebar edp-bg-sprucegreen-100 snav-aside" aria-label="{{ $label }}"></aside></div>
+    <div @class(['snav', 'snav--' . $theme => $theme])><aside id="sidebar" class="sidebar {{ $asideBg }} snav-aside" aria-label="{{ $label }}"></aside></div>
 @else
 @php
     $where        = $nav::locate($route, $context);
@@ -25,8 +28,8 @@
     $module       = $modules[$activeModule];
 @endphp
 
-<div class="snav">
-    <aside id="sidebar" class="sidebar edp-bg-sprucegreen-100 snav-aside" aria-label="{{ $label }}">
+<div @class(['snav', 'snav--' . $theme => $theme])>
+    <aside id="sidebar" class="sidebar {{ $asideBg }} snav-aside" aria-label="{{ $label }}">
 
         {{-- Seletor de módulos --}}
         @if (count($modules) > 1)

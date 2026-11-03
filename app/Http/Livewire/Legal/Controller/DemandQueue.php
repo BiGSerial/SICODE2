@@ -36,7 +36,9 @@ class DemandQueue extends Component
     public string $sortDir = 'asc';
 
     public int    $perPage = 25;
+
     public bool   $groupByCase = false;
+
     public array $expandedSubdemands = [];
 
     // Seleção em lote
@@ -126,11 +128,11 @@ class DemandQueue extends Component
 
     public function clearFilters(): void
     {
-        $this->sourceType = '';
-        $this->dueDateFilter = '';
+        $this->sourceType       = '';
+        $this->dueDateFilter    = '';
         $this->controllerFilter = '';
-        $this->statusFilter = '';
-        $this->search = '';
+        $this->statusFilter     = '';
+        $this->search           = '';
         $this->clearBulkCaseSearch();
     }
 
@@ -144,14 +146,14 @@ class DemandQueue extends Component
             ->values()
             ->all();
 
-        $this->bulkCaseSearchTerms = $terms;
+        $this->bulkCaseSearchTerms     = $terms;
         $this->showBulkCaseSearchModal = false;
         $this->resetPage();
 
         $this->dispatchBrowserEvent('swal', [
-            'icon' => empty($terms) ? 'warning' : 'success',
+            'icon'  => empty($terms) ? 'warning' : 'success',
             'title' => empty($terms) ? 'Nenhum caso informado' : 'Busca em massa aplicada',
-            'html' => empty($terms) ? 'Informe ao menos um número de caso ou processo.' : count($terms) . ' termo(s) carregado(s).',
+            'html'  => empty($terms) ? 'Informe ao menos um número de caso ou processo.' : count($terms) . ' termo(s) carregado(s).',
             'timer' => empty($terms) ? null : 1800,
         ]);
     }
@@ -170,6 +172,7 @@ class DemandQueue extends Component
                 $this->expandedSubdemands,
                 fn (int $id) => $id !== $demandId
             ));
+
             return;
         }
 
@@ -180,7 +183,7 @@ class DemandQueue extends Component
     {
         if ($this->transferFromUserId) {
             $this->transferPreviewCount = LegalDemand::where('controller_user_id', $this->transferFromUserId)
-                
+
                 ->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
                 ->count();
         } else {
@@ -263,7 +266,7 @@ class DemandQueue extends Component
         );
 
         $this->showBulkCloseModal = false;
-        $this->bulkCloseReason = '';
+        $this->bulkCloseReason    = '';
         $this->clearSelection();
 
         $this->dispatchBrowserEvent('swal', [
@@ -311,10 +314,10 @@ class DemandQueue extends Component
         ];
 
         match ($tab) {
-            'all' => null,
-            'triage' => $query->externallyActive()->where($triageScope),
+            'all'         => null,
+            'triage'      => $query->externallyActive()->where($triageScope),
             'in_progress' => $query->externallyActive()->whereIn('internal_status', $inProgressStatuses),
-            'overdue' => $query->externallyActive()
+            'overdue'     => $query->externallyActive()
                 ->overdue()
                 ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%']),
             'closed' => $query->where(function ($q) {
@@ -329,7 +332,7 @@ class DemandQueue extends Component
         };
 
         if ($this->search) {
-            $s = "%{$this->search}%";
+            $s            = "%{$this->search}%";
             $documentHash = $this->searchDocumentHash($this->search);
             $query->where(
                 function ($q) use ($s, $documentHash) {
@@ -353,7 +356,7 @@ class DemandQueue extends Component
             $terms = array_slice($this->bulkCaseSearchTerms, 0, 200);
             $query->where(function ($q) use ($terms) {
                 foreach ($terms as $term) {
-                    $like = '%' . $term . '%';
+                    $like   = '%' . $term . '%';
                     $digits = preg_replace('/\D+/', '', (string) $term);
 
                     $q->orWhere('source_case_number', 'like', $like)
@@ -417,17 +420,17 @@ class DemandQueue extends Component
     private function kpis(): array
     {
         return [
-            'total_active' => (clone $this->baseQuery('all'))->count(),
-            'overdue' => (clone $this->baseQuery('overdue'))->count(),
+            'total_active'   => (clone $this->baseQuery('all'))->count(),
+            'overdue'        => (clone $this->baseQuery('overdue'))->count(),
             'awaiting_field' => (clone $this->baseQuery('in_progress'))->count(),
-            'triage' => (clone $this->baseQuery('triage'))->count(),
-            'closed' => (clone $this->baseQuery('closed'))->count(),
+            'triage'         => (clone $this->baseQuery('triage'))->count(),
+            'closed'         => (clone $this->baseQuery('closed'))->count(),
         ];
     }
 
     public function render()
     {
-        $demands     = $this->baseQuery()->paginate($this->perPage);
+        $demands        = $this->baseQuery()->paginate($this->perPage);
         $groupedDemands = null;
 
         if ($this->groupByCase) {
@@ -453,16 +456,16 @@ class DemandQueue extends Component
                         ->first()?->source_due_at;
 
                     return [
-                        'group_key' => $caseNumber,
-                        'number_case' => $first?->source_case_number ?: 'Sem número de caso',
-                        'process_number' => $first?->source_process_number_masked ?: ($first?->source_process_number ?: 'Não informado'),
-                        'empresa' => $first?->legalCase?->company_name ?: 'Não informada',
-                        'firma' => $first?->legalCase?->law_firm ?: 'Não informada',
-                        'legal_case' => $first?->legalCase,
-                        'adverse_parties' => $first?->legalCase,
-                        'nearest_open_deadline' => $nearestOpenDeadline,
+                        'group_key'                => $caseNumber,
+                        'number_case'              => $first?->source_case_number ?: 'Sem número de caso',
+                        'process_number'           => $first?->source_process_number_masked ?: ($first?->source_process_number ?: 'Não informado'),
+                        'empresa'                  => $first?->legalCase?->company_name ?: 'Não informada',
+                        'firma'                    => $first?->legalCase?->law_firm ?: 'Não informada',
+                        'legal_case'               => $first?->legalCase,
+                        'adverse_parties'          => $first?->legalCase,
+                        'nearest_open_deadline'    => $nearestOpenDeadline,
                         'nearest_open_deadline_ts' => optional($nearestOpenDeadline)->timestamp,
-                        'demands' => $items,
+                        'demands'                  => $items,
                     ];
                 })
                 ->sortBy([
@@ -475,7 +478,7 @@ class DemandQueue extends Component
         $controllers = User::whereIn(
             'id',
             LegalDemand::externallyActive()
-                
+
                 ->whereNotIn('internal_status', ['cancelled', 'ignored'])
                 ->pluck('controller_user_id')
                 ->filter()
@@ -483,22 +486,22 @@ class DemandQueue extends Component
         )->orderBy('name')->get();
 
         $monitorSicodeClosedButSourceOpen = LegalDemand::query()
-            
+
             ->whereIn('internal_status', ['closed_internal', 'closed_external'])
             ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) NOT LIKE ?", ['%encerrad%'])
             ->count();
 
         $monitorSourceClosedButSicodeOpen = LegalDemand::query()
-            
+
             ->whereRaw("LOWER(COALESCE(process_status_at_import, '')) LIKE ?", ['%encerrad%'])
             ->whereNotIn('internal_status', ['closed_internal', 'closed_external', 'cancelled', 'ignored'])
             ->count();
 
         return view('livewire.legal.controller.demand-queue', [
-            'demands'     => $demands,
-            'groupedDemands' => $groupedDemands,
-            'controllers' => $controllers,
-            'kpis' => $this->kpis(),
+            'demands'                          => $demands,
+            'groupedDemands'                   => $groupedDemands,
+            'controllers'                      => $controllers,
+            'kpis'                             => $this->kpis(),
             'monitorSicodeClosedButSourceOpen' => $monitorSicodeClosedButSourceOpen,
             'monitorSourceClosedButSicodeOpen' => $monitorSourceClosedButSicodeOpen,
         ]);

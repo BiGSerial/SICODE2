@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Legal\Controller;
 
-use App\Models\Legal\{LegalDemandSubdemand, LegalDemandAssignment};
+use App\Models\Legal\{LegalDemandAssignment, LegalDemandSubdemand};
 use App\Models\User;
 use App\Notifications\SystemNotification;
 use App\Services\Legal\LegalDemandWorkflowService;
@@ -12,10 +12,13 @@ use Livewire\Component;
 class SubdemandDetail extends Component
 {
     public string $uuid;
+
     public LegalDemandSubdemand $subdemand;
 
     public bool $showReturnForm = false;
+
     public string $returnReason = '';
+
     public bool $showApproveConfirm = false;
 
     public function mount(string $uuid): void
@@ -23,7 +26,7 @@ class SubdemandDetail extends Component
         abort_unless(config('features.legal_subdemands', true), 404);
 
         $this->uuid = $uuid;
-        $subdemand = LegalDemandSubdemand::query()
+        $subdemand  = LegalDemandSubdemand::query()
             ->with([
                 'demand.legalCase.adverseParties',
                 'assignedTo',
@@ -42,7 +45,7 @@ class SubdemandDetail extends Component
         $isController = auth()->user()->can('legal.demands.triage')
             || auth()->user()->can('legal.demands.assign')
             || auth()->user()->can('legal.demands.review');
-        $isManager    = auth()->user()->can('legal.manager');
+        $isManager       = auth()->user()->can('legal.manager');
         $isAssignedField = auth()->user()->can('legal.demands.answer')
             && (string) $this->subdemand->assigned_to_user_id === (string) auth()->id();
 
@@ -107,7 +110,7 @@ class SubdemandDetail extends Component
     {
         return view('livewire.legal.controller.subdemand-detail', [
             'answeredAssignment' => $this->latestAnsweredAssignment(),
-            'isController' => auth()->user()->can('legal.demands.triage')
+            'isController'       => auth()->user()->can('legal.demands.triage')
                 || auth()->user()->can('legal.demands.assign')
                 || auth()->user()->can('legal.demands.review'),
         ]);
@@ -136,12 +139,14 @@ class SubdemandDetail extends Component
         if (!$user) {
             return;
         }
+
         try {
             $user->notify(new SystemNotification(new UserNotificationData(
                 title:   $title,
                 message: $message,
                 status:  $status,
             )));
-        } catch (\Throwable) {}
+        } catch (\Throwable) {
+        }
     }
 }

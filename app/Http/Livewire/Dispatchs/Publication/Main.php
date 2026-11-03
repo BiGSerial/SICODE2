@@ -2,23 +2,27 @@
 
 namespace App\Http\Livewire\Dispatchs\Publication;
 
-use App\Custom\RuleBuilder;
-use App\Exports\DispatchDesenhoMain;
 use App\Exports\Dispatchs\PublicationExportList;
 use App\Helpers\TextFormatter;
-use App\Models\City;
-use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, User, WorkReport};
+use App\Http\Livewire\Concerns\WithNoteListFilters;
+use App\Models\{Bancoupdate, City, Note, Service};
 use App\Repositories\PublishRepository;
+use App\Services\Publication\PublicationListRowPresenter;
+use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use App\Support\SicodeRules;
-use App\Services\Publication\NoteFilter;
-use App\Services\WorkReports\{WorkReportFinalScopeResolver, WorkReportFlowProductionLinker};
 use App\Traits\WildcardFormmater;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\{Cache, DB};
 use Livewire\{Component, WithPagination};
 
+/**
+ * Despacho → Lista para Publicação. Lista operacional no padrão docs/PADRAO_LISTAS_OPERACIONAIS.md.
+ * `PartnerMain` (parceira) herda tudo e só muda a exportação (fila), a view e as linhas fora do escopo de publicação.
+ */
 class Main extends Component
 {
     use WithPagination;
+    use WithNoteListFilters;
     use TextFormatter;
     use WildcardFormmater;
 
@@ -30,88 +34,43 @@ class Main extends Component
 
     public $search;
 
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
-    public $note;
-
     public $last_update;
 
     public $advanceSearch;
 
     public $multiSearch = [];
 
-    public $selectall;
+    public $selectall = false;
 
     public $selected = [];
 
-    public $company_l;
-
-    public $company_s;
-
-    public $user_l;
-
-    public $user_s;
-
-    public $type;
-
-    public $additionalData = [];
-
-    public $notes;
-
-    public $enter_dd;
-
-    public $search_user;
-
-    public $note_type = '';
-
-    // Filtros
-    public $region_l;
-
-    public $region_s = [];
-
-    public $district_l;
-
-    public $district_s = [];
-
-    public $city_l;
-
-    public $city_s = [];
-
-    public $group1_l;
-
-    public $group1_s = [];
-
-    public $group2_l;
-
-    public $group2_s = [];
-
-    public $group5_l;
-
-    public $group5_s = [];
-
-    public $items = [];
+    /** Tipo de nota: '1' Nota, '2' OV, '' ambos. */
+    public $typeNote = '';
 
     public $not_assigned = false;
 
+    /** Busca em massa em qualquer status (ignora a exigência de informe liberado). */
     public $all_services = false;
 
-    private $filter_group = 'publishing';
-    private $filters;
-
-    public $btzeroform = true;
-
-
     protected $listeners = [
-        'refresh_dispatch'  => '$refresh',
-        'refresh_list'      => '$refresh',
-        'getCopy'           => 'copy',
-        'confirm_accompany' => 'add_to_accompany',
-        'confirm_dispatch'  => 'confirmed_att',
+        'refresh_dispatch' => '$refresh',
+        'refresh_list'     => '$refresh',
+        'getCopy'          => 'copy',
+    ];
+
+    protected $queryString = [
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['as' => 'pp'],
+        'typeNote'     => ['except' => '', 'as' => 'tipo'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'filters'      => ['except' => [], 'as' => 'f'],
     ];
 
     private $publishRepository;
+
+    /** Página já paginada e apresentada, calculada uma vez por requisição (tela, "selecionar todos" e checagem do mestre leem a mesma). */
+    private ?array $pageMemo = null;
 
     public function boot(PublishRepository $publishRepository)
     {
@@ -120,66 +79,48 @@ class Main extends Component
 
     public function mount($service)
     {
-
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
-
+        $this->last_update = Cache::remember('publication-dispatch:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
     }
 
-    public function export_excel()
+    // ---------- Estado e atalhos ----------
+
+    public function updatedSearch()
     {
-        if (!count($this->selected)) {
-            return (new PublicationExportList($this->getListsProperty(), $this->service))->download(date('YmdHis-') . 'PublicationExportList.xlsx');
-        } else {
-
-
-            return (new PublicationExportList($this->getListsProperty()->whereIn('notes.id', $this->selectedNoteIds()), $this->service))->download(date('YmdHis-') . 'PublicationExportListSelected.xlsx');
-        }
+        $this->multiSearch  = [];
+        $this->all_services = false;
+        $this->gotoPage(1);
     }
 
-
-    protected $noteFilter;
-
-    // public function boot(NoteFilter $noteFilter)
-    // {
-    //     $this->noteFilter = $noteFilter;
-    // }
-
-
-    public function updatedSelectall($val)
+    public function updatedPerPage()
     {
-
-        $idsToKeep = $this->currentPageListIds();
-
-        if ($val) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($idsToKeep as $id) {
-                if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
-                }
-            }
-        } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $idsToKeep)) {
-                    $newSelected[] = $id;
-                }
-            }
-            $this->selected = $newSelected;
-        }
+        $this->gotoPage(1);
     }
 
-    public function updatedCompanyS()
+    public function updatedTypeNote()
     {
-
-        $this->user_s = '';
+        $this->clearSelection();
+        $this->gotoPage(1);
     }
 
-    public function btzeroform()
+    public function filterStatus()
     {
-        $this->btzeroform = !$this->btzeroform;
+        $this->not_assigned = !$this->not_assigned;
+        $this->clearSelection();
+        $this->gotoPage(1);
+    }
+
+    /** "Limpar tudo": filtros, busca (simples e em massa), tipo e atalhos. Não mexe na quantidade por página. */
+    public function clearAllCriteria(): void
+    {
+        $this->filters       = [];
+        $this->search        = '';
+        $this->multiSearch   = [];
+        $this->advanceSearch = '';
+        $this->all_services  = false;
+        $this->not_assigned  = false;
+        $this->typeNote      = '';
+        $this->afterListFiltersChanged();
     }
 
     public function copy($msg)
@@ -190,40 +131,65 @@ class Main extends Component
         ]);
     }
 
-    public function hasPublication(Note $note)
-    {
-        $workReport = $note->WorkForm instanceof WorkReport ? $note->WorkForm : null;
+    // ---------- Seleção ----------
 
-        if (!$workReport) {
-            return false;
+    /** Marca/desmarca as linhas selecionáveis (sem atividade aberta) da página atual. */
+    public function updatedSelectall($val)
+    {
+        $keys = collect($this->pageState()['rows'])->where('canSelect', true)->pluck('key')->all();
+
+        if ($val) {
+            $this->selected = array_values(array_unique(array_merge(array_map('strval', $this->selected), $keys)));
+        } else {
+            $this->selected = array_values(array_diff(array_map('strval', $this->selected), $keys));
         }
-
-        return collect($workReport->FlowProductions ?? [])
-            ->where('stage', \App\Models\WorkReportFlowProduction::STAGE_PUBLICATION)
-            ->where('is_current', true)
-            ->pluck('Production')
-            ->filter(fn ($production) => $production && (string) $production->service_id === (string) $this->service->uuid)
-            ->last() ?: false;
     }
 
-    public function hasPublicationCount(Note $note)
+    // ---------- Busca em massa ----------
+
+    public function buscarMulti()
     {
-        return $note->Productions->where('service_id', $this->service->uuid)->count();
+        $this->gotoPage(1);
+
+        $this->search        = '';
+        $this->multiSearch   = array_values($this->formatTextToArray((string) $this->advanceSearch));
+        $this->advanceSearch = '';
+
+        $this->clearSelection();
+        $this->dispatchBrowserEvent('hideModal');
     }
 
+    public function clean()
+    {
+        $this->multiSearch   = [];
+        $this->advanceSearch = '';
+        $this->all_services  = false;
+        $this->search        = '';
+    }
 
+    public function closeall()
+    {
+        $this->dispatchBrowserEvent('hideModal');
 
+        $this->selected      = [];
+        $this->advanceSearch = '';
+        $this->search        = '';
+        $this->gotoPage(1);
+
+        $this->emit('refresh_dispatch');
+    }
+
+    // ---------- Despacho (modal compartilhado) ----------
 
     public function get_single_note($note)
     {
-        $this->selected = [$note];
+        $this->selected = [(string) $note];
 
         $this->go_att_mass();
     }
 
     public function go_att_mass()
     {
-
         if (!count($this->selected)) {
             $this->dispatchBrowserEvent('swal', [
                 'position' => 'center',
@@ -235,14 +201,14 @@ class Main extends Component
             return;
         }
 
-        $bulkAnyStatus = (bool) $this->all_services;
+        $bulkAnyStatus = (bool) $this->effectiveAnyStatus();
 
         $payload = collect($this->selected)->map(function ($key) use ($bulkAnyStatus) {
             [$noteId, $workReportId] = array_pad(explode(':', (string) $key, 3), 3, null);
 
             return [
-                'note_id' => (int) $noteId,
-                'work_report_id' => $workReportId ? (int) $workReportId : null,
+                'note_id'         => (int) $noteId,
+                'work_report_id'  => $workReportId ? (int) $workReportId : null,
                 'bulk_any_status' => $bulkAnyStatus,
             ];
         })->filter(fn ($item) => $item['note_id'] > 0)->values()->all();
@@ -250,348 +216,97 @@ class Main extends Component
         $this->emitTo('dispatchs.shared.dispatch-modal', 'openForNotes', $payload);
     }
 
-    public function confirm_att()
+    // ---------- Exportação ----------
+
+    public function export_excel()
     {
-        if ($this->type === '2') {
-
-            if (!$this->user_s) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhum usuário foi selecionado para despacho individual!',
-                    'timer'    => 2500,
-                ]);
-
-                return;
-            }
-
-            $para = User::find($this->user_s)->name . ' da ' . (Company::find($this->company_s))->name;
-        } else {
-
-            if (!$this->company_s) {
-                $this->dispatchBrowserEvent('swal', [
-                    'position' => 'center',
-                    'icon'     => 'warning',
-                    'title'    => 'Nenhuma empresa foi selecionada para despacho!',
-                    'timer'    => 2500,
-                ]);
-
-                return;
-            }
-
-            $para = (Company::find($this->company_s))->name;
+        if (!count($this->selected)) {
+            return (new PublicationExportList($this->getListsProperty(), $this->service))->download(date('YmdHis-') . 'PublicationExportList.xlsx');
         }
 
-        $this->dispatchBrowserEvent('alertar', [
-            'title'         => 'Confirmar Despachar',
-            'msg'           => "Você está prestes a Despachar {$this->notes->count()} nota(s) para {$para}",
-            'icon'          => 'warning',
-            'btnOktxt'      => 'Sim, Despache!',
-            'btnCanceltxt'  => 'Não, Cancele',
-            'action'        => 'confirm_dispatch',
-            'cancel_titulo' => 'Cancelado!',
-            'cancel_msg'    => 'Nenhuma nenhum usuário foi removido.',
-
-        ]);
+        return (new PublicationExportList($this->getListsProperty()->whereIn('notes.id', $this->selectedNoteIds()), $this->service))->download(date('YmdHis-') . 'PublicationExportListSelected.xlsx');
     }
 
-    public function add_dd()
-    {
-        if (!trim($this->enter_dd)) {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'warning',
-                'title'    => 'Nenhuma empresa foi selecionada para despacho!',
-                'timer'    => 5000,
-            ]);
+    // ---------- Filtros ----------
 
-            return;
+    /** Códigos de município (`notes.nexp`/`lexp`) dos filtros Região/Regional/Município; vazio sem filtro de localidade. */
+    public function getBaseProperty(): array
+    {
+        $region = $this->filterValues('region');
+        $local  = $this->filterValues('regional');
+        $city   = $this->filterValues('city');
+
+        if (!$region && !$local && !$city) {
+            return [];
         }
 
-        $linhas = explode("\n", trim($this->enter_dd));
-
-        if ($linhas && count($linhas)) {
-
-            foreach ($linhas as $linha) {
-
-                if ($linha) {
-
-                    $coluna = explode("\t", $linha);
-
-                    if (preg_match('/^[0-9]+$/', $coluna[0]) && preg_match('/^[0-9]+$/', $coluna[1])) {
-
-                        $index = $this->notes->search(function ($note) use ($coluna) {
-                            return $note->note == $coluna[0];
-                        });
-
-                        if ($index !== false) {
-                            $this->additionalData[$index] = $coluna[1];
-                        }
-                    }
-                }
-            }
-        }
+        return City::query()
+            ->when($region, fn ($q) => $q->whereIn('regiao', $region))
+            ->when($local, fn ($q) => $q->whereIn('baseConstrucao', $local))
+            ->when($city, fn ($q) => $q->whereIn('rdMunicipio', $city))
+            ->pluck('rdMunicipio')->filter()->unique()->values()->all();
     }
 
-    public function confirmed_att()
+    private function effectiveAnyStatus(): bool
     {
-
-        $erros = [];
-
-        if ($this->type == '2') {
-
-            foreach ($this->notes as $key => $note) {
-
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
-                    $production = Production::create([
-                        'note_id'     => $note->id,
-                        'service_id'  => $this->service->uuid,
-                        'user_id'     => $this->user_s,
-                        'company_id'  => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'att_by'      => Auth()->User()->id,
-                        'dt_note'     => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'centroTrab'  => $note->centerjob,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'att_at'      => date('Y-m-d H:i:s'),
-                        'status'      => 2,
-                    ]);
-
-                    $user = Auth()->User()->name;
-
-                    $user_info = $this->dispatchRecipientInfo();
-
-                    if ($production) {
-                        $this->linkPublicationWorkReport($production, $note);
-
-                        Notetimeline::Create([
-                            'note_id'      => $production->note_id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "Usuário {$user} {$user_info}",
-                            'status'       => 2,
-                            'production_id' => $production->id,
-                        ]);
-                    }
-                } else {
-                    $erros[] = $erro;
-                }
-            }
-        } else {
-
-            foreach ($this->notes as $key => $note) {
-
-                if (!$erro = Production::where('note_id', $note->id)->Where('service_id', $this->service->uuid)->Where('confirmed', false)->first()) {
-                    $production = Production::create([
-                        'note_id'     => $note->id,
-                        'service_id'  => $this->service->uuid,
-                        'company_id'  => $this->company_s,
-                        'dispatch_by' => Auth()->User()->id,
-                        'dt_note'     => $note->dt_status,
-                        'status_note' => $note->nstats,
-                        'centroTrab'  => $note->centerjob,
-                        'dispatch_at' => date('Y-m-d H:i:s'),
-                        'status'      => 1,
-                    ]);
-
-                    $user = Auth()->User()->name;
-
-                    $user_info = $this->dispatchRecipientInfo();
-
-                    if ($production) {
-                        $this->linkPublicationWorkReport($production, $note);
-
-                        Notetimeline::Create([
-                            'note_id'      => $production->note_id,
-                            'service_id'   => $production->service_id,
-                            'user_id'      => Auth()->User()->id,
-                            'info'         => "Usuário {$user} {$user_info}",
-                            'status'       => 1,
-                            'production_id' => $production->id,
-                        ]);
-                    }
-                } else {
-                    $erros[] = $erro;
-                }
-            }
-        }
-
-        if (count($erros)) {
-
-            $info = '<br>';
-
-            foreach ($erros as $err) {
-                $info .= $this->productionAssignmentLabel($err) . '<br>';
-            }
-
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Notas Despachadas com sucesso parcial!',
-                'msg'      => "Foram Despachadas com sucesso, porém, algumas ja se enconram em controle: {$info}",
-                'timer'    => 2500,
-            ]);
-        } else {
-            $this->dispatchBrowserEvent('swal', [
-                'position' => 'center',
-                'icon'     => 'success',
-                'title'    => 'Notas Despachadas com sucesso!',
-                'timer'    => 2500,
-            ]);
-        }
-
-        $this->closeall();
+        return (bool) $this->all_services && count($this->multiSearch) > 0;
     }
 
-    public function closeall()
-    {
-        $this->dispatchBrowserEvent('hideModal');
-
-        $this->company_s      = '';
-        $this->selected       = [];
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->advanceSearch  = '';
-        $this->search         = '';
-        $this->gotoPage(1);
-
-        $this->emit('refresh_dispatch');
-    }
-
-    public function clean()
-    {
-
-        $this->company_s      = '';
-        $this->enter_dd       = '';
-        $this->user_s         = '';
-        $this->type           = '';
-        $this->additionalData = [];
-        $this->multiSearch    = [];
-        $this->advanceSearch  = '';
-        $this->search         = '';
-    }
-
-    public function buscarMulti()
-    {
-        $this->gotoPage(1);
-
-        $this->search = '';
-
-        $this->multiSearch = $this->formatTextToArray((string)$this->advanceSearch);
-
-        $this->advanceSearch = '';
-
-        $this->dispatchBrowserEvent('hideModal');
-    }
-
-    public function filterStatus()
-    {
-        if ($this->not_assigned) {
-            $this->not_assigned = false;
-        } else {
-            $this->not_assigned = true;
-        }
-    }
-
+    /**
+     * Consulta única da lista e do Excel (e do Excel da parceira, que roda em fila e chama esta propriedade).
+     * Devolve o Builder; a página é paginada e apresentada em `pageState()`.
+     */
     public function getListsProperty()
     {
-        // Inicialização da sessão (movida para fora da função, idealmente em um middleware ou construtor)
+        $anyStatus = $this->effectiveAnyStatus();
+        $uuid      = $this->service->uuid;
+        $rubricas  = $this->filterValues('rubrica');
+        $companies = $this->filterValues('company');
+        $base      = $this->base;
 
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) { session()->start(); }
-        }
-
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filters = $_SESSION['filter'][$this->filter_group];
-        }
-
-        if (!count($this->multiSearch)) {
-            $this->all_services = false;
-        }
-
-
-        $query = $this->publishRepository->getBaseQuery($this->all_services, $this->service->uuid);
+        $query = $this->publishRepository->getBaseQuery($anyStatus, $uuid);
 
         // Usuários contratados só podem visualizar obras das empresas vinculadas a eles.
-        $query = SicodeRules::applyContractDispatchListVisibility(
-            $query,
-            Auth()->user(),
-            $this->service->uuid
-        );
+        $query = SicodeRules::applyContractDispatchListVisibility($query, Auth()->user(), $uuid);
 
-        // Scope Local para WorkForm (Melhora a Legibilidade e Reusabilidade)
-        if (!$this->all_services) {
-            $query->where(function ($q) {
-                $q->where(function ($wq) {
-                    $wq->whereHas('WorkForms', function ($sq) {
-                        $sq->where('rejected', false);
-                    });
-                });
-            });
+        if (!$anyStatus) {
+            $query->whereHas('WorkForms', fn ($sq) => $sq->where('rejected', false));
         }
 
+        $query->when($rubricas, fn ($q) => $q->where(fn ($w) => $w->whereIn('rubrica', $rubricas)->orWhereNull('rubrica')))
+            ->when($base, fn ($q) => $q->where(fn ($w) => $w->whereIn('nexp', $base)->orWhereIn('lexp', $base)->orWhereNull('lexp')))
+            ->when($companies, fn ($q) => $q->whereHas('WorkForms', fn ($w) => $w->whereIn('company_id', $companies)))
+            ->when($this->typeNote, fn ($q) => $q->where('notes.type_note', $this->typeNote));
 
-        // Filtro de Rubrica
-        if (isset($this->filters['rubrica'])) {
-            $rubricas = $this->filters['rubrica'];
-            $query->where(function ($q) use ($rubricas) {
-                $q->whereIn('rubrica', $rubricas)
-                    ->orWhereNull('rubrica');
-            });
-        }
-
-        // Filtro de Cidade (lexp)
-        if (isset($this->filters['city'])) {
-            $cities = $this->filters['city'];
-            $query->where(function ($q) use ($cities) {
-                $q->whereIn('lexp', $cities)
-                    ->orWhereNull('lexp');
-            });
-        }
-
-
-        // Filtro de Companhia (company_id) no WorkForm
-        if (isset($this->filters['company'])) {
-            $companies = $this->filters['company'];
-            $query->whereHas('WorkForms', function ($q) use ($companies) {
-                $q->whereIn('company_id', $companies);
-            });
-        }
-
-        // MultiSearch (Notas ou Ordens)
+        // Busca em massa (notas ou ordens)
         if ($this->multiSearch) {
-            $multiSearchTerms = $this->multiSearch;
-            $query->where(function ($q1) use ($multiSearchTerms) {
-                $q1->whereIn('note', $multiSearchTerms)
-                    ->orWhereHas('WorkForm.Orders', function ($q2) use ($multiSearchTerms) {
-                        $q2->whereIn('ordem', $multiSearchTerms);
-                    });
-            });
+            $terms = $this->multiSearch;
+            $query->where(fn ($q) => $q->whereIn('note', $terms)
+                ->orWhereHas('WorkForm.Orders', fn ($o) => $o->whereIn('ordem', $terms)));
         }
 
-        // Pesquisa Geral (search)
-        if ($this->search) {
-            $this->multiSearch = [];
-
+        // Pesquisa geral
+        if ($this->search && !$this->multiSearch) {
             $search = $this->formatWithWildcard($this->search);
 
-            $query->where(function ($q) use ($search) {
-                $q->where('note', $search->type, $search->search)
-                    ->orWhere('material', $search->type, $search->search)
-                    ->orWhere('numPedido', $search->type, $search->search)
-                    ->orWhere('group2', $search->type, $search->search);
-            });
+            $query->where(fn ($q) => $q->where('note', $search->type, $search->search)
+                ->orWhere('material', $search->type, $search->search)
+                ->orWhere('numPedido', $search->type, $search->search)
+                ->orWhere('group2', $search->type, $search->search));
         }
 
+        // Só livres: sem atividade com usuário (ou com atividade ainda sem usuário). Agrupado, para não "vazar" os demais filtros.
+        $query->when($this->not_assigned, fn ($q) => $q->where(function ($w) use ($uuid) {
+            $w->whereDoesntHave('Productions', fn ($p) => $p->where('service_id', $uuid)->whereNotNull('user_id'))
+                ->orWhereHas('Productions', fn ($p) => $p->where('service_id', $uuid)
+                    ->where(fn ($u) => $u->whereNull('user_id')->orWhere('user_id', '')));
+        }));
 
-        // Eager Loading e Seleção de Colunas
         $query->with([
-            'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)->select([
+            'Productions' => fn ($q) => $q->where('service_id', $uuid)->select([
                 'id', 'note_id', 'service_id', 'user_id', 'company_id',
                 'completed', 'confirmed', 'status', 'created_at',
-            ]),
+            ])->with(['User:id,name', 'Company:id,name']),
             'WorkForms' => fn ($q) => $q->where('canceled', false)->select([
                 'id', 'note_id', 'company_id', 'date', 'informed_at',
                 'created_at', 'rejected', 'canceled', 'selected_final_scopes',
@@ -602,38 +317,22 @@ class Main extends Component
                 'Orders.Operations:id,order_id,operacao,status',
                 'FlowProductions:id,work_report_id,production_id,stage,is_current',
                 'FlowProductions.Production:id,note_id,service_id,user_id,company_id,completed,confirmed,status,created_at',
+                'FlowProductions.Production.User:id,name',
                 'FiveNote',
             ]),
             'RamalForm.Company',
         ])
             ->select([
                 'notes.*',
-                    DB::raw("
-                        CASE
-                            WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
-                            WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
-                            ELSE NULL
-                        END as prazo_final
-                    ")
+                DB::raw("
+                    CASE
+                        WHEN notes.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL notes.days_left DAY)
+                        WHEN notes.type_note = 1 THEN STR_TO_DATE(CONCAT('28/', SUBSTRING(notes.mesalization, 2, 2), '/', SUBSTRING(notes.mesalization, 5)), '%d/%m/%Y')
+                        ELSE NULL
+                    END as prazo_final
+                "),
             ]);
 
-        // Condição para Notas Não Atribuídas
-        $serviceUuid = $this->service->uuid; // Cache do valor
-        $query->when($this->not_assigned, function ($q) use ($serviceUuid) {
-            $q->whereDoesntHave('Productions', function ($q) use ($serviceUuid) {
-                $q->where('service_id', $serviceUuid)
-                    ->whereNotNull('user_id');
-            })->orWhereHas('Productions', function ($q) use ($serviceUuid) {
-                $q->where('service_id', $serviceUuid)
-                    ->where(function ($q) {
-                        $q->whereNull('user_id')
-                            ->orWhere('user_id', '');
-                    });
-            });
-        });
-
-
-        // Ordenação
         $query->orderByRaw('
             exists (
                 select 1
@@ -646,55 +345,22 @@ class Main extends Component
                 where work_reports.note_id = notes.id
             ) desc
         ')
-        ->orderBy('is45', 'DESC')
-        ->orderBy('prazo_final', 'ASC');
-
+            ->orderBy('is45', 'DESC')
+            ->orderBy('prazo_final', 'ASC');
 
         return $query;
     }
 
-    // public function getBaseProperty()
-    // {
-    //     try {
-    //         $query          = City::query();
-    //         $filtersApplied = false;
+    // ---------- Linhas ----------
 
-    //         if (!empty($this->region_s)) {
-    //             $query->whereIn('regiao', $this->region_s);
-    //             $filtersApplied = true;
-    //         }
-
-    //         if (!empty($this->district_s)) {
-    //             $query->whereIn('baseConstrucao', $this->district_s);
-    //             $filtersApplied = true;
-    //         }
-
-    //         if (!empty($this->city_s)) {
-    //             $query->whereIn('cidade', $this->city_s);
-    //             $filtersApplied = true;
-    //         }
-
-    //         if (!$filtersApplied) {
-    //             return [];
-    //         }
-
-    //         $result = $query->orderBy('cidade')
-    //             ->get()
-    //             ->pluck('rdMunicipio')
-    //             ->toArray();
-
-    //         return $result;
-    //     } catch (\Throwable $th) {
-    //         return [];
-    //     }
-    // }
-
+    /** Uma linha por informe de Publicação liberado (a mesma Nota pode ter vários informes). */
     private function expandPublicationRows($notes)
     {
         return $notes->flatMap(function (Note $note) {
-            $reports = $note->relationLoaded('WorkForms') ? $note->WorkForms : collect();
+            $reports  = $note->relationLoaded('WorkForms') ? $note->WorkForms : collect();
             $eligible = $reports->filter(function ($report) {
                 $orders = $report->relationLoaded('Orders') ? $report->Orders : collect();
+
                 return $report->rejected === false && $orders->contains(function ($order) {
                     return str_starts_with(strtoupper((string) $order->statusSist), 'LIB')
                         && $order->Operations->contains(fn ($operation) => (string) $operation->operacao === '0020'
@@ -705,7 +371,7 @@ class Main extends Component
             })->values();
 
             if ($eligible->isEmpty()) {
-                return [];
+                return $this->ineligibleRows($note);
             }
 
             return $eligible->map(function ($report) use ($note) {
@@ -714,161 +380,43 @@ class Main extends Component
                 $row->setRelation('WorkForms', collect([$report]));
                 $row->setAttribute('publication_context_key', $note->id . ':' . $report->id);
                 $row->setAttribute('dispatch_work_report_id', (int) $report->id);
+
                 return $row;
             });
         })->values();
     }
 
-    private function dispatchRecipientInfo(): string
+    /** Nota sem informe com Publicação exigida: a lista do despacho não mostra (a parceira mostra, sem informe). */
+    protected function ineligibleRows(Note $note): array
     {
-        if (trim((string) $this->user_s)) {
-            $userName = User::find($this->user_s)?->name ?? 'Desconhecido';
-
-            return "Atribuiu a NOTA/OV para: {$userName}";
-        }
-
-        $companyName = Company::find($this->company_s)?->name ?? 'Desconhecido';
-
-        return "Despachou a NOTA/OV para: {$companyName}";
+        return [];
     }
 
-    private function productionAssignmentLabel(Production $production): string
+    /** @return array{lists: LengthAwarePaginator, rows: array<int, array>} */
+    private function pageState(): array
     {
-        $production->loadMissing(['Note', 'User', 'Company']);
+        return $this->pageMemo ??= (function () {
+            $lists = $this->getListsProperty()->paginate($this->perPage);
+            $lists->setCollection($this->expandPublicationRows($lists->getCollection()));
 
-        $note = $production->Note?->note ?? $production->note_id;
+            $presenter = app(PublicationListRowPresenter::class);
+            $rows      = $lists->getCollection()->map(fn (Note $list) => $presenter->present($list, $this->service->uuid))->values()->all();
 
-        if ($production->User) {
-            return "{$note} => {$production->User->name}";
-        }
-
-        if ($production->Company) {
-            return "{$note} => {$production->Company->name} (sem usuário atribuído)";
-        }
-
-        return "{$note} => Desconhecido";
+            return ['lists' => $lists, 'rows' => $rows];
+        })();
     }
 
-    private function linkPublicationWorkReport(Production $production, Note $note): void
+    /** Notas da página com demanda jurídica vinculada: 2 consultas no total, em vez de 2 por linha. */
+    private function legalLinkedNoteIds(array $noteIds): array
     {
-        $workReportId = (int) ($note->dispatch_work_report_id ?? 0);
-
-        if ($workReportId <= 0) {
-            return;
+        if (!$noteIds) {
+            return [];
         }
 
-        $workReport = WorkReport::query()
-            ->whereKey($workReportId)
-            ->where('note_id', $note->id)
-            ->where('canceled', false)
-            ->with('Orders')
-            ->first();
+        $instructions = DB::table('legal_demand_note_instructions')->whereIn('note_id', $noteIds)->where('active', true)->pluck('note_id');
+        $links        = DB::table('legal_demand_note_activity_links')->whereIn('note_id', $noteIds)->whereNull('unlinked_at')->pluck('note_id');
 
-        if (!$workReport) {
-            return;
-        }
-
-        $scope = collect($workReport->finalScopePayloads())
-            ->pluck('scope')
-            ->first(fn (string $scope) => app(WorkReportFinalScopeResolver::class)->publicationRequired($scope));
-
-        if (!$scope) {
-            return;
-        }
-
-        app(WorkReportFlowProductionLinker::class)->linkPublicationForWorkReport(
-            $production,
-            $workReport,
-            'dispatch_publication_main',
-            [],
-            $scope
-        );
-    }
-
-    public function render()
-    {
-        $lists = $this->lists->paginate($this->perPage);
-        $lists->setCollection($this->expandPublicationRows($lists->getCollection()));
-
-        if (empty(array_diff($lists->map(fn ($row) => $row->publication_context_key ?? $row->id)->toArray(), $this->selected))) {
-            $this->selectall = true;
-        } else {
-            $this->selectall = false;
-        }
-
-
-
-        if (!Auth()->User()->usesContractDispatch()) {
-            $this->company_l = Company::orderBy('name', 'ASC')->get();
-        } else {
-
-            $this->company_l = Company::whereIn('id', \App\Support\SicodeRules::visibleCompanyIdsFor(Auth()->User()))->get();
-        }
-
-        $this->company_l = Company::whereHas('toUsers', function ($query) {
-            $query->whereRelation('ToServices', function ($q) {
-                $q->where('service_id', $this->service->uuid)
-                    ->where('service', true);
-            });
-        })
-            ->orderBy('name', 'ASC')
-            ->get();
-
-        $this->user_l = User::whereRelation('ToServices', function ($q) {
-            $q->where('service_id', $this->service->uuid)
-                ->where('service', true);
-        })
-         ->where(function ($q) {
-             $q->whereRelation('Company', 'company_id', $this->company_s)
-                 ->orWhere('company_id', $this->company_s);
-         })
-        ->when($this->search_user, function ($q) {
-            return $q->where('name', 'like', '%' . $this->search_user . '%');
-        })
-        ->orderBy('name', 'ASC')->get();
-
-        // $this->user_l = User::when($this->search_user, function ($q) {
-        //     return $q->where('name', 'like', '%' . $this->search_user . '%');
-        // })->whereRelation('Employee.Contract', 'company_id', $this->company_s)->orderBy('name')->get();
-
-        // $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
-
-        // Municipios Filtros
-        // try {
-
-        //     $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
-
-        //     $this->district_l = City::when($this->region_s, function ($q) {
-        //         return $q->whereIn('regiao', $this->region_s);
-        //     })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
-        //     $this->city_l = City::when($this->region_s, function ($q) {
-        //         return $q->whereIn('regiao', $this->region_s);
-        //     })
-        //         ->when($this->district_s, function ($q) {
-        //             return $q->whereIn('baseConstrucao', $this->district_s);
-        //         })
-        //         ->select('rdMunicipio', 'cidade', 'municipio')
-        //         ->orderBy('cidade')
-        //         ->groupBy('rdMunicipio', 'cidade', 'municipio')
-        //         ->get();
-        // } catch (\Illuminate\Database\QueryException $e) {
-
-        //     $this->region_l   = [];
-        //     $this->district_l = [];
-        //     $this->city_l     = [];
-        // }
-
-        return view('livewire.dispatchs.publication.main', [
-            'lists'  => $lists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
-        ]);
-    }
-
-    private function currentPageListIds(): array
-    {
-        return $this->expandPublicationRows($this->lists->paginate($this->perPage)->getCollection())
-            ->map(fn ($row) => $row->publication_context_key ?? $row->id)
-            ->toArray();
+        return array_fill_keys($instructions->merge($links)->unique()->all(), true);
     }
 
     private function selectedNoteIds(): array
@@ -879,5 +427,33 @@ class Main extends Component
             ->unique()
             ->values()
             ->all();
+    }
+
+    protected function viewName(): string
+    {
+        return 'livewire.dispatchs.publication.main';
+    }
+
+    protected function heroSubtitle(): string
+    {
+        return 'Notas e OVs com informe liberado para publicação. Marque as linhas, escolha o responsável e acompanhe os prazos pela cor.';
+    }
+
+    public function render()
+    {
+        ['lists' => $lists, 'rows' => $rows] = $this->pageState();
+
+        $selectable = collect($rows)->where('canSelect', true)->pluck('key')->all();
+        $selected   = array_map('strval', $this->selected);
+
+        $this->selectall = $selectable !== [] && array_diff($selectable, $selected) === [];
+
+        return view($this->viewName(), [
+            'lists'        => $lists,
+            'rows'         => collect($rows),
+            'legalNoteIds' => $this->legalLinkedNoteIds(collect($rows)->pluck('noteId')->unique()->all()),
+            'update'       => Cache::remember('publication-dispatch:has-bancoupdate', 60, fn () => Bancoupdate::query()->exists()),
+            'subtitle'     => $this->heroSubtitle(),
+        ]);
     }
 }

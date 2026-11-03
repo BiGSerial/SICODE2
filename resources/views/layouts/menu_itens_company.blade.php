@@ -24,18 +24,14 @@
 
 @if (request()->routeIs('partner.*'))
     @php
-        $partnerCan = fn (string $permission) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $permission);
-        $partner_search_sections = [
-            [
-                'items' => [
-                    ...($partnerCan('portal.search_notes')
-                        ? [['label' => 'BUSCAR NOTAS', 'route' => 'partner.search.notes', 'icon' => 'ri-search-eye-line']]
-                        : []),
-                ],
-            ],
-        ];
+        // Mesma definição do menu lateral da parceira (App\Support\Menu\PartnerNav): só os itens que a parceira pode abrir.
+        $partner_search_items = collect(\App\Support\Menu\PartnerNav::topItems())
+            ->filter(fn (array $item) => \App\Services\PartnerAccess\PartnerAccessGate::allows(auth()->user(), $item['can']))
+            ->map(fn (array $item) => collect($item)->except('can')->all())
+            ->values()
+            ->all();
     @endphp
-    @if (collect($partner_search_sections)->flatMap(fn ($section) => $section['items'])->isNotEmpty())
-        <x-menu.dynamic-dropdown title="BUSCAR" :sections="$partner_search_sections" id-prefix="partner-buscar" layout="inline" />
+    @if ($partner_search_items !== [])
+        <x-menu.dynamic-dropdown title="BUSCAR" :sections="[['items' => $partner_search_items]]" id-prefix="partner-buscar" layout="inline" />
     @endif
 @endif

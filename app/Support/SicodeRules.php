@@ -173,6 +173,20 @@ class SicodeRules
         return self::boolRule('payment.measurement_deadline.business_days', self::ruleset() === 'sp');
     }
 
+    /** Prazo para publicar após a entrega do INFORME (padrão: 2 dias). */
+    public static function publicationDeadlineDays(): int
+    {
+        $value = self::databaseRule('publication.deadline.days')
+            ?? config('sicode.rules.' . self::ruleset() . '.publication.deadline.days');
+
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : 2;
+    }
+
+    public static function publicationDeadlineUsesBusinessDays(): bool
+    {
+        return self::boolRule('publication.deadline.business_days', false);
+    }
+
     /**
      * Prazo de entrega da ADS após a conclusão informada. Por padrão 3 dias úteis; a região pode
      * trocar para dias corridos (ads.delivery_deadline.business_days) ou mudar a quantidade.

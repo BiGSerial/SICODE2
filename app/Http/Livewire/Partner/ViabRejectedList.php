@@ -2,25 +2,33 @@
 
 namespace App\Http\Livewire\Partner;
 
+use App\Http\Livewire\Partner\Concerns\{AuthorizesPartnerAccess, WithViabilityListFilters};
 use App\Models\{File, Viability};
 use App\Services\Files\FileStorageService;
+use App\Services\PartnerAccess\PartnerAccessGate;
 use Livewire\{Component, WithPagination};
 
+/**
+ * Viabilidades rejeitadas pela Engenharia, em duas abas: as que aguardam a resposta da parceira (status 5) e as que
+ * já estão em tratativa. Lista de controle (docs/PADRAO_LISTAS_OPERACIONAIS.md §10); a resposta mora em `partner.actions.viab-response`.
+ */
 class ViabRejectedList extends Component
 {
-    use \App\Http\Livewire\Partner\Concerns\AuthorizesPartnerAccess;
+    use AuthorizesPartnerAccess;
     use WithPagination;
+    use WithViabilityListFilters;
 
     protected $paginationTheme = 'bootstrap';
 
+    /** Status da viabilidade que significa "aguardando resposta da parceira". */
+    private const AWAITING_STATUS = 5;
+
     public $perPage = 50;
 
-    public $search;
+    public $search = '';
 
-    // Filters
-    private $filter_group = 'partner';
-
-    private $filter;
+    /** awaiting | treating */
+    public string $tab = 'awaiting';
 
     protected $listeners = [
         'refresh' => '$refresh',
@@ -28,74 +36,69 @@ class ViabRejectedList extends Component
 
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
+        'tab'     => ['except' => 'awaiting'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
+        'filters' => ['except' => [], 'as' => 'f'],
     ];
 
-    // Sempre que atualizar a página, coloca para exibir o primeiro reegistro.
-    public function updatedPerPage()
+    public function mount(): void
     {
-        $this->gotoPage(1);
+        $this->tab     = $this->tab === 'treating' ? 'treating' : 'awaiting';
+        $this->filters = $this->normalizeFilters($this->filters);
     }
 
-    public function getListsProperty()
+    public function updatingSearch(): void
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) {
-                session()->start();
-            }
-        }
+        $this->resetPage();
+    }
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
+    public function updatedTab(): void
+    {
+        $this->tab = $this->tab === 'treating' ? 'treating' : 'awaiting';
+        $this->resetPage();
+    }
 
-        $query = Viability::query()->where('rejected', true)
-                ->where('completed', false)
-                ->where('status', '!=', 5);
+    public function updatedPerPage(): void
+    {
+        $this->perPage = in_array((int) $this->perPage, [25, 50, 100, 250, 500], true) ? (int) $this->perPage : 50;
+        $this->resetPage();
+    }
 
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->whereRelation('Note', 'note', trim($this->search))
-                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
+    public function can(string $permission): bool
+    {
+        return PartnerAccessGate::allows(auth()->user(), $permission);
+    }
+
+    /** Recorte comum às duas abas: rejeitadas e ainda não concluídas, na empresa do usuário, com busca e filtros. */
+    private function baseQuery()
+    {
+        $query = Viability::query()->where('rejected', true)->where('completed', false);
+
+        if (filled($this->search)) {
+            $term = trim($this->search);
+
+            $query->where(function ($q) use ($term) {
+                $q->whereRelation('Note', 'note', $term)
+                    ->orWhereRelation('Note.Orders', 'ordem', $term);
             });
         }
 
         $this->applyPartnerCompanyScope($query);
-
         $this->applyPartnerBranchScopeToNoteRelation($query);
 
-        return $query->orderBy('updated_at');
+        return $this->applyViabilityFilters($query);
     }
 
-    public function getMyListsProperty()
+    /** Contagem das duas abas em uma consulta só (no mesmo recorte de busca e filtros). */
+    private function counts(): array
     {
-        if (!(session_status() == PHP_SESSION_ACTIVE)) {
-            if (!session()->isStarted()) {
-                session()->start();
-            }
-        }
+        $row = $this->baseQuery()->toBase()
+            ->selectRaw('COALESCE(SUM(status = ?), 0) as awaiting', [self::AWAITING_STATUS])
+            ->selectRaw('COALESCE(SUM(status != ?), 0) as treating', [self::AWAITING_STATUS])
+            ->first();
 
-        if (isset($_SESSION['filter'][$this->filter_group])) {
-            $this->filter = $_SESSION['filter'][$this->filter_group];
-        }
-
-        $query = Viability::query()->where('rejected', true)
-                ->where('completed', false)
-                ->where('status', 5);
-
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->whereRelation('Note', 'note', trim($this->search))
-                    ->orWhereRelation('Note.Orders', 'ordem', trim($this->search));
-            });
-        }
-
-        $this->applyPartnerCompanyScope($query);
-
-        $this->applyPartnerBranchScopeToNoteRelation($query);
-
-        return $query->orderBy('updated_at');
+        return ['awaiting' => (int) $row->awaiting, 'treating' => (int) $row->treating];
     }
 
     public function downloadFile($id)
@@ -123,10 +126,31 @@ class ViabRejectedList extends Component
 
     public function render()
     {
-        return view('livewire.partner.viab-rejected-list', [
-            'lists'   => $this->lists->paginate($this->perPage, ['*'], 'listsPage'),
-            'myLists' => $this->my_lists->paginate($this->perPage, ['*'], 'myListsPage'),
-        ]);
+        $awaiting = $this->tab === 'awaiting';
 
+        $lists = $this->baseQuery()
+            ->when($awaiting, fn ($q) => $q->where('status', self::AWAITING_STATUS), fn ($q) => $q->where('status', '!=', self::AWAITING_STATUS))
+            ->withSum('Days as days_sum', 'days')
+            ->with([
+                'Note:id,note,rubrica,lexp,type_note',
+                'Note.Orders:id,note_id,ordem,statusSist',
+                'Note.Files:id,note_id,service_id,file_name,ext,path',
+                'Note.Files.service:uuid,service',
+                'Note.Files.note:id,note',
+                'Orders:id,note_id,ordem',
+                'Form:id,viability_id,reason',
+                'Engineer:id,name,email',
+                'Company:id,name',
+            ])
+            ->orderBy('updated_at')
+            ->paginate($this->perPage);
+
+        return view('livewire.partner.viab-rejected-list', [
+            'lists'        => $lists,
+            'tacitFileIds' => $this->tacitFileIdsFor($lists),
+            'counts'       => $this->counts(),
+            'awaiting'     => $awaiting,
+            'hasCriteria'  => $this->hasViabilityCriteria(),
+        ]);
     }
 }

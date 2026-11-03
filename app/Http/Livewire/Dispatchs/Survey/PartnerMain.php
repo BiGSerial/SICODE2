@@ -2,17 +2,18 @@
 
 namespace App\Http\Livewire\Dispatchs\Survey;
 
-use App\Custom\RuleBuilder;
-use App\Models\{Bancoupdate, City, Company, Note, Production, Service, User, Wpa};
-use App\Services\Design\BlockEvaluator;
+use App\Models\{Bancoupdate, Company, Note, Production, Service, User, Wpa};
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
+use App\Services\Survey\SurveyListRowPresenter;
 use App\Support\SicodeRules;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\{Cache, DB};
 use Livewire\{Component, WithPagination};
 
 class PartnerMain extends Component
 {
     use \App\Traits\QueuesPartnerExports;
+    use Concerns\HasSurveyListFilters;
+    use Concerns\LoadsLegalNoteLinks;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -25,10 +26,6 @@ class PartnerMain extends Component
 
     public $search_user;
 
-    public $rubrica_s = [];
-
-    public $rubrica_l;
-
     public $note;
 
     public $last_update;
@@ -37,7 +34,7 @@ class PartnerMain extends Component
 
     public $multiSearch = [];
 
-    public $selectall;
+    public $selectall = false;
 
     public $selected = [];
 
@@ -57,22 +54,7 @@ class PartnerMain extends Component
 
     public $notes;
 
-    public $filteredLists;
-
     public $note_type = '';
-
-    // Filtros Municípios
-    public $region_l;
-
-    public $region_s = [];
-
-    public $district_l;
-
-    public $district_s = [];
-
-    public $city_l;
-
-    public $city_s = [];
 
     public $branco = false;
 
@@ -97,6 +79,26 @@ class PartnerMain extends Component
         'confirm_dispatch'  => 'confirmed_att',
         'confirm_mass_dd'   => 'confirmed_mass_dd',
     ];
+
+    protected $queryString = [
+        'search'       => ['except' => '', 'as' => 'buscar'],
+        'page'         => ['except' => 1, 'as' => 'p'],
+        'perPage'      => ['as' => 'pp'],
+        'note_type'    => ['except' => '', 'as' => 'tipo'],
+        'not_assigned' => ['except' => false, 'as' => 'livres'],
+        'filters'      => ['except' => [], 'as' => 'f'],
+    ];
+
+    /** Parceira também lê os Informes e Parciais da nota (sub-linhas da coluna Nota). */
+    protected function listRelations(): array
+    {
+        return [
+            'Productions' => fn ($q) => $q->where('service_id', $this->service->uuid)->with(['User:id,name', 'Company:id,name']),
+            'Wpas',
+            'WorkForms:id,note_id',
+            'Partials:id,note_id',
+        ];
+    }
 
     public function view_edit($key)
     {
@@ -138,50 +140,13 @@ class PartnerMain extends Component
 
     public function mount($service)
     {
-
         $this->service     = Service::where('uuid', $service)->with('Status')->first();
-        $this->last_update = (Note::OrderBy('dt_status', 'DESC')->first())->dt_status;
-
-        if (!session()->isStarted()) {
-            session()->start();
-        }
-
-        if (isset($_SESSION['filtro']) && $_SESSION['filtro']) {
-            if (isset($_SESSION['filtro']['rubrica'])) {
-                $this->rubrica_s = $_SESSION['filtro']['rubrica'];
-            }
-
-            if (isset($_SESSION['filtro']['city'])) {
-                $this->city_s = $_SESSION['filtro']['city'];
-            }
-
-            if (isset($_SESSION['filtro']['district'])) {
-                $this->district_s = $_SESSION['filtro']['district'];
-            }
-
-            if (isset($_SESSION['filtro']['region'])) {
-                $this->region_s = $_SESSION['filtro']['region'];
-            }
-        }
+        $this->last_update = Cache::remember('survey-dispatch:last-status-at', 60, fn () => optional(Note::orderByDesc('dt_status')->first())->dt_status);
     }
 
     public function export_excel()
     {
         $this->queuePartnerExport("main");
-    }
-
-    public function needBlock(Note $note): array
-    {
-        return app(BlockEvaluator::class)->evaluate($note, $this->service);
-    }
-
-    private function canDispatchNote(Note $note): bool
-    {
-        $eval = $this->needBlock($note);
-
-        return !$eval['block']
-            || (bool) ($eval['command'] ?? false)
-            || (bool) SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
     }
 
     public function updatedCompanyS()
@@ -277,74 +242,12 @@ class PartnerMain extends Component
         }
     }
 
-    public function updatedSelectall($val)
-    {
-
-        $idsToKeep = $this->filteredLists->pluck('id')->toArray();
-
-        if ($val) {
-            // Adicionar os IDs ausentes de $selected
-            foreach ($idsToKeep as $id) {
-                if (!in_array($id, $this->selected)) {
-                    $this->selected[] = $id;
-                }
-            }
-        } else {
-            // Criar um novo array $selected com os IDs que devem ser mantidos
-            $newSelected = [];
-
-            foreach ($this->selected as $id) {
-                if (!in_array($id, $idsToKeep)) {
-                    $newSelected[] = $id;
-                }
-            }
-            $this->selected = $newSelected;
-        }
-
-    }
-
     public function copy($msg)
     {
         $this->dispatchBrowserEvent('torrada', [
             'status'   => 'success',
             'menssage' => $msg,
         ]);
-    }
-
-    public function filter_save()
-    {
-        $this->gotoPage(1);
-
-        // session()->put('filtro', $this->rubrica_s);
-        if (!session()->isStarted()) {
-            session()->start();
-        }
-        $_SESSION['filtro']['rubrica']  = $this->rubrica_s;
-        $_SESSION['filtro']['city']     = $this->city_s;
-        $_SESSION['filtro']['district'] = $this->district_s;
-        $_SESSION['filtro']['region']   = $this->region_s;
-        $this->emit('refresh_service');
-
-    }
-
-    public function filter_clean()
-    {
-        $this->gotoPage(1);
-
-        $this->rubrica_s  = [];
-        $this->city_s     = [];
-        $this->district_s = [];
-        $this->region_s   = [];
-
-        if (!session()->isStarted()) {
-            session()->start();
-        }
-
-        if (isset($_SESSION['filtro'])) {
-            unset($_SESSION['filtro']);
-        }
-
-        $this->emit('refresh_service');
     }
 
     public function get_single_note($note)
@@ -824,182 +727,21 @@ class PartnerMain extends Component
 
     }
 
-    public function filterStatus()
-    {
-        if ($this->not_assigned) {
-            $this->not_assigned = false;
-        } else {
-            $this->not_assigned = true;
-        }
-
-    }
-
-    public function getListsProperty()
-    {
-        // dd($this->base);
-
-        $query = Note::query()->excludeCanceledFullDone();
-        SicodeRules::applyContractDispatchMainVisibility(
-            $query,
-            Auth()->User(),
-            $this->service->uuid,
-            fn ($statusQuery) => $this->bulkSearchAnyStatus && count($this->multiSearch)
-                ? null
-                : RuleBuilder::applyRules($statusQuery, $this->service->Status)
-        );
-
-        if (strlen($this->search)) {
-            $this->gotoPage(1);
-            $this->multiSearch = [];
-
-            $query->where(function ($q) {
-                return$q->where('note', 'like', '%' . trim($this->search) . '%')
-                        ->orWhere('material', 'like', '%' . trim($this->search) . '%')
-                        ->orWhere('numPedido', 'like', '%' . trim($this->search) . '%')
-                        ->orWhere('group1', 'like', '%' . trim($this->search) . '%')
-                        ->orWhere('group2', 'like', '%' . trim($this->search) . '%')
-                        ->orWhere('group4', 'like', '%' . trim($this->search) . '%')
-                        ->orWhere('group5', 'like', '%' . trim($this->search) . '%');
-            });
-        }
-
-        if (count($this->multiSearch)) {
-            $this->gotoPage(1);
-            $this->search = "";
-
-            $query->where(function ($q) {
-                return $q->WhereIn('note', $this->multiSearch)
-                ->orWhere(function ($q) {
-                    $q->whereIn('note', $this->multiSearch)
-                        ->where('centerjob', 'PREDSINA');
-                });
-            });
-
-        } elseif (!$this->search && !count($this->multiSearch) && $this->base) {
-            $query->where(function ($q) {
-                return $q->whereIn('nexp', $this->base)
-                ->orWhereNull('nexp');
-            });
-        }
-
-        if (count($this->rubrica_s)) {
-            $query->where(function ($q) {
-                return $q->whereIn('rubrica', $this->rubrica_s)
-                ->orWhereNull('rubrica');
-            });
-
-        }
-
-        if ($this->note_type) {
-            $query->where(function ($q) {
-                return $q->where('type_note', $this->note_type)
-                    ->orWhereNull('type_note');
-            });
-        }
-
-        if ($this->not_assigned) {
-            $query->where(function ($q) {
-                $q->doesntHave('Productions')
-                    ->orWhereDoesntHave('Productions', function ($subquery) {
-                        $subquery->where('service_id', $this->service->uuid)
-                            ->where('confirmed', false);
-                    });
-            });
-        }
-
-        $query->with([
-            'Productions.User',
-            'Productions.Company',
-            'Wpas',
-            'WorkForms',
-            'Partials',
-        ])
-                    ->orderBy('is45', 'DESC')
-                    ->orderBy('type_note', 'DESC')
-                    ->orderBy('days_left');
-
-        return $query;
-    }
-
-    public function getBaseProperty()
-    {
-        try {
-            $query          = City::query();
-            $filtersApplied = false;
-
-            if (!empty($this->region_s)) {
-                $query->whereIn('regiao', $this->region_s);
-                $filtersApplied = true;
-            }
-
-            if (!empty($this->district_s)) {
-                $query->whereIn('baseConstrucao', $this->district_s);
-                $filtersApplied = true;
-            }
-
-            if (!empty($this->city_s)) {
-                $query->whereIn('cidade', $this->city_s);
-                $filtersApplied = true;
-            }
-
-            if (!$filtersApplied) {
-                return [];
-            }
-
-            $result = $query->orderBy('cidade')
-                            ->get()
-                            ->pluck('rdMunicipio')
-                            ->toArray();
-
-            return $result;
-        } catch (\Throwable $th) {
-            return [];
-        }
-    }
-
     public function render()
     {
-        $lists               = $this->lists->paginate($this->perPage);
-        $this->filteredLists = $lists
-            ->filter(fn ($list) => $this->canDispatchNote($list));
+        $this->dispatchStateMemo = [];
 
-        if (empty(array_diff($this->filteredLists->pluck('id')->toArray(), $this->selected))) {
-            $this->selectall = true;
-        } else {
-            $this->selectall = false;
-        }
+        $lists = $this->paginateLists();
+        $this->recomputeSelectAllFor($lists->getCollection());
 
-        // if (!Auth()->User()->usesContractDispatch()) {
-        //     $this->company_l = Company::orderBy('name', 'ASC')->get();
-        // } else {
-
-        //     $this->company_l = Company::where('id', Auth()->User()->Employee->Contract->company_id)->get();
-        // }
-
-        $this->rubrica_l = Note::select('rubrica')->where('nstats', $this->service->status)->orderBy('rubrica')->groupBy('rubrica')->get();
-
-        // Municipios Filtros
-        $this->region_l = City::select('regiao')->orderBy('regiao')->groupBy('regiao')->get();
-
-        $this->district_l = City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })->select('baseConstrucao')->orderBy('baseConstrucao')->groupBy('baseConstrucao')->get();
-
-        $this->city_l = City::when($this->region_s, function ($q) {
-            return $q->whereIn('regiao', $this->region_s);
-        })
-        ->when($this->district_s, function ($q) {
-            return $q->whereIn('baseConstrucao', $this->district_s);
-        })
-        ->select('rdMunicipio', 'cidade', 'municipio')
-        ->distinct()
-        ->orderBy('cidade')
-        ->groupBy('rdMunicipio', 'cidade', 'municipio')
-        ->get();
+        $presenter = app(SurveyListRowPresenter::class);
+        $rows      = $lists->getCollection()->map(fn (Note $note) => $presenter->present($note, $this->rowDispatchState($note), $this->service->uuid, true));
 
         return view('livewire.dispatchs.levantamento.partner_main', [
-            'lists'  => $lists,
-            'update' => Bancoupdate::OrderBy('created_at', 'DESC')->first(),
+            'lists'        => $lists,
+            'rows'         => $rows,
+            'legalNoteIds' => $this->legalLinkedNoteIds($lists->pluck('id')->all()),
+            'update'       => Cache::remember('survey-dispatch:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
         ]);
     }
 }

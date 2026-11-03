@@ -1,206 +1,243 @@
 @php
-    $statusLabels = [
-        'OPEN' => ['Aberta', '#f1f5f9', '#475569'],
-        'REQUESTED' => ['Aguardando resposta', '#fef3c7', '#b45309'],
-        'RETURNED' => ['Devolvida p/ correção', '#fee2e2', '#b91c1c'],
-        'RESPONDED' => ['Respondida', '#dbeafe', '#1d4ed8'],
-        'VALIDATING' => ['Em validação', '#ede9fe', '#6d28d9'],
-        'RESOLVED' => ['Resolvida', '#dcfce7', '#15803d'],
-    ];
-    $kpis = [
-        ['Aguardando resposta', (int) ($counts['REQUESTED'] ?? 0), 'ri-time-line', '#b45309', 'dependem de você'],
-        ['Devolvidas p/ correção', (int) ($counts['RETURNED'] ?? 0), 'ri-arrow-go-back-line', '#c0392b', 'revisar e reenviar'],
-        ['Respondidas / em validação', (int) ($counts['RESPONDED'] ?? 0) + (int) ($counts['VALIDATING'] ?? 0), 'ri-hourglass-line', '#263cc8', 'com a equipe de Encerramento'],
-        ['Depósitos bloqueados', $signals->count(), 'ri-lock-line', '#155f67', $signals->count() ? $signals->sum('affected_count') . ' Ordem(ns) afetadas' : 'nenhum ativo'],
-    ];
-    $chips = [];
-    if (trim($search) !== '') { $chips[] = ['search', 'Busca: ' . trim($search)]; }
-    if ($status !== '') { $chips[] = ['status', 'Situação: ' . ($statusLabels[$status][0] ?? $status)]; }
-    if ($categoryId !== '') { $chips[] = ['category', 'Categoria: ' . ($categories->firstWhere('id', (int) $categoryId)?->name ?? '—')]; }
-    if ($partnerCompanyFilter !== '') { $chips[] = ['company', 'Empresa: ' . ($this->partnerCompanyFilterOptions()->firstWhere('id', $partnerCompanyFilter)?->name ?? '—')]; }
-@endphp
-<div class="closure-dash">
-    @include('livewire.closure._styles')
-    <x-show-loading />
+    use App\Services\Closure\ClosureEventLabels;
 
-    <div class="dash-hero mb-3">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-                <h2 class="dash-title">Pendências de Encerramento</h2>
-                <div class="dash-subtitle">Demandas destinadas à sua empresa: responda as pendências e acompanhe os depósitos bloqueados que afetam as suas obras.</div>
-            </div>
-            <div class="d-flex flex-wrap gap-2">
-                <a href="{{ route('partner.closure.history') }}" class="btn btn-light btn-sm btn-dash"><i class="ri-history-line"></i> Meu histórico</a>
-                <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel"><i class="ri-file-excel-2-line"></i> Exportar Excel</button>
-            </div>
+    $statusLabels = [
+        'OPEN'       => 'Aberta',
+        'REQUESTED'  => 'Aguardando resposta',
+        'RETURNED'   => 'Devolvida p/ correção',
+        'RESPONDED'  => 'Respondida',
+        'VALIDATING' => 'Em validação',
+        'RESOLVED'   => 'Resolvida',
+    ];
+    $tabLabels = ['REQUESTED' => 'Aguardando resposta', 'RETURNED' => 'Devolvidas', 'RESPONDED' => 'Respondidas', 'VALIDATING' => 'Em validação', 'RESOLVED' => 'Resolvidas'];
+    $tabs      = ['' => 'Todas (' . number_format((int) $counts->sum(), 0, ',', '.') . ')'];
+    foreach ($tabLabels as $key => $label) {
+        $tabs[$key] = $label . ' (' . number_format((int) ($counts[$key] ?? 0), 0, ',', '.') . ')';
+    }
+    $waiting = (int) ($counts['REQUESTED'] ?? 0);
+    $returnedCount = (int) ($counts['RETURNED'] ?? 0);
+    $inReview = (int) ($counts['RESPONDED'] ?? 0) + (int) ($counts['VALIDATING'] ?? 0);
+@endphp
+
+{{-- PENDÊNCIAS DE ENCERRAMENTO DA PARCEIRA (lista de controle + padrão do Encerramento: docs/encerramento/PADRAO_UI_ENCERRAMENTO.md). --}}
+<div class="closure-dash my-panel ops-list ops-control">
+
+    <x-ops.hero class="ops-hero--control" eyebrow="Portal da parceira · Encerramento" title="Pendências de Encerramento"
+        subtitle="Demandas destinadas à sua empresa: responda as pendências e acompanhe os depósitos bloqueados que afetam as suas obras.">
+        <div class="d-flex flex-wrap gap-2 justify-content-end align-items-center">
+            <a href="{{ route('partner.closure.history') }}" class="btn btn-light btn-sm btn-dash"><i class="ri-history-line" aria-hidden="true"></i> Meu histórico</a>
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportToExcel" wire:loading.attr="disabled" wire:target="exportToExcel"><i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel</button>
         </div>
-    </div>
+    </x-ops.hero>
 
     @if (session()->has('success'))
-        <div class="alert alert-success d-flex align-items-center gap-2"><i class="ri-checkbox-circle-line"></i> {{ session('success') }}</div>
+        <div class="alert alert-success d-flex align-items-center gap-2"><i class="ri-checkbox-circle-line" aria-hidden="true"></i> {{ session('success') }}</div>
     @endif
 
-    <div class="row g-2 mb-3">
-        @foreach ($kpis as [$label, $value, $icon, $color, $note])
-            <div class="col-6 col-xl-3" wire:key="pkpi-{{ $loop->index }}">
-                <div class="kpi" style="--k: {{ $color }};">
-                    <div class="kpi-top"><span>{{ $label }}</span><i class="{{ $icon }}"></i></div>
-                    <div class="kpi-value">{{ number_format($value, 0, ',', '.') }}</div>
-                    <div class="kpi-note">{{ $note }}</div>
-                </div>
-            </div>
-        @endforeach
-    </div>
+    <section class="ops-stats" aria-label="Resumo das pendências">
+        <x-ops.stat tone="amber" label="Aguardando resposta" :value="number_format($waiting, 0, ',', '.')" icon="ri-time-line" :active="$status === 'REQUESTED'"
+            wire:click.prevent="setStatus('REQUESTED')" title="Pendências que dependem de você" />
+        <x-ops.stat tone="red" label="Devolvidas p/ correção" :value="number_format($returnedCount, 0, ',', '.')" icon="ri-arrow-go-back-line" :active="$status === 'RETURNED'"
+            wire:click.prevent="setStatus('RETURNED')" title="Revisar e reenviar" />
+        <x-ops.stat tone="blue" label="Respondidas / em validação" :value="number_format($inReview, 0, ',', '.')" icon="ri-hourglass-line" :active="$status === 'RESPONDED'"
+            wire:click.prevent="setStatus('RESPONDED')" title="Com a equipe de Encerramento" />
+        <x-ops.stat tone="teal" label="Depósitos bloqueados" :value="number_format($signals->count(), 0, ',', '.')" icon="ri-lock-line"
+            title="{{ $signals->count() ? $signals->sum('affected_count') . ' Ordem(ns) afetadas' : 'Nenhum depósito bloqueado' }}" />
+    </section>
 
     @if ($signals->isNotEmpty())
-        <div class="table-card mb-3" style="border-left: 4px solid #c0392b;">
-            <div class="od-section-head">
-                <h3><i class="ri-lock-line text-danger"></i> Depósitos bloqueados ativos <span class="od-count">{{ $signals->count() }}</span></h3>
+        <section class="mp-panel" aria-label="Depósitos bloqueados ativos">
+            <div class="mp-panel-head">
+                <div>
+                    <h2 class="mp-panel-title"><i class="ri-lock-line" aria-hidden="true"></i> Depósitos bloqueados ativos</h2>
+                    <div class="mp-panel-sub">{{ $signals->count() }} {{ $signals->count() === 1 ? 'depósito' : 'depósitos' }} com Ordens bloqueadas.</div>
+                </div>
             </div>
-            <div class="px-3 pb-3 d-flex flex-column gap-2">
-                @foreach ($signals as $signal)
-                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 p-3 rounded" style="background:#fff5f5;border:1px solid #f5c2c2;" wire:key="signal-{{ $signal->id }}">
-                        <div style="min-width:0;">
-                            <div class="fw-bold">Depósito {{ $signal->deposit_code }} <span class="fw-normal text-muted">· {{ $signal->deposit_label }}</span> <span class="st-chip" style="background:#fee2e2;color:#b91c1c;">{{ $signal->affected_count }} Ordem(ns) bloqueada(s)</span></div>
-                            <div class="small text-muted">Centro(s) de trabalho: @foreach ($signal->work_centers ?? [] as $code)<span class="co-code me-1">{{ $code }}</span>@endforeach · {{ $signal->origin === 'CALENDAR' ? 'inventário da gestão de ativos' : 'sinalização manual' }}</div>
-                            <div class="small text-muted">Desde {{ $signal->created_at?->format('d/m/Y H:i') }} · confirmado por {{ $signal->Author?->name ?? '—' }}</div>
-                            <div class="small">{{ $signal->reason }}</div>
-                        </div>
-                        @if ($canRelease)
-                            <button type="button" class="btn btn-sm btn-success fw-semibold" wire:click="startRelease({{ $signal->id }})"><i class="ri-lock-unlock-line"></i> Liberar depósito</button>
-                        @endif
-                    </div>
-                @endforeach
+            <div class="table-responsive">
+                <table class="table mp-table align-middle mb-0">
+                    <colgroup>
+                        <col style="width: 20%">
+                        <col style="width: 18%">
+                        <col style="width: 130px">
+                        <col style="width: 20%">
+                        <col>
+                        <col style="width: 170px">
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th>Depósito</th>
+                            <th>Centros de trabalho</th>
+                            <th>Ordens</th>
+                            <th>Desde</th>
+                            <th>Motivo</th>
+                            <th><span class="visually-hidden">Ações</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($signals as $signal)
+                            <tr wire:key="signal-{{ $signal->id }}">
+                                <td>
+                                    <div class="ops-person-name">Depósito {{ $signal->deposit_code }}</div>
+                                    @if ($signal->deposit_label)
+                                        <div class="ops-person-sub" title="{{ $signal->deposit_label }}">{{ $signal->deposit_label }}</div>
+                                    @endif
+                                </td>
+                                <td>
+                                    @forelse ($signal->work_centers ?? [] as $code)
+                                        <x-ops.badge sm tone="muted" mono :label="$code" />
+                                    @empty
+                                        <span class="ops-empty">—</span>
+                                    @endforelse
+                                </td>
+                                <td><x-ops.badge tone="red" :label="$signal->affected_count . ' bloqueada(s)'" hint="Ordens bloqueadas por este depósito" /></td>
+                                <td>
+                                    <x-ops.date :date="$signal->created_at" :time="true" />
+                                    <div class="ops-person-sub">{{ $signal->origin === 'CALENDAR' ? 'inventário da gestão de ativos' : 'sinalização manual' }} · {{ $signal->Author?->name ?? '—' }}</div>
+                                </td>
+                                <td>{{ $signal->reason ?: '—' }}</td>
+                                <td class="text-end">
+                                    @if ($canRelease)
+                                        <button type="button" class="btn btn-primary btn-sm ops-action" wire:click="startRelease({{ $signal->id }})"><i class="ri-lock-unlock-line" aria-hidden="true"></i> Liberar depósito</button>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
-        </div>
+        </section>
     @endif
 
-    <div class="table-card p-3 mb-3">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-            <div class="d-flex align-items-center gap-2 fw-bold"><i class="ri-filter-3-line"></i> Filtros @if (count($chips))<span class="badge bg-light text-dark border">{{ count($chips) }} ativo(s)</span>@endif</div>
-            @if (count($chips))
-                <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 text-danger" wire:click="clearFilters"><i class="ri-close-circle-line"></i> Limpar filtros</button>
+    <section class="ops-toolbar" aria-label="Filtros das pendências">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar por nota ou ordem…" label="Buscar pendência" />
+
+            <x-ops.segmented name="partnerIssuesTab" label="Situação da pendência" wire:model="status" :options="$tabs" />
+
+            <span class="ops-toolbar-spacer"></span>
+
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearFilters"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar filtros</button>
             @endif
         </div>
-        <div class="row g-3">
-            <div class="col-12 col-md-6 col-xl-3">
-                <label class="ctl-label">Busca</label>
-                <div class="input-group"><span class="input-group-text bg-white"><i class="ri-search-line"></i></span><input type="search" class="form-control" wire:model.debounce.500ms="search" placeholder="Nota ou Ordem"></div>
-            </div>
-            <div class="col-12 col-md-6 col-xl-3">
-                <label class="ctl-label">Empresa</label>
-                <select class="form-select" wire:model="partnerCompanyFilter">
-                    <option value="">Todas as empresas permitidas</option>
-                    @foreach ($this->partnerCompanyFilterOptions() as $company)
-                        <option value="{{ $company->id }}">{{ $company->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-12 col-md-6 col-xl-3">
-                <label class="ctl-label">Situação</label>
-                <select class="form-select" wire:model="status">
-                    <option value="">Todas</option>
-                    @foreach (['REQUESTED', 'RETURNED', 'RESPONDED', 'VALIDATING', 'RESOLVED'] as $key)
-                        <option value="{{ $key }}">{{ $statusLabels[$key][0] }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="col-12 col-md-6 col-xl-3">
-                <label class="ctl-label">Categoria</label>
-                <select class="form-select" wire:model="categoryId">
-                    <option value="">Todas</option>
-                    @foreach ($categories as $category)
-                        <option value="{{ $category->id }}">{{ $category->name }}{{ !$category->active ? ' (inativa)' : '' }}</option>
-                    @endforeach
-                </select>
-            </div>
-        </div>
-        @if (count($chips))
-            <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                <span class="small text-muted">Filtros aplicados:</span>
-                @foreach ($chips as [$kind, $label])
-                    <span class="ctl-chip" wire:key="pchip-{{ $kind }}">{{ $label }}<button type="button" wire:click="removeFilter('{{ $kind }}')" aria-label="Remover filtro"><i class="ri-close-line"></i></button></span>
-                @endforeach
-            </div>
-        @endif
-    </div>
 
-    <div class="table-card mb-3">
-        <div class="od-section-head">
-            <div><h3><i class="ri-error-warning-line text-muted"></i> Pendências de Encerramento <span class="od-count">{{ $issues->total() }} registros</span></h3><div class="small text-muted mt-1">Apenas demandas destinadas à sua empresa.</div></div>
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
         </div>
-        <div class="table-responsive dash-scroll">
-            <table class="table table-sm align-middle mb-0 dash-table" style="min-width: 860px;">
-                <thead>
-                    <tr>
-                        <th class="ps-3">Nota / Ordem</th>
-                        <th>Classificação</th>
-                        <th>Situação</th>
-                        <th>Solicitada em</th>
-                        <th>Último retorno</th>
-                        <th class="pe-3 text-end">Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($issues as $issue)
-                        @php $st = $statusLabels[$issue->status] ?? [$issue->status, '#f1f5f9', '#475569']; @endphp
-                        <tr wire:key="closure-issue-{{ $issue->id }}">
-                            <td class="ps-3">
-                                <div class="ord-main">{{ $issue->Order?->ordem ?? '—' }}</div>
-                                <div class="ord-sub">Nota {{ $issue->Order?->Note?->note ?? '—' }}</div>
-                            </td>
-                            <td>
-                                <div class="fw-semibold small">{{ $issue->Category?->name ?? '—' }}</div>
-                                <div class="ord-sub">{{ $issue->Subcategory?->name ?? '—' }}</div>
-                            </td>
-                            <td><span class="st-chip" style="background: {{ $st[1] }}; color: {{ $st[2] }};">{{ $st[0] }}</span><div class="ord-sub mt-1">Ciclo {{ $issue->cycle }}</div></td>
-                            <td class="small">{{ optional($issue->requested_at ?? $issue->opened_at)->format('d/m/Y H:i') }}
-                                @if (in_array($issue->status, ['REQUESTED', 'RETURNED'], true))<div class="mt-1"><x-closure.age-chip :since="$issue->requested_at ?? $issue->opened_at" /></div>@endif
-                            </td>
-                            <td class="small">{{ optional($issue->Events->last())->created_at?->format('d/m/Y H:i') ?? '—' }}</td>
-                            <td class="pe-3 text-end cell-visible">
-                                @php $canReply = in_array($issue->status, ['REQUESTED', 'RETURNED'], true) && $canRespond; @endphp
-                                <a class="btn btn-sm {{ $canReply ? 'btn-success' : 'btn-outline-secondary' }} btn-dash" href="{{ route('partner.closure.issue.show', $issue->id) }}">
-                                    <i class="{{ $canReply ? 'ri-reply-line' : 'ri-eye-line' }}"></i> {{ $canReply ? 'Ver pedido e responder' : 'Ver pedido' }}
-                                </a>
-                                @if ($issue->Order?->note_id && $canRespond)
-                                    <a class="btn btn-sm btn-outline-secondary btn-dash" href="{{ route('partner.closure.work.show', $issue->Order->note_id) }}"><i class="ri-building-line"></i> Abrir obra</a>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr><td colspan="6" class="text-center py-5 text-muted"><i class="ri-checkbox-circle-line d-block text-success" style="font-size:2rem;"></i>Nenhuma pendência encontrada para os filtros selecionados.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-        @if ($issues->hasPages())
-            <div class="p-3 border-top">{{ $issues->links() }}</div>
+
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
         @endif
-    </div>
+    </section>
+
+    <section class="mp-panel" aria-label="Pendências de Encerramento">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Pendências de Encerramento</h2>
+                <div class="mp-panel-sub">{{ number_format($issues->total(), 0, ',', '.') }} {{ $issues->total() === 1 ? 'registro' : 'registros' }} · apenas demandas destinadas à sua empresa.</div>
+            </div>
+        </div>
+
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="8" :cols="6" />
+
+        <div wire:loading.delay.class="d-none">
+            @if ($issues->isEmpty())
+                <x-closure.empty-state icon="ri-checkbox-circle-line"
+                    :title="$hasCriteria ? 'Nenhuma pendência com esses filtros' : 'Nenhuma pendência encontrada'"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais pendências.' : 'Quando o Encerramento pedir algo à sua empresa, a pendência aparece aqui.'" />
+            @else
+                <div class="table-responsive">
+                    <table class="table mp-table align-middle mb-0">
+                        <colgroup>
+                            <col style="width: 16%">
+                            <col style="width: 22%">
+                            <col style="width: 180px">
+                            <col style="width: 150px">
+                            <col style="width: 150px">
+                            <col>
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Ordem / Nota</th>
+                                <th>Classificação</th>
+                                <th>Situação</th>
+                                <th>Solicitada em</th>
+                                <th>Último retorno</th>
+                                <th><span class="visually-hidden">Ações</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($issues as $issue)
+                                @php
+                                    $waitingReply = in_array($issue->status, ['REQUESTED', 'RETURNED'], true);
+                                    $canReply     = $waitingReply && $canRespond;
+                                    $since        = $issue->requested_at ?? $issue->opened_at;
+                                    $sinceDays    = $since ? (int) $since->copy()->startOfDay()->diffInDays(now()->startOfDay()) : null;
+                                @endphp
+                                <tr wire:key="closure-issue-{{ $issue->id }}">
+                                    <td><x-ops.note :note="$issue->Order?->ordem ?? '—'" :sub="'Nota ' . ($issue->Order?->Note?->note ?? '—')" /></td>
+                                    <td>
+                                        <div class="ops-person-name">{{ $issue->Category?->name ?? '—' }}</div>
+                                        <div class="ops-person-sub">{{ $issue->Subcategory?->name ?? '—' }}</div>
+                                    </td>
+                                    <td>
+                                        <x-ops.badge :tone="ClosureEventLabels::issueStatusTone($issue->status)" :label="$statusLabels[$issue->status] ?? $issue->status" />
+                                        <div class="ops-person-sub">Ciclo {{ $issue->cycle }}</div>
+                                    </td>
+                                    <td>
+                                        <x-ops.date :date="$since" :time="!$waitingReply || $sinceDays === null"
+                                            :sub="$waitingReply && $sinceDays !== null ? ($sinceDays === 0 ? 'hoje' : 'há ' . $sinceDays . ' ' . ($sinceDays === 1 ? 'dia' : 'dias')) : null"
+                                            hint="Dias corridos desde a solicitação (informativo)" />
+                                    </td>
+                                    <td><x-ops.date :date="$issue->last_event_at" :time="true" /></td>
+                                    <td class="text-end">
+                                        <div class="d-inline-flex align-items-center gap-1">
+                                            <a class="btn {{ $canReply ? 'btn-primary' : 'btn-outline-secondary' }} btn-sm ops-action" href="{{ route('partner.closure.issue.show', $issue->id) }}">
+                                                <i class="{{ $canReply ? 'ri-reply-line' : 'ri-eye-line' }}" aria-hidden="true"></i> {{ $canReply ? 'Ver pedido e responder' : 'Ver pedido' }}
+                                            </a>
+                                            @if ($issue->Order?->note_id && $canRespond)
+                                                <a class="btn btn-outline-secondary btn-sm ops-action" href="{{ route('partner.closure.work.show', $issue->Order->note_id) }}"><i class="ri-building-line" aria-hidden="true"></i> Abrir obra</a>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <x-ops.pager :paginator="$issues" />
+            @endif
+        </div>
+    </section>
 
     {{-- Liberar depósito --}}
     @if ($releasingSignalId && ($releasing = $signals->firstWhere('id', $releasingSignalId)))
-        <div class="cpop-overlay" wire:click.self="cancelRelease" x-data @keydown.escape.window="$wire.cancelRelease()">
-            <div class="cpop" style="max-width: 500px; --tone: #0f8a77;" role="dialog" aria-modal="true" aria-label="Liberar depósito">
-                <div class="cpop-head">
-                    <span class="cpop-icon"><i class="ri-lock-unlock-line"></i></span>
-                    <div>
-                        <h3 class="cpop-title">Liberar depósito</h3>
-                        <div class="cpop-sub">Depósito {{ $releasing->deposit_code }}@if ($releasing->deposit_label) · {{ $releasing->deposit_label }}@endif</div>
+        <div class="modal fade show d-block ops-modal" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="releaseDepositTitle" x-data @keydown.escape.window="$wire.cancelRelease()">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content closure-dash ops-list">
+                    <div class="modal-header">
+                        <div>
+                            <span class="modal-eyebrow">Liberar depósito</span>
+                            <h5 class="modal-title" id="releaseDepositTitle">Depósito {{ $releasing->deposit_code }}@if ($releasing->deposit_label) · {{ $releasing->deposit_label }}@endif</h5>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white ms-auto" wire:click="cancelRelease" aria-label="Fechar"></button>
                     </div>
-                    <button type="button" class="cpop-close" aria-label="Fechar" wire:click="cancelRelease"><i class="ri-close-line"></i></button>
-                </div>
-                <div class="cpop-body">
-                    <div class="cpop-hint">Confirme que o depósito foi desbloqueado. As <strong>{{ $releasing->affected_count }}</strong> Ordem(ns) bloqueadas voltam, de uma vez, ao status que tinham antes do bloqueio.</div>
-                    <label for="release-note" class="cpop-label">Observação (opcional)</label>
-                    <textarea id="release-note" class="form-control" rows="3" wire:model.defer="releaseNote" maxlength="1000" placeholder="Ex.: depósito regularizado em 21/10."></textarea>
-                </div>
-                <div class="cpop-foot">
-                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" wire:click="cancelRelease">Cancelar</button>
-                    <button type="button" class="btn btn-sm px-3 text-white fw-semibold" style="background:#0f8a77;" wire:click="submitRelease" wire:loading.attr="disabled" wire:target="submitRelease"><i class="ri-lock-unlock-line"></i> Liberar todas</button>
+                    <div class="modal-body">
+                        <p class="ops-modal-note">Confirme que o depósito foi desbloqueado. As <strong>{{ $releasing->affected_count }}</strong> Ordem(ns) bloqueadas voltam, de uma vez, ao status que tinham antes do bloqueio.</p>
+                        <label for="release-note" class="form-label fw-semibold text-uppercase small">Observação (opcional)</label>
+                        <textarea id="release-note" class="form-control" rows="3" wire:model.defer="releaseNote" maxlength="1000" placeholder="Ex.: depósito regularizado em 21/10."></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary btn-dash" wire:click="cancelRelease">Cancelar</button>
+                        <button type="button" class="btn btn-primary btn-dash" wire:click="submitRelease" wire:loading.attr="disabled" wire:target="submitRelease"><i class="ri-lock-unlock-line" aria-hidden="true"></i> Liberar todas</button>
+                    </div>
                 </div>
             </div>
         </div>
+        <div class="modal-backdrop fade show"></div>
     @endif
 </div>

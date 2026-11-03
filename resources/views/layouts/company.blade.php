@@ -26,42 +26,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
     @stack('css')
 
-    <style>
-        .popover {
-            background-color: #143f47;
-            color: #28FF52;
-        }
-
-        .popover .popover-header {
-            background-color: #365960;
-            color: #28FF52;
-            font-weight: bold;
-        }
-
-        .popover .popover-body {
-            background-color: #143f47;
-            color: #fff;
-        }
-
-        .popover.bs-popover-top>.arrow::after,
-        .popover.bs-popover-bottom>.arrow::after,
-        .popover.bs-popover-left>.arrow::after,
-        .popover.bs-popover-right>.arrow::after {
-            background-color: #143f47;
-            border-color: #143f47;
-
-        }
-
-        .avatar-circle {
-            width: var(--avatar-size, 120px) !important;
-            height: var(--avatar-size, 120px) !important;
-            min-width: var(--avatar-size, 120px) !important;
-            min-height: var(--avatar-size, 120px) !important;
-            object-fit: cover;
-            border-radius: 50% !important;
-            display: inline-block;
-        }
-    </style>
+    {{-- Popovers e avatar redondo: resources/sass/partner/_partner.scss (escopo .partner-shell). Sem CSS inline no layout. --}}
 
     {{-- @if ($_SERVER['SERVER_NAME'] != 'localhost')
         @php
@@ -114,7 +79,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 <!-- Scripts -->
 
 
-<body class="g-sidenav-show edp-bg-gray {{ trim($__env->yieldContent('body_class')) }}">
+<body class="g-sidenav-show partner-shell {{ trim($__env->yieldContent('body_class')) }}">
 
 
 
@@ -122,7 +87,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
 
 
     <header id="header"
-        class="header fixed-top d-flex align-items-center @if (session('impersonate')) text-bg-danger @else edp-bg-marineblue-100 text-white @endif">
+        class="header fixed-top d-flex align-items-center @if (session('impersonate')) header--impersonating text-white @else edp-bg-marineblue-100 text-white @endif">
         <i class="bi bi-list toggle-sidebar-btn text-white me-3"></i>
 
         @if (env('APP_QA') && env('APP_DEBUG'))
@@ -134,11 +99,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
         @endif
 
         @if (session('impersonate'))
-            <h5 class="text-warning text-uppercase mx-4 align-middle">VOCÊ ESTÁ NA VISÂO DE
-                <strong>{{ Auth()->User()->name }}</strong>.
-                <a href="{{ route('stopImpersonating') }}" class="btn btn-sm btn-primary mx-2 align-middle">PARAR
-                    VISÃO</a>
-            </h5>
+            <x-nav.impersonation-banner />
         @endif
 
         <nav class="header-nav ms-auto me-2">
@@ -165,7 +126,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                             class="d-flex align-items-end">
                             <img src="{{ asset('img/EDP-Logo-white.svg') }}" class="align-middle" alt=""
                                 height="30">
-                            <span class="d-none d-lg-block edp-text-iceblue-dark fw-bold fs-4">{{ \App\Support\SicodeRules::displayName() }}</span>
+                            <span class="d-none d-lg-block partner-brand-product fw-bold fs-4">{{ \App\Support\SicodeRules::displayName() }}</span>
                         </a>
                     </div></li><!-- End Logo -->
                 @else
@@ -181,7 +142,7 @@ $version = (object) json_decode(file_get_contents(base_path('appver.json')));
                             class="d-flex align-items-end">
                             <span
                                 class="d-none d-lg-block text-white fw-bold fs-4">{{ Auth()->user()->Company?->name ? mb_strtolower(explode(' ', Auth()->user()->Company->name)[0]) : '' }}</span>
-                            <span class="d-none d-lg-block edp-text-green fw-bold fs-4">{{ \App\Support\SicodeRules::displayName() }}</span>
+                            <span class="d-none d-lg-block partner-brand-product fw-bold fs-4">{{ \App\Support\SicodeRules::displayName() }}</span>
                         </a>
                     </div></li><!-- End Logo -->
                 @endif

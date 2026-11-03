@@ -1,607 +1,242 @@
 @php
-    use Carbon\Carbon;
     use App\Custom\Notestatus;
+    use App\Support\Ops\Tone;
+
+    $statusCodes = $service->Status->count()
+        ? $service->Status->where('exclusion', false)->unique('value')->pluck('value')->implode(' · ')
+        : null;
+    $hasCriteria = $this->hasListFilters() || filled($search) || filled($note_type) || $statusFilter !== '';
 @endphp
-<div class="user-activity-page desenho-page">
-    {{-- Carrega o Loading da página --}}
-    <x-show-loading />
 
-    @include('livewire.services.partials.user-activity-list-style')
+{{-- Serviços → Desenho: a pilha de quem está logado. Padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md. Hero → situação → ferramentas → painel com a tabela. --}}
+<div class="closure-dash my-panel ops-list">
 
-    <style>
-        .desenho-page {
-            --activity-accent: #0f766e;
-        }
+    <x-ops.hero
+        :eyebrow="'Serviços · ' . $service->service"
+        :title="'Minhas atividades de ' . mb_strtolower($service->service)"
+        subtitle="Acompanhamento de produção. Ordenação: prioridade, D5, tipo, prazo real e identificação."
+        :updated-at="null">
+    </x-ops.hero>
 
-        .desenho-page .desenho-tabs {
-            border-bottom: 0;
-            gap: .5rem;
-        }
+    {{-- Situação da pilha: os cartões de status são filtros. --}}
+    @if (count($statusFilterOptions))
+        <section class="ops-stats" aria-label="Status da produção">
+            @foreach ($statusFilterOptions as $statusOption)
+                <x-ops.stat :tone="$statusOption['tone']" :label="$statusOption['label']" :value="number_format($statusOption['count'], 0, ',', '.')"
+                    :active="(string) $statusFilter === (string) $statusOption['value']" wire:click.prevent="setStatusFilter('{{ $statusOption['value'] }}')"
+                    wire:key="desenho-status-{{ $statusOption['value'] === '' ? 'todos' : $statusOption['value'] }}"
+                    :title="'Filtrar por ' . $statusOption['label']" />
+            @endforeach
+        </section>
+    @endif
 
-        .desenho-page .desenho-tabs .nav-link {
-            background: rgba(255, 255, 255, .72);
-            border: 1px solid var(--activity-border);
-            border-radius: .75rem .75rem 0 0;
-            color: var(--activity-muted);
-            font-weight: 600;
-        }
+    <section class="ops-toolbar" aria-label="Filtros da lista">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar nota, pedido ou rubrica" label="Buscar nota, pedido ou rubrica" />
 
-        .desenho-page .desenho-tabs .nav-link.active {
-            background: var(--activity-surface);
-            color: var(--activity-accent);
-        }
+            <x-ops.segmented name="servicoDesenhoNoteType" label="Tipo de nota" wire:model="note_type" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
 
-        .desenho-page .user-activity-table-header {
-            background: var(--bs-danger);
-            border-bottom: 1px solid var(--bs-danger);
-        }
+            <x-ops.toggle :label="$showProjectReviewInProgress ? 'Ocultar em análise' : 'Mostrar em análise'" :icon="$showProjectReviewInProgress ? 'ri-eye-off-line' : 'ri-eye-line'"
+                :on="$showProjectReviewInProgress" :count="$this->projectReviewInProgressCount" wire:click.prevent="toggleProjectReviewInProgress"
+                title="Mostra ou oculta as atividades que estão em análise de projeto" />
 
-        .desenho-page .user-activity-table-card .table thead th {
-            background: #1e293b;
-            border-color: #334155;
-            color: #ffffff;
-            padding: .65rem .5rem;
-            position: sticky;
-            top: 0;
-            z-index: 2;
-        }
+            <span class="ops-toolbar-spacer"></span>
 
-        .desenho-page .user-activity-table-card .table tbody td {
-            line-height: 1.35;
-            padding: .65rem .5rem;
-        }
-
-        .desenho-page .activity-location {
-            min-width: 110px;
-        }
-
-        .desenho-page .activity-description {
-            max-width: 190px;
-            min-width: 150px;
-        }
-
-        .desenho-page .activity-description span {
-            display: -webkit-box;
-            overflow: hidden;
-            -webkit-box-orient: vertical;
-            -webkit-line-clamp: 3;
-        }
-
-        .desenho-page .activity-times {
-            min-width: 105px;
-            white-space: nowrap;
-        }
-
-        .desenho-page .activity-times small {
-            color: var(--activity-muted);
-            display: block;
-            font-size: .7rem;
-            font-weight: 600;
-            letter-spacing: .03em;
-            text-transform: uppercase;
-        }
-
-        .desenho-page .activity-row-actions {
-            display: flex;
-            gap: .35rem;
-            justify-content: center;
-            white-space: nowrap;
-        }
-
-        .desenho-page .activity-row-actions .btn {
-            align-items: center;
-            display: inline-flex;
-            height: 32px;
-            justify-content: center;
-            padding: 0;
-            width: 32px;
-        }
-    </style>
-
-    <div class="container-fluid">
-        @include('livewire.services.partials.user-activity-hero', [
-            'context' => 'Acompanhamento de produção',
-            'subtitle' => 'Ordenação: prioridade, D5, tipo, prazo real e identificação',
-            'total' => $lists->total(),
-            'accent' => '#0f766e',
-        ])
-
-        <div class="row g-3 mb-3">
-            <div class="col-12 col-md-7 col-xl-8">
-                <div class="activity-filter-card">
-                    <div class="activity-filter-title mb-2">Pesquisa</div>
-                    <input wire:model.bounce.2s="search" type="text"
-                        class="form-control border border-secondary" id="search"
-                        placeholder="Buscar por nota, pedido ou rubrica">
-                </div>
-            </div>
-            <div class="col-12 col-md-5 col-xl-4">
-                <div class="activity-filter-card">
-                    <div class="activity-filter-title mb-2">Tipo de nota</div>
-                    <div class="btn-group" role="group" aria-label="Tipo da nota">
-                        <input class="btn-check" type="radio" name="note_type" wire:model="note_type" value="1"
-                            id="note-type-1">
-                        <label class="btn btn-outline-primary" for="note-type-1">Nota</label>
-
-                        <input class="btn-check" type="radio" name="note_type" wire:model="note_type" value="2"
-                            id="note-type-2">
-                        <label class="btn btn-outline-primary" for="note-type-2">OV</label>
-
-                        <input class="btn-check" type="radio" name="note_type" wire:model="note_type" value=""
-                            id="note-type-all">
-                        <label class="btn btn-outline-primary" for="note-type-all">Ambos</label>
-                    </div>
-                </div>
-            </div>
-            <div class="col-12">
-                <div class="activity-filter-card">
-                    <div class="activity-filter-title mb-2">Status da produção</div>
-                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                        @if (count($statusFilterOptions))
-                            <div class="btn-group flex-wrap" role="group" aria-label="Filtro de status">
-                                @foreach ($statusFilterOptions as $statusOption)
-                                    @php
-                                        $isActiveStatusFilter = (string) ($statusFilter ?? '') === (string) ($statusOption['value'] ?? '');
-                                    @endphp
-                                    <button type="button"
-                                        class="btn {{ $statusOption['colorbg'] ?? 'text-bg-secondary' }} {{ $isActiveStatusFilter ? '' : 'opacity-75' }}"
-                                        wire:click.prevent="setStatusFilter('{{ $statusOption['value'] }}')">
-                                        {{ $statusOption['label'] }}
-                                        <span class="badge text-bg-light ms-1">
-                                            {{ $statusOption['count'] }}
-                                        </span>
-                                    </button>
-                                @endforeach
-                            </div>
-                        @else
-                            <span class="text-muted small">Nenhum status disponível.</span>
-                        @endif
-
-                        <button type="button"
-                            class="btn {{ $showProjectReviewInProgress ? 'btn-outline-warning' : 'btn-outline-secondary' }}"
-                            wire:click.prevent="toggleProjectReviewInProgress">
-                            <i class="{{ $showProjectReviewInProgress ? 'ri-eye-off-line' : 'ri-eye-line' }} me-1"></i>
-                            {{ $showProjectReviewInProgress ? 'Ocultar em análise' : 'Mostrar em análise' }}
-                            <span class="badge text-bg-light ms-1">{{ $this->projectReviewInProgressCount }}</span>
-                        </button>
-                    </div>
-                        </div>
-            </div>
-            <div class="col-12">
-                <div class="activity-filter-card">
-                    <div class="activity-filter-title mb-2">Filtros da nota</div>
-                    <div class="d-flex flex-wrap gap-2 align-items-center">
-                        <x-filters.multi-dropdown
-                            label="Status da nota"
-                            model="noteStatusFilters"
-                            :options="$noteStatusFilterOptions"
-                            :selected="$noteStatusFilters"
-                            key-prefix="note-status-filter" />
-
-                        <x-filters.multi-dropdown
-                            label="Localização"
-                            model="locationFilters"
-                            :options="$locationFilterOptions"
-                            :selected="$locationFilters"
-                            key-prefix="location-filter" />
-
-                        <x-filters.multi-dropdown
-                            label="Rubrica"
-                            model="rubricaFilters"
-                            :options="$rubricaFilterOptions"
-                            :selected="$rubricaFilters"
-                            key-prefix="rubrica-filter" />
-
-                        <button type="button" class="btn btn-primary" wire:click.prevent="applyFilters">
-                            <i class="ri-filter-fill me-1"></i>Aplicar filtros
-                        </button>
-                        <button type="button" class="btn btn-outline-danger" wire:click.prevent="clearAdvancedFilters">
-                            <i class="ri-filter-off-line me-1"></i>Limpar
-                        </button>
-                    </div>
-                </div>
-            </div>
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar tudo</button>
+            @endif
         </div>
-        {{-- <div class="btn-group mb-3">
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
 
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-
-                <div class="btn-group">
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_save"><i class="ri-filter-fill"></i>
-                        Aplicar Filtro</button>
-                    <button class="btn btn-primary mx-1" wire:click.prevent="filter_clean"><i
-                            class="ri-filter-off-fill"></i> Limpar Filtro</button>
-
-                </div>
-            </div>
-        </div> --}}
-    {{-- @can('superadm')
-        <div class="row justify-content-start">
-            <div class="col-2">
-                <input wire:model.bounce.2s="user_search" type="email"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-            </div>
-
-            <div class="col-3 mb-3">
-                <div class="input-group">
-                    <select class="form-select border border-2 border-secondary" aria-label="Default select example"
-                        wire:model.defer="user_s">
-                        @if ($user_l->count())
-                            <option value="">Selecione Usuario</option>
-                            @foreach ($user_l as $user)
-                                <option value="{{ $user->id }}">{{ $user->name }}</option>
-                            @endforeach
-                        @endif
-                    </select>
-
-
-                    <button class="btn btn-primary " wire:click.prevent="visualizar" type="button">
-                        Visualizar</button>
-                </div>
-            </div>
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros da nota</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
         </div>
-    @endcan --}}
 
-    <nav class="desenho-tabs nav mb-3">
-        <div class="nav nav-tabs border-0" id="nav-tab" role="tablist">
-            <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
-                type="button" role="tab" aria-controls="nav-home" aria-selected="true"
-                wire:click.prevent="$emit('refresh_accomany')">Produção</button>
-            <button class="nav-link" id="nav-transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer"
-                type="button" role="tab" aria-controls="nav-profile" aria-selected="false"
-                wire:click.prevent="$emit('refresh_translist')">Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))</button>
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
+        @endif
+    </section>
 
-        </div>
+    <nav class="nav nav-tabs mb-3" id="nav-tab" role="tablist">
+        <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
+            type="button" role="tab" aria-controls="my_production" aria-selected="true"
+            wire:click.prevent="$emit('refresh_accomany')">Produção</button>
+        <button class="nav-link" id="nav-transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer"
+            type="button" role="tab" aria-controls="transfer" aria-selected="false"
+            wire:click.prevent="$emit('refresh_translist')">Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))</button>
     </nav>
 
     <div class="tab-content" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
-            tabindex="0">
-            @if ($lists->count())
-                <div class="user-activity-summary mb-3">
-                    <div class="row align-items-center g-2">
-                        <div class="col-12 col-md-6">
-                            {{ $lists->links() }}
-                        </div>
-                        <div class="col-12 col-md-6 text-md-end">
-                            <span class="activity-summary-text">Exibindo <strong>{{ $lists->firstItem() }}</strong> até
-                                {{ $lists->lastItem() }}
-                                de <strong>{{ $lists->total() }}</strong>
-                                registros.</span>
+        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-production-tab" tabindex="0">
+            <section class="mp-panel" aria-label="Acompanhamento de {{ $service->service }}">
+                <div class="mp-panel-head">
+                    <div>
+                        <h2 class="mp-panel-title">Acompanhamento</h2>
+                        <div class="mp-panel-sub">
+                            {{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'registro' : 'registros' }}@if ($statusCodes) · status {{ $statusCodes }}@endif
                         </div>
                     </div>
+                    <span class="mp-pill" wire:loading.delay>Atualizando…</span>
                 </div>
-            @endif
-            <div class="user-activity-table-card">
 
-                @if (!$lists->count())
-                    <div class="p-5 text-center">
-                        <i class="ri-inbox-2-line display-5 text-muted"></i>
-                        <h5 class="mt-3 mb-1">Nenhuma atividade atribuída</h5>
-                        <p class="text-muted mb-0">
-                            Não existem tarefas de {{ mb_strtolower($service->service) }} para os filtros selecionados.
-                        </p>
+                <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="8" />
+
+                @if ($rows->isEmpty())
+                    <div class="mp-panel-body">
+                        <x-closure.empty-state
+                            :title="$hasCriteria ? 'Nenhuma atividade para os filtros escolhidos' : 'Nenhuma atividade atribuída'"
+                            :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais atividades.' : 'Quando houver tarefas de ' . mb_strtolower($service->service) . ' para você, elas aparecem aqui.'"
+                            icon="ri-inbox-line" />
+                        @if ($hasCriteria)
+                            <div class="text-center mt-2"><button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearAllCriteria">Limpar filtros</button></div>
+                        @endif
                     </div>
                 @else
-                    <div class="user-activity-table-header">
-                        <h5 class="user-activity-table-title">
-                            <i class="ri-list-check-2 me-1"></i>Acompanhamento
-                        </h5>
-                        <div class="user-activity-table-subtitle">
-                            {{ mb_strtoupper($service->service) }}
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    · Status {{ $sts->value }}
+                    <div class="ops-table-wrap" wire:loading.delay.class="d-none">
+                        <table class="table ops-table">
+                            <colgroup>
+                                @foreach ([138, 70, 52, 100, 130, 190, 70, 96, 72, 104, 76, 150, 190] as $w)
+                                    <col style="width: {{ $w }}px">
                                 @endforeach
-                            @endif
-                        </div>
-                    </div>
-
-                    <div class="table-responsive">
-                        <table class="table table-sm table-hover align-middle mb-0">
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th scope="col" class="fw-bold">Note</th>
-                                    <th scope="col" class="fw-bold">Files</th>
-                                    <th scope="col" class="fw-bold">DOE</th>
-                                    {{-- <th scope="col" class="fw-bold">numPedido</th> --}}
-                                    <th scope="col" class="fw-bold">Rubrica</th>
-                                    <th scope="col" class="fw-bold">Localização</th>
-                                    <th scope="col" class="fw-bold">Descrição</th>
-                                    <th scope="col" class="fw-bold">Postes_L</th>
-                                    <th scope="col" class="fw-bold">NStatus</th>
-                                    <th scope="col" class="fw-bold">DStatus</th>
-                                    <th scope="col" class="fw-bold">Tempos</th>
-                                    <th scope="col" class="fw-bold">Prazo Real</th>
-                                    <th scope="col" class="fw-bold">Status</th>
-                                    <th scope="col" class="fw-bold"></th>
+                                    <th>Nota</th>
+                                    <th>Arquivos</th>
+                                    <th>DOE</th>
+                                    <th class="is-left">Rubrica</th>
+                                    <th class="is-left">Localização</th>
+                                    <th class="is-left">Descrição</th>
+                                    <th>Postes L</th>
+                                    <th>Status da nota</th>
+                                    <th>DStatus</th>
+                                    <th>Tempos</th>
+                                    <th>Prazo real</th>
+                                    <th>Status</th>
+                                    <th><span class="visually-hidden">Ações</span></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @php
-                                    $getDaysStatus = static function ($list): array {
-                                        $days = $list->dt_status->diffInDays(now());
-
-                                        if ($days > 6) {
-                                            $bgColor = 'text-bg-danger';
-                                        } elseif ($days < 4) {
-                                            $bgColor = 'text-bg-success';
-                                        } else {
-                                            $bgColor = 'text-bg-warning';
-                                        }
-
-                                        return [
-                                            'days' => $days,
-                                            'bgColor' => $bgColor,
-                                        ];
-                                    };
-
-                                @endphp
-                                @foreach ($lists as $list)
-                                    @php
-                                        $dstatus = $getDaysStatus($list->note);
-                                        $isProjectReviewTracked =
-                                            in_array((int) $list->status, [30, 31, 32], true) &&
-                                            (bool) ($list->has_project_review_cycle ?? false);
-
-                                        $tableRowClass = '';
-                                        if ($list->priority) {
-                                            $tableRowClass = 'table-danger';
-                                        }
-                                    @endphp
-                                    <tr class="align-middle">
-                                        <td class="fw-bold {{ $tableRowClass }}">
-
-                                            @if ($isProjectReviewTracked && (int) $list->status === 30)
-                                                <span class="badge text-bg-warning fs-6" style="cursor: pointer;"
-                                                    wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
-                                                    data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    title="Análise de projeto em andamento">
-                                                    {{ $list->Note->note }}
-                                                </span>
-                                            @elseif ($isProjectReviewTracked && (int) $list->status === 31)
-                                                <span class="badge text-bg-danger fs-6" style="cursor: pointer;"
-                                                    wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
-                                                    data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    title="Abrir análise de projeto">
-                                                    {{ $list->Note->note }}
-                                                </span>
-                                            @elseif ($isProjectReviewTracked && (int) $list->status === 32)
-                                                <span class="badge text-bg-success fs-6" style="cursor: pointer;"
-                                                    wire:click="openProjectReviewReadonly({{ $list->id }}, {{ $list->Note->id }})"
-                                                    data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    title="Abrir análise de projeto">
-                                                    {{ $list->Note->note }}
-                                                </span>
-                                            @elseif ($list->d5)
-                                                <span class="badge text-bg-primary fs-6" style="cursor: pointer;"
-                                                    wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $list }})">
-                                                    {{ $list->Note->note }}
-                                                </span>
-                                            @else
-                                                {{ $list->Note->note }}
-                                            @endif
-
-                                            @if ($list->Note->pze == '25')
-                                                <span tabindex="0" data-bs-toggle="popover"
-                                                    data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-title="NOTA EXPRESSA"
-                                                    data-bs-content="Nota com prazo de execução de {{ $list->Note->pze }} dias"
-                                                    style="z-index: 9999;" data-bs-toggle="tooltip"
-                                                    data-bs-placement="top">
-                                                    <i class="ri-fire-line text-danger fw-bold"></i>
-                                                </span>
-                                            @endif
-
-                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                                style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                data-bs-trigger="hover focus" data-bs-placement="top"
-                                                data-bs-content="Copiar Número da Nota"> <i
-                                                    class="ri-file-copy-line"></i></span>
-
-                                            <div class="mt-1">
-                                                <x-legal.note-demand-tags
-                                                    :demands="$legalTagsByNoteId[$list->note_id] ?? []"
-                                                    :row-key="'services-desenho-accompany-'.$list->id"
-                                                />
-                                            </div>
-
-                                            @if ($list->priority)
-                                                <i class="ri-alert-fill align-middle"
-                                                    wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                    style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                    data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-title="Exibir Prioridade"
-                                                    data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
-                                            @endif
-                                        </td>
-                                        <td class="align-middle {{ $tableRowClass }}">
-                                            {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                            <x-files.select-download-list :files='$list->Note->Files' />
-
-                                        </td>
-                                        <td class="fw-bold text-success text-center {{ $tableRowClass }}">
-                                            @if ($list->Note->doe)
-                                                <i class="ri-checkbox-circle-line"></i>
-                                            @endif
-                                        </td>
-                                        {{-- <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->numPedido }}</td> --}}
-                                        <td class="fw-light {{ $tableRowClass }}">{{ $list->Note->rubrica }}</td>
-                                        <td class="fw-light activity-location {{ $tableRowClass }}">
-                                            <strong class="d-block fw-semibold">{{ $list->Note->lexp ?: '---' }}</strong>
-                                            <small class="text-muted">{{ $list->Note->group1 ?: 'Sem zona' }}</small>
-                                        </td>
-                                        <td class="fw-light activity-description {{ $tableRowClass }}"
-                                            title="{{ $list->Note->material }}">
-                                            <span>{{ $list->Note->material }}</span>
-                                        </td>
-                                        <td class="fw-light {{ $tableRowClass }} text-center">
-                                            {{ $list->note->postes ?? '---' }}
-                                        </td>
-                                        <td class="fw-light {{ $tableRowClass }} text-center" tabindex="0"
-                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="top" data-bs-title="Status da Atividade"
-                                            data-bs-html="true"
-                                            data-bs-content="<p class='fs-6 my-0 py-0 fw-semibold'>Status Atual</p><p class='my-0 py-0' style='font-size: 0.8rem; color: rgba(255, 255, 255, 0.65);'>Status Recebido</p>"
-                                            style="cursor: help;">
-                                            <p class="fs-6 my-0 py-0 fw-semibold">{{ $list->note->type_note == 1 ? $list->note->centerjob : $list->note->nstats }}</p>
-                                            <p class="my-0 py-0 text-muted" style="font-size: 0.8rem;">{{ $list->note->type_note == 1 ? $list->centroTrab : $list->status_note }}</p>
-                                        </td>
-                                        <td class="fw-light text-center {{ $dstatus['bgColor'] }}" tabindex="0"
-                                            data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="top" data-bs-title="Dias no Status"
-                                            data-bs-content="
-                                    <p>OBS: Os prazos para Nota não seguem com precisão, os prazos regulatórios como as OVs e deverão ser avaliados caso a caso.</p>
-                                    <span class='fs-4 text-success'>&#9632;</span> < 4 NO PRAZO <br>
-                                    <span class='fs-4 text-warning'>&#9632;</span> >= 4 VENCENDO <br>
-                                    <span class='fs-4 text-danger'>&#9632;</span> > 6 VENCIDO <br>
-                                    {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
-                                    ">
-                                            {{ $dstatus['days'] }}
-                                        </td>
-                                        <td class="fw-light text-center activity-times">
-                                            <div>
-                                                <small>Despachado</small>
-                                                {{ $list->dispatch_at ? Carbon::now()->diffInDays(Carbon::parse($list->dispatch_at)->format('Y-m-d')) : '---' }}
-                                            </div>
-                                            <div class="mt-1">
-                                                <small>Atribuído</small>
-                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->att_at)->format('Y-m-d')) }}
-                                            </div>
-                                        </td>
-
-                                        <td scope="col"
-                                            class="text-center fw-light @if (isset($list->Note->days_left) && $list->Note->days_left < 0) text-bg-secondary @elseif($list->Note->days_left >= 0 && $list->Note->days_left < 6) table-danger @elseif($list->Note->days_left >= 6 && $list->Note->days_left < 10) table-warning @else table-success @endif"
-                                            tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                            data-bs-placement="top" data-bs-title="Prazo Real"
-                                            data-bs-content="
-                                <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                ">
-                                            {{ isset($list->Note->days_left) ? 30 - $list->Note->days_left : '---' }}
-                                        </td>
-                                        {{-- <td class="fw-light">
-                                                {{ Carbon::now()->diffInDays(Carbon::parse($list->Note->dt_status)->format('Y-m-d')) }}
-                                            </td> --}}
-
-                                        <td class="fw-light text-center {{ $tableRowClass }}">
-
-                                            <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                                wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                                style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
-                                            @php $qualityProcess = $list->activeQualityProcess; @endphp
-                                            @if ($qualityProcess)
-                                                <div class="mt-1">
-                                                    <span class="badge text-bg-dark" data-bs-toggle="tooltip" data-bs-title="Atividade originada pela Qualidade: use o formulário da Qualidade para enviar ao N1.">
-                                                        <i class="ri-shield-check-line"></i> QUALIDADE · {{ $qualityProcess->phase->short() }} · rodada {{ $qualityProcess->round_number }}
-                                                    </span>
+                                @foreach ($rows as $row)
+                                    <tr wire:key="mine-{{ $row['id'] }}" @class(['ops-row-priority' => $row['priority']])>
+                                        <td>
+                                            @if ($row['reviewTracked'] && in_array($row['status'], [30, 31, 32], true))
+                                                <div class="ops-cell-stack is-center">
+                                                    <x-ops.badge class="ops-note-badge ops-clickable" :tone="$row['reviewBadge']['tone']" :hint="$row['reviewBadge']['hint']"
+                                                        wire:click="openProjectReviewReadonly({{ $row['id'] }}, {{ $row['noteId'] }})">{{ $row['note'] }}</x-ops.badge>
+                                                    @include('livewire.services.desenho.partials.note-extras', ['row' => $row])
                                                 </div>
+                                            @elseif ($row['ri'])
+                                                <x-ops.note :note="$row['note']" kind="ri" tone="blue" hint="Retorno Interno – clique para ver"
+                                                    wire:click="$emitTo('services.desenho.actions.responserinfo', 'getInfoResponse', {{ $row['id'] }})">
+                                                    @include('livewire.services.desenho.partials.note-extras', ['row' => $row])
+                                                </x-ops.note>
+                                            @else
+                                                <x-ops.note :note="$row['note']">
+                                                    @include('livewire.services.desenho.partials.note-extras', ['row' => $row])
+                                                </x-ops.note>
                                             @endif
                                         </td>
-                                        <td class="{{ $tableRowClass }}">
-                                            <div class="activity-row-actions">
-                                                @if (!$list->block)
-                                                    @if (!$list->completed || $isProjectReviewTracked)
-                                                        @if ($isProjectReviewTracked && (int) $list->status === 30)
-                                                            {{-- Em Análise de Projeto: sem ícones de ação para evitar reencerramento por engano. --}}
-                                                        @else
-                                                            @if ($list->activeQualityProcess)
-                                                                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Ver detalhes (somente leitura)" wire:click.prevent="getQualityDetails({{ $list->id }})"><i class="ri-eye-line"></i></button>
-                                                            @endif
-                                                            <button type="button"
-                                                                class="btn btn-sm btn-outline-success"
-                                                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                                                data-bs-title="Iniciar"
-                                                                wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})">
-                                                                <i class="ri-play-circle-line"></i>
-                                                            </button>
-                                                        @endif
-                                                        @if (!$isProjectReviewTracked && !$list->activeQualityProcess)
-                                                            <button type="button"
-                                                                class="btn btn-sm btn-outline-primary"
-                                                                data-bs-toggle="tooltip" data-bs-placement="top"
-                                                                data-bs-title="Transferir"
-                                                                wire:click.prevent="goTransferProd({{ $list->id }})">
-                                                                <i class="ri-exchange-fill"></i>
-                                                            </button>
-                                                        @endif
-                                                    @endif
+
+                                        <td><x-files.select-download-list :files="$row['files']" /></td>
+
+                                        <td>
+                                            @if ($row['doe'])
+                                                <x-ops.badge sm tone="green" icon="ri-checkbox-circle-line" label="DOE" hint="Nota com DOE" />
+                                            @else
+                                                <span class="ops-empty">—</span>
+                                            @endif
+                                        </td>
+
+                                        <td class="is-left"><span class="d-block text-truncate" title="{{ $row['rubrica'] }}">{{ $row['rubrica'] ?: '—' }}</span></td>
+
+                                        <td class="is-left">
+                                            <span class="fw-semibold d-block text-truncate" title="{{ $row['city'] }}">{{ $row['city'] ?: '—' }}</span>
+                                            <span class="ops-sub text-truncate">{{ $row['zone'] ?: 'Sem zona' }}</span>
+                                        </td>
+
+                                        <td class="is-left"><span class="d-block text-truncate" title="{{ $row['material'] }}">{{ $row['material'] ?: '—' }}</span></td>
+
+                                        <td>{{ $row['postes'] ?? '—' }}</td>
+
+                                        <td>
+                                            <div class="ops-cell-stack is-center" title="Status atual da nota e o status recebido no despacho">
+                                                <span class="fw-semibold">{{ $row['noteStatus'] ?: '—' }}</span>
+                                                <span class="ops-sub">{{ $row['receivedStatus'] ?: '—' }}</span>
+                                            </div>
+                                        </td>
+
+                                        <td><x-ops.badge :tone="$row['daysTone']" :label="$row['days'] ?? '—'" :hint="$row['daysHint']" /></td>
+
+                                        <td>
+                                            <div class="ops-cell-stack is-center">
+                                                <span class="ops-sub">Despachado</span>
+                                                <span>{{ $row['dispatchDays'] !== null ? $row['dispatchDays'] . ' d' : '—' }}</span>
+                                                <span class="ops-sub">Atribuído</span>
+                                                <span>{{ $row['attDays'] !== null ? $row['attDays'] . ' d' : '—' }}</span>
+                                            </div>
+                                        </td>
+
+                                        <td>
+                                            @if ($row['deadline']['value'] !== null)
+                                                <x-ops.badge :tone="$row['deadline']['tone']" :label="$row['deadline']['value']" :hint="$row['deadline']['hint']" />
+                                            @else
+                                                <span class="ops-empty">—</span>
+                                            @endif
+                                        </td>
+
+                                        <td>
+                                            <div class="ops-cell-stack is-center">
+                                                <x-ops.badge class="ops-clickable" :tone="Tone::forProductionStatus($row['status'])" :label="Notestatus::status($row['status'])->status" hint="Clique para ver o histórico de status"
+                                                    wire:click="$emitTo('components.status.show-status', 'showStatus', {{ $row['id'] }}, {{ $row['status'] }})" />
+                                                @if ($row['quality'])
+                                                    <x-ops.badge sm tone="teal" icon="ri-shield-check-line" :label="'Qualidade · ' . $row['quality']['phase'] . ' · rodada ' . $row['quality']['round']"
+                                                        hint="Atividade originada pela Qualidade: use o formulário da Qualidade para enviar ao N1." />
                                                 @endif
                                             </div>
                                         </td>
 
-
+                                        <td>
+                                            @if (!$row['block'] && (!$row['completed'] || $row['reviewTracked']) && !($row['reviewTracked'] && $row['status'] === 30))
+                                                <div class="d-inline-flex flex-wrap gap-1 justify-content-center">
+                                                    @if ($row['quality'])
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm ops-action" title="Ver detalhes (somente leitura)" wire:click.prevent="getQualityDetails({{ $row['id'] }})"><i class="ri-eye-line" aria-hidden="true"></i> Detalhes</button>
+                                                    @endif
+                                                    <button type="button" class="btn btn-primary btn-sm ops-action" title="Iniciar a atividade" wire:click.prevent="getAnalise({{ $row['id'] }}, {{ $row['noteId'] }})"><i class="ri-play-circle-line" aria-hidden="true"></i> Iniciar</button>
+                                                    @if (!$row['reviewTracked'] && !$row['quality'])
+                                                        <button type="button" class="btn btn-outline-primary btn-sm ops-action" title="Transferir para outro usuário" wire:click.prevent="goTransferProd({{ $row['id'] }})"><i class="ri-exchange-fill" aria-hidden="true"></i> Transferir</button>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
                         </table>
                     </div>
-
                 @endif
 
-
-            </div>
-            @if ($lists->count())
-                <div class="user-activity-summary mt-3">
-                    <div class="row align-items-center g-2">
-                        <div class="col-12 col-md-6">
-                            {{ $lists->links() }}
-                        </div>
-                        <div class="col-12 col-md-6 text-md-end">
-                            <span class="activity-summary-text">Exibindo <strong>{{ $lists->firstItem() }}</strong> até
-                                {{ $lists->lastItem() }}
-                                de <strong>{{ $lists->total() }}</strong>
-                                registros.</span>
-                        </div>
-                    </div>
-                </div>
-            @endif
+                <x-ops.pager :paginator="$lists" :per-page="$perPage" />
+            </section>
         </div>
 
-
-        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="0">
+        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-transfer-tab" tabindex="0">
             @livewire('components.transprod.translist', ['service' => $service->id])
         </div>
     </div>
 
-
-    </div>
-
-    <div wire:ignore.self class="modal fade" id="quality_closing_form" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="qualityClosingLabel" aria-hidden="true">
+    {{-- MODAIS --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="quality_closing_form" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="qualityClosingLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
             <div class="modal-content h-100">
-                <div class="modal-header text-bg-primary">
-                    <h1 class="modal-title fs-5" id="qualityClosingLabel">ATIVIDADE DE QUALIDADE</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Qualidade</span>
+                        <h5 class="modal-title" id="qualityClosingLabel">Atividade de qualidade</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     @livewire('services.desenho.forms.quality-closing', key('quality-closing-form'))
@@ -610,15 +245,15 @@
         </div>
     </div>
 
-    <!-- Modal -->
-    <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div wire:ignore.self class="modal fade ops-modal" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
+        tabindex="-1" aria-labelledby="analiseFormLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
             <div class="modal-content h-100">
-                <div class="modal-header text-bg-success">
-                    <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
-                        {{ mb_strtoupper($service->service) }}
-                    </h1>
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Encerramento</span>
+                        <h5 class="modal-title" id="analiseFormLabel">{{ mb_strtoupper($service->service) }}</h5>
+                    </div>
                 </div>
                 <div class="modal-body">
                     @livewire('services.desenho.forms.analise', ['modalContext' => 'finish'], key('desenho-form-finish'))
@@ -627,52 +262,46 @@
         </div>
     </div>
 
-    <div wire:ignore.self class="modal fade" id="analise_review_form" data-bs-backdrop="static" data-bs-keyboard="false"
+    <div wire:ignore.self class="modal fade ops-modal" id="analise_review_form" data-bs-backdrop="static" data-bs-keyboard="false"
         tabindex="-1" aria-labelledby="reviewStaticBackdropLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
             <div class="modal-content h-100">
-                <div class="modal-header text-bg-success">
-                    <h1 class="modal-title fs-5 text-center" id="reviewStaticBackdropLabel">
-                        {{ mb_strtoupper($service->service) }}
-                    </h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Análise de projeto</span>
+                        <h5 class="modal-title" id="reviewStaticBackdropLabel">{{ mb_strtoupper($service->service) }}</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     @livewire('services.desenho.forms.analise', ['modalContext' => 'review'], key('desenho-form-review'))
                 </div>
                 <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Fechar</button>
                     @if ($reviewCanFinish)
-                        <button type="button" class="btn btn-primary" id="go-finish-from-review-btn">
-                            Ir para encerramento
+                        <button type="button" class="btn btn-primary btn-dash" id="go-finish-from-review-btn">
+                            <i class="ri-arrow-right-line" aria-hidden="true"></i> Ir para encerramento
                         </button>
                     @endif
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-                        Fechar
-                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal -->
-    <div wire:ignore.self class="modal fade" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div wire:ignore.self class="modal fade ops-modal" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false"
+        tabindex="-1" aria-labelledby="pauseNoteLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content h-100">
-                <div class="modal-header text-bg-warning">
-                    <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
-                        PARAR {{ mb_strtoupper($service->service) }}
-                    </h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Pausar atividade</span>
+                        <h5 class="modal-title" id="pauseNoteLabel">Parar {{ mb_strtoupper($service->service) }}</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     @livewire('components.pausenote.pausenote')
                 </div>
-                {{-- <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                        wire:click.prevent="$emit('analise_clean')">Close</button>
-                    <button type="button" class="btn btn-primary">Understood</button>
-                </div> --}}
             </div>
         </div>
     </div>
@@ -690,28 +319,6 @@
 @push('script')
     <script>
         window.__skipAnaliseClean = false;
-
-        const copyTextCells = document.querySelectorAll('.copy-text');
-
-        copyTextCells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                const value = cell.getAttribute('data-value');
-                copyToClipboard(value);
-                livewire.emit('getCopy',
-                    `Valor "${value}" copiado para a área de transferência.`);
-                // alert(`Valor "${value}" copiado para a área de transferência.`);
-            });
-        });
-
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-
 
         window.addEventListener("hideModal2", function(e) {
             const myModal = new bootstrap.Modal(document.getElementById(e.detail.id))

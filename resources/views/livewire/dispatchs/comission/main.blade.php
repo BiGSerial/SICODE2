@@ -1,698 +1,262 @@
 @php
-    use Carbon\Carbon;
-    use App\Custom\Notestatus;
-    use App\Helpers\DaysLeft;
+    $partner = $partner ?? false;
+    $statusCodes = $service->Status->count()
+        ? $service->Status->where('exclusion', false)->unique('value')->pluck('value')->implode(' · ')
+        : null;
+    $hasCriteria = $this->hasListFilters() || filled($search) || filled($note_type) || $not_assigned || !empty($multiSearch);
+    $dueHint = 'Prazo real: já desconta o tempo em status que não conta. Verde com 10 dias ou mais para vencer, âmbar de 6 a 9, vermelho com menos de 6 ou vencido.';
 @endphp
-<div>
-    {{-- Carrega o Loading da página --}}
-    <x-show-loading />
 
-    <x-showselected :count="$selected" />
+{{-- Lista operacional: padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md. Hero → ferramentas (busca, tipo, atalhos, filtros) → painel com a tabela. --}}
+<div class="closure-dash my-panel ops-list" x-data="opsSelection()">
 
-    <div class="row">
-        <div class="col-1">
-            <label for="" class="form-label">Por Página</label>
-            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500">500</option>
-            </select>
+    <x-ops.hero
+        :eyebrow="($partner ? 'Parceira' : 'Despacho') . ' · ' . $service->service"
+        :title="'Lista para ' . mb_strtolower($service->service)"
+        subtitle="Notas e OVs prontas para atribuição. Marque as linhas, escolha o responsável e acompanhe os prazos pela cor."
+        :updated-at="$update ? $last_update : null">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <x-ops.legend />
+            <button type="button" class="btn btn-light btn-sm btn-dash" data-bs-toggle="modal" data-bs-target="#add_mass_dds" title="Relacionar números de DD às notas em massa">
+                <i class="ri-checkbox-multiple-fill" aria-hidden="true"></i> Atribuir DD em massa
+            </button>
         </div>
-        <div class="mb-3 col-md-2">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="email"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
-                        class="ri-checkbox-multiple-blank-line"></i></button>
-            </div>
-        </div>
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="note_type" wire:model="note_type" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div>
-            <div class="dropdown mx-1">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Rubrica
-                    @if (count($rubrica_s))
-                        <span class="badge text-bg-light">{{ count($rubrica_s) }}</span>
-                    @endif
+    </x-ops.hero>
 
+    <section class="ops-toolbar" aria-label="Filtros da lista">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar nota, material, pedido ou grupo" label="Buscar nota, material, pedido ou grupo">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#buscar_multi" title="Buscar várias notas de uma vez" aria-label="Buscar várias notas de uma vez">
+                    <i class="ri-list-check-2" aria-hidden="true"></i>
                 </button>
+            </x-ops.search>
 
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($rubrica_l) && $rubrica_l->count() > 0)
-                            @foreach ($rubrica_l as $rubrica)
-                                @if ($rubrica->rubrica)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="rubrica_s"
-                                            wire:key="{{ $rubrica->rubrica }}" value="{{ $rubrica->rubrica }}">
-                                        <label for="opcao1">{{ $rubrica->rubrica }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
+            <x-ops.segmented name="comissionNoteType" label="Tipo de nota" wire:model="note_type" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
 
-                        @endif
+            <x-ops.toggle label="Só livres" icon="ri-user-unfollow-line" :on="$not_assigned" wire:click.prevent="filterStatus" title="Mostra só o que ainda não foi atribuído a ninguém" />
 
+            <span class="ops-toolbar-spacer"></span>
 
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Região
-                    @if (count($region_s))
-                        <span class="badge text-bg-light">{{ count($region_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($region_l) && $region_l->count() > 0)
-                            @foreach ($region_l as $region)
-                                @if ($region->regiao)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="region_s"
-                                            wire:key="{{ $region->regiao }}" value="{{ $region->regiao }}">
-                                        <label for="opcao1">{{ $region->regiao }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Regional
-                    @if (count($district_s))
-                        <span class="badge text-bg-light">{{ count($district_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($district_l) && $district_l->count() > 0)
-                            @foreach ($district_l as $district)
-                                @if ($district->baseConstrucao)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="district_s"
-                                            wire:key="{{ $district->baseConstrucao }}"
-                                            value="{{ $district->baseConstrucao }}">
-                                        <label for="opcao1">{{ $district->baseConstrucao }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-            <div class="dropdown mx-1 ">
-                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown"
-                    aria-expanded="false">
-                    Município
-                    @if (count($city_s))
-                        <span class="badge text-bg-light">{{ count($city_s) }}</span>
-                    @endif
-
-                </button>
-
-                <div class="dropdown-menu" style="max-height: 350px; overflow-y: auto;">
-                    <form wire:submit.prevent="filter_save">
-                        @if (isset($city_l) && $city_l->count() > 0)
-                            @foreach ($city_l as $city)
-                                @if ($city->cidade)
-                                    <div class="dropdown-item">
-                                        <input type="checkbox" wire:model.defer="city_s"
-                                            wire:key="{{ $city->cidade }}" value="{{ $city->cidade }}">
-                                        <label for="opcao1">{{ $city->municipio }}</label>
-                                    </div>
-                                @endif
-                            @endforeach
-
-                        @endif
-
-
-                    </form>
-                </div>
-            </div>
-
-
-            <div class="mx-1 ">
-                <button class="btn btn-primary" wire:click.prevent="filter_save" tabindex="0"
-                    data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
-                    data-bs-content="Aplicar Filtros"><i class="ri-filter-fill"></i>
-                </button>
-            </div>
-            <div class="mx-1 "><button class="btn btn-primary" wire:click.prevent="filter_clean" tabindex="0"
-                    data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="top"
-                    data-bs-content="Remover Filtros"><i class="ri-filter-off-fill"></i>
-                </button></div>
-
-
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar tudo</button>
+            @endif
         </div>
 
-        <div class="mb-3">
-            <div class="btn-group" role="group" aria-label="Basic example" tabindex="0"
-                data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
-                data-bs-title="Exibir Apenas Notas Nao Atribuidas"
-                data-bs-content="<p>Ao clicar, todas as notas que nao contenham atribuiçao estará visível. Ocultando qualquer outra nota atribu[ida. </p> <pA palavra ON significa que o filtro está ativo, e OFF inativo. Basta clicar novamente para desativar o filtro.</p>">
-                <button type="button" class="btn btn-{{ Notestatus::status(1)->color }}"
-                    wire:click.prevent="filterStatus()">
-                    {{ Notestatus::status(1)->status }}
-                    @if ($not_assigned)
-                        <span class="badge text-bg-success">ON</span>
-                    @else
-                        <span class="badge text-bg-danger">OFF</span>
-                    @endif
-                </button>
-
-            </div>
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
         </div>
-    </div>
 
-    <div class="row">
-
-        @if (!$lists->count())
-            {{-- <div class="col-6">
-                @livewire('components.manualnote.manualnote', ['service' => $service->uuid])
-            </div> --}}
-        @elseif ($lists->count())
-            <div class="col-6">
-                {{ $lists->links() }}
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
             </div>
         @endif
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.
-                @if ($update)
-                    Ultima Atualização: <strong>{{ Carbon::parse($last_update)->diffForHumans() }}</strong>
-                @endif
-            </span>
+    </section>
+
+    <section class="mp-panel" aria-label="Lista para {{ $service->service }}">
+        <div class="mp-panel-head">
+            <div>
+                <h2 class="mp-panel-title">Lista para {{ mb_strtolower($service->service) }}</h2>
+                <div class="mp-panel-sub">
+                    {{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'registro' : 'registros' }}@if ($statusCodes) · status {{ $statusCodes }}@endif
+                </div>
+            </div>
+            <span class="mp-pill" wire:loading.delay>Atualizando…</span>
         </div>
 
-    </div>
+        <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="8" />
 
-    <div class="card">
-
-        @if (!$lists->count())
-            <div class="card-body">
-                <h4 class="text-center">SEM NOTAS PARA EXIBIR EM {{ $service->service }} - @if ($service->Status->count())
-                        @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                            ({{ $sts->value }})
-                        @endforeach
-                    @endif
-                </h4>
+        @if ($rows->isEmpty())
+            <div class="mp-panel-body">
+                <x-closure.empty-state
+                    :title="$hasCriteria ? 'Nenhum resultado para os filtros escolhidos' : 'Sem notas em ' . $service->service . ' no momento'"
+                    :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais notas.' : 'Quando houver notas liberadas, elas aparecem aqui.'"
+                    icon="ri-inbox-line" />
+                @if ($hasCriteria)
+                    <div class="text-center mt-2"><button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearAllCriteria">Limpar filtros</button></div>
+                @endif
             </div>
         @else
-            <div class="card-header edp-bg-sprucegreen-70 text-edp-verde">
-                <div class="row">
-                    <div class="col">
-                        <h4 class="my-0">LISTA PARA {{ mb_strtoupper($service->service) }}
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    ({{ $sts->value }})
-                                @endforeach
-                            @endif
-                        </h4>
-                    </div>
-                    <div class="col-3 d-flex justify-content-end">
-                        <span data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                            data-bs-title="Adicionar numeração DD em Massa"> <button
-                                class="btn btn-sm btn-success me-2" data-bs-toggle="modal"
-                                data-bs-target="#add_mass_dds"><i class="ri-checkbox-multiple-fill"></i> Att
-                                DD</button></span>
+            <div class="ops-table-wrap" wire:loading.delay.class="d-none">
+                <table class="table ops-table">
+                    <colgroup>
+                        @foreach ([36, 112, 84, 64, 92, 100, 100, 120, 64, 64, 64, 64, 100, 100, 100, 92, 112] as $w)
+                            <col style="width: {{ $w }}px">
+                        @endforeach
+                    </colgroup>
+                    <thead>
+                        <tr>
+                            <th><input class="form-check-input" type="checkbox" wire:click="setSelectAll" @checked($selectall) aria-label="Selecionar todas as linhas da página"></th>
+                            <th>Nota</th>
+                            <th>DD</th>
+                            <th>MMGD</th>
+                            <th>Criado em</th>
+                            <th>Pedido</th>
+                            <th>Rubrica</th>
+                            <th>Município</th>
+                            <th>Grp1</th>
+                            <th>Grp2</th>
+                            <th>Grp4</th>
+                            <th>Grp5</th>
+                            <th>Levantamentos</th>
+                            <th>Status</th>
+                            <th>Prazo real</th>
+                            <th>Situação</th>
+                            <th><span class="visually-hidden">Ação</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rows as $row)
+                            <tr wire:key="note-{{ $row['key'] }}" @class(['ops-row-' . $row['state'] => $row['state'] !== 'free'])>
+                                <td>
+                                    <input class="form-check-input" type="checkbox" data-ops-row value="{{ $row['key'] }}" wire:model.defer="selected" @disabled(!$row['canDispatch']) aria-label="Selecionar {{ $row['note'] }}" @change="recount()">
+                                </td>
 
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='go_att_mass'
-                            data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                            data-bs-title="Atribuir Notas em Massa"><i class="ri-checkbox-multiple-fill"></i>
-                            Atribuir</button>
-                        <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'
-                            data-bs-toggle="tooltip" data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                            data-bs-title="Exportar as Notas SELECIONADAS para o EXCEL"><i
-                                class="ri-file-excel-2-line"></i> Exportar</button>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-sm table-striped table-condensed">
-                        <thead class="table-dark">
-                            <tr>
-                                <th>
-                                    <input class="form-check-input" type="checkbox" wire:model="selectall">
-                                </th>
-                                {{-- @can('management')
-                                    <th scope="col" class="fw-bold">Note</th>
-                                @endcan --}}
-                                <th scope="col" class="fw-bold text-center">Note</th>
-                                <th scope="col" class="fw-bold text-center">DD</th>
-                                <th scope="col" class="fw-bold text-center">MMGD</th>
-                                <th scope="col" class="fw-bold text-center">Criado Em</th>
-                                <th scope="col" class="fw-bold text-center">numPedido</th>
-                                <th scope="col" class="fw-bold text-center">Rubrica</th>
-                                <th scope="col" class="fw-bold text-center">Municipio</th>
-                                <th scope="col" class="fw-bold text-center">Grp1</th>
-                                <th scope="col" class="fw-bold text-center">Grp2</th>
-                                <th scope="col" class="fw-bold text-center">Grp4</th>
-                                <th scope="col" class="fw-bold text-center">Grp5</th>
-                                <th scope="col" class="fw-bold text-center">Levantamentos</th>
-                                <th scope="col" class="fw-bold text-center">Status</th>
-                                {{-- <th scope="col" class="fw-bold text-center">Pze</th> --}}
-
-                                <th scope="col" class="fw-bold text-center">Prazo Real</th>
-                                <th scope="col" class="fw-bold text-center">Situação</th>
-                                @if (request()->routeIs('dispatch.partner'))<th class="fw-bold text-center">Despachado Em</th><th class="fw-bold text-center">Atribuído Em</th><th class="fw-bold text-center">Finalizado Em</th>@endif
-                            <th scope="col" class="fw-bold text-center"></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($lists as $list)
-                                @php
-                                    $block = null;
-                                    $lastUser = '';
-                                    $lastCompany = '';
-
-                                    $count = $list->Productions
-                                        ->where('service_id', $service->uuid)
-                                        ->where('noinconsistency', false);
-
-                                    $count2 = $list->Productions
-                                        ->where('service_id', $service->uuid)
-                                        ->where('completed', true);
-
-                                    if ($count2->count()) {
-                                        // $lastUser = $list->Productions
-                                        //     ->where('service_id', $service->uuid)
-                                        //     ->where('completed', true)
-                                        //     ->last()->User->name;
-
-                                        $lastUser = $count2->last()->User->name;
-
-                                        $lastUser = explode(' ', $lastUser);
-                                        $lastUser = $lastUser[0] . ' ' . end($lastUser);
-                                    }
-
-                                    if ($count->count()) {
-                                        $production = $count->load('Company')->last();
-
-                                        if (isset($production->Company->name)) {
-                                            $lastCompany = explode(' ', $production->Company->name);
-                                            $lastCompany = mb_strtoupper($lastCompany[0]);
-                                        } else {
-                                            $lastCompany = 'Desconhecido';
-                                        }
-
-                                        if ($production->dt_note == $list->dt_status || !$production->confirmed) {
-                                            $block = true;
-                                        }
-
-                                        // $block = true;
-
-                                        $chave = array_search($list->id, $selected);
-
-                                        if ($chave !== false) {
-                                            unset($selected[$chave]);
-                                            $selected = $selected;
-                                        }
-                                    }
-
-                                @endphp
-
-
-                                <tr
-                                    class="align-middle
-                                    @if ($block) @if ($production->status == 1)
-                                        table-warning
-                                        @elseif ($production->status == 2)
-                                        table-primary
-                                        @elseif ($production->status == 5 && !$production->confirmed)
-                                        table-success
-                                        @elseif ($production->status == 5 && $production->confirmed)
-                                        table-danger
-                                        @else
-                                        table-primary @endif @endif">
-                                    <td>
-                                        <input class="form-check-input border border-1 border-primary" type="checkbox"
-                                            value="{{ $list->id }}" wire:model.defer="selected"
-                                            @disabled($block)>
-                                    </td>
-                                    {{-- @can('management')
-                                        <td class="fw-bold copy-text" data-value="{{ $list->note }}">{{ $list->note }}
-                                        </td>
-                                    @endcan --}}
-                                    <td class="fw-bold copy-text text-center" data-value="{{ $list->note }}">
-                                        {{ $list->note }}
-                                        <x-legal.note-demand-tags :note-id="$list->note_id ?? $list->id" :row-key="'dispatchs-comission-main-'.$list->id" />
-                                    </td>
-                                    <td class="fw-bold text-danger text-center">
-                                        {{ $list->Wpas->count() ? (!$list->Wpas->last()->production_id ? $list->Wpas->last()->dd : '') : '' }}
-                                    </td>
-                                    <td class="fw-bold text-danger text-center">
-                                        {{ $list->mmgd ? 'MMGD' : '' }}
-                                    </td>
-                                    <td class="fw-light text-center">{{ date('d/m/Y', strToTime($list->dt_created)) }}
-                                    </td>
-                                    <td class="fw-light text-center">{{ mb_strtoupper($list->numPedido) }}</td>
-                                    <td class="fw-light text-center">{{ $list->rubrica }}</td>
-                                    <td class="fw-light text-center">
-                                        @if (!empty($list->lexp))
-                                            {{ $list->lexp }}
-                                        @else
-                                            <span tabindex="1" data-bs-toggle="popover"
-                                                data-bs-trigger="hover focus" data-bs-placement="top"
-                                                data-bs-title="Editar Município"
-                                                data-bs-content="Clique para editar o município faltante para esta nota.">
-                                                <button class="btn btn-sm btn-secondary"
-                                                    wire:click.prevent="$emit('editMunicipio', '{{ $list->id }}')">Edit</button>
-                                            </span>
-
+                                <td>
+                                    <x-ops.note :note="$row['note']">
+                                        @if (isset($legalNoteIds[$row['noteId']]))
+                                            <x-legal.note-demand-tags :note-id="$row['noteId']" :row-key="'dispatchs-comission-main-' . $row['key']" />
                                         @endif
+                                    </x-ops.note>
+                                </td>
 
-                                    </td>
-                                    <td class="fw-light text-center">{{ $list->group1 }}</td>
-                                    <td class="fw-light text-center">{{ $list->group2 ? $list->group2 : '_____' }}
-                                    </td>
-                                    <td class="fw-light text-center">{{ $list->group4 ? $list->group4 : '_____' }}
-                                    </td>
-                                    <td class="fw-light text-center">{{ $list->group5 ? $list->group5 : '_____' }}
-                                    </td>
+                                <td>
+                                    @if ($row['dd'])
+                                        <x-ops.badge mono tone="blue" :label="$row['dd']" hint="DD relacionada a esta nota, ainda sem atividade" />
+                                    @else
+                                        <span class="ops-empty">—</span>
+                                    @endif
+                                </td>
 
+                                <td>
+                                    @if ($row['mmgd'])
+                                        <x-ops.badge sm tone="teal" label="MMGD" hint="Micro e minigeração distribuída" />
+                                    @else
+                                        <span class="ops-empty">—</span>
+                                    @endif
+                                </td>
 
+                                <td><x-ops.date :date="$row['createdAt']" hint="Data de criação da nota" /></td>
 
-                                    <td class="fw-light text-center" tabindex="2" data-bs-toggle="popover"
-                                        data-bs-trigger="hover focus" data-bs-placement="top"
-                                        data-bs-title="Levantamentos Realizados"
-                                        data-bs-content="Informa se esta NOTA/OV específica já passou por este estatus antes. Caso afirmativo, é exibido a quantidade de vezes e a última pessoa a encerrar esta NOTA/OV neste SERVIÇO.">
-                                        @if ($count2->count())
-                                            <span class="badge text-bg-dark">{{ $count2->count() }}</span><br>
-                                            {{ $lastUser }}
-                                        @else
-                                            --
-                                        @endif
-                                    </td>
+                                <td>{{ $row['order'] ?: '—' }}</td>
+                                <td>{{ $row['rubrica'] ?: '—' }}</td>
 
-                                    <td class="fw-light text-center">
-                                        {{ $list->nstats }}<br><span>{{ $list->centerjob }}</span></td>
-                                    {{-- <td class="fw-light text-center">{{ $list->pze }}</td> --}}
-                                    @php
-                                        $days_left = (new DaysLeft($list))->getDaysLeft();
-                                    @endphp
-                                    <td scope="col"
-                                        class="text-center
-                                        @if ($days_left < 0) text-bg-secondary
-                                        @elseif($days_left >= 0 && $days_left < 6)
-                                        table-danger
-                                        @elseif($days_left >= 6 && $days_left < 10)
-                                            table-warning
-                                        @else
-                                            table-success @endif
-                                    "
-                                        tabindex="0" data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                        data-bs-placement="top" data-bs-title="Prazo Real"
-                                        data-bs-content="
-                                        <p>Os prazos contados já foram expurgado os tempos em status não contabilizáveis.</p>
-                                        <span class='fs-4 text-success'>&#9632;</span> 10> DIAS PARA VENCER <br>
-                                        <span class='fs-4 text-warning'>&#9632;</span> 10< DIAS PARA VENCER <br>
-                                        <span class='fs-4 text-danger'>&#9632;</span> 5< DIAS PARA VENCER <br>
-                                        <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br>
-                                        ">
-                                        {{ 30 - $days_left }}
-                                    </td>
-                                    <td class="fw-light text-center">
-                                        @if ($list->pze_parecer === 'Vencido')
-                                            <span class="badge text-bg-danger">VENCIDO</span>
-                                        @elseif ($list->pze_parecer === 'Não vencido')
-                                            <span class="badge text-bg-success">EM PRAZO</span>
-                                        @else
-                                            <span class="badge text-bg-secondary">DESCONHECIDO</span>
-                                        @endif
-                                    </td>
+                                <td>
+                                    @if ($row['city'])
+                                        {{ $row['city'] }}
+                                    @else
+                                        <button type="button" class="btn btn-outline-secondary btn-sm ops-action" wire:click.prevent="$emit('editMunicipio', '{{ $row['noteId'] }}')" title="Informar o município que falta nesta nota">
+                                            <i class="ri-edit-2-line" aria-hidden="true"></i> Editar
+                                        </button>
+                                    @endif
+                                </td>
 
+                                <td>{{ $row['group1'] ?: '—' }}</td>
+                                <td>{{ $row['group2'] ?: '—' }}</td>
+                                <td>{{ $row['group4'] ?: '—' }}</td>
+                                <td>{{ $row['group5'] ?: '—' }}</td>
 
-                                    <td class="fw-bold text-center">
-
-                                        @can('operator')
-                                            @if (!isset($block))
-                                                <i class="ri-play-circle-line my-0 align-middle  text-success fs-4"
-                                                    style="cursor: pointer;"
-                                                    wire:click.prevent="get_single_note({{ $list->id }})"
-                                                    data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    data-bs-custom-class="custom-tooltip"
-                                                    data-bs-title="Despachar esta Nota/OV"></i>
-                                            @else
-                                                <span style="font-size: 11px">{{ $lastCompany }}</span>
+                                <td>
+                                    @if ($row['surveyCount'])
+                                        <div class="ops-cell-stack is-center">
+                                            <x-ops.badge sm tone="muted" :label="$row['surveyCount']" hint="Quantas vezes esta nota/OV já passou por este status e quem a encerrou por último neste serviço" />
+                                            @if ($row['surveyUser'])
+                                                <span class="ops-sub">{{ $row['surveyUser'] }}</span>
                                             @endif
-                                        @endcan
+                                        </div>
+                                    @else
+                                        <span class="ops-empty">—</span>
+                                    @endif
+                                </td>
 
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                                <td>
+                                    <div class="ops-cell-stack is-center">
+                                        <span>{{ $row['status'] ?: '—' }}</span>
+                                        @if ($row['center'])
+                                            <span class="ops-sub">{{ $row['center'] }}</span>
+                                        @endif
+                                    </div>
+                                </td>
+
+                                <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['dueSub']" :hint="$dueHint . ' Já passaram ' . $row['elapsedDays'] . ' de 30 dias.'" /></td>
+
+                                <td><x-ops.badge sm :tone="$row['sap']['tone']" :label="$row['sap']['label']" :hint="$row['sap']['hint']" /></td>
+
+                                <td>
+                                    @can('operator')
+                                        @if ($row['canDispatch'])
+                                            <button type="button" class="btn btn-primary btn-sm ops-action" wire:click.prevent="get_single_note({{ $row['noteId'] }})" title="Despachar esta Nota/OV">
+                                                <i class="ri-user-add-line" aria-hidden="true"></i> Despachar
+                                            </button>
+                                        @else
+                                            <x-ops.badge :tone="\App\Support\Ops\RowState::tone($row['state'])" :label="$row['company']" :hint="\App\Support\Ops\RowState::all()[$row['state']]['hint']" icon="ri-user-line" />
+                                        @endif
+                                    @endcan
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @endif
-        </dic>
-    </div>
-    <div class="row">
-        <div class="col-6">
-            {{ $lists->links() }}
-        </div>
-        <div class="col-6 d-flex justify-content-end align-middle">
-            <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                {{ $lists->lastItem() }}
-                de {{ $lists->total() }}
-                registros.</span>
-        </div>
+
+        <x-ops.pager :paginator="$lists" :per-page="$perPage" />
+    </section>
+
+    <div wire:ignore>
+        <x-ops.selection-bar>
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="go_att_mass"><i class="ri-user-add-line" aria-hidden="true"></i> Atribuir selecionadas</button>
+            <button type="button" class="btn btn-outline-light btn-sm btn-dash" wire:click.prevent="export_excel"><i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar selecionadas</button>
+        </x-ops.selection-bar>
     </div>
 
-
-    {{-- MODALS --}}
-
-    {{-- MODALS --}}
-    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-
-
-        <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
+    {{-- MODAIS --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="buscar_multi" tabindex="-1" aria-labelledby="buscarMultiLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Busca em massa</span>
+                        <h5 class="modal-title" id="buscarMultiLabel">{{ $service->service }}</h5>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"></textarea>
+                <div class="modal-body">
+                    <p class="ops-modal-note">Cole uma nota por linha ou separe por espaço, vírgula ou ponto e vírgula.</p>
+                    <label class="form-label fw-semibold text-uppercase" for="advanceSearch">Notas</label>
+                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" rows="8" wire:model.defer="advanceSearch"></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click="buscarMulti"><i class="ri-search-line" aria-hidden="true"></i> Aplicar busca</button>
                 </div>
             </div>
-
         </div>
-
     </div>
 
-
-    <div wire:ignore.self class="modal fade" id="add_mass_dds" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Atribuir DD em {{ $service->service }}
-                    </h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-                        wire:click.prevent="closeall"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="exampleFormControlInput1" class="form-label">Relacionar DD em
-                            MASSA:</label>
-                        <textarea class="form-control" id="exampleFormControlTextarea1" rows="10" style="resize: none;"
-                            placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
+    <div wire:ignore.self class="modal fade ops-modal" id="add_mass_dds" tabindex="-1" aria-labelledby="addMassDdsLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
+                    <div>
+                        <span class="modal-eyebrow">Atribuir DD em massa</span>
+                        <h5 class="modal-title" id="addMassDdsLabel">{{ $service->service }}</h5>
                     </div>
-                </div>
-                <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="mass_modal">Atribuir</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div wire:ignore.self class="modal fade" id="legacy_add_mass_notes" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    <h1 class="modal-title fs-5" id="exampleModalLabel">Despachar {{ $service->service }}</h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar" wire:click.prevent="closeall"></button>
                 </div>
                 <div class="modal-body">
-                    @if ($notes && $notes->count())
-                        <div class="row">
-                            <div class="mb-3">
-                                <label for="exampleFormControlInput1" class="form-label">Tipo de Despacho</label>
-                                <select class="form-select form-select-sm" aria-label="Small select example"
-                                    wire:model="type" disabled>
-                                    <option selected>Selecione</option>
-                                    @if ($service->partner_own_stack)
-                                        <option value="1">Pilha</option>
-                                    @endif
-                                    <option value="2">Individual</option>
-                                </select>
-                            </div>
-
-                            <div class="mb-3 ">
-                                <label for="exampleFormControlInput1" class="form-label">Empresa:</label>
-
-                                <select class="form-select form-select-sm" aria-label="" wire:model="company_s">
-                                    <option selected>Selecione</option>
-
-                                    @if ($company_l && $company_l->count())
-
-                                        @foreach ($company_l as $company)
-                                            <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                        @endforeach
-                                    @endif
-                                </select>
-                            </div>
-
-                            @if ($type === '2')
-
-                                <div class="row mb-3">
-                                    <div class="col">
-                                        <label for="exampleFormControlInput1" class="form-label">Buscar
-                                            Usuario:</label>
-                                        <input wire:model="search_user" class="form-control form-control-sm"
-                                            type="text" placeholder="Digite um nome" aria-label="">
-                                    </div>
-                                    <div class="col">
-                                        <label for="exampleFormControlInput1" class="form-label">Usuário:</label>
-                                        <select class="form-select form-select-sm" aria-label=""
-                                            wire:model="user_s">
-
-                                            @if ($user_l && $user_l->count())
-                                                <option value="" selected>Selecione um Usuário</option>
-                                                @foreach ($user_l as $user)
-                                                    <option value="{{ $user->id }}">{{ $user->name }}
-                                                    </option>
-                                                @endforeach
-                                            @else
-                                                <option selected>Escolha uma Empresa Primeiro</option>
-                                            @endif
-                                        </select>
-                                    </div>
-                                </div>
-
-
-                                {{-- <div class="mb-2 ">
-                                    <label for="exampleFormControlInput1" class="form-label">Relacionar DD em
-                                        MASSA:</label>
-                                    <textarea class="form-control" id="exampleFormControlTextarea1" rows="3"
-                                        placeholder="<número OV/NOTA> <número DD> Ex: 4001123232 14034330" wire:model.defer="enter_dd"></textarea>
-                                </div>
-                                <div class="mb-3">
-                                    <button class="btn-sm btn btn-primary" wire:click.prevent="add_dd">DD em
-                                        MASSA</button>
-                                </div> --}}
-                            @endif
-
-                            <div class="col-12 fw-bold">
-                                DESPACHANDO {{ $notes->count() }} OV/NOTA(S)
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-condensed table-striped">
-                                <thead>
-                                    <tr>
-                                        <th scope="col">#</th>
-                                        <th scope="col">Note</th>
-                                        <th scope="col">Desc</th>
-                                        <th scope="col">DD</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($notes as $index => $note)
-                                        <tr>
-                                            <td scope="col" class="fw-bold">{{ $index + 1 }}</td>
-                                            <td>{{ $note->note }}</td>
-                                            <td>{{ $note->material }}</td>
-                                            <td>
-                                                @if ($this->type === '2' && isset($list))
-                                                    @php
-                                                        $dd = $list->Wpas->count()
-                                                            ? (!$list->Wpas->last()->production_id
-                                                                ? $list->Wpas->last()->dd
-                                                                : '')
-                                                            : '';
-
-                                                        $additionalData[$index] = $dd;
-                                                    @endphp
-
-
-                                                    <input wire:model.defer="additionalData.{{ $index }}"
-                                                        class="form-control form-control-sm" type="text"
-                                                        placeholder="Informe a DD" aria-label="" value="">
-                                                @endif
-
-                                            </td>
-
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        </div>
-
-                    @endif
+                    <p class="ops-modal-note">Uma linha por nota, com o número da OV/Nota e o da DD separados por espaço, tabulação, vírgula ou ponto e vírgula. Exemplo: 4001123232 14034330</p>
+                    <label class="form-label fw-semibold text-uppercase" for="enterDd">Relacionar DD</label>
+                    <textarea class="form-control" id="enterDd" rows="10" placeholder="<número OV/NOTA> <número DD>" wire:model.defer="enter_dd"></textarea>
                 </div>
-                <div class="modal-footer edp-bg-sprucegreen-70">
-                    <button class="btn-sm btn btn-danger" wire:click.prevent="closeall">Cancelar</button>
-                    <button class="btn-sm btn btn-primary" wire:click.prevent="confirm_att"
-                        wire:loading.attr="disabled" wire:target="confirm_att">
-                        Despachar
-                    </button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal" wire:click.prevent="closeall">Fechar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click.prevent="mass_modal"><i class="ri-links-line" aria-hidden="true"></i> Atribuir</button>
                 </div>
             </div>
         </div>
     </div>
 
-
-
-
-    @livewire("dispatchs.shared.dispatch-modal", ["serviceId" => $service->uuid], key("dispatch-modal-".$service->uuid))
-
-    {{-- END MODALS --}}
-
-
-
+    @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-modal-' . $service->uuid))
 </div>

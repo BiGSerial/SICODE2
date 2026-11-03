@@ -1,0 +1,69 @@
+// Faixa "Visão como outro usuário": violeta escuro (distinto do azul normal e sem o alarme do vermelho) + detalhe âmbar.
+// Cores só como token `--imp-*` aqui.
+
+.header.header--impersonating {
+    --imp-bg: linear-gradient(100deg, #3b1d7a 0%, #5b2bb8 100%);
+    --imp-accent: #fbbf24;
+    --imp-ink: #fff;
+    --imp-soft: rgba(255, 255, 255, .72);
+    --imp-pill-bg: rgba(255, 255, 255, .14);
+    --imp-pill-line: rgba(255, 255, 255, .28);
+
+    background: var(--imp-bg) !important;
+    border-bottom: 3px solid var(--imp-accent);
+    color: var(--imp-ink);
+}
+
+.imp-banner {
+    align-items: center;
+    background: var(--imp-pill-bg);
+    border: 1px solid var(--imp-pill-line);
+    border-radius: 999px;
+    display: flex;
+    gap: .6rem;
+    margin: 0 1.25rem;
+    padding: .3rem .4rem .3rem .9rem;
+
+    &__icon {
+        color: var(--imp-accent);
+        font-size: 1.15rem;
+    }
+
+    &__text {
+        align-items: baseline;
+        display: flex;
+        gap: .4rem;
+        line-height: 1.1;
+    }
+
+    &__label {
+        color: var(--imp-soft);
+        font-size: .72rem;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+    }
+
+    &__name {
+        color: var(--imp-ink);
+        font-size: .95rem;
+    }
+
+    &__stop {
+        align-items: center;
+        background: var(--imp-accent);
+        border-radius: 999px;
+        color: #3b1d7a;
+        display: inline-flex;
+        font-size: .78rem;
+        font-weight: 700;
+        gap: .3rem;
+        padding: .3rem .8rem;
+        text-decoration: none;
+
+        &:hover,
+        &:focus-visible {
+            background: #fff;
+            color: #3b1d7a;
+        }
+    }
+}
