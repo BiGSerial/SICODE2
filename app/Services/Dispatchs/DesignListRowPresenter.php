@@ -255,6 +255,7 @@ class DesignListRowPresenter
             'deadline'       => $this->deadline($note->days_left === null ? null : (int) $note->days_left),
             'status'         => $status,
             'reviewTracked'  => $tracked,
+            'reviewBadge'    => $this->reviewBadge($status),
             'quality'        => $quality ? [
                 'phase' => $quality->phase->short(),
                 'round' => $quality->round_number,
@@ -262,5 +263,15 @@ class DesignListRowPresenter
             'completed' => (bool) $list->completed,
             'block'     => (bool) $list->block,
         ];
+    }
+
+    /** Selo da análise de projeto (30 em andamento, 31 rejeitada, 32 liberada). */
+    private function reviewBadge(int $status): array
+    {
+        return match ($status) {
+            Production::STATUS_REJECTED_PROJECT_REVIEW => ['tone' => 'red', 'hint' => 'Análise de projeto rejeitada – clique para abrir'],
+            Production::STATUS_RELEASED_TO_FINISH      => ['tone' => 'green', 'hint' => 'Análise de projeto liberada – clique para abrir'],
+            default                                    => ['tone' => 'amber', 'hint' => 'Análise de projeto em andamento'],
+        };
     }
 }
