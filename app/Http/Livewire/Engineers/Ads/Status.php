@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Engineers\Ads;
 
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Jobs\Engineers\ExportAdsSituationJob;
 use App\Models\AdsNonWorkingDayAdjustment;
 use App\Models\{Company, WorkReport};
@@ -11,13 +12,16 @@ use Livewire\{Component, WithPagination};
 
 class Status extends Component
 {
+    use WithListFilters;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
 
+    private const SCOPES = ['atual', 'passivo'];
+
     public int $perPage = 25;
 
-    public string $statusFilter = 'disabled';
+    public string $statusFilter = 'atual';
 
     public string $detailStatusFilter = 'all';
 
@@ -27,25 +31,22 @@ class Status extends Component
 
     public ?string $search = null;
 
-    public array $companyIds = [];
-
     public array $rowFineData = [];
 
-    public array $selectedRows = [];
+    /** @var array<int, string> ids dos informes marcados (checkboxes `data-ops-row`). */
+    public array $selected = [];
 
     public ?string $adjustmentDate = null;
 
     public ?string $adjustmentReason = null;
 
-    public $companies;
-
     protected $queryString = [
-        'statusFilter'       => ['except' => 'disabled', 'as' => 'status'],
+        'statusFilter'       => ['except' => 'atual', 'as' => 'status'],
         'detailStatusFilter' => ['except' => 'all', 'as' => 'detail'],
         'date_in'            => ['except' => '', 'as' => 'din'],
         'date_out'           => ['except' => '', 'as' => 'dout'],
         'search'             => ['except' => '', 'as' => 'q'],
-        'companyIds'         => ['except' => [], 'as' => 'company'],
+        'filters'            => ['except' => [], 'as' => 'f'],
         'perPage'            => ['except' => 25, 'as' => 'pp'],
     ];
 
@@ -54,32 +55,70 @@ class Status extends Component
         $this->date_in  = $this->date_in ?: now()->startOfMonth()->format('Y-m-d');
         $this->date_out = $this->date_out ?: now()->format('Y-m-d');
 
-        $this->companies = Company::query()
-            ->join('work_reports as wr', 'wr.company_id', '=', 'companies.id')
-            ->where('wr.rejected', false)
-            ->select('companies.id', 'companies.name')
-            ->distinct()
-            ->orderBy('companies.name')
-            ->get();
+        // Links antigos usavam `disabled` (tela vazia até escolher): hoje o padrão é o escopo Atual.
+        if (!in_array($this->statusFilter, self::SCOPES, true)) {
+            $this->statusFilter = 'atual';
+        }
+
+        $this->filters = $this->normalizeFilters($this->filters);
     }
 
-    public function updating($name): void
+    protected function listFilterDefinitions(): array
     {
-        if ($name !== 'page') {
+        return [
+            'company' => ['label' => 'Empreiteira'],
+        ];
+    }
+
+    protected function listFilterOptions(): array
+    {
+        return [
+            'company' => $this->rememberFilterOptions('company', fn () => Company::query()
+                ->whereIn('id', WorkReport::query()->where('rejected', false)->select('company_id'))
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn ($company) => ['v' => (string) $company->id, 'l' => (string) $company->name])
+                ->all()),
+        ];
+    }
+
+    /** Qualquer critério novo volta à página 1 e zera a seleção; digitar o abono (modal) não conta. */
+    public function updated($name): void
+    {
+        if (in_array($name, ['statusFilter', 'detailStatusFilter', 'date_in', 'date_out', 'search', 'perPage'], true)) {
             $this->resetPage();
+            $this->selected = [];
         }
     }
 
-    public function clearFilters(): void
+    public function updatedStatusFilter(): void
     {
-        $this->statusFilter       = 'disabled';
+        if (!in_array($this->statusFilter, self::SCOPES, true)) {
+            $this->statusFilter = 'atual';
+        }
+
+        if ($this->statusFilter !== 'atual') {
+            $this->detailStatusFilter = 'all';
+        }
+    }
+
+    public function hasCriteria(): bool
+    {
+        return $this->hasListFilters() || filled($this->search) || $this->detailStatusFilter !== 'all';
+    }
+
+    public function clearAllCriteria(): void
+    {
         $this->detailStatusFilter = 'all';
         $this->search             = null;
-        $this->companyIds         = [];
         $this->date_in            = now()->startOfMonth()->format('Y-m-d');
         $this->date_out           = now()->format('Y-m-d');
-        $this->perPage            = 25;
-        $this->resetPage();
+        $this->clearListFilters();
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selected = [];
     }
 
     public function getRowsProperty()
@@ -108,10 +147,10 @@ class Status extends Component
 
     public function addNonWorkingDayAdjustment(): void
     {
-        $ids = collect($this->selectedRows)
-            ->filter(fn ($selected) => (bool) $selected)
-            ->keys()
+        $ids = collect($this->selected)
             ->map(fn ($id) => (int) $id)
+            ->filter()
+            ->unique()
             ->values();
 
         if ($ids->isEmpty()) {
@@ -152,24 +191,17 @@ class Status extends Component
         }
 
         $this->rowFineData      = [];
-        $this->selectedRows     = [];
+        $this->selected         = [];
         $this->adjustmentDate   = null;
         $this->adjustmentReason = null;
 
+        $this->dispatchBrowserEvent('ads-abono-done');
         $this->dispatchBrowserEvent('swal', [
             'position' => 'center',
             'icon'     => 'success',
             'title'    => 'Dia abonado como não útil para os registros selecionados.',
             'timer'    => 3000,
         ]);
-    }
-
-    public function updatedStatusFilter(): void
-    {
-        if ($this->statusFilter !== 'atual') {
-            $this->detailStatusFilter = 'all';
-        }
-        $this->resetPage();
     }
 
     public function setDetailStatusFilter(string $status): void
@@ -179,6 +211,7 @@ class Status extends Component
         }
 
         $this->detailStatusFilter = $this->detailStatusFilter === $status ? 'all' : $status;
+        $this->selected           = [];
         $this->resetPage();
     }
 
@@ -198,15 +231,20 @@ class Status extends Component
         ]);
     }
 
+    /** Mesmos critérios da tela e do Excel (`ExportAdsSituationJob`). Datas invertidas são trocadas em vez de zerar a lista. */
     private function filters(): array
     {
+        [$dateIn, $dateOut] = $this->date_in && $this->date_out && $this->date_in > $this->date_out
+            ? [$this->date_out, $this->date_in]
+            : [$this->date_in, $this->date_out];
+
         return [
             'statusFilter'       => $this->statusFilter,
             'detailStatusFilter' => $this->detailStatusFilter,
-            'date_in'            => $this->date_in,
-            'date_out'           => $this->date_out,
+            'date_in'            => $dateIn,
+            'date_out'           => $dateOut,
             'search'             => $this->search,
-            'companyIds'         => $this->companyIds,
+            'companyIds'         => $this->filterValues('company'),
         ];
     }
 

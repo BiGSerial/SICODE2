@@ -4,6 +4,7 @@ namespace App\Services\Engineers;
 
 use App\Models\Edp_depc\BaseCosts;
 use App\Services\Ads\{AdsDeadlinePolicy, TacitFineCalculator};
+use App\Support\Ops\Deadline;
 use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -24,6 +25,8 @@ class AdsSituationService
     {
         $rows = $this->buildQuery($filters, true)->paginate($perPage);
 
+        $this->preloadAdjustments($rows->getCollection()->pluck('work_report_id'));
+
         $rows->setCollection(
             $rows->getCollection()->map(fn ($row) => $this->enrichRow($row))
         );
@@ -33,9 +36,11 @@ class AdsSituationService
 
     public function exportRows(array $filters): Collection
     {
-        return $this->buildQuery($filters, true)
-            ->get()
-            ->map(fn ($row) => $this->enrichRow($row));
+        $rows = $this->buildQuery($filters, true)->get();
+
+        $this->preloadAdjustments($rows->pluck('work_report_id'));
+
+        return $rows->map(fn ($row) => $this->enrichRow($row));
     }
 
     public function summarize(array $filters): array
@@ -56,7 +61,12 @@ class AdsSituationService
 
         $overdueByCompany = [];
 
-        foreach ($this->buildQuery($summaryFilters, true)->cursor() as $row) {
+        $rows = $this->buildQuery($summaryFilters, true)->get();
+
+        // Sem o preload, o cálculo de prazo consulta os abonos uma vez por informe.
+        $this->preloadAdjustments($rows->pluck('work_report_id'));
+
+        foreach ($rows as $row) {
             $enriched = $this->enrichRow($row);
 
             $summary['total']++;
@@ -257,7 +267,7 @@ class AdsSituationService
         $hasDelivery = $deliveredAt !== null;
         $statusCode  = $this->resolveStatusCode($informedAt, $dueAt, $deliveredAt);
         $statusLabel = $this->statusLabel($statusCode);
-        $statusBadge = $this->statusBadge($statusCode);
+        $statusTone  = $this->statusTone($statusCode);
 
         $delayDays = $this->deadlinePolicy->lateDays($dueAt, $deliveredAt, now(), $state, (int) $row->work_report_id);
         $delayDays = in_array($statusCode, ['vencida_sem_entrega', 'entregue_atraso', 'passivo'], true)
@@ -275,7 +285,10 @@ class AdsSituationService
             'has_delivery'       => $hasDelivery,
             'status_code'        => $statusCode,
             'status_label'       => $statusLabel,
-            'status_badge'       => $statusBadge,
+            'status_tone'        => $statusTone,
+            'due_tone'           => $this->dueTone($statusCode, $dueAt, $deliveredAt),
+            'time_tone'          => $this->timeTone($statusCode, $daysToDue, $delayDays),
+            'time_label'         => $this->timeLabel($statusCode, $daysToDue, $delayDays),
             'delay_days'         => $delayDays,
             'days_to_due'        => $daysToDue,
             'penalty_percentage' => $this->deadlinePolicy->penaltyPercentage($delayDays),
@@ -449,17 +462,53 @@ class AdsSituationService
         };
     }
 
-    private function statusBadge(string $status): string
+    /** Tom semântico do selo de situação (mesmos tons das demais listas operacionais). */
+    private function statusTone(string $status): string
     {
         return match ($status) {
-            'passivo'             => 'bg-dark',
-            'no_prazo'            => 'bg-success',
-            'vencendo_3_dias'     => 'bg-warning text-dark',
-            'vencida_sem_entrega' => 'bg-danger',
-            'com_entrega'         => 'bg-primary',
-            'entregue_atraso'     => 'bg-secondary',
-            default               => 'bg-dark',
+            'a_informar'          => 'blue',
+            'no_prazo'            => 'green',
+            'vencendo_3_dias'     => 'amber',
+            'vencida_sem_entrega' => 'red',
+            'com_entrega'         => 'teal',
+            default               => 'muted',
         };
+    }
+
+    /** Data limite: quem já entregou só informa (vermelho se entregou depois do prazo); quem não entregou segue `Deadline::remaining` (aviso em 3 dias). */
+    private function dueTone(string $status, ?Carbon $dueAt, ?Carbon $deliveredAt): string
+    {
+        if (!$dueAt || $status === 'passivo') {
+            return 'muted';
+        }
+
+        if ($deliveredAt) {
+            return $status === 'entregue_atraso' ? 'red' : 'muted';
+        }
+
+        return Deadline::remaining(now()->startOfDay()->diffInDays($dueAt->copy()->startOfDay(), false), 3);
+    }
+
+    private function timeTone(string $status, ?int $daysToDue, int $delayDays): string
+    {
+        if ($delayDays > 0) {
+            return 'red';
+        }
+
+        return $daysToDue !== null && in_array($status, ['no_prazo', 'vencendo_3_dias'], true)
+            ? Deadline::remaining($daysToDue, 3)
+            : 'muted';
+    }
+
+    private function timeLabel(string $status, ?int $daysToDue, int $delayDays): ?string
+    {
+        if ($delayDays > 0) {
+            return Deadline::remainingText(-$delayDays);
+        }
+
+        return $daysToDue !== null && in_array($status, ['no_prazo', 'vencendo_3_dias'], true)
+            ? Deadline::remainingText($daysToDue)
+            : null;
     }
 
     private function asCarbon(mixed $value): ?Carbon

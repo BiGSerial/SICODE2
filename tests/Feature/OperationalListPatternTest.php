@@ -189,6 +189,7 @@ it('as views das listas operacionais não têm cor nem cursor em style inline', 
         'livewire/services/payment/main.blade.php',
         'livewire/components/status/show-status.blade.php',
         'livewire/components/modal/priority.blade.php',
+        'livewire/engineers/ads/status.blade.php',
     ];
 
     foreach ($views as $view) {
