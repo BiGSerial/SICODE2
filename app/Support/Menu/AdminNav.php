@@ -31,7 +31,7 @@ final class AdminNav extends SidebarNav
                         self::item('contratos', 'Contratos', 'admin.company.contracts_list', 'ri-file-text-line', [], [], [], ['can' => 'superadm']),
                     ]),
                     self::group('catalogos', 'Catálogos', 'ri-price-tag-3-line', [
-                        self::item('categorias', 'Categorias', 'admin.category.main', 'ri-price-tag-3-line', [], [], [], ['can' => 'superadm']),
+                        self::item('categorias', 'Categorias e motivos', 'admin.category.main', 'ri-price-tag-3-line', [], [], [], ['can' => 'superadm']),
                     ]),
                 ],
             ],

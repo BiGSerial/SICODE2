@@ -16,5 +16,5 @@
 @endsection
 
 @section('content')
-    @livewire('admin.cancellation-categories')
+    @livewire('admin.catalog.manager', ['only' => 'cancelamento'])
 @endsection

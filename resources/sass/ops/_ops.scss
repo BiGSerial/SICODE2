@@ -708,3 +708,11 @@
     .ops-bulk-menu .dropdown-item small { color: var(--ops-muted); display: block; font-size: .72rem; font-weight: 600; }
     .min-w-0 { min-width: 0; }
 }
+
+// A tabela espera o primeiro ajuste de largura das colunas (resources/js/ops/table-fit.js); se o JS falhar, aparece depois de 0,8 s.
+html:not(.ops-fit-ready) .ops-list .ops-table {
+    animation: ops-fit-reveal 0s linear .8s forwards;
+    opacity: 0;
+}
+
+@keyframes ops-fit-reveal { to { opacity: 1; } }

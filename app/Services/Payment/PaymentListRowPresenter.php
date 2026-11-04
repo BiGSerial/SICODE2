@@ -15,6 +15,10 @@ use Carbon\Carbon;
  */
 class PaymentListRowPresenter
 {
+    public function __construct(private readonly PaymentAccompanyRowPresenter $accompany)
+    {
+    }
+
     /** Prazo para entrega da fiscalização de uma Parcial (dias após `supervision_at`). */
     public const PARTIAL_SUPERVISION_DAYS = 5;
 
@@ -51,6 +55,7 @@ class PaymentListRowPresenter
 
         $ads    = $wf?->Adsform;
         $adsAt  = $ads?->created_at;
+        $tacit  = (bool) ($ads?->tacit ?? false);
         $adsAge = $adsAt
             ? (int) $adsAt->diffInDays(Carbon::now(), true)
             : ($partial ? (int) $partial->created_at->diffInDays(Carbon::now(), true) : null);
@@ -61,6 +66,23 @@ class PaymentListRowPresenter
         $dueLabel  = $dueDays->getLastDate();
         $dueDate   = $dueLabel === '---' ? null : Carbon::createFromFormat('d/m/Y', $dueLabel)->startOfDay();
         $dueRemain = $dueDate ? $dueDays->getDaysLeft() : null;
+        $dueTone   = Deadline::remaining($dueRemain);
+        $dueText   = null;
+        $adsText   = null;
+        $dueHint   = Deadline::remainingText($dueRemain) . ' (verde acima de 15 dias, âmbar até 15, vermelho vencido)';
+
+        // Medição (Despacho e Serviços): o mesmo prazo do Acompanhamento. Parcial: 8 dias úteis da aprovação do engenheiro; Final: da entrega da ADS.
+        if ($profile !== 'partner') {
+            $adsAt     = $partial ? $partial->created_at : ($ads ? ($tacit ? $ads->tacit_delivered_at : $ads->created_at) : null);
+            $adsAge    = $adsAt ? (int) Carbon::parse($adsAt)->startOfDay()->diffInDays(Carbon::today(), true) : null;
+            $deadline  = $this->accompany->deadline($partial, $partial ? null : $adsAt, $tacit);
+            $dueDate   = $deadline['dueAt'];
+            $dueRemain = $deadline['days'];
+            $dueTone   = $deadline['tone'];
+            $dueHint   = $deadline['hint'];
+            $dueText   = $this->accompany->dueLabel($dueRemain, $deadline['unit']);
+            $adsText   = $adsAge === null ? null : $adsAge . ($adsAge === 1 ? ' dia' : ' dias');
+        }
 
         $informedAt = $wf
             ? ($wf->informed_at ?: $wf->created_at)
@@ -101,7 +123,10 @@ class PaymentListRowPresenter
             'fiscalTone'   => $partial && $fiscalAt ? Deadline::remaining(Deadline::daysFromNow($fiscalAt), self::PARTIAL_SUPERVISION_DAYS - 1) : 'muted',
             'dueAt'        => $dueDate,
             'dueDays'      => $dueRemain,
-            'dueTone'      => Deadline::remaining($dueRemain),
+            'dueTone'      => $dueTone,
+            'dueHint'      => $dueHint,
+            'dueLabel'     => $dueText,
+            'adsLabel'     => $adsText,
             'productionId' => $production?->id,
             'state'        => $rowState,
             'reason'       => $reason,

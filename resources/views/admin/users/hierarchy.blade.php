@@ -17,7 +17,7 @@
 @endsection
 
 @section('content')
-    @livewire('admin.hierarchy.board', key('user.hierarchy.board'))
+    @livewire('admin.hierarchy.org')
 @endsection
 
 @push('css')

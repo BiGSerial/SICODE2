@@ -4,13 +4,11 @@ namespace App\Http\Livewire\Dispatchs\Supervision;
 
 use App\Http\Livewire\Concerns\WithNoteListFilters;
 use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
-use App\Models\{City, Production, Service, User, WorkReportFlowProduction};
-use App\Services\Supervision\SupervisionControlRowPresenter;
+use App\Models\{City, Production, Service, User};
+use App\Services\Supervision\{SupervisionControlQuery, SupervisionControlRowPresenter};
 use App\Support\SicodeRules;
-use App\Traits\WildcardFormatter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\{LengthAwarePaginator, Paginator};
-use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
 /**
@@ -23,7 +21,6 @@ class Stack extends Component
     use WithNoteListFilters;
     use BuildsLegalNoteTags;
     use \App\Helpers\TextFormatter;
-    use WildcardFormatter;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -214,15 +211,10 @@ class Stack extends Component
 
     // ---------- Exportação ----------
 
+    /** Excel do que a tela mostra: os mesmos critérios (busca, tipo, usuário, status e localidade), todas as páginas. */
     public function exportToExcel()
     {
-        \App\Jobs\Dispatchs\ExportDispatchSupervisionJob::dispatch([
-            'service_id'  => $this->service,
-            'search'      => $this->search,
-            'multiSearch' => $this->multiSearch,
-            'note_type'   => $this->note_type,
-            'user_fs'     => $this->filterValues('user'),
-        ], auth()->id());
+        \App\Jobs\Dispatchs\ExportDispatchSupervisionJob::dispatch($this->criteria(), (string) auth()->id());
 
         $this->dispatchBrowserEvent('swal', [
             'icon'  => 'info',
@@ -233,138 +225,29 @@ class Stack extends Component
 
     // ---------- Consulta ----------
 
-    /**
-     * Recorte único da lista e dos cartões de status (mesmos joins e filtros nos dois). `$withStatus = false` ignora o filtro
-     * de status, para os cartões contarem todos os status. Sem colunas calculadas: quem lista acrescenta as suas.
-     */
+    /** Critérios da tela (os mesmos que o Excel recebe): a consulta mora em `SupervisionControlQuery`. */
+    private function criteria(): array
+    {
+        return [
+            'service'     => $this->service,
+            'search'      => $this->search,
+            'multiSearch' => $this->multiSearch,
+            'note_type'   => $this->note_type,
+            'users'       => $this->filterValues('user'),
+            'status'      => $this->filterValues('status'),
+            'cityCodes'   => $this->locationCityCodes(),
+        ];
+    }
+
+    /** Recorte único da lista e dos cartões de status. `$withStatus = false` ignora o filtro de status, para os cartões contarem todos. */
     private function controlQuery(bool $withStatus = true): Builder
     {
-        $dispatchableWorkReportIds = app(\App\Services\Supervision\WorkReportSupervisionCandidateQuery::class)
-            ->dispatchableWorkReportIdsSubquery();
-
-        $user   = auth()->user();
-        $users  = $this->filterValues('user');
-        $status = $this->filterValues('status');
-        $codes  = $this->locationCityCodes();
-
-        return Production::Query()
-            ->where('service_id', $this->service)
-            ->where('completed', false)
-            ->when($user?->usesContractDispatch(), function ($q) use ($user) {
-                $companyIds = SicodeRules::visibleCompanyIdsFor($user);
-
-                return count($companyIds)
-                    ? $q->whereIn('productions.company_id', $companyIds)
-                    : $q->whereRaw('0 = 1');
-            })
-            ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
-            ->leftJoin('work_report_flow_productions as wrfp', function ($join) {
-                $join->on('wrfp.production_id', '=', 'productions.id')
-                    ->where('wrfp.stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
-                    ->where('wrfp.is_current', true)
-                    ->whereRaw("wrfp.id = (
-                        SELECT MAX(wrfp_latest.id)
-                        FROM work_report_flow_productions wrfp_latest
-                        WHERE wrfp_latest.production_id = productions.id
-                          AND wrfp_latest.stage = 'fiscalization'
-                          AND wrfp_latest.is_current = 1
-                    )");
-            })
-            ->leftJoin('work_reports as wr', function ($join) {
-                $join->on('wr.id', '=', 'wrfp.work_report_id')
-                    ->where('wr.canceled', false);
-            })
-            ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
-            ->where(function ($query) use ($dispatchableWorkReportIds) {
-                $query->whereNull('wrfp.work_report_id')
-                    ->orWhereIn('wrfp.work_report_id', $dispatchableWorkReportIds);
-            })
-            ->when(trim((string) $this->search), function ($q) {
-                $q->where(function ($q) {
-                    $search = $this->formatWithWildcard($this->search);
-                    $q->where('n.note', $search->type, $search->search)
-                        ->orWhere('n.rubrica', $search->type, $search->search)
-                        ->orWhere('n.lexp', $search->type, $search->search)
-                        ->orWhere('productions.odi', $search->type, $search->search)
-                        ->orWhere('productions.odd', $search->type, $search->search)
-                        ->orWhere('productions.ods', $search->type, $search->search)
-                        ->orWhereHas('user', function ($q) use ($search) {
-                            $q->where('name', $search->type, $search->search);
-                        })
-                        ->orWhereHas('note.orders', function ($q) use ($search) {
-                            $q->where('ordem', $search->type, $search->search);
-                        });
-                });
-            })
-            ->when(count($this->multiSearch) > 0, function ($q) {
-                $q->where(function ($q) {
-                    $q->whereHas('note', function ($query) {
-                        $query->whereIn('note', $this->multiSearch)
-                              ->orWhere('rubrica', $this->multiSearch)
-                              ->orWhere('lexp', $this->multiSearch);
-                    })
-                    ->orWhereHas('user', function ($q) {
-                        $q->whereIn('name', $this->multiSearch);
-                    })
-                    ->orWhereHas('note.orders', function ($q) {
-                        $q->whereIn('ordem', $this->multiSearch);
-                    });
-                });
-            })
-            ->when($codes !== null, fn ($q) => $q->whereIn('nexp', $codes))
-            ->when($withStatus && $status, fn ($q) => $q->whereIn('productions.status', $status))
-            ->when($this->note_type, fn ($q) => $q->where('n.type_note', $this->note_type))
-            ->when($users, fn ($q) => $q->whereIn('productions.user_id', $users));
+        return app(SupervisionControlQuery::class)->base($this->criteria(), auth()->user(), $withStatus);
     }
 
     public function getListsProperty()
     {
-        $query = $this->controlQuery()
-            ->addSelect('productions.*')
-            ->addSelect(DB::raw("
-                CASE
-                    WHEN wr.informed_at IS NOT NULL THEN wr.informed_at
-                    WHEN EXISTS (
-                        SELECT 1 FROM partials p
-                        WHERE p.note_id = n.id
-                    ) THEN (
-                        SELECT p.created_at
-                        FROM partials p
-                        WHERE p.note_id = n.id
-                        ORDER BY p.created_at DESC
-                        LIMIT 1
-                    )
-                    ELSE NULL
-                END AS dt_inform
-            "))
-            ->addSelect(DB::raw('af.created_at AS dt_ads'))
-            ->addSelect(DB::raw('af.amount AS ads_amount'))
-            ->addSelect(DB::raw('af.tacit AS ads_tacit'))
-            ->addSelect(DB::raw('af.tacit_delivered_at AS ads_tacit_delivered_at'))
-            ->with([
-                'wpas:id,production_id,dd,execstats,ststusexec,completed_at',
-                'company:id,name',
-                'user:id,name,company_id,deleted_at',
-                'user.Company:id,name',
-                'dispatcher:id,name,company_id,deleted_at',
-                'dispatcher.Company:id,name',
-                'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left,group2',
-                'note.Adsform:id,work_report_id,note_id,amount,tacit,tacit_delivered_at,created_at',
-                'note.workform:id,company_id,note_id,informed_at,rejected',
-                'note.workform.adsform:id,work_report_id,amount,tacit,tacit_delivered_at,created_at',
-                'WorkReportFlowProductions' => fn ($q) => $q
-                    ->where('stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
-                    ->where('is_current', true)
-                    ->orderByDesc('id'),
-            ])
-            ->orderBy('priority', 'desc')
-            ->orderBy('d5', 'desc')
-            ->orderBy('partial', 'desc')
-            ->orderByRaw('CASE WHEN dt_ads IS NULL THEN 0 ELSE 1 END DESC')
-            ->orderBy('dt_inform', 'asc')
-            ->orderBy('dt_ads', 'asc')
-            ->orderBy('att_at', 'asc')
-            ->orderBy('id', 'asc');
+        $query = app(SupervisionControlQuery::class)->list($this->criteria(), auth()->user());
 
         // O total sai da contagem por status (já feita para os cartões, no mesmo recorte): evita repetir a consulta pesada só para contar.
         $status = $this->filterValues('status');

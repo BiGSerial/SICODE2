@@ -9,7 +9,7 @@ use App\Models\{Analise, Company, Note, Notetimeline, Production, Service, User,
 use App\Models\{City, FiveNote, WorkReportFlowProduction};
 use App\Models\Company as CompanyModel;
 use App\Services\D5\D5WorkflowService;
-use App\Services\Payment\MeasurementDeadlinePolicy;
+use App\Services\Payment\{MeasurementDeadlinePolicy, PaymentAccompanyRowPresenter};
 use App\Services\Production\ProductionActions;
 use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use Carbon\Carbon;
@@ -1074,27 +1074,35 @@ class Stack extends Component
             : $this->deadlineMemo[$production->id] = $this->computeMeasurementDeadline($production);
     }
 
+    /** Mesmo prazo do Acompanhamento e das listas: 8 dias úteis da aprovação do engenheiro (Parcial) ou da entrega da ADS (Final). */
     private function computeMeasurementDeadline(Production $production): ?array
     {
         $partial    = $production->partial ? $production->Note?->Partials?->last() : null;
         $workReport = $production->WorkReportFlowProductions
             ->firstWhere('stage', WorkReportFlowProduction::STAGE_PAYMENT)
             ?->WorkReport ?? $production->Note?->WorkForm;
-        $informedAt = $partial?->supervision_at ?? $workReport?->informed_at;
+        $ads   = $workReport?->Adsform ?? $production->Note?->Adsform;
+        $tacit = (bool) ($ads?->tacit ?? false);
+        $adsAt = $ads ? ($tacit ? $ads->tacit_delivered_at : $ads->created_at) : null;
 
-        if (!$informedAt) {
+        $deadline = app(PaymentAccompanyRowPresenter::class)->deadline($partial, $adsAt, $tacit);
+
+        if (!$deadline['dueAt']) {
             return null;
         }
 
-        $policy        = $this->deadlinePolicy ??= app(MeasurementDeadlinePolicy::class);
-        $dueAt         = $policy->dueAt(Carbon::parse($informedAt));
-        $remainingDays = $policy->remainingDays($dueAt);
-
         return [
-            'due_at'         => $dueAt,
-            'remaining_days' => $remainingDays,
-            'status'         => $policy->statusForRemainingDays($remainingDays),
+            'due_at'         => $deadline['dueAt'],
+            'remaining_days' => $deadline['days'],
+            'status'         => $this->deadlinePolicy()->statusForRemainingDays($deadline['days']),
+            'business'       => $deadline['unit'] === 'úteis',
+            'hint'           => $deadline['hint'],
         ];
+    }
+
+    private function deadlinePolicy(): MeasurementDeadlinePolicy
+    {
+        return $this->deadlinePolicy ??= app(MeasurementDeadlinePolicy::class);
     }
 
     private function paginateDeadlineFiltered($query): LengthAwarePaginator

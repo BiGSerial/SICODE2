@@ -123,6 +123,9 @@ Toda operação física de storage (gravação, leitura, download/stream, delete
 - Modais no padrão `.ops-modal` (cabeçalho em degradê, rodapé branco, uma raiz por componente Livewire).
 - Ação de linha é botão com verbo (operacional) ou menu "⋮" (controle); ação em lote na `<x-ops.selection-bar>`. Conferir no navegador antes de dar como pronta. Accompany ainda não segue o padrão (a definir).
 
+### Catálogos (categorias, subcategorias e motivos)
+Todo cadastro de categoria/motivo que o admin mantém vive em **uma tela só** (Administração → Catálogos → Categorias e motivos, `Admin\Catalog\Manager`), descrito em `App\Support\Catalog\CatalogRegistry` e servido por `CatalogService`. Antes de criar tela de cadastro de categoria/motivo/tipo, leia `docs/admin/CATALOGOS.md`: catálogo novo é uma entrada no registro (sem tela, sem CSS). Não criar CRUD de categoria à mão; não ligar reordenação onde o consumidor ordena por nome.
+
 ### Menu superior (topbar)
 Definição única em `App\Support\Menu\TopbarNav` (ordem do fluxo: Atividades · Ocorrências · Engenharia · Responsável · Jurídico · Consultas · Relatórios · Administração), renderizada por `<x-menu.dynamic-dropdown>` em `resources/views/layouts/menu_itens.blade.php` (só um `@foreach`). Estilo em `resources/sass/nav/_topbar.scss`, comportamento em `resources/js/nav/topbar.js`; nada de `<style>`/`<script>` no menu. Contadores só pelo `TopbarCounts` (`count => 'chave'`), nunca um componente Livewire por item. Cada assunto mora em um menu só. Ver `docs/MenuSuperior.md`.
 

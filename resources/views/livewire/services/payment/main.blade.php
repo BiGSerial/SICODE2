@@ -3,7 +3,7 @@
     $statusCodes = $service->Status->count()
         ? $service->Status->where('exclusion', false)->unique('value')->pluck('value')->implode(' · ')
         : null;
-    $hasCriteria = $this->hasListFilters() || filled($search) || filled($typeNote) || $not_assigned || $filter_d5 || !empty($multiSearch);
+    $hasCriteria = $this->hasListFilters() || filled($search) || filled($typeNote) || filled($prazo) || $not_assigned || $filter_d5 || !empty($multiSearch);
 @endphp
 
 {{-- Lista operacional: padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md. Hero → ferramentas (busca, tipo, atalhos, filtros) → painel com a tabela. --}}
@@ -31,6 +31,8 @@
             </x-ops.search>
 
             <x-ops.segmented name="servicePaymentTypeNote" label="Tipo de nota" wire:model="typeNote" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
+
+            <x-ops.segmented name="servicePaymentDeadline" label="Prazo de medição" wire:model="prazo" :options="['' => 'Todos', 'no_prazo' => 'No prazo', 'vencendo' => 'Vencendo', 'vencido' => 'Vencidos']" />
 
             <x-ops.toggle label="Só livres" icon="ri-user-unfollow-line" :on="$not_assigned" wire:click.prevent="filterStatus" title="Mostra só o que ainda não foi atribuído a ninguém" />
             <x-ops.toggle label="Somente D5" icon="ri-file-list-3-line" :on="$filter_d5" wire:click.prevent="filterD5" title="Mostra só notas que têm D5" />
@@ -93,8 +95,7 @@
                         <col style="width: 108px">
                         <col style="width: 92px">
                         <col style="width: 92px">
-                        <col style="width: 92px">
-                        <col style="width: 92px">
+                        <col style="width: 124px">
                         <col style="width: 104px">
                     </colgroup>
                     <thead>
@@ -109,7 +110,6 @@
                             <th class="is-left">Empresa</th>
                             <th>Final OP20</th>
                             <th>Saldo PEP</th>
-                            <th>Informe</th>
                             <th>ADS</th>
                             <th>Fiscalizado</th>
                             <th>Vencimento</th>
@@ -192,11 +192,9 @@
                                         @endforelse
                                     </div>
                                 </td>
-
-                                <td><x-ops.date :date="$row['informedAt']" time /></td>
-                                <td><x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']" time :hint="'Entrega da ADS · ' . \App\Support\Ops\Deadline::ageText($row['adsAge']) . ' (verde até 14 dias, âmbar até 20, vermelho acima)'" /></td>
+                                <td><x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']" :sub="$row['adsLabel']" :hint="'Entrega da ADS · ' . \App\Support\Ops\Deadline::ageText($row['adsAge']) . ' (verde até 14 dias, âmbar até 20, vermelho acima)'" /></td>
                                 <td><x-ops.date :date="$row['fiscalAt']" :tone="$row['fiscalTone']" :hint="$row['isPartial'] ? 'Fiscalização da parcial + 5 dias (verde com 5 dias ou mais, âmbar abaixo disso, vermelho vencido)' : 'Data da fiscalização'" /></td>
-                                <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :hint="\App\Support\Ops\Deadline::remainingText($row['dueDays']) . ' (verde acima de 15 dias, âmbar até 15, vermelho vencido)'" /></td>
+                                <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['dueLabel']" :hint="$row['dueHint']" /></td>
 
                                 <td>
                                     @if ($row['canDispatch'])

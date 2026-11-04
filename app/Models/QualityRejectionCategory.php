@@ -34,4 +34,10 @@ class QualityRejectionCategory extends Model
     {
         return $query->where($type === 'PROJECT' ? 'applies_project' : 'applies_budget', true);
     }
+
+    /** Rejeições que usam este registro como subcategoria (`Items()` cobre as que o usam como motivo). */
+    public function SubItems()
+    {
+        return $this->hasMany(QualityRejectionItem::class, 'subcategory_id');
+    }
 }

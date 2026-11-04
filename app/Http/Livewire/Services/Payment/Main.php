@@ -12,13 +12,16 @@ use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
 use App\Services\Payment\{BlockEvaluator, NoteFilter, PaymentListRowPresenter};
 use App\Services\WorkReports\{WorkReportFinalScopeOptions};
 use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\{Auth, Cache, DB};
 use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
     use WithPagination;
-    use WithNoteListFilters;
+    use WithNoteListFilters {
+        clearAllCriteria as private clearNoteCriteria;
+    }
     use TextFormatter;
     use BulkSelfAssignable;
     use \App\Http\Livewire\Services\Concerns\BuildsCanceledWorkReportTags;
@@ -64,6 +67,12 @@ class Main extends Component
 
     public $assigned_mmgd = false;
 
+    /** Atalho de prazo de medição: '' (todos), 'no_prazo', 'vencendo' (de 1 a 0 dias úteis) ou 'vencido'. */
+    public $prazo = '';
+
+    /** Atalho de prazo => tom do selo de vencimento (`Deadline`). */
+    public const PRAZOS = ['vencido' => 'red', 'vencendo' => 'amber', 'no_prazo' => 'green'];
+
     public $count = [
         'total'    => 0,
         'partials' => 0,
@@ -86,6 +95,7 @@ class Main extends Component
         'partials'     => ['except' => false, 'as' => 'parciais'],
         'not_assigned' => ['except' => false, 'as' => 'livres'],
         'filter_d5'    => ['except' => false, 'as' => 'd5'],
+        'prazo'        => ['except' => '', 'as' => 'prazo'],
         'filters'      => ['except' => [], 'as' => 'f'],
     ];
 
@@ -94,6 +104,9 @@ class Main extends Component
     private ?User $assignmentUser = null;
 
     private array $workReportScopeCache = [];
+
+    /** Linhas já apresentadas da página quando o atalho de prazo está ligado. */
+    private $deadlineRows;
 
     public function boot(NoteFilter $noteFilter)
     {
@@ -144,7 +157,11 @@ class Main extends Component
             'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
         ]);
 
-        return $this->expandPaymentRows($page);
+        $rows = $this->expandPaymentRows($page);
+
+        return $this->prazo
+            ? $rows->filter(fn (Note $note) => $this->presentRow($note)['dueTone'] === self::PRAZOS[$this->prazo])->values()
+            : $rows;
     }
 
     private function selectionKeysForCurrentFilter(): array
@@ -809,9 +826,23 @@ class Main extends Component
 
     public function getListsProperty()
     {
+        if ($this->prazo) {
+            return $this->deadlineLists();
+        }
+
         $page = $this->baseQuery()->paginate($this->perPage);
 
-        $page->load([
+        $page->load($this->listRelations());
+
+        $page->setCollection($this->expandPaymentRows($page->getCollection()));
+
+        return $page;
+    }
+
+    /** Relações que a linha mostra (carregadas depois da paginação, não dentro da consulta). */
+    private function listRelations(): array
+    {
+        return [
             'WorkForm' => fn ($q) => $q->select([
                 'id',
                 'note_id',
@@ -830,7 +861,7 @@ class Main extends Component
             'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Pep:objeto,disponivel',
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'WorkForm.Adsform:id,work_report_id,amount,created_at',
+            'WorkForm.Adsform:id,work_report_id,amount,created_at,tacit,tacit_delivered_at',
             'WorkForms' => fn ($q) => $q->select([
                 'id',
                 'note_id',
@@ -850,7 +881,7 @@ class Main extends Component
             'WorkForms.Orders.Pep:objeto,disponivel',
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
             'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
-            'WorkForms.Adsform:id,work_report_id,amount,created_at',
+            'WorkForms.Adsform:id,work_report_id,amount,created_at,tacit,tacit_delivered_at',
             'WorkForms.FiveNote:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
             'Partials' => fn ($q) => $q->select([
                 'id',
@@ -861,6 +892,7 @@ class Main extends Component
                 'payment',
                 'supervision',
                 'supervision_at',
+                'decision_at',
                 'created_at',
                 'value',
             ])
@@ -894,11 +926,54 @@ class Main extends Component
                 ])
                 ->with(['User', 'WorkReportFlowProductions', 'measurementContext'])
                 ->orderByDesc('created_at'),
-        ]);
+        ];
+    }
 
-        $page->setCollection($this->expandPaymentRows($page->getCollection()));
+    /**
+     * Atalho de prazo: o vencimento é calculado em PHP (dias úteis e feriados), então filtra a lista inteira e pagina depois.
+     * As linhas já apresentadas ficam em `$deadlineRows`, que o render reaproveita.
+     */
+    private function deadlineLists(): LengthAwarePaginator
+    {
+        $notes = $this->baseQuery()->get();
+        $notes->load($this->listRelations());
 
-        return $page;
+        $tone = self::PRAZOS[$this->prazo];
+        $rows = $this->expandPaymentRows($notes)
+            ->map(fn (Note $note) => [$note, $this->presentRow($note)])
+            ->filter(fn (array $pair) => $pair[1]['dueTone'] === $tone)
+            ->values();
+
+        $page  = (int) ($this->page ?: 1);
+        $slice = $rows->forPage($page, (int) $this->perPage)->values();
+
+        $this->deadlineRows = $slice->map(fn (array $pair) => $pair[1]);
+
+        return new LengthAwarePaginator($slice->map(fn (array $pair) => $pair[0]), $rows->count(), (int) $this->perPage, $page, ['path' => request()->url(), 'pageName' => 'page']);
+    }
+
+    private function presentRow(Note $note): array
+    {
+        $eval = $this->needBlock($note);
+
+        return app(PaymentListRowPresenter::class)->present($note, ['eval' => $eval, 'stack' => null, 'canDispatch' => !$eval['block']], 'service');
+    }
+
+    public function updatedPrazo(): void
+    {
+        if (!array_key_exists($this->prazo, self::PRAZOS)) {
+            $this->prazo = '';
+        }
+
+        $this->selected  = [];
+        $this->selectAll = false;
+        $this->gotoPage(1);
+    }
+
+    public function clearAllCriteria(): void
+    {
+        $this->prazo = '';
+        $this->clearNoteCriteria();
     }
 
     private function expandPaymentRows($notes)
@@ -1102,12 +1177,9 @@ class Main extends Component
     {
         $lists = $this->lists;
 
-        $presenter = app(PaymentListRowPresenter::class);
-        $rows      = $lists->getCollection()->map(function (Note $note) use ($presenter) {
-            $eval = $this->needBlock($note);
-
-            return $presenter->present($note, ['eval' => $eval, 'stack' => null, 'canDispatch' => !$eval['block']], 'service');
-        });
+        $rows = $this->prazo
+            ? $this->deadlineRows
+            : $lists->getCollection()->map(fn (Note $note) => $this->presentRow($note));
 
         return view('livewire.services.payment.main', [
             'lists'                => $lists,

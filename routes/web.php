@@ -58,6 +58,7 @@ Route::prefix('/admin')->controller(AdminController::class)->name('admin.')->mid
     Route::prefix('/user')->name('user.')->group(function () {
         Route::get('/list', 'user_list')->name('list');
         Route::get('/hierarchy', 'user_hierarchy')->name('hierarchy');
+        Route::get('/hierarchy/nodes', 'user_hierarchy_nodes')->name('hierarchy.nodes');
     });
 
     Route::prefix('/company')->name('company.')->group(function () {

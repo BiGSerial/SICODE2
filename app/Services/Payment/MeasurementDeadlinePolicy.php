@@ -36,12 +36,52 @@ class MeasurementDeadlinePolicy
         return $date;
     }
 
+    /** Vencimento em `$days` dias, úteis ou corridos, depois de `$from` (a hora é ignorada). */
+    public function dueAtIn(Carbon $from, int $days, bool $businessDays): Carbon
+    {
+        return $businessDays ? $this->businessDueAt($from, $days) : $from->copy()->startOfDay()->addDays($days);
+    }
+
+    /** Dias (úteis ou corridos) até o vencimento: positivo faltam, negativo venceu. */
+    public function remainingIn(Carbon $dueAt, bool $businessDays, ?Carbon $referenceAt = null): int
+    {
+        return $this->countRemaining($dueAt, $referenceAt, $businessDays);
+    }
+
+    /** Vencimento em `$days` dias úteis (sem sábado, domingo e feriado do estado) depois de `$from`, qualquer que seja a região. */
+    public function businessDueAt(Carbon $from, int $days): Carbon
+    {
+        $date      = $from->copy()->startOfDay();
+        $remaining = $days;
+
+        while ($remaining > 0) {
+            $date->addDay();
+
+            if ($this->isBusinessDay($date)) {
+                $remaining--;
+            }
+        }
+
+        return $date;
+    }
+
+    /** Dias úteis entre hoje (ou `$referenceAt`) e o vencimento: positivo faltam, negativo venceu. */
+    public function businessRemainingDays(Carbon $dueAt, ?Carbon $referenceAt = null): int
+    {
+        return $this->countRemaining($dueAt, $referenceAt, true);
+    }
+
     public function remainingDays(Carbon $dueAt, ?Carbon $referenceAt = null): int
+    {
+        return $this->countRemaining($dueAt, $referenceAt, $this->usesBusinessDays());
+    }
+
+    private function countRemaining(Carbon $dueAt, ?Carbon $referenceAt, bool $businessDays): int
     {
         $referenceAt = ($referenceAt ?: now())->copy()->startOfDay();
         $dueAt       = $dueAt->copy()->startOfDay();
 
-        if (!$this->usesBusinessDays()) {
+        if (!$businessDays) {
             return $referenceAt->diffInDays($dueAt, false);
         }
 
@@ -68,7 +108,7 @@ class MeasurementDeadlinePolicy
     {
         return match (true) {
             $remainingDays < 0  => 'vencido',
-            $remainingDays <= 4 => 'vencendo',
+            $remainingDays <= 1 => 'vencendo',
             default             => 'no_prazo',
         };
     }

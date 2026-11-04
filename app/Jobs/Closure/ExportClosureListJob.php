@@ -151,6 +151,8 @@ class ExportClosureListJob implements ShouldQueue
             'filterCompany'    => 'Empresa (posse atual)',
             'filterUser'       => 'Responsável',
             'assigneeId'       => 'Responsável',
+            'assigneeIds'      => 'Responsável',
+            'companyIds'       => 'Empresa (informe)',
             'onlyUndispatched' => 'Só não despachadas',
             'onlyPriority'     => 'Só prioritárias',
             'competence'       => 'Competência',
