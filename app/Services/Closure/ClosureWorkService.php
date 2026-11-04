@@ -289,6 +289,7 @@ class ClosureWorkService
                 'status_sist'        => $o->statusSist,
                 'type'               => $classified->get($o->id)['type'] ?? null,
                 'competence'         => $classified->get($o->id)['competence'] ?? null,
+                'dt_entrada'         => $o->dtEntrada ? \Illuminate\Support\Carbon::parse($o->dtEntrada) : null,
                 'operational_status' => $s?->operational_status,
                 'priority'           => (bool) $s?->priority,
                 'assignee'           => $s?->Assignee ? ['id' => $s->Assignee->id, 'name' => $s->Assignee->name] : null,

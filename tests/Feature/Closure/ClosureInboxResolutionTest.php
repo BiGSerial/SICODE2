@@ -90,3 +90,35 @@ it('does not send the user to the Encerramento nor offer the status map configur
         ->assertDontSee(route('closure.status_map'))
         ->assertDontSee('Abrir obra');
 });
+
+it('devolve a Ordem à Medição sem empresa parceira, pelo modal da obra aberto pelo atalho do menu', function () {
+    Notification::fake();
+    $f        = closureScreenFixture();
+    $taxonomy = closureIssueTaxonomy();
+
+    Livewire::withQueryParams(['devolver' => ClosureArea::MEASUREMENT, 'estado' => $f['state']->id])
+        ->actingAs($f['dispatcher'])
+        ->test(\App\Http\Livewire\Closure\Works\Show::class, ['noteId' => $f['note']->id])
+        ->assertSet('issueArea', ClosureArea::MEASUREMENT)
+        ->assertSet('partnerModal', true)
+        ->assertSee('Devolver à Medição')
+        ->set('issueCategoryId', (string) $taxonomy['category']->id)
+        ->set('issueSubcategoryId', (string) $taxonomy['subcategory']->id)
+        ->call('sendToPartner')
+        ->assertHasNoErrors()
+        ->assertSet('partnerModal', false);
+
+    $issue = ClosureIssue::query()->latest('id')->first();
+
+    expect($issue->destination_area)->toBe(ClosureArea::MEASUREMENT)
+        ->and($issue->destination_company_id)->toBeNull()
+        ->and($issue->status)->toBe(ClosureIssue::STATUS_REQUESTED);
+});
+
+it('recusa devolver para uma área sem caixa', function () {
+    $f        = closureScreenFixture();
+    $taxonomy = closureIssueTaxonomy();
+
+    expect(fn () => app(ClosureIssueWorkflowService::class)->requestToArea($f['state'], ClosureArea::PARTNER, $taxonomy['category'], $taxonomy['subcategory'], $f['dispatcher'], 'x'))
+        ->toThrow(ClosureIssueWorkflowException::class);
+});

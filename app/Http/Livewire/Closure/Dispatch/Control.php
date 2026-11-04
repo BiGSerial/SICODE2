@@ -22,7 +22,9 @@ class Control extends WorkIndex
 
     public string $manageReason = '';
 
-    public function mount(): void
+    public string $scope = self::SCOPE_ALL;
+
+    public function mount(string $scope = self::SCOPE_ALL): void
     {
         abort_unless(auth()->user()?->can('closure.dispatch'), 403);
     }

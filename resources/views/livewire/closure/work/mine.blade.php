@@ -8,17 +8,18 @@
     $riByNote       = app(\App\Services\Closure\ClosureInternalReturnService::class)->activeForNotes($states->getCollection()->map(fn ($st) => $st->Order?->note_id)->filter());
     $allSelected    = $states->count() > 0 && $states->every(fn ($st) => in_array($st->id, $selectedStateIds));
     $loadingTargets = 'search,type,toggleCard,gotoPage,nextPage,previousPage,perPage,clearFilters,removeAnyFilter,applyListFilters,removeListFilter,clearListFilters,applyBulkSearch,selectAllFilteredStates';
-    $emptyText      = $hasCriteria ? 'Ajuste ou limpe os filtros para ver mais Ordens.' : ($selfAssignEnabled ? 'Use Pegar atividades para assumir novas Ordens.' : 'Quando o despacho atribuir Ordens a você, elas aparecem aqui.');
+    $follow         = $this->isFollow();
+    $emptyText      = $follow && !$hasCriteria ? 'Nada aguardando outras pessoas no momento.' : ($hasCriteria ? 'Ajuste ou limpe os filtros para ver mais Ordens.' : ($selfAssignEnabled ? 'Use Pegar atividades para assumir novas Ordens.' : 'Quando o despacho atribuir Ordens a você, elas aparecem aqui.'));
     $initials       = fn (?string $name) => collect(preg_split('/\s+/', trim((string) $name), -1, PREG_SPLIT_NO_EMPTY))->take(2)->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))->implode('');
 @endphp
 
 {{-- Minha atividade (Serviço): lista operacional (docs/PADRAO_LISTAS_OPERACIONAIS.md). Ordens atribuídas ao usuário; a gestão vê as de todos. --}}
 <div class="closure-dash my-panel ops-list">
 
-    <x-ops.hero eyebrow="Serviço · Encerramento" title="Minha atividade" :subtitle="'Ordens atribuídas a você' . ($showHolder ? ' (como gestor, você vê as de todos)' : '') . '. Inicie, pause, finalize ou passe para outra pessoa.'">
+    <x-ops.hero eyebrow="Serviço · Encerramento" :title="$follow ? 'Acompanhamento' : 'Minha atividade'" :subtitle="$follow ? 'Ordens que não dependem de você agora: aguardando a parceira, o Desenho (RI), a liberação do depósito, a meta futura ou o SAP encerrar. Só acompanhamento.' : 'Ordens atribuídas a você para executar' . ($showHolder ? ' (como gestor, você vê as de todos)' : '') . '. Inicie, pause, finalize ou passe para outra pessoa.'">
         <div class="d-flex flex-wrap gap-2 justify-content-end">
             <x-ops.legend />
-            @if ($selfAssignEnabled)
+            @if ($selfAssignEnabled && !$follow)
                 <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('services.main', ['aba' => 'disponiveis']) }}" class="btn btn-light btn-sm btn-dash"><i class="ri-inbox-line" aria-hidden="true"></i> Pegar atividades</a>
             @endif
             <a href="{{ \App\Services\Closure\ClosureServiceLocator::url('services.transfers') }}" class="btn btn-light btn-sm btn-dash"><i class="ri-exchange-line" aria-hidden="true"></i> Transferências</a>
@@ -27,14 +28,27 @@
     </x-ops.hero>
 
     {{-- Cartões = filtros de status que ligam e desligam (clicar de novo desfaz). Contam no mesmo recorte, sem o filtro de status. --}}
+    @if ($follow)
+    <div class="ops-stats">
+        <x-ops.stat wire:key="mstat-all" wire:click="toggleCard('all')" tone="teal" icon="ri-list-check" label="Total na fila" :value="number_format($stats['total'], 0, ',', '.')" :active="empty($filters['status']) && !$onlyPriority" title="Todas as suas Ordens do recorte atual, em qualquer status" />
+        <x-ops.stat wire:key="fstat-partner" wire:click="toggleCard('WAITING_PARTNER')" tone="amber" icon="ri-team-line" label="Aguardando parceira" :value="number_format($stats['partner'], 0, ',', '.')" :active="$this->cardActive('WAITING_PARTNER')" title="Pendência com a parceira: volta a você quando ela responder" />
+        <x-ops.stat wire:key="fstat-deposit" wire:click="toggleCard('DEPOSIT_BLOCKED')" tone="red" icon="ri-lock-line" label="Depósito bloqueado" :value="number_format($stats['deposit'], 0, ',', '.')" :active="$this->cardActive('DEPOSIT_BLOCKED')" title="Aguardando a liberação do depósito (inventário)" />
+        <x-ops.stat wire:key="fstat-future" wire:click="toggleCard('WAITING')" tone="blue" icon="ri-calendar-event-line" label="Meta futura" :value="number_format($stats['future'], 0, ',', '.')" :active="$this->cardActive('WAITING')" title="Resolvidas, aguardando o mês da meta para finalizar" />
+        <x-ops.stat wire:key="fstat-finished" wire:click="toggleCard('FINISHED')" tone="green" icon="ri-checkbox-circle-line" label="Finalizadas" :value="number_format($stats['finished'], 0, ',', '.')" :active="$this->cardActive('FINISHED')" title="Você finalizou: aguardando o SAP encerrar" />
+        <x-ops.stat wire:key="fstat-reopened" wire:click="toggleCard('CLOSED')" tone="amber" icon="ri-refresh-line" label="Reaberta no SAP" :value="number_format($stats['reopened'], 0, ',', '.')" :active="$this->cardActive('CLOSED')" title="Estavam encerradas e voltaram a ficar abertas no SAP: aguardam novo despacho" />
+        <x-ops.stat wire:key="fstat-ri" tone="teal" icon="ri-draft-line" label="Com o Desenho (RI)" :value="number_format($stats['ri'], 0, ',', '.')" disabled title="Obras com RI ativo: destravam quando o Desenho concluir" />
+        <x-ops.stat wire:key="mstat-avg" tone="muted" icon="ri-time-line" label="Tempo médio no status" :value="$avgLabel" disabled title="Média de tempo da fila no status atual" />
+    </div>
+    @else
     <div class="ops-stats">
         <x-ops.stat wire:key="mstat-all" wire:click="toggleCard('all')" tone="teal" icon="ri-list-check" label="Total na fila" :value="number_format($stats['total'], 0, ',', '.')" :active="empty($filters['status']) && !$onlyPriority" title="Todas as suas Ordens do recorte atual, em qualquer status" />
         <x-ops.stat wire:key="mstat-assigned" wire:click="toggleCard('ASSIGNED')" tone="blue" icon="ri-user-follow-line" label="A iniciar" :value="number_format($stats['assigned'], 0, ',', '.')" :active="$this->cardActive('ASSIGNED')" title="Atribuídas a você, ainda não iniciadas" />
         <x-ops.stat wire:key="mstat-progress" wire:click="toggleCard('IN_PROGRESS')" tone="green" icon="ri-user-settings-line" label="Em andamento" :value="number_format($stats['progress'], 0, ',', '.')" :active="$this->cardActive('IN_PROGRESS')" title="Você está trabalhando nelas" />
-        <x-ops.stat wire:key="mstat-blocked" wire:click="toggleCard('blocked')" tone="amber" icon="ri-pause-circle-line" label="Pausadas / aguardando" :value="number_format($stats['blocked'], 0, ',', '.')" :active="$this->cardActive('blocked')" title="Em pausa, aguardando a parceira ou com depósito bloqueado: dependem de retorno" />
+        <x-ops.stat wire:key="mstat-paused" wire:click="toggleCard('PAUSED')" tone="amber" icon="ri-pause-circle-line" label="Pausadas" :value="number_format($stats['paused'], 0, ',', '.')" :active="$this->cardActive('PAUSED')" title="Você pausou: retome quando puder" />
         <x-ops.stat wire:key="mstat-priority" wire:click="toggleCard('priority')" tone="red" icon="ri-flag-2-line" label="Prioritárias" :value="number_format($stats['priority'], 0, ',', '.')" :active="$onlyPriority" title="Ordens marcadas como prioridade" />
         <x-ops.stat wire:key="mstat-avg" tone="muted" icon="ri-time-line" label="Tempo médio no status" :value="$avgLabel" disabled title="Média de tempo da fila no status atual" />
     </div>
+    @endif
 
     @if ($activeDeposits->isNotEmpty())
         <div class="ops-notice ops-notice--danger" role="status">
@@ -76,10 +90,10 @@
         <x-closure.bulk-search-result :report="$this->bulkReport()" />
     </section>
 
-    <section class="mp-panel" aria-label="Minhas Ordens">
+    <section class="mp-panel" aria-label="{{ $follow ? 'Ordens em acompanhamento' : 'Minhas Ordens' }}">
         <div class="mp-panel-head">
             <div>
-                <h2 class="mp-panel-title">Minhas Ordens</h2>
+                <h2 class="mp-panel-title">{{ $follow ? 'Aguardando outras pessoas' : 'Minhas Ordens' }}</h2>
                 <div class="mp-panel-sub">{{ number_format($states->total(), 0, ',', '.') }} {{ $states->total() === 1 ? 'Ordem' : 'Ordens' }}. O status SAP é informativo; as ações não o alteram.</div>
             </div>
             <div class="ops-panel-actions">
@@ -178,8 +192,13 @@
                                 @endif
                                 <td class="is-left">
                                     <div class="ops-cell-stack">
+                                        @if ($state->operational_status === 'CLOSED')
+                                            <x-ops.badge tone="amber" label="Reaberta no SAP" hint="Obra que estava encerrada e voltou a ficar aberta no SAP." />
+                                            <span class="ops-sub">Estava encerrada; aguarda novo despacho.</span>
+                                        @else
                                         <x-ops.badge :tone="\App\Enum\ClosureOperationalStatus::toneFor($state->operational_status)" :label="\App\Enum\ClosureOperationalStatus::labelFor($state->operational_status)" :hint="$presenter::statusHint($state->operational_status)" />
                                         <span class="ops-sub">{{ $presenter::statusHint($state->operational_status) }}</span>
+                                        @endif
                                         @if ($deposit)
                                             <x-ops.badge sm :tone="$deposit['tone']" :icon="$deposit['locked'] ? 'ri-lock-line' : 'ri-error-warning-line'" :label="$deposit['label']" :hint="$deposit['hint']" />
                                         @endif

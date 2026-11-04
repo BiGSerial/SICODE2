@@ -6,6 +6,7 @@ use App\Enum\ClosureOperationalStatus;
 use App\Models\Closure\{ClosureIssue, ClosureIssueCategory, ClosureOrderState, ClosurePriorityRequest, ClosureWorkMessage};
 use App\Models\{Company, Note};
 use App\Services\Closure\{
+    ClosureArea,
     ClosureIssueWorkflowException,
     ClosureIssueWorkflowService,
     ClosureOrderWorkflowException,
@@ -53,6 +54,9 @@ class Show extends Component
 
     public bool $partnerModal = false;
 
+    /** Destino do modal: '' = parceira (empresa); MEASUREMENT/SUPERVISION = caixa da área (sem empresa). */
+    public string $issueArea = '';
+
     /** @var array<int, string> exigências que o operador faz à parceira (uma por linha do modal) */
     public array $issueRequirements = [''];
 
@@ -73,6 +77,9 @@ class Show extends Component
     public string $statusReason = '';
 
     public bool $statusConfirming = false;
+
+    // Modal de operações da Ordem
+    public ?int $opsOrderId = null;
 
     // Finalizar (null | 'all' | id do estado)
     public ?string $pendingFinish = null;
@@ -129,6 +136,15 @@ class Show extends Component
 
         if ($level === ClosureWorkService::LEVEL_PARTNER) {
             $this->chatVisibility = ClosureWorkMessage::VISIBILITY_WITH_PARTNER;
+
+            return;
+        }
+
+        // Atalho do menu da lista: ?devolver=MEASUREMENT|SUPERVISION&estado={id} já abre o modal com a Ordem marcada.
+        $area = (string) request()->query('devolver', '');
+
+        if ($area !== '' && ClosureArea::hasInbox($area)) {
+            $this->openIssueModal(request()->integer('estado') ?: null, $area);
         }
     }
 
@@ -254,16 +270,29 @@ class Show extends Component
     /** Abre o modal operacional; com `$stateId`, a Ordem já vem marcada e a parceira sugerida é a da produção. */
     public function openPartnerModal(?int $stateId = null): void
     {
+        $this->openIssueModal($stateId, '');
+    }
+
+    /** Devolver / pedir correção à Medição ou à Fiscalização: mesmo modal, destino fixo na área (sem escolher empresa). */
+    public function openAreaModal(?int $stateId, string $area): void
+    {
+        abort_unless(ClosureArea::hasInbox($area), 404);
+        $this->openIssueModal($stateId, $area);
+    }
+
+    private function openIssueModal(?int $stateId, string $area): void
+    {
         $this->guardInternal();
         $this->resetErrorBag();
         $this->reset('issueCategoryId', 'issueSubcategoryId', 'issueDescription', 'issueOrderIds', 'issueCompanyId');
+        $this->issueArea         = $area;
         $this->issueRequirements = [''];
         $this->issueBlocking     = true;
 
         if ($stateId && $this->noteStates()->whereKey($stateId)->exists()) {
             $this->issueOrderIds  = [(string) $stateId];
             $productionId         = ClosureOrderState::query()->whereKey($stateId)->value('production_id');
-            $this->issueCompanyId = (string) (\App\Models\Production::query()->whereKey($productionId)->value('company_id') ?? '');
+            $this->issueCompanyId = $area === '' ? (string) (\App\Models\Production::query()->whereKey($productionId)->value('company_id') ?? '') : '';
         }
 
         $this->partnerModal = true;
@@ -285,6 +314,7 @@ class Show extends Component
     public function closePartnerModal(): void
     {
         $this->partnerModal = false;
+        $this->issueArea    = '';
         $this->resetErrorBag();
     }
 
@@ -296,7 +326,7 @@ class Show extends Component
             'issueCategoryId'     => 'required',
             'issueSubcategoryId'  => 'required',
             'issueOrderIds'       => 'required|array|min:1',
-            'issueCompanyId'      => 'required',
+            'issueCompanyId'      => $this->issueArea === '' ? 'required' : 'nullable',
             'issueRequirements.*' => 'nullable|string|max:500',
         ], [
             'issueCategoryId.required'    => 'Escolha a categoria.',
@@ -308,9 +338,9 @@ class Show extends Component
 
         $category    = ClosureIssueCategory::query()->find($this->issueCategoryId);
         $subcategory = $category?->Subcategories()->whereKey($this->issueSubcategoryId)->first();
-        $company     = Company::query()->find($this->issueCompanyId);
+        $company     = $this->issueArea === '' ? Company::query()->find($this->issueCompanyId) : null;
 
-        if (!$category || !$subcategory || !$company) {
+        if (!$category || !$subcategory || ($this->issueArea === '' && !$company)) {
             $this->notify('Categoria, subcategoria ou empresa inválida.', 'warning');
 
             return;
@@ -331,17 +361,9 @@ class Show extends Component
 
         foreach ($states as $state) {
             try {
-                app(ClosureIssueWorkflowService::class)->requestToPartner(
-                    $state,
-                    $category,
-                    $subcategory,
-                    $company,
-                    auth()->user(),
-                    $this->issueDescription,
-                    $message,
-                    $this->issueBlocking,
-                    $requirements,
-                );
+                $this->issueArea === ''
+                    ? app(ClosureIssueWorkflowService::class)->requestToPartner($state, $category, $subcategory, $company, auth()->user(), $this->issueDescription, $message, $this->issueBlocking, $requirements)
+                    : app(ClosureIssueWorkflowService::class)->requestToArea($state, $this->issueArea, $category, $subcategory, auth()->user(), $this->issueDescription, $message, $this->issueBlocking, $requirements);
                 $ok++;
             } catch (ClosureIssueWorkflowException|ClosureOrderWorkflowException $e) {
                 $errors[] = 'Ordem ' . ($state->Order?->ordem ?? $state->id) . ': ' . $e->getMessage();
@@ -353,10 +375,11 @@ class Show extends Component
             $this->issueRequirements = [''];
             $this->issueBlocking     = true;
             $this->partnerModal      = false;
+            $this->issueArea         = '';
         }
 
         $this->notify(
-            ($ok > 0 ? "{$ok} pendência(s) enviada(s) à parceira." : 'Nenhuma pendência enviada.') . ($errors ? ' ' . implode(' ', $errors) : ''),
+            ($ok > 0 ? "{$ok} pendência(s) enviada(s) " . ($this->issueArea === '' ? 'à parceira.' : 'à ' . ClosureArea::label($this->issueArea) . '.') : 'Nenhuma pendência enviada.') . ($errors ? ' ' . implode(' ', $errors) : ''),
             $errors ? 'warning' : 'success'
         );
     }
@@ -599,6 +622,16 @@ class Show extends Component
 
     // ------------------------------------------------------- Helpers UI
 
+    public function showOperations(int $orderId): void
+    {
+        $this->opsOrderId = $orderId;
+    }
+
+    public function closeOperations(): void
+    {
+        $this->opsOrderId = null;
+    }
+
     public function canManage(ClosureOrderState $state): bool
     {
         $user = auth()->user();
@@ -644,7 +677,12 @@ class Show extends Component
         $dossier  = app(ClosureWorkDossier::class);
         $tab      = $internal ? $this->tab : 'overview';
 
+        // Só abre a Ordem que a própria tela já exibe (respeita o escopo da parceira).
+        $opsOrderId = $this->opsOrderId && $rows->contains('order_id', $this->opsOrderId) ? $this->opsOrderId : null;
+
         return view('livewire.closure.works.show', [
+            'opsOrder'      => $opsOrderId ? \App\Models\Order::query()->with('Note')->find($opsOrderId) : null,
+            'opsList'       => $opsOrderId ? \App\Models\Operation::query()->where('order_id', $opsOrderId)->orderBy('operacao')->get() : collect(),
             'tab'           => $tab,
             'activeRi'      => $internal ? app(\App\Services\Closure\ClosureInternalReturnService::class)->activeForNote($this->noteId) : null,
             'riStage'       => $internal ? $this->activeRiStage($dossier) : null,

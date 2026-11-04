@@ -68,7 +68,7 @@ it('says on each Control row whether the deposit block locked the Order or only 
     $row  = fn ($id) => preg_match('/<tr[^>]*closure-work-state-' . $id . '.*?<\/tr>/s', $html, $m) ? $m[0] : '';
 
     expect($row($f['state']->id))->toContain('Depósito 5503 bloqueado')->toContain('Travada porque o depósito')
-        ->and($row($second->id))->toContain('No alcance do depósito 5503')->toContain('está em &quot;Finalizado&quot;');
+        ->and($row($second->id))->toContain('No alcance do depósito 5503')->toContain('está em &quot;Finalizado · aguardando SAP&quot;');
 });
 
 it('runs a bulk action through the modal: open, preview, confirm and receipt', function () {

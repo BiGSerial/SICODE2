@@ -1,6 +1,6 @@
 @php
     use App\Enum\ClosureOperationalStatus;
-    use App\Services\Closure\ClosureMetaClassifier;
+    use App\Services\Closure\{ClosureArea, ClosureMetaClassifier};
 
     $note = $overview['note'];
     $issueStatusLabels = [
@@ -178,6 +178,7 @@
                     <tr>
                         <th class="ps-3 text-center">Tipo</th>
                         <th>Compet.</th>
+                        <th title="Data de entrada da Ordem">Entrada</th>
                         <th>Ordem</th>
                         <th>Status SAP</th>
                         <th>Atividade</th>
@@ -207,6 +208,7 @@
                         <tr wire:key="work-order-{{ $row['order_id'] }}" @class(['text-muted' => $row['canceled']])>
                             <td class="ps-3 text-center"><span class="type-dot badge {{ ClosureMetaClassifier::badgeClass($row['type']) }}" title="{{ ClosureMetaClassifier::label($row['type']) }}">{{ ClosureMetaClassifier::letter($row['type']) ?? '—' }}</span></td>
                             <td class="small text-nowrap">{{ ClosureMetaClassifier::competenceLabel($row['competence']) }}</td>
+                            <td class="small text-nowrap">{{ $row['dt_entrada']?->format('d/m/Y') ?? '—' }}</td>
                             <td>
                                 <div class="ord-main">{{ $row['ordem'] }} @if ($row['canceled']) <span class="badge bg-dark">Cancelada</span> @endif @if ($internal && auth()->user()->can('closure.view'))<a href="{{ route('closure.order.detail', ['order' => $row['order_id'], 'ctx' => $ctx]) }}" class="small fw-normal ms-1" title="Abrir o detalhe da Ordem">detalhe <i class="ri-external-link-line"></i></a>@endif</div>
                                 @if ($row['description'])
@@ -249,7 +251,7 @@
                                 <td>@if ($row['priority'])<span class="st-chip" style="background:#fee2e2;color:#b91c1c;">Prioritária</span>@else<span class="text-muted">—</span>@endif</td>
                             @endif
                             <td class="text-center" style="min-width: 96px;">
-                                <span class="ops-btn d-inline-block @if ($row['ops_total'] && $row['ops_confirmed'] === $row['ops_total']) is-done @endif" style="cursor: default;">{{ $row['ops_confirmed'] }}/{{ $row['ops_total'] }}</span>
+                                <button type="button" class="ops-btn d-inline-block @if ($row['ops_total'] && $row['ops_confirmed'] === $row['ops_total']) is-done @endif" wire:click="showOperations({{ $row['order_id'] }})" title="Ver a situação de cada operação" aria-label="Ver operações da Ordem {{ $row['ordem'] }}">{{ $row['ops_confirmed'] }}/{{ $row['ops_total'] }}</button>
                                 <div class="ops-meter" aria-hidden="true"><span style="width: {{ $row['ops_total'] ? (int) round($row['ops_confirmed'] / $row['ops_total'] * 100) : 0 }}%"></span></div>
                             </td>
                             <td class="text-center">@if ($row['open_issues'])<span class="badge bg-warning text-dark">{{ $row['open_issues'] }}</span>@else<span class="text-muted">0</span>@endif</td>
@@ -274,6 +276,9 @@
                                                     <li><button type="button" class="dropdown-item" wire:click="askFinish('{{ $row['state_id'] }}')"><i class="ri-checkbox-circle-line me-2 text-success"></i>Finalizar</button></li>
                                                 @endif
                                                 <li><button type="button" class="dropdown-item" wire:click="openPartnerModal({{ $row['state_id'] }})"><i class="ri-send-plane-2-line me-2"></i>Enviar à parceira</button></li>
+                                                @foreach (ClosureArea::inboxOptions() as $areaKey => $areaLabel)
+                                                    <li><button type="button" class="dropdown-item text-danger" wire:click="openAreaModal({{ $row['state_id'] }}, '{{ $areaKey }}')"><i class="ri-arrow-go-back-line me-2"></i>Devolver à {{ $areaLabel }}…</button></li>
+                                                @endforeach
                                             @endif
                                         </ul>
                                     </div>
@@ -284,7 +289,7 @@
                             @endif
                         </tr>
                     @empty
-                        <tr><td colspan="10" class="text-center text-muted py-4">Nenhuma Ordem {{ $internal ? 'encontrada' : 'disponível para você' }} nesta obra.</td></tr>
+                        <tr><td colspan="11" class="text-center text-muted py-4">Nenhuma Ordem {{ $internal ? 'encontrada' : 'disponível para você' }} nesta obra.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -297,6 +302,8 @@
         @livewire('closure.dispatch.dispatch-modal')
         <div x-data x-on:hidden.bs.modal.window="if ($event.target.id === 'closure_dispatch_modal') { $wire.$refresh() }"></div>
     @endif
+
+    @include('livewire.closure.partials.operations-modal', ['opsClose' => 'closeOperations'])
 
     {{-- Alterar status --}}
     @if ($internal && $statusState)
@@ -425,11 +432,11 @@
     @if ($internal && $partnerModal)
         @php $subs = $categories->firstWhere('id', (int) $issueCategoryId)?->Subcategories ?? collect(); @endphp
         <div class="cpop-overlay" wire:click.self="closePartnerModal" x-data @keydown.escape.window="$wire.closePartnerModal()" id="closure-send-partner">
-            <div class="cpop" style="max-width: 1060px; --tone: #263cc8;" role="dialog" aria-modal="true" aria-label="Enviar à parceira">
+            <div class="cpop" style="max-width: 1060px; --tone: #263cc8;" role="dialog" aria-modal="true" aria-label="{{ $issueArea ? 'Devolver à ' . ClosureArea::label($issueArea) : 'Enviar à parceira' }}">
                 <div class="cpop-head">
                     <span class="cpop-icon"><i class="ri-send-plane-2-line"></i></span>
                     <div>
-                        <h3 class="cpop-title">Enviar à parceira para resolver</h3>
+                        <h3 class="cpop-title">{{ $issueArea ? 'Devolver à ' . ClosureArea::label($issueArea) . ' para corrigir' : 'Enviar à parceira para resolver' }}</h3>
                         <div class="cpop-sub">Obra {{ $note['number'] }}@if ($note['city']) · {{ $note['city'] }}@endif</div>
                     </div>
                     <button type="button" class="cpop-close" aria-label="Fechar" wire:click="closePartnerModal"><i class="ri-close-line"></i></button>
@@ -459,6 +466,7 @@
                                 @error('issueOrderIds') <div class="text-danger small">{{ $message }}</div> @enderror
                             </div>
                             <div class="row g-3 mb-3">
+                                @if ($issueArea === '')
                                 <div class="col-12">
                                     <label class="cpop-label">Parceira <span class="text-danger">*</span></label>
                                     <select class="form-select @error('issueCompanyId') is-invalid @enderror" wire:model.defer="issueCompanyId">
@@ -469,6 +477,7 @@
                                     </select>
                                     @error('issueCompanyId') <div class="invalid-feedback">{{ $message }}</div> @enderror
                                 </div>
+                                @endif
                                 <div class="col-12 col-md-6">
                                     <label class="cpop-label">Categoria <span class="text-danger">*</span></label>
                                     <select class="form-select @error('issueCategoryId') is-invalid @enderror" wire:model="issueCategoryId">
@@ -524,7 +533,7 @@
                 </div>
                 <div class="cpop-foot">
                     <button type="button" class="btn btn-outline-secondary btn-sm px-3" wire:click="closePartnerModal">Cancelar</button>
-                    <button type="button" class="btn btn-sm px-3 text-white fw-semibold" style="background: #263cc8;" wire:click="sendToPartner" wire:loading.attr="disabled" wire:target="sendToPartner"><i class="ri-send-plane-line"></i> Enviar à parceira</button>
+                    <button type="button" class="btn btn-sm px-3 text-white fw-semibold" style="background: #263cc8;" wire:click="sendToPartner" wire:loading.attr="disabled" wire:target="sendToPartner"><i class="ri-send-plane-line"></i> {{ $issueArea ? 'Devolver à ' . ClosureArea::label($issueArea) : 'Enviar à parceira' }}</button>
                 </div>
             </div>
         </div>

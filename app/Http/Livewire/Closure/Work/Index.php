@@ -97,9 +97,66 @@ class Index extends Component
 
     protected $listeners = ['closureWorkFinishConfirmed' => 'finishConfirmed', 'closureRiChanged' => '$refresh'];
 
-    public function mount(): void
+    /**
+     * Recorte da lista: `mine` = o que depende do usuário (executar); `follow` = Acompanhamento (aguarda outra pessoa);
+     * `all` = sem recorte (o Controle sobrescreve).
+     */
+    public string $scope = self::SCOPE_MINE;
+
+    public const SCOPE_MINE = 'mine';
+
+    public const SCOPE_FOLLOW = 'follow';
+
+    public const SCOPE_ALL = 'all';
+
+    /** Status em que a Ordem espera outra pessoa/evento: parceira, depósito, meta futura e SAP encerrar a finalizada. */
+    public const WAITING_STATUSES = [
+        ClosureOrderWorkflowService::STATUS_WAITING_PARTNER,
+        ClosureOrderWorkflowService::STATUS_DEPOSIT_BLOCKED,
+        ClosureOrderWorkflowService::STATUS_WAITING,
+        ClosureOrderWorkflowService::STATUS_FINISHED,
+    ];
+
+    public function mount(string $scope = self::SCOPE_MINE): void
     {
         abort_unless(auth()->user()?->can('closure.work'), 403);
+
+        $this->scope = in_array($scope, [self::SCOPE_MINE, self::SCOPE_FOLLOW], true) ? $scope : self::SCOPE_MINE;
+    }
+
+    public function isFollow(): bool
+    {
+        return $this->scope === self::SCOPE_FOLLOW;
+    }
+
+    /** Notas com RI ativo (Desenho está com a obra): as Ordens dela esperam o Desenho, não o usuário. */
+    private function activeRiNotes(): \Closure
+    {
+        return fn ($sub) => $sub->select('note_id')->from('closure_internal_returns')->where('status', 'SENT')->whereNull('closed_at');
+    }
+
+    /** Recorte Minha atividade × Acompanhamento; vale sempre, inclusive nos cartões (que ignoram só o filtro de status). */
+    protected function applyScope(Builder $query): void
+    {
+        if ($this->scope === self::SCOPE_MINE) {
+            $query->whereNotIn('closure_order_states.operational_status', self::WAITING_STATUSES)
+                ->whereNotIn('orders.note_id', $this->activeRiNotes());
+        } elseif ($this->scope === self::SCOPE_FOLLOW) {
+            $query->where(function (Builder $w) {
+                $w->whereIn('closure_order_states.operational_status', self::WAITING_STATUSES)
+                    ->orWhereIn('orders.note_id', $this->activeRiNotes())
+                    // Obra encerrada que voltou a ficar aberta no SAP: aguarda novo despacho, mas é histórico a acompanhar.
+                    ->orWhere(fn (Builder $r) => static::reopenedInSap($r));
+            });
+        }
+    }
+
+    /** Estado CLOSED cuja Ordem deixou de estar encerrada no SAP (alguém reabriu): vale como "reaberta". */
+    public static function reopenedInSap(Builder $query): Builder
+    {
+        return $query->where('closure_order_states.operational_status', ClosureOrderWorkflowService::STATUS_CLOSED)
+            ->where('orders.canceled', false)
+            ->where(fn (Builder $q) => $q->whereNull('orders.statusSist')->orWhere(fn (Builder $w) => $w->where('orders.statusSist', 'not like', 'ENT%')->where('orders.statusSist', 'not like', 'ENC%')));
     }
 
     public function render()
@@ -175,7 +232,14 @@ class Index extends Component
     {
         return collect(ClosureOperationalStatus::cases())
             ->reject(fn (ClosureOperationalStatus $case) => $case->isTerminal())
-            ->map(fn (ClosureOperationalStatus $case) => ['v' => $case->value, 'l' => $case->label()])->values()->all();
+            ->reject(fn (ClosureOperationalStatus $case) => match ($this->scope) {
+                self::SCOPE_MINE   => in_array($case->value, self::WAITING_STATUSES, true),
+                self::SCOPE_FOLLOW => !in_array($case->value, self::WAITING_STATUSES, true),
+                default            => false,
+            })
+            ->map(fn (ClosureOperationalStatus $case) => ['v' => $case->value, 'l' => $case->label()])->values()
+            ->when($this->isFollow(), fn ($options) => $options->push(['v' => ClosureOrderWorkflowService::STATUS_CLOSED, 'l' => 'Reaberta no SAP']))
+            ->all();
     }
 
     /** Opções do filtro Status usuário, uma vez por requisição (a consulta agrega a lista inteira). */
@@ -532,6 +596,31 @@ class Index extends Component
         $this->runWorkflow($action, $state);
     }
 
+    /** A Ordem encerrada voltou a ficar aberta no SAP e o usuário (responsável ou gestão) pode reabrir a atividade. */
+    public function canReopen(ClosureOrderState $state): bool
+    {
+        return $state->operational_status === ClosureOrderWorkflowService::STATUS_CLOSED
+            && ($this->isOwner($state) || $this->isManager());
+    }
+
+    public function reopenActivity(int $stateId): void
+    {
+        $state = $this->visibleStatesQuery()->find($stateId);
+
+        if (!$state || !$this->canReopen($state)) {
+            $this->toast('Ação indisponível', 'Esta atividade não pode ser reaberta.', 'warning');
+
+            return;
+        }
+
+        try {
+            app(ClosureOrderWorkflowService::class)->reopenAfterSap($state, auth()->user());
+            $this->toast('Atividade reaberta', 'Ordem ' . ($state->Order?->ordem ?? "#{$state->id}") . ' voltou para Minha atividade.');
+        } catch (\App\Services\Closure\ClosureOrderWorkflowException $e) {
+            $this->toast('Não foi possível reabrir', $e->getMessage(), 'warning');
+        }
+    }
+
     /** Alteração de status (Pausa, Aguardando Parceira, Depósito, voltar a Em andamento). */
     public function changeStatus(int $stateId, string $newStatus): void
     {
@@ -794,7 +883,7 @@ class Index extends Component
             $base->orders             = null;
             $base->bindings['select'] = [];
 
-            $row = $base->selectRaw("count(*) as total, coalesce(sum(closure_order_states.operational_status = 'IN_PROGRESS'), 0) as progress, coalesce(sum(closure_order_states.operational_status = 'ASSIGNED'), 0) as assigned, coalesce(sum(closure_order_states.priority = 1), 0) as priority, coalesce(sum(closure_order_states.operational_status = 'AVAILABLE'), 0) as available, coalesce(sum(closure_order_states.operational_status = 'DEPOSIT_BLOCKED'), 0) as deposit, coalesce(sum(closure_order_states.operational_status in ('PAUSED','WAITING_PARTNER','DEPOSIT_BLOCKED')), 0) as blocked, coalesce(avg(timestampdiff(MINUTE, closure_order_states.entered_current_status_at, now())), 0) as avg_min")->first();
+            $row = $base->selectRaw("count(*) as total, coalesce(sum(closure_order_states.operational_status = 'IN_PROGRESS'), 0) as progress, coalesce(sum(closure_order_states.operational_status = 'ASSIGNED'), 0) as assigned, coalesce(sum(closure_order_states.priority = 1), 0) as priority, coalesce(sum(closure_order_states.operational_status = 'AVAILABLE'), 0) as available, coalesce(sum(closure_order_states.operational_status = 'DEPOSIT_BLOCKED'), 0) as deposit, coalesce(sum(closure_order_states.operational_status in ('PAUSED','WAITING_PARTNER','DEPOSIT_BLOCKED')), 0) as blocked, coalesce(sum(closure_order_states.operational_status = 'PAUSED'), 0) as paused, coalesce(sum(closure_order_states.operational_status = 'WAITING_PARTNER'), 0) as partner, coalesce(sum(closure_order_states.operational_status = 'WAITING'), 0) as future, coalesce(sum(closure_order_states.operational_status = 'FINISHED'), 0) as finished, coalesce(sum(closure_order_states.operational_status = 'CLOSED'), 0) as reopened, coalesce(sum(orders.note_id in (select note_id from closure_internal_returns where status = 'SENT' and closed_at is null)), 0) as ri, coalesce(avg(timestampdiff(MINUTE, closure_order_states.entered_current_status_at, now())), 0) as avg_min")->first();
         } finally {
             $this->ignoreStatusScope = false;
         }
@@ -807,6 +896,12 @@ class Index extends Component
             'available' => (int) ($row->available ?? 0),
             'deposit'   => (int) ($row->deposit ?? 0),
             'blocked'   => (int) ($row->blocked ?? 0),
+            'paused'    => (int) ($row->paused ?? 0),
+            'partner'   => (int) ($row->partner ?? 0),
+            'future'    => (int) ($row->future ?? 0),
+            'finished'  => (int) ($row->finished ?? 0),
+            'ri'        => (int) ($row->ri ?? 0),
+            'reopened'  => (int) ($row->reopened ?? 0),
             'avg_min'   => (int) round((float) ($row->avg_min ?? 0)),
         ];
     }
@@ -1091,6 +1186,7 @@ class Index extends Component
             $query->where('closure_order_states.priority', true);
         }
 
+        $this->applyScope($query);
         $this->applyStatusScope($query);
 
         return $query
@@ -1115,7 +1211,9 @@ class Index extends Component
     /** Status que ficam fora quando não há filtro de status. A lista do executor também esconde a pilha (Disponível). */
     protected function hiddenStatuses(): array
     {
-        return [ClosureOrderWorkflowService::STATUS_CLOSED, ClosureOrderWorkflowService::STATUS_CANCELLED, ClosureOrderWorkflowService::STATUS_AVAILABLE];
+        return $this->isFollow()
+            ? [ClosureOrderWorkflowService::STATUS_CANCELLED, ClosureOrderWorkflowService::STATUS_AVAILABLE]
+            : [ClosureOrderWorkflowService::STATUS_CLOSED, ClosureOrderWorkflowService::STATUS_CANCELLED, ClosureOrderWorkflowService::STATUS_AVAILABLE];
     }
 
     private function runWorkflow(string $action, ClosureOrderState $state, ?string $reason = null, ?string $newStatus = null): void

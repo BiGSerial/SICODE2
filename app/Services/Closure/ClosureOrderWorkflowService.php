@@ -120,6 +120,8 @@ class ClosureOrderWorkflowService
 
     public const EVENT_WAITING_PROMOTED = 'WAITING_PROMOTED';
 
+    public const EVENT_REOPENED = 'REOPENED';
+
     public const EVENT_SAP_CLOSED = 'SAP_CLOSED';
 
     public const EVENT_SAP_CANCELLED = 'SAP_CANCELLED';
@@ -388,6 +390,35 @@ class ClosureOrderWorkflowService
                 'meta'               => ['meta_type' => $type],
             ];
         });
+    }
+
+    /**
+     * Reabre a atividade de uma Ordem encerrada (CLOSED) que o SAP voltou a deixar aberta (alguém alterou o status lá).
+     * Mesmo estado, mesmo responsável, sem novo despacho: o histórico de eventos/períodos é preservado como auditoria
+     * (o SAP_CLOSED anterior continua registrado). Volta como Atribuída (com responsável) ou Disponível (sem).
+     */
+    public function reopenAfterSap(ClosureOrderState $state, User $actor): ClosureOrderState
+    {
+        return $this->transition($state, $actor, self::EVENT_REOPENED, null, function (ClosureOrderState $state) use ($actor): array {
+            $this->assertOwnerOrManager($state, $actor);
+            $this->requireStatus($state, [self::STATUS_CLOSED]);
+
+            $order = Order::query()->findOrFail($state->order_id);
+
+            if ($order->canceled || $this->isSapClosed((string) $order->statusSist)) {
+                throw new ClosureOrderWorkflowException('A Ordem continua encerrada (ou cancelada) no SAP: não há o que reabrir.');
+            }
+
+            return [
+                'operational_status'    => $state->assigned_user_id ? self::STATUS_ASSIGNED : self::STATUS_AVAILABLE,
+                'closed_at'             => null,
+                'closed_meta_type'      => null,
+                'closed_meta_period'    => null,
+                'last_status_sist_seen' => $order->statusSist,
+                'reason'                => "Reaberta: o SAP voltou a deixar a Ordem aberta ({$order->statusSist}).",
+                'meta'                  => ['previous_meta_type' => $state->closed_meta_type, 'previous_meta_period' => $state->closed_meta_period],
+            ];
+        }, true, self::ORIGIN_UI, false);
     }
 
     /**

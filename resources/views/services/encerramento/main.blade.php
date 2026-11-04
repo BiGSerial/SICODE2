@@ -24,6 +24,7 @@
         $aba        = $aba === 'disponiveis' && !$selfAssign ? 'minhas' : $aba;
     @endphp
     @can('closure.work')
+        @if ($selfAssign)
         <ul class="nav nav-tabs mb-3" id="closure-service-tabs">
             @if ($selfAssign)
                 <li class="nav-item">
@@ -39,6 +40,7 @@
                 </li>
             @endif
         </ul>
+        @endif
     @endcan
 
     @if ($aba === 'todas')
@@ -46,6 +48,6 @@
     @elseif ($aba === 'disponiveis')
         @livewire('closure.work.available', key('closure-work-available'))
     @else
-        @livewire('closure.work.index', key('closure-work'))
+        @livewire('closure.work.index', ['scope' => 'mine'], key('closure-work'))
     @endif
 @endsection

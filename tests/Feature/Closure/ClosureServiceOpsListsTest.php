@@ -17,11 +17,11 @@ it('keeps the status cards of "Minha atividade" as toggles and explains each sta
     Livewire::actingAs($f['internal'])->test(WorkIndex::class)
         ->assertSee($f['order']->ordem)
         ->assertSee('O responsável está trabalhando nela.')
-        ->assertSee('Pausadas / aguardando')
-        ->call('toggleCard', 'blocked')
-        ->assertSet('filters', ['status' => ['PAUSED', 'WAITING_PARTNER', 'DEPOSIT_BLOCKED']])
+        ->assertSee('Pausadas')
+        ->call('toggleCard', 'PAUSED')
+        ->assertSet('filters', ['status' => ['PAUSED']])
         ->assertDontSee($f['order']->ordem)
-        ->call('toggleCard', 'blocked')
+        ->call('toggleCard', 'PAUSED')
         ->assertSet('filters', [])
         ->call('toggleCard', 'IN_PROGRESS')->assertSet('filters', ['status' => ['IN_PROGRESS']])->assertSee($f['order']->ordem)
         ->call('toggleCard', 'all')->assertSet('filters', []);
@@ -86,12 +86,13 @@ it('lets the All list switch scope by card, use the shared filters and show the 
 it('applies the ops filters to Available and History and keeps the status filter inside the history statuses', function () {
     $f = closureCollabFixture();
     app(ClosureSettings::class)->setSelfAssignEnabled(true, $f['internal']);
-    $f['state']->update(['operational_status' => 'FINISHED', 'assigned_user_id' => $f['internal']->id]);
+    $f['state']->update(['operational_status' => 'CLOSED', 'assigned_user_id' => $f['internal']->id]);
+    $f['order']->update(['statusSist' => 'ENTE CNPA']); // encerrada no SAP; reaberta iria para o Acompanhamento
 
+    // Histórico = só o que o SAP encerrou (CLOSED) ou cancelou; Finalizado aguardando SAP fica no Acompanhamento.
     Livewire::actingAs($f['internal'])->test(History::class)
         ->assertSee($f['order']->ordem)
-        ->assertSee('Finalizada pelo responsável')
-        ->call('applyListFilters', ['status' => ['CLOSED']])->assertDontSee($f['order']->ordem)
+        ->call('applyListFilters', ['status' => ['CANCELLED']])->assertDontSee($f['order']->ordem)
         ->call('applyListFilters', ['status' => ['IN_PROGRESS']])->assertSet('filters', [])->assertSee($f['order']->ordem)
         ->call('clearFilters')->assertSet('filters', []);
 

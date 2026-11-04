@@ -194,7 +194,7 @@ class ClosureSpecializedNavigationTest extends TestCase
             route('services.main', ['service' => $uuid, 'aba' => 'minhas'])      => 'Minha atividade',
             route('services.transfers', ['service' => $uuid])                    => 'Transferências de atividade',
             route('services.main', ['service' => $uuid, 'aba' => 'disponiveis']) => 'Atividade Encerramento',
-            route('services.accompany', ['service' => $uuid])                    => 'Minha atividade',
+            route('services.accompany', ['service' => $uuid])                    => 'Aguardando outras pessoas',
             route('services.historic', ['service' => $uuid])                     => 'Meu histórico',
         ] as $url => $text) {
             $this->get($url)->assertOk()->assertSee($text, false);

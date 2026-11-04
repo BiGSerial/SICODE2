@@ -45,7 +45,7 @@ enum ClosureOperationalStatus: string
             self::DEPOSIT_BLOCKED  => 'Depósito Bloqueado',
             self::DEPOSIT_RELEASED => 'Depósito Liberado',
             self::PAUSED           => 'Pausa',
-            self::FINISHED         => 'Finalizado',
+            self::FINISHED         => 'Finalizado · aguardando SAP',
             self::WAITING          => 'Aguardando',
             self::CLOSED           => 'Encerrada',
             self::CANCELLED        => 'Cancelada',

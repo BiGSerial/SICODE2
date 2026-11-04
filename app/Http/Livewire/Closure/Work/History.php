@@ -79,8 +79,6 @@ class History extends Component
     }
 
     public const HISTORY_STATUSES = [
-        ClosureOrderWorkflowService::STATUS_FINISHED,
-        ClosureOrderWorkflowService::STATUS_WAITING,
         ClosureOrderWorkflowService::STATUS_CLOSED,
         ClosureOrderWorkflowService::STATUS_CANCELLED,
     ];
@@ -93,6 +91,9 @@ class History extends Component
 
         $query = $this->baseListingQuery()
             ->where('closure_order_states.assigned_user_id', $user->id);
+
+        // Obra reaberta no SAP sai do Histórico (vai para o Acompanhamento até novo despacho).
+        $query->whereNot(fn (Builder $reopened) => Index::reopenedInSap($reopened));
 
         $this->applyRubricFilter($query);
 
