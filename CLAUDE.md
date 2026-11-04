@@ -65,6 +65,9 @@ scripts/orca-worktree-teardown.sh   # derruba só este worktree (--purge apaga o
 - **Bancos:** MySQL (primário) + 2 conexões SQL Server (sincronização externa)
 - **Fila:** driver `database`; jobs assíncronos para exports e sync
 
+### Versão do PHP
+O **servidor roda PHP 8.4.27**; o container local/Orca roda 8.5, então teste verde local não prova compatibilidade. Programe para 8.4 e só use recursos do 8.5 quando a versão do servidor mudar. Em Livewire 2, trait nunca declara a propriedade `$queryString` (colide com `Livewire\Component`): use o método `queryString(): array`.
+
 ### Camadas principais
 
 **Livewire (`app/Http/Livewire/`)** — ~457 componentes reativos que constituem a maior parte da UI. Cada componente é uma classe PHP com state público e uma view Blade correspondente. É o padrão principal para interatividade.

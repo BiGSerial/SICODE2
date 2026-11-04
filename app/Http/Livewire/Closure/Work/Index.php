@@ -6,7 +6,7 @@ use App\Enum\ClosureOperationalStatus;
 use App\Http\Livewire\Closure\Work\Concerns\ClosureWorkListing;
 use App\Http\Livewire\Concerns\WithListFilters;
 use App\Models\Closure\{ClosureIssueCategory, ClosureOrderState};
-use App\Models\{Company, Operation, User};
+use App\Models\{Company, Operation, User, UserDelegation};
 use App\Services\Closure\{ClosureIssueWorkflowException, ClosureIssueWorkflowService, ClosureMetaClassifier, ClosureOrderBatchWorkflowService, ClosureOrderWorkflowException, ClosureOrderWorkflowService, ClosureSettings};
 use App\Services\Closure\Queries\ClosureDispatchListQuery;
 use Illuminate\Database\Eloquent\Builder;
@@ -1017,6 +1017,19 @@ class Index extends Component
             : '—';
     }
 
+    /**
+     * Titulares que o usuário cobre agora (delegação vigente: férias, licença...). Vale para Minha atividade e Acompanhamento;
+     * só visibilidade: as ações continuam exigindo ser o responsável (ou gestor).
+     *
+     * @return array<int, string>
+     */
+    public function coveredUserIds(): array
+    {
+        return $this->coveredIds ??= UserDelegation::query()->currentForDelegate((string) auth()->id())->pluck('principal_id')->map(fn ($id) => (string) $id)->unique()->values()->all();
+    }
+
+    private ?array $coveredIds = null;
+
     public function isOwner(ClosureOrderState $state): bool
     {
         return $state->assigned_user_id && (string) $state->assigned_user_id === (string) auth()->id();
@@ -1160,6 +1173,12 @@ class Index extends Component
         ]);
     }
 
+    /** Minha atividade e Acompanhamento: só o que é do usuário (e de quem ele cobre). O Controle desliga isto e vê todos. */
+    protected function limitsToOwner(): bool
+    {
+        return true;
+    }
+
     protected function visibleStatesQuery(): Builder
     {
         $this->syncListing();
@@ -1175,12 +1194,16 @@ class Index extends Component
         // Centro de trabalho da operação 0010: base para marcar as Ordens no alcance de um depósito bloqueado.
         $query->selectRaw("(select max(o10.cenTrab) from operations o10 where o10.order_id = orders.id and o10.operacao = '0010') as cen_trab");
 
-        $query->when(!$user->can('closure.manage'), function (Builder $builder) use ($user) {
-            $builder->where(function (Builder $own) use ($user) {
-                $own->where('closure_order_states.assigned_user_id', $user->id)
-                    ->orWhere('closure_order_states.current_holder_user_id', $user->id);
+        // Minha atividade / Acompanhamento: só as Ordens do próprio usuário, inclusive para a gestão (a visão de todos é o Controle, que desliga isto).
+        if ($this->limitsToOwner()) {
+            // Substituto: quem cobre alguém de férias/licença (UserDelegation vigente) também enxerga as Ordens dessa pessoa.
+            $owners = [(string) $user->id, ...$this->coveredUserIds()];
+
+            $query->where(function (Builder $own) use ($owners) {
+                $own->whereIn('closure_order_states.assigned_user_id', $owners)
+                    ->orWhereIn('closure_order_states.current_holder_user_id', $owners);
             });
-        });
+        }
 
         if ($this->onlyPriority) {
             $query->where('closure_order_states.priority', true);

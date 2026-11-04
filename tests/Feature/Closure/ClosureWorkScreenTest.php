@@ -2,7 +2,7 @@
 
 use App\Http\Livewire\Closure\Work\Index as WorkIndex;
 use App\Models\Closure\{ClosureOrderEvent, ClosureOrderState};
-use App\Models\{Company, Note, Operation, Order, Production, Service, User};
+use App\Models\{Company, Note, Operation, Order, Production, Service, User, UserDelegation};
 use App\Services\Closure\{ClosureOrderWorkflowService, ClosureSettings};
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -71,7 +71,7 @@ it('shows P, M and F badges per order and filters by type', function () {
         ->assertSee($p->Order->ordem)->assertDontSee($f->Order->ordem);
 });
 
-it('hides other users work from operators but shows everything to managers', function () {
+it('hides other users work from everyone, managers included (the all-orders view is the Control)', function () {
     $company = Company::query()->create(['name' => 'Comum', 'email' => 'c@x.com']);
     $me      = workScreenUser(false, $company);
     $other   = workScreenUser(false, $company);
@@ -82,7 +82,28 @@ it('hides other users work from operators but shows everything to managers', fun
     Livewire::test(WorkIndex::class)->assertSee($mine->Order->ordem)->assertDontSee($theirs->Order->ordem);
 
     $this->actingAs(workScreenUser(true, $company));
-    Livewire::test(WorkIndex::class)->assertSee($mine->Order->ordem)->assertSee($theirs->Order->ordem);
+    Livewire::test(WorkIndex::class)->assertDontSee($mine->Order->ordem)->assertDontSee($theirs->Order->ordem);
+});
+
+it('lets a substitute see the orders of the person on leave, only while the delegation is in force', function () {
+    $company  = Company::query()->create(['name' => 'Comum', 'email' => 'c2@x.com']);
+    $holder   = workScreenUser(false, $company);
+    $cover    = workScreenUser(false, $company);
+    $stranger = workScreenUser(false, $company);
+    $held     = workScreenState($holder);
+
+    $this->actingAs($cover);
+    Livewire::test(WorkIndex::class)->assertDontSee($held->Order->ordem);
+
+    $delegation = UserDelegation::start((string) $holder->id, (string) $cover->id, now()->subDay(), 'Férias');
+    Livewire::test(WorkIndex::class)->assertSee($held->Order->ordem);
+
+    $this->actingAs($stranger);
+    Livewire::test(WorkIndex::class)->assertDontSee($held->Order->ordem);
+
+    $delegation->end(now()->subMinute());
+    $this->actingAs($cover);
+    Livewire::test(WorkIndex::class)->assertDontSee($held->Order->ordem);
 });
 
 it('changes status with a mandatory reason via toast feedback', function () {

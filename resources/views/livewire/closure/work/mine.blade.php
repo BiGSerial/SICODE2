@@ -4,7 +4,7 @@
     $typeTone       = ['P' => 'red', 'M' => 'green', 'F' => 'blue'];
     $avgMin         = $stats['avg_min'];
     $avgLabel       = $avgMin >= 1440 ? intdiv($avgMin, 1440) . 'd ' . intdiv($avgMin % 1440, 60) . 'h' : ($avgMin >= 60 ? intdiv($avgMin, 60) . 'h ' . str_pad((string) ($avgMin % 60), 2, '0', STR_PAD_LEFT) . 'm' : $avgMin . ' min');
-    $showHolder     = auth()->user()->can('closure.manage');
+    $showHolder     = $this->coveredUserIds() !== []; // só do usuário; com substituição vigente, a coluna mostra de quem é cada Ordem (a visão de todos é o Controle).
     $riByNote       = app(\App\Services\Closure\ClosureInternalReturnService::class)->activeForNotes($states->getCollection()->map(fn ($st) => $st->Order?->note_id)->filter());
     $allSelected    = $states->count() > 0 && $states->every(fn ($st) => in_array($st->id, $selectedStateIds));
     $loadingTargets = 'search,type,toggleCard,gotoPage,nextPage,previousPage,perPage,clearFilters,removeAnyFilter,applyListFilters,removeListFilter,clearListFilters,applyBulkSearch,selectAllFilteredStates';
@@ -16,7 +16,7 @@
 {{-- Minha atividade (Serviço): lista operacional (docs/PADRAO_LISTAS_OPERACIONAIS.md). Ordens atribuídas ao usuário; a gestão vê as de todos. --}}
 <div class="closure-dash my-panel ops-list">
 
-    <x-ops.hero eyebrow="Serviço · Encerramento" :title="$follow ? 'Acompanhamento' : 'Minha atividade'" :subtitle="$follow ? 'Ordens que não dependem de você agora: aguardando a parceira, o Desenho (RI), a liberação do depósito, a meta futura ou o SAP encerrar. Só acompanhamento.' : 'Ordens atribuídas a você para executar' . ($showHolder ? ' (como gestor, você vê as de todos)' : '') . '. Inicie, pause, finalize ou passe para outra pessoa.'">
+    <x-ops.hero eyebrow="Serviço · Encerramento" :title="$follow ? 'Acompanhamento' : 'Minha atividade'" :subtitle="$follow ? 'Ordens que não dependem de você agora: aguardando a parceira, o Desenho (RI), a liberação do depósito, a meta futura ou o SAP encerrar. Só acompanhamento.' : 'Ordens atribuídas a você para executar' . ($showHolder ? ' (e as de quem você está substituindo)' : '') . '. Inicie, pause, finalize ou passe para outra pessoa.'">
         <div class="d-flex flex-wrap gap-2 justify-content-end">
             <x-ops.legend />
             @if ($selfAssignEnabled && !$follow)

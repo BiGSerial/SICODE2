@@ -17,11 +17,15 @@ trait WithOpsWorkFilters
 {
     use WithListFilters;
 
-    protected $queryString = [
-        'search'  => ['except' => ''],
-        'type'    => ['except' => 'all'],
-        'filters' => ['except' => [], 'as' => 'f'],
-    ];
+    /** Método (não propriedade): uma propriedade `$queryString` no trait colide com a de `Livewire\Component` em alguns PHP (fatal). */
+    protected function queryString(): array
+    {
+        return [
+            'search'  => ['except' => ''],
+            'type'    => ['except' => 'all'],
+            'filters' => ['except' => [], 'as' => 'f'],
+        ];
+    }
 
     /** Rótulo do filtro de status (null = a lista não tem). */
     protected function statusFilterLabel(): ?string
