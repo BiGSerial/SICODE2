@@ -108,9 +108,11 @@ final class ServiceNav extends SidebarNav
     {
         $params = ['service' => $service->uuid];
         $name   = (string) $service->service;
-        $items  = [self::item('lista', "Lista de {$name}", 'services.main', 'ri-list-check-2', [], [], $params)];
+        $self   = app(ClosureSettings::class)->selfAssignEnabled();
+        // Sem auto-atribuição, a tela do Serviço é só a fila do próprio usuário: o rótulo não pode sugerir "todas as Ordens".
+        $items = [self::item('lista', $self ? "Lista de {$name}" : 'Minhas atividades', 'services.main', 'ri-list-check-2', [], [], $params)];
 
-        if (app(ClosureSettings::class)->selfAssignEnabled()) {
+        if ($self) {
             $items[] = self::item('disponiveis', 'Atividades disponíveis', 'services.main', 'ri-inbox-line', [], [], $params + ['aba' => 'disponiveis']);
         }
 

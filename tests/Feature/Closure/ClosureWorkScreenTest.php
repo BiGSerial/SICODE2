@@ -8,6 +8,8 @@ use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 
+require_once __DIR__ . '/ClosureScreenFixture.php';
+
 uses(RefreshDatabase::class);
 
 beforeEach(fn () => Carbon::setTestNow('2026-10-16 10:00:00'));
@@ -59,9 +61,9 @@ it('shows P, M and F badges per order and filters by type', function () {
     $this->actingAs($user);
 
     Livewire::test(WorkIndex::class)
-        ->assertSeeHtml('badge bg-danger" title="Passivo">P<')
-        ->assertSeeHtml('badge bg-success" title="Meta atual">M<')
-        ->assertSeeHtml('badge bg-primary" title="Meta futura">F<')
+        ->assertSeeHtml('ops-badge tone-red ops-badge--mono')
+        ->assertSeeHtml('ops-badge tone-green ops-badge--mono')
+        ->assertSeeHtml('ops-badge tone-blue ops-badge--mono')
         ->assertSee($p->Order->ordem)->assertSee($m->Order->ordem)->assertSee($f->Order->ordem)
         ->set('type', 'F')
         ->assertSee($f->Order->ordem)->assertDontSee($m->Order->ordem)->assertDontSee($p->Order->ordem)
@@ -208,4 +210,70 @@ it('does not toast on render', function () {
     $this->actingAs($user);
 
     Livewire::test(WorkIndex::class)->assertNotDispatchedBrowserEvent('notification:toast');
+});
+
+it('separates what the user must do (Minha atividade) from what waits for someone else (Acompanhamento)', function () {
+    $f         = closureScreenFixture();
+    $workIndex = \App\Http\Livewire\Closure\Work\Index::class;
+
+    $mine   = fn () => \Livewire\Livewire::actingAs($f['internal'])->test($workIndex, ['scope' => 'mine']);
+    $follow = fn () => \Livewire\Livewire::actingAs($f['internal'])->test($workIndex, ['scope' => 'follow']);
+
+    // IN_PROGRESS (fixture): é do usuário.
+    $mine()->assertSee($f['order']->ordem)->assertSee('Minha atividade');
+    $follow()->assertDontSee($f['order']->ordem)->assertSee('Acompanhamento');
+
+    foreach (['WAITING_PARTNER', 'DEPOSIT_BLOCKED', 'WAITING', 'FINISHED'] as $status) {
+        $f['state']->forceFill(['operational_status' => $status])->save();
+        $mine()->assertDontSee($f['order']->ordem);
+        $follow()->assertSee($f['order']->ordem);
+    }
+});
+
+it('shows a CLOSED Order in Acompanhamento (not in Histórico) only when the SAP reopened it', function () {
+    $f = closureScreenFixture();
+    $f['state']->forceFill(['operational_status' => 'CLOSED', 'assigned_user_id' => $f['internal']->id])->save();
+
+    $follow  = fn () => \Livewire\Livewire::actingAs($f['internal'])->test(\App\Http\Livewire\Closure\Work\Index::class, ['scope' => 'follow']);
+    $history = fn () => \Livewire\Livewire::actingAs($f['internal'])->test(\App\Http\Livewire\Closure\Work\History::class);
+
+    // SAP ainda encerrada: Histórico, não Acompanhamento.
+    $f['order']->update(['statusSist' => 'ENTE CNPA']);
+    $follow()->assertDontSee($f['order']->ordem);
+    $history()->assertSee($f['order']->ordem);
+
+    // Alguém reabriu no SAP: sai do Histórico e aparece em Acompanhamento como "Reaberta no SAP".
+    $f['order']->update(['statusSist' => 'LIB CNPA']);
+    $follow()->assertSee($f['order']->ordem)->assertSee('Reaberta no SAP');
+    $history()->assertDontSee($f['order']->ordem);
+});
+
+it('reopens a CLOSED activity after the SAP reopened the Order, keeping the same state and the audit trail, without a new dispatch', function () {
+    $f = closureScreenFixture();
+    $f['state']->forceFill(['operational_status' => 'CLOSED', 'closed_at' => now(), 'closed_meta_type' => 'M', 'assigned_user_id' => $f['internal']->id])->save();
+    $f['order']->update(['statusSist' => 'ENTE CNPA']);
+    $workflow = app(\App\Services\Closure\ClosureOrderWorkflowService::class);
+
+    // SAP ainda encerrada: não há o que reabrir.
+    expect(fn () => $workflow->reopenAfterSap($f['state'], $f['internal']))->toThrow(\App\Services\Closure\ClosureOrderWorkflowException::class);
+
+    // Alguém reabriu no SAP.
+    $f['order']->update(['statusSist' => 'LIB CNPA']);
+
+    // Quem não é o responsável nem gestão não reabre.
+    expect(fn () => $workflow->reopenAfterSap($f['state'], $f['outsider']))->toThrow(\App\Services\Closure\ClosureOrderWorkflowException::class);
+    expect($f['state']->fresh()->operational_status)->toBe('CLOSED');
+
+    \Livewire\Livewire::actingAs($f['internal'])->test(\App\Http\Livewire\Closure\Work\Index::class, ['scope' => 'follow'])
+        ->assertSee('Reabrir atividade')
+        ->call('reopenActivity', $f['state']->id);
+
+    $state = $f['state']->fresh();
+    expect($state->operational_status)->toBe('ASSIGNED')
+        ->and($state->closed_at)->toBeNull()
+        ->and($state->assigned_user_id)->toBe($f['internal']->id)
+        ->and(\App\Models\Closure\ClosureOrderState::query()->where('order_id', $f['order']->id)->count())->toBe(1)
+        ->and(\App\Models\Closure\ClosureOrderEvent::query()->where('order_id', $f['order']->id)->where('type', 'REOPENED')->where('actor_id', $f['internal']->id)->exists())->toBeTrue();
+
+    \Livewire\Livewire::actingAs($f['internal'])->test(\App\Http\Livewire\Closure\Work\Index::class, ['scope' => 'mine'])->assertSee($f['order']->ordem);
 });

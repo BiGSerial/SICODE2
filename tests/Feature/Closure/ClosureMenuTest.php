@@ -90,8 +90,9 @@ class ClosureMenuTest extends TestCase
             $this->assertStringContainsString(route($name, ['service' => $service->uuid]), $html);
         }
 
+        // Visão geral, Meta e Passivo eram páginas legadas e saíram do menu.
         foreach (['closure.overview', 'closure.meta', 'closure.passive'] as $name) {
-            $this->assertStringContainsString(route($name), $html);
+            $this->assertStringNotContainsString('href="' . route($name) . '"', $html);
         }
 
         $this->assertStringContainsString('Lista para', $html);

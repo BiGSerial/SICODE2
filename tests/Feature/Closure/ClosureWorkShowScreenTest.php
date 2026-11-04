@@ -339,3 +339,31 @@ it('sends a requirement list to the partner and lets the operator unblock the Or
         ->and($f['state']->fresh()->operational_status)->toBe('IN_PROGRESS')
         ->and(\App\Models\Closure\ClosureIssueEvent::query()->where('closure_issue_id', $issue->id)->pluck('type')->all())->toContain('RELEASED_BY_OPERATOR');
 });
+
+it('opens the operations modal with status and fimReal, and lists the order entry date', function () {
+    $f = closureScreenFixture();
+
+    $f['order']->forceFill(['dtEntrada' => '2026-03-12 08:00:00'])->save();
+    \App\Models\Operation::query()->create(['order_id' => $f['order']->id, 'operacao' => '0020', 'descOperacao' => 'Execução', 'status' => 'CONF', 'fimReal' => '2026-04-05']);
+    \App\Models\Operation::query()->create(['order_id' => $f['order']->id, 'operacao' => '0030', 'descOperacao' => 'Medição', 'status' => 'ABER']);
+
+    Livewire::actingAs($f['dispatcher'])->test(Show::class, ['noteId' => $f['note']->id])
+        ->assertSee('12/03/2026')
+        ->assertDontSee('Operações da Ordem')
+        ->call('showOperations', $f['order']->id)
+        ->assertSee('Operações da Ordem ' . $f['order']->ordem)
+        ->assertSee('05/04/2026')
+        ->assertSee('0030')
+        ->call('closeOperations')
+        ->assertDontSee('Operações da Ordem');
+});
+
+it('ignores an operations modal request for an order outside the note', function () {
+    $f     = closureScreenFixture();
+    $note2 = \App\Models\Note::query()->create(['note' => 'SC-OUT-001', 'type_note' => 1]);
+    $other = \App\Models\Order::query()->create(['note_id' => $note2->id, 'ordem' => '999000000001', 'statusSist' => 'LIB CNPA']);
+
+    Livewire::actingAs($f['dispatcher'])->test(Show::class, ['noteId' => $f['note']->id])
+        ->call('showOperations', $other->id)
+        ->assertDontSee('Operações da Ordem');
+});

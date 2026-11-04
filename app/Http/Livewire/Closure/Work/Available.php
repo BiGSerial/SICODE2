@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Closure\Work;
 
-use App\Http\Livewire\Closure\Work\Concerns\ClosureWorkListing;
+use App\Http\Livewire\Closure\Work\Concerns\{ClosureWorkListing, WithOpsWorkFilters};
 use App\Models\Closure\ClosureOrderState;
 use App\Services\Closure\{ClosureMetaClassifier, ClosureOrderBatchWorkflowService, ClosureOrderWorkflowService, ClosureSettings};
 use Illuminate\Database\Eloquent\Builder;
@@ -15,7 +15,19 @@ use Livewire\Component;
  */
 class Available extends Component
 {
-    use ClosureWorkListing;
+    use ClosureWorkListing, WithOpsWorkFilters {
+        WithOpsWorkFilters::clearFilters insteadof ClosureWorkListing;
+        ClosureWorkListing::clearFilters as protected clearListingFilters;
+        WithOpsWorkFilters::statusUserOptions insteadof ClosureWorkListing;
+        ClosureWorkListing::statusUserOptions as protected statusUserOptionsFromListing;
+    }
+
+    private ?array $memoStatusUserOptions = null;
+
+    /** Atalho do cartão "Prioritárias". */
+    public bool $onlyPriority = false;
+
+    public bool $showReceipt = false;
 
     public array $selectedStateIds = [];
 
@@ -32,10 +44,15 @@ class Available extends Component
     {
         $enabled = app(ClosureSettings::class)->selfAssignEnabled();
 
+        $states = $enabled ? $this->availableQuery()->limit(ClosureOrderBatchWorkflowService::MAX_ITEMS)->get() : collect();
+
         return view('livewire.closure.work.available', [
-            'enabled'      => $enabled,
-            'allowedTypes' => app(ClosureSettings::class)->selfAssignTypes(),
-            'states'       => $enabled ? $this->availableQuery()->limit(ClosureOrderBatchWorkflowService::MAX_ITEMS)->get() : collect(),
+            'hasCriteria'   => $this->hasCriteria() || $this->onlyPriority,
+            'criteriaChips' => array_merge($this->criteriaChips(), $this->onlyPriority ? [['key' => 'priority', 'label' => 'Situação', 'value' => 'Só prioritárias']] : []),
+            'priorityCount' => $states->where('priority', true)->count(),
+            'enabled'       => $enabled,
+            'allowedTypes'  => app(ClosureSettings::class)->selfAssignTypes(),
+            'states'        => $states,
         ]);
     }
 
@@ -44,14 +61,51 @@ class Available extends Component
         return $this->availableQuery();
     }
 
-    public function updatedStatusUsers(): void
+    public function toggleCard(string $card): void
     {
+        $this->onlyPriority = $card === 'priority' ? !$this->onlyPriority : false;
+        $this->afterListFiltersChanged();
+    }
+
+    public function clearSelectionNow(): void
+    {
+        $this->selectedStateIds = [];
+    }
+
+    public function closeReceipt(): void
+    {
+        $this->showReceipt = false;
+        $this->receipt     = [];
+    }
+
+    public function clearFilters(): void
+    {
+        $this->onlyPriority = false;
+        $this->clearListingFilters();
+        $this->clearListFilters();
+    }
+
+    public function removeAnyFilter(string $key): void
+    {
+        if ($key === 'priority') {
+            $this->onlyPriority     = false;
+            $this->selectedStateIds = [];
+
+            return;
+        }
+
+        match ($key) {
+            'search' => $this->search = '',
+            'bulk'   => $this->clearBulkSearch(),
+            'type'   => $this->type = 'all',
+            default  => $this->removeListFilter($key),
+        };
         $this->selectedStateIds = [];
     }
 
     public function exportList(): void
     {
-        \App\Jobs\Closure\ExportClosureListJob::dispatch(static::class, ['type' => $this->type, 'status' => $this->status, 'search' => $this->search, 'statusUsers' => $this->statusUsers, 'bulkTerms' => $this->bulkTerms], (string) auth()->id());
+        \App\Jobs\Closure\ExportClosureListJob::dispatch(static::class, ['type' => $this->type, 'status' => $this->status, 'search' => $this->search, 'statusUsers' => $this->statusUsers, 'bulkTerms' => $this->bulkTerms, 'filters' => $this->filters], (string) auth()->id());
 
         $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'success', 'title' => 'Exportação iniciada', 'html' => '<p class="mb-0"><strong>Você será notificado quando o download estiver disponível.</strong></p>', 'timer' => 5000]);
     }
@@ -162,6 +216,7 @@ class Available extends Component
         }
 
         $this->receipt          = ['successes' => $successes, 'refusals' => $refusals];
+        $this->showReceipt      = true;
         $this->selectedStateIds = [];
         $ok                     = count($successes);
         $fail                   = count($refusals);
@@ -176,9 +231,17 @@ class Available extends Component
     /** Ordens AVAILABLE, sem responsável, da pilha da empresa do usuário (ou sem empresa), de tipo liberado. */
     private function availableQuery(): Builder
     {
+        $this->syncWorkFilters();
+
         $user  = auth()->user();
         $types = app(ClosureSettings::class)->selfAssignTypes();
         $query = $this->baseListingQuery();
+
+        $this->applyRubricFilter($query);
+
+        if ($this->onlyPriority) {
+            $query->where('closure_order_states.priority', true);
+        }
 
         app(ClosureMetaClassifier::class)->whereMetaType($query, $types);
 

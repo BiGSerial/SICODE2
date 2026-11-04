@@ -94,7 +94,7 @@ it('imports the inventory calendar spreadsheet, keeps confirmed rows on re-impor
     \Carbon\Carbon::setTestNow('2026-04-06 09:00:00');
 
     Livewire::actingAs($f['dispatcher'])->test(\App\Http\Livewire\Closure\Dispatch\DepositCalendar::class)
-        ->set('status', '')
+        ->call('clearListFilters')
         ->assertSee('C ELETROM NVE')
         ->assertSee('ELETRONV')
         ->assertSee('Sem centro de trabalho cadastrado') // 5403 não tem vínculo

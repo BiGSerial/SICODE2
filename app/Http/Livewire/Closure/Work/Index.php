@@ -4,9 +4,11 @@ namespace App\Http\Livewire\Closure\Work;
 
 use App\Enum\ClosureOperationalStatus;
 use App\Http\Livewire\Closure\Work\Concerns\ClosureWorkListing;
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Models\Closure\{ClosureIssueCategory, ClosureOrderState};
 use App\Models\{Company, Operation, User};
 use App\Services\Closure\{ClosureIssueWorkflowException, ClosureIssueWorkflowService, ClosureMetaClassifier, ClosureOrderBatchWorkflowService, ClosureOrderWorkflowException, ClosureOrderWorkflowService, ClosureSettings};
+use App\Services\Closure\Queries\ClosureDispatchListQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\{Component, WithPagination};
 
@@ -14,10 +16,29 @@ class Index extends Component
 {
     use ClosureWorkListing {
         clearFilters as protected clearListingFilters;
+        statusUserOptions as protected statusUserOptionsFromTrait;
     }
+    use WithListFilters;
     use WithPagination;
 
     public const PER_PAGE = 25;
+
+    public const SELECT_ALL_LIMIT = 1000;
+
+    /** Modal de ação em massa aberto. */
+    public bool $showBatch = false;
+
+    /** Calcula os cartões sem o recorte de status (cada cartão é um filtro de status e conta no mesmo recorte). */
+    protected bool $ignoreStatusScope = false;
+
+    private ?array $statusUserMemo = null;
+
+    protected $queryString = [
+        'search'       => ['except' => ''],
+        'type'         => ['except' => 'all'],
+        'onlyPriority' => ['except' => false, 'as' => 'prioridade'],
+        'filters'      => ['except' => [], 'as' => 'f'],
+    ];
 
     public const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -76,18 +97,81 @@ class Index extends Component
 
     protected $listeners = ['closureWorkFinishConfirmed' => 'finishConfirmed', 'closureRiChanged' => '$refresh'];
 
-    public function mount(): void
+    /**
+     * Recorte da lista: `mine` = o que depende do usuário (executar); `follow` = Acompanhamento (aguarda outra pessoa);
+     * `all` = sem recorte (o Controle sobrescreve).
+     */
+    public string $scope = self::SCOPE_MINE;
+
+    public const SCOPE_MINE = 'mine';
+
+    public const SCOPE_FOLLOW = 'follow';
+
+    public const SCOPE_ALL = 'all';
+
+    /** Status em que a Ordem espera outra pessoa/evento: parceira, depósito, meta futura e SAP encerrar a finalizada. */
+    public const WAITING_STATUSES = [
+        ClosureOrderWorkflowService::STATUS_WAITING_PARTNER,
+        ClosureOrderWorkflowService::STATUS_DEPOSIT_BLOCKED,
+        ClosureOrderWorkflowService::STATUS_WAITING,
+        ClosureOrderWorkflowService::STATUS_FINISHED,
+    ];
+
+    public function mount(string $scope = self::SCOPE_MINE): void
     {
         abort_unless(auth()->user()?->can('closure.work'), 403);
+
+        $this->scope = in_array($scope, [self::SCOPE_MINE, self::SCOPE_FOLLOW], true) ? $scope : self::SCOPE_MINE;
+    }
+
+    public function isFollow(): bool
+    {
+        return $this->scope === self::SCOPE_FOLLOW;
+    }
+
+    /** Notas com RI ativo (Desenho está com a obra): as Ordens dela esperam o Desenho, não o usuário. */
+    private function activeRiNotes(): \Closure
+    {
+        return fn ($sub) => $sub->select('note_id')->from('closure_internal_returns')->where('status', 'SENT')->whereNull('closed_at');
+    }
+
+    /** Recorte Minha atividade × Acompanhamento; vale sempre, inclusive nos cartões (que ignoram só o filtro de status). */
+    protected function applyScope(Builder $query): void
+    {
+        if ($this->scope === self::SCOPE_MINE) {
+            $query->whereNotIn('closure_order_states.operational_status', self::WAITING_STATUSES)
+                ->whereNotIn('orders.note_id', $this->activeRiNotes());
+        } elseif ($this->scope === self::SCOPE_FOLLOW) {
+            $query->where(function (Builder $w) {
+                $w->whereIn('closure_order_states.operational_status', self::WAITING_STATUSES)
+                    ->orWhereIn('orders.note_id', $this->activeRiNotes())
+                    // Obra encerrada que voltou a ficar aberta no SAP: aguarda novo despacho, mas é histórico a acompanhar.
+                    ->orWhere(fn (Builder $r) => static::reopenedInSap($r));
+            });
+        }
+    }
+
+    /** Estado CLOSED cuja Ordem deixou de estar encerrada no SAP (alguém reabriu): vale como "reaberta". */
+    public static function reopenedInSap(Builder $query): Builder
+    {
+        return $query->where('closure_order_states.operational_status', ClosureOrderWorkflowService::STATUS_CLOSED)
+            ->where('orders.canceled', false)
+            ->where(fn (Builder $q) => $q->whereNull('orders.statusSist')->orWhere(fn (Builder $w) => $w->where('orders.statusSist', 'not like', 'ENT%')->where('orders.statusSist', 'not like', 'ENC%')));
     }
 
     public function render()
     {
         $settings = app(ClosureSettings::class);
 
-        $states = $this->visibleStatesQuery()->paginate($this->perPage);
+        $states  = $this->visibleStatesQuery()->paginate($this->perPage);
+        $signals = app(\App\Services\Closure\ClosurePartnerSignalService::class);
 
-        return view('livewire.closure.work.index', [
+        return view($this->listView(), [
+            'activeDeposits'    => $signals->activeSignals(),
+            'centerSignals'     => $states->getCollection()->pluck('cen_trab')->filter()->unique()->mapWithKeys(fn ($center) => [$center => $signals->signalForCenter($center)])->filter(),
+            'hasCriteria'       => $this->hasCriteria(),
+            'criteriaChips'     => $this->criteriaChips(),
+            'batchActions'      => $this->availableBatchActions(),
             'states'            => $states,
             'depositSignals'    => app(\App\Services\Closure\ClosurePartnerSignalService::class)->activeByState($states->getCollection()->pluck('id')),
             'selfAssignEnabled' => $settings->selfAssignEnabled(),
@@ -106,6 +190,252 @@ class Index extends Component
         ]);
     }
 
+    /** View da lista; o Controle sobrescreve. */
+    protected function listView(): string
+    {
+        return 'livewire.closure.work.mine';
+    }
+
+    // ------------------------------------------------------------------ filtros (WithListFilters)
+
+    /** @return array<string, array{label: string, depends?: array<int, string>}> */
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'statusUser' => ['label' => 'Status usuário'],
+            'rubric'     => ['label' => 'Rubrica'],
+            'status'     => ['label' => 'Status da atividade'],
+        ];
+    }
+
+    /** @return array<string, array<int, array{v: string, l: string, p?: array<string, string>}>> */
+    protected function listFilterOptions(): array
+    {
+        return [
+            'statusUser' => $this->statusUserFilterOptions(),
+            'rubric'     => $this->rubricFilterOptions(),
+            'status'     => $this->statusFilterOptions(),
+        ];
+    }
+
+    protected function statusUserFilterOptions(): array
+    {
+        return array_map(fn ($o) => ['v' => $o['v'], 'l' => $o['v'] . ' (' . $o['n'] . ')'], $this->statusUserOptions());
+    }
+
+    protected function rubricFilterOptions(): array
+    {
+        return $this->rememberFilterOptions('rubric', fn () => array_map(fn ($r) => ['v' => $r, 'l' => $r], ClosureDispatchListQuery::rubricOptions()));
+    }
+
+    protected function statusFilterOptions(): array
+    {
+        return collect(ClosureOperationalStatus::cases())
+            ->reject(fn (ClosureOperationalStatus $case) => $case->isTerminal())
+            ->reject(fn (ClosureOperationalStatus $case) => match ($this->scope) {
+                self::SCOPE_MINE   => in_array($case->value, self::WAITING_STATUSES, true),
+                self::SCOPE_FOLLOW => !in_array($case->value, self::WAITING_STATUSES, true),
+                default            => false,
+            })
+            ->map(fn (ClosureOperationalStatus $case) => ['v' => $case->value, 'l' => $case->label()])->values()
+            ->when($this->isFollow(), fn ($options) => $options->push(['v' => ClosureOrderWorkflowService::STATUS_CLOSED, 'l' => 'Reaberta no SAP']))
+            ->all();
+    }
+
+    /** Opções do filtro Status usuário, uma vez por requisição (a consulta agrega a lista inteira). */
+    public function statusUserOptions(): array
+    {
+        return $this->statusUserMemo ??= $this->filteredStatusUserOptions();
+    }
+
+    private function filteredStatusUserOptions(): array
+    {
+        // As opções contam a lista sem o próprio filtro de Status usuário.
+        $saved = $this->filters;
+        unset($this->filters['statusUser']);
+
+        try {
+            return $this->statusUserOptionsFromTrait();
+        } finally {
+            $this->filters = $saved;
+        }
+    }
+
+    protected function afterListFiltersChanged(): void
+    {
+        $this->resetPage();
+        $this->selectedStateIds = [];
+        $this->batchPreview     = [];
+        $this->dispatchBrowserEvent('ops-filters', ['sel' => (object) $this->filters]);
+    }
+
+    /** Traz os filtros do trait para as propriedades que a consulta herdada lê. */
+    protected function syncListing(): void
+    {
+        $this->statusUsers = $this->filterValues('statusUser');
+        $this->status      = 'all';
+    }
+
+    /** Conjuntos de status dos cartões que juntam vários status. */
+    protected const CARD_STATUS_SETS = [
+        'blocked' => [ClosureOrderWorkflowService::STATUS_PAUSED, ClosureOrderWorkflowService::STATUS_WAITING_PARTNER, ClosureOrderWorkflowService::STATUS_DEPOSIT_BLOCKED],
+    ];
+
+    /** Cartões: status liga/desliga (um recorte por vez), prioridade liga/desliga e "Total" limpa os recortes dos cartões. */
+    public function toggleCard(string $card): void
+    {
+        $filters = $this->filters;
+
+        if ($card === 'priority') {
+            $this->onlyPriority = !$this->onlyPriority;
+        } elseif ($card === 'all') {
+            unset($filters['status']);
+            $this->onlyPriority = false;
+        } else {
+            $set = self::CARD_STATUS_SETS[$card] ?? (in_array($card, ClosureOperationalStatus::values(), true) ? [$card] : null);
+
+            if ($set === null) {
+                return;
+            }
+
+            $current = (array) ($filters['status'] ?? []);
+            sort($current);
+            $wanted = $set;
+            sort($wanted);
+
+            if ($current === $wanted) {
+                unset($filters['status']);
+            } else {
+                $filters['status'] = $set;
+            }
+        }
+
+        $this->filters = $filters;
+        $this->afterListFiltersChanged();
+    }
+
+    /** O cartão está aceso? (mesma regra do toggleCard) */
+    public function cardActive(string $card): bool
+    {
+        $current = (array) ($this->filters['status'] ?? []);
+        sort($current);
+        $wanted = self::CARD_STATUS_SETS[$card] ?? [$card];
+        sort($wanted);
+
+        return $current === $wanted;
+    }
+
+    public function clearFilters(): void
+    {
+        $this->clearListingFilters();
+        $this->onlyPriority     = false;
+        $this->selectedStateIds = [];
+        $this->clearListFilters();
+    }
+
+    /** Remove um chip: critério da tela (busca, tipo, prioridade, busca em massa) ou filtro do trait. */
+    public function removeAnyFilter(string $key): void
+    {
+        match ($key) {
+            'search'   => $this->search = '',
+            'bulk'     => $this->clearBulkSearch(),
+            'type'     => $this->type         = 'all',
+            'priority' => $this->onlyPriority = false,
+            default    => $this->removeListFilter($key),
+        };
+
+        $this->resetPage();
+        $this->selectedStateIds = [];
+    }
+
+    public function hasCriteria(): bool
+    {
+        return $this->hasListFilters() || trim($this->search) !== '' || $this->type !== 'all' || $this->onlyPriority || $this->bulkTerms !== [];
+    }
+
+    /** @return array<int, array{key: string, label: string, value: string}> */
+    protected function criteriaChips(): array
+    {
+        $chips = [];
+
+        if (trim($this->search) !== '') {
+            $chips[] = ['key' => 'search', 'label' => 'Busca', 'value' => trim($this->search)];
+        }
+
+        if ($this->bulkTerms !== []) {
+            $chips[] = ['key' => 'bulk', 'label' => 'Busca em massa', 'value' => count($this->bulkTerms) . ' termo(s)'];
+        }
+
+        if ($this->type !== 'all') {
+            $chips[] = ['key' => 'type', 'label' => 'Tipo', 'value' => ClosureMetaClassifier::label($this->type)];
+        }
+
+        if ($this->onlyPriority) {
+            $chips[] = ['key' => 'priority', 'label' => 'Situação', 'value' => 'Só prioritárias'];
+        }
+
+        return $chips;
+    }
+
+    // ------------------------------------------------------------------ ações em massa (modal)
+
+    /** @return array<string, array{label: string, icon: string, hint: string}> */
+    public function availableBatchActions(): array
+    {
+        return [
+            'start'         => ['label' => 'Iniciar', 'icon' => 'ri-play-circle-line', 'hint' => 'Põe em andamento as Ordens atribuídas a você.'],
+            'change_status' => ['label' => 'Alterar status', 'icon' => 'ri-refresh-line', 'hint' => 'Pausa, depósito bloqueado/liberado ou volta a Em andamento, com motivo quando exigido.'],
+            'finish'        => ['label' => 'Finalizar', 'icon' => 'ri-checkbox-circle-line', 'hint' => 'Marca como finalizadas; aguardam a baixa no SAP.'],
+        ];
+    }
+
+    public function openBatch(string $action): void
+    {
+        if (!array_key_exists($action, $this->availableBatchActions())) {
+            $this->toast('Ação indisponível', 'Você não tem acesso a esta ação em massa.', 'warning');
+
+            return;
+        }
+
+        if ($this->selectedStateIds === []) {
+            $this->toast('Nada selecionado', 'Marque as Ordens antes de escolher a ação.', 'warning');
+
+            return;
+        }
+
+        $this->batchAction       = $action;
+        $this->batchPreview      = [];
+        $this->batchReceipt      = [];
+        $this->batchReason       = '';
+        $this->batchStatus       = '';
+        $this->managerCompanyId  = null;
+        $this->managerAssigneeId = null;
+        $this->managerPriority   = '1';
+        $this->showBatch         = true;
+    }
+
+    public function closeBatch(): void
+    {
+        $this->showBatch    = false;
+        $this->batchAction  = '';
+        $this->batchPreview = [];
+        $this->batchReceipt = [];
+        $this->batchReason  = '';
+        $this->batchStatus  = '';
+    }
+
+    /** Volta da prévia para os campos, sem perder a seleção. */
+    public function editBatch(): void
+    {
+        $this->batchPreview = [];
+    }
+
+    /** Seleciona todas as Ordens do recorte atual (até o limite), entre páginas. */
+    public function selectAllFilteredStates(): void
+    {
+        $this->selectedStateIds = $this->visibleStatesQuery()->reorder()->limit(self::SELECT_ALL_LIMIT)->pluck('closure_order_states.id')->map(fn ($id) => (int) $id)->all();
+        $this->batchPreview     = [];
+    }
     public function exportQuery(): Builder
     {
         return $this->visibleStatesQuery();
@@ -144,6 +474,7 @@ class Index extends Component
             'filterCompany' => $this->filterCompany,
             'filterUser'    => $this->filterUser,
             'onlyPriority'  => $this->onlyPriority,
+            'filters'       => $this->filters,
         ];
     }
 
@@ -168,16 +499,6 @@ class Index extends Component
     public function updatedPerPage(): void
     {
         $this->perPage = in_array((int) $this->perPage, self::PER_PAGE_OPTIONS, true) ? (int) $this->perPage : self::PER_PAGE;
-        $this->resetPage();
-    }
-
-    public function clearFilters(): void
-    {
-        $this->clearListingFilters();
-        $this->filterCompany    = null;
-        $this->filterUser       = null;
-        $this->onlyPriority     = false;
-        $this->selectedStateIds = [];
         $this->resetPage();
     }
 
@@ -273,6 +594,31 @@ class Index extends Component
         }
 
         $this->runWorkflow($action, $state);
+    }
+
+    /** A Ordem encerrada voltou a ficar aberta no SAP e o usuário (responsável ou gestão) pode reabrir a atividade. */
+    public function canReopen(ClosureOrderState $state): bool
+    {
+        return $state->operational_status === ClosureOrderWorkflowService::STATUS_CLOSED
+            && ($this->isOwner($state) || $this->isManager());
+    }
+
+    public function reopenActivity(int $stateId): void
+    {
+        $state = $this->visibleStatesQuery()->find($stateId);
+
+        if (!$state || !$this->canReopen($state)) {
+            $this->toast('Ação indisponível', 'Esta atividade não pode ser reaberta.', 'warning');
+
+            return;
+        }
+
+        try {
+            app(ClosureOrderWorkflowService::class)->reopenAfterSap($state, auth()->user());
+            $this->toast('Atividade reaberta', 'Ordem ' . ($state->Order?->ordem ?? "#{$state->id}") . ' voltou para Minha atividade.');
+        } catch (\App\Services\Closure\ClosureOrderWorkflowException $e) {
+            $this->toast('Não foi possível reabrir', $e->getMessage(), 'warning');
+        }
     }
 
     /** Alteração de status (Pausa, Aguardando Parceira, Depósito, voltar a Em andamento). */
@@ -526,22 +872,36 @@ class Index extends Component
         }
     }
 
-    /** Indicadores da faixa de KPIs, sobre o conjunto já filtrado. */
+    /** Indicadores dos cartões, sobre o conjunto filtrado e SEM o recorte de status (cada cartão é um filtro de status). */
     public function stats(): array
     {
-        $base                     = $this->visibleStatesQuery()->reorder()->toBase();
-        $base->columns            = null;
-        $base->orders             = null;
-        $base->bindings['select'] = [];
+        $this->ignoreStatusScope = true;
 
-        $row = $base->selectRaw("count(*) as total, coalesce(sum(closure_order_states.operational_status = 'IN_PROGRESS'), 0) as progress, coalesce(sum(closure_order_states.priority = 1), 0) as priority, coalesce(sum(closure_order_states.operational_status = 'AVAILABLE'), 0) as available, coalesce(sum(closure_order_states.operational_status in ('PAUSED','WAITING_PARTNER','DEPOSIT_BLOCKED')), 0) as blocked, coalesce(avg(timestampdiff(MINUTE, closure_order_states.entered_current_status_at, now())), 0) as avg_min")->first();
+        try {
+            $base                     = $this->visibleStatesQuery()->reorder()->toBase();
+            $base->columns            = null;
+            $base->orders             = null;
+            $base->bindings['select'] = [];
+
+            $row = $base->selectRaw("count(*) as total, coalesce(sum(closure_order_states.operational_status = 'IN_PROGRESS'), 0) as progress, coalesce(sum(closure_order_states.operational_status = 'ASSIGNED'), 0) as assigned, coalesce(sum(closure_order_states.priority = 1), 0) as priority, coalesce(sum(closure_order_states.operational_status = 'AVAILABLE'), 0) as available, coalesce(sum(closure_order_states.operational_status = 'DEPOSIT_BLOCKED'), 0) as deposit, coalesce(sum(closure_order_states.operational_status in ('PAUSED','WAITING_PARTNER','DEPOSIT_BLOCKED')), 0) as blocked, coalesce(sum(closure_order_states.operational_status = 'PAUSED'), 0) as paused, coalesce(sum(closure_order_states.operational_status = 'WAITING_PARTNER'), 0) as partner, coalesce(sum(closure_order_states.operational_status = 'WAITING'), 0) as future, coalesce(sum(closure_order_states.operational_status = 'FINISHED'), 0) as finished, coalesce(sum(closure_order_states.operational_status = 'CLOSED'), 0) as reopened, coalesce(sum(orders.note_id in (select note_id from closure_internal_returns where status = 'SENT' and closed_at is null)), 0) as ri, coalesce(avg(timestampdiff(MINUTE, closure_order_states.entered_current_status_at, now())), 0) as avg_min")->first();
+        } finally {
+            $this->ignoreStatusScope = false;
+        }
 
         return [
             'total'     => (int) ($row->total ?? 0),
             'progress'  => (int) ($row->progress ?? 0),
+            'assigned'  => (int) ($row->assigned ?? 0),
             'priority'  => (int) ($row->priority ?? 0),
             'available' => (int) ($row->available ?? 0),
+            'deposit'   => (int) ($row->deposit ?? 0),
             'blocked'   => (int) ($row->blocked ?? 0),
+            'paused'    => (int) ($row->paused ?? 0),
+            'partner'   => (int) ($row->partner ?? 0),
+            'future'    => (int) ($row->future ?? 0),
+            'finished'  => (int) ($row->finished ?? 0),
+            'ri'        => (int) ($row->ri ?? 0),
+            'reopened'  => (int) ($row->reopened ?? 0),
             'avg_min'   => (int) round((float) ($row->avg_min ?? 0)),
         ];
     }
@@ -802,8 +1162,18 @@ class Index extends Component
 
     protected function visibleStatesQuery(): Builder
     {
-        $user  = auth()->user();
-        $query = $this->baseListingQuery();
+        $this->syncListing();
+
+        $user    = auth()->user();
+        $query   = $this->baseListingQuery();
+        $rubrics = $this->filterValues('rubric');
+
+        if ($rubrics !== []) {
+            $query->whereIn('orders.note_id', fn ($sub) => $sub->select('id')->from('notes')->whereIn('rubrica', $rubrics));
+        }
+
+        // Centro de trabalho da operação 0010: base para marcar as Ordens no alcance de um depósito bloqueado.
+        $query->selectRaw("(select max(o10.cenTrab) from operations o10 where o10.order_id = orders.id and o10.operacao = '0010') as cen_trab");
 
         $query->when(!$user->can('closure.manage'), function (Builder $builder) use ($user) {
             $builder->where(function (Builder $own) use ($user) {
@@ -816,19 +1186,34 @@ class Index extends Component
             $query->where('closure_order_states.priority', true);
         }
 
-        if ($this->status === 'all') {
-            $query->whereNotIn('closure_order_states.operational_status', [
-                ClosureOrderWorkflowService::STATUS_CLOSED,
-                ClosureOrderWorkflowService::STATUS_CANCELLED,
-                ClosureOrderWorkflowService::STATUS_AVAILABLE,
-            ]);
-        } else {
-            $query->where('closure_order_states.operational_status', $this->status);
-        }
+        $this->applyScope($query);
+        $this->applyStatusScope($query);
 
         return $query
             ->orderByDesc('closure_order_states.priority')
             ->orderBy('closure_order_states.entered_current_status_at');
+    }
+
+    /** Recorte por status da atividade; a visão de controle sobrescreve (várias opções e Disponível incluído). */
+    protected function applyStatusScope(Builder $query): void
+    {
+        $statuses = $this->ignoreStatusScope ? [] : $this->filterValues('status');
+
+        if ($statuses !== []) {
+            $query->whereIn('closure_order_states.operational_status', $statuses);
+
+            return;
+        }
+
+        $query->whereNotIn('closure_order_states.operational_status', $this->hiddenStatuses());
+    }
+
+    /** Status que ficam fora quando não há filtro de status. A lista do executor também esconde a pilha (Disponível). */
+    protected function hiddenStatuses(): array
+    {
+        return $this->isFollow()
+            ? [ClosureOrderWorkflowService::STATUS_CANCELLED, ClosureOrderWorkflowService::STATUS_AVAILABLE]
+            : [ClosureOrderWorkflowService::STATUS_CLOSED, ClosureOrderWorkflowService::STATUS_CANCELLED, ClosureOrderWorkflowService::STATUS_AVAILABLE];
     }
 
     private function runWorkflow(string $action, ClosureOrderState $state, ?string $reason = null, ?string $newStatus = null): void
@@ -882,7 +1267,7 @@ class Index extends Component
         }
     }
 
-    private function clearSelection(): void
+    protected function clearSelection(): void
     {
         $this->selectedStateIds = [];
         $this->batchPreview     = [];

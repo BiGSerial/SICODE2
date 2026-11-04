@@ -31,29 +31,30 @@ it('filters the Control and service lists by status usuário and offers the opti
         ->assertSee('JAND INVE')
         ->assertSee('ABER CAOI')
         ->assertSee($f['order']->ordem)
-        ->set('statusUsers', ['JAND INVE'])
+        ->call('applyListFilters', ['statusUser' => ['JAND INVE']])
         ->assertSee($f['order']->ordem)
         ->assertDontSee($second['order']->ordem)
-        ->assertSee('Status usuário: JAND INVE')
-        ->call('removeFilter', 'su', 'JAND INVE')
-        ->assertSet('statusUsers', [])
+        ->assertSee('Status usuário')
+        ->call('removeAnyFilter', 'statusUser')
+        ->assertSet('filters', [])
         ->assertSee($second['order']->ordem);
 
-    Livewire::actingAs($f['internal'])->test(WorkIndex::class)->set('statusUsers', ['ABER CAOI'])->assertDontSee($f['order']->ordem);
+    Livewire::actingAs($f['internal'])->test(WorkIndex::class)->call('applyListFilters', ['statusUser' => ['ABER CAOI']])->assertDontSee($f['order']->ordem);
 });
 
 it('dispatches the export job from every list with the filters currently applied', function () {
     Bus::fake();
     $f = closureScreenFixture('IN_PROGRESS');
+    Order::query()->whereKey($f['order']->id)->update(['statusUser' => 'JAND INVE BLOQ']);
 
-    Livewire::actingAs($f['dispatcher'])->test(Control::class)->set('statusUsers', ['JAND INVE'])->call('exportList')->assertDispatchedBrowserEvent('swal');
+    Livewire::actingAs($f['dispatcher'])->test(Control::class)->call('applyListFilters', ['statusUser' => ['JAND INVE']])->call('exportList')->assertDispatchedBrowserEvent('swal');
     Livewire::actingAs($f['internal'])->test(WorkIndex::class)->call('exportList');
     Livewire::actingAs($f['internal'])->test(History::class)->call('exportList');
     Livewire::actingAs($f['internal'])->test(Available::class)->call('exportList');
     Livewire::actingAs($f['dispatcher'])->test(DispatchIndex::class)->set('search', 'abc')->call('exportList');
 
     Bus::assertDispatched(ExportClosureListJob::class, 5);
-    Bus::assertDispatched(ExportClosureListJob::class, fn ($job) => $job->component === Control::class && $job->filters['statusUsers'] === ['JAND INVE'] && $job->queue === 'exports');
+    Bus::assertDispatched(ExportClosureListJob::class, fn ($job) => $job->component === Control::class && $job->filters['filters'] === ['statusUser' => ['JAND INVE']] && $job->queue === 'exports');
     Bus::assertDispatched(ExportClosureListJob::class, fn ($job) => $job->component === DispatchIndex::class && $job->filters['search'] === 'abc');
 });
 
@@ -66,7 +67,7 @@ it('generates the styled workbook for the Control list and for the Despacho list
     Order::query()->whereKey($f['order']->id)->update(['statusUser' => 'JAND INVE BLOQ', 'descricao' => 'Obra de teste']);
 
     // Controle (estados despachados)
-    (new ExportClosureListJob(Control::class, ['status' => 'all', 'statusUsers' => ['JAND INVE']], (string) $f['dispatcher']->id))->handle();
+    (new ExportClosureListJob(Control::class, ['status' => 'all', 'filters' => ['statusUser' => ['JAND INVE']]], (string) $f['dispatcher']->id))->handle();
 
     $files = Storage::disk('local')->files('exports');
     expect($files)->toHaveCount(1);

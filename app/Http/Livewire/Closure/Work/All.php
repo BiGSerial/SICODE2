@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Closure\Work;
 
-use App\Http\Livewire\Closure\Concerns\WithBulkSearch;
+use App\Http\Livewire\Closure\Concerns\{WithBulkSearch, WithClosureOrderFilters};
 use App\Models\Closure\ClosureOrderState;
 use App\Models\{Company, Order};
 use App\Services\Closure\{ClosureDispatchService, ClosureMetaClassifier, ClosureOrderWorkflowService, ClosurePartnerSignalService, ClosureSettings};
@@ -17,6 +17,7 @@ use Livewire\{Component, WithPagination};
 class All extends Component
 {
     use WithBulkSearch;
+    use WithClosureOrderFilters;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
@@ -31,6 +32,16 @@ class All extends Component
     public string $scope = 'all';
 
     public int $perPage = 25;
+
+    /** Resultado da atribuição (modal). */
+    public bool $showReceipt = false;
+
+    protected $queryString = [
+        'search'  => ['except' => ''],
+        'type'    => ['except' => 'all'],
+        'scope'   => ['except' => 'all'],
+        'filters' => ['except' => [], 'as' => 'f'],
+    ];
 
     /** @var array<int, int> */
     public array $selectedOrderIds = [];
@@ -48,11 +59,16 @@ class All extends Component
         $overview = app(ClosureDispatchListQuery::class)->overview($this->filters(), $this->perPage, $this->page);
         $orders   = $overview['orders'];
         $stateIds = $orders->getCollection()->pluck('state_id')->filter();
+        $signals  = app(ClosurePartnerSignalService::class);
 
         return view('livewire.closure.work.all', [
             'orders'         => $orders,
             'counts'         => $overview['counts'],
-            'depositSignals' => app(ClosurePartnerSignalService::class)->activeByState($stateIds),
+            'depositSignals' => $signals->activeByState($stateIds),
+            'activeDeposits' => $signals->activeSignals(),
+            'centerSignals'  => $orders->getCollection()->pluck('cen_trab')->filter()->unique()->mapWithKeys(fn ($center) => [$center => $signals->signalForCenter($center)])->filter(),
+            'hasCriteria'    => $this->hasCriteria(),
+            'criteriaChips'  => $this->criteriaChips(),
             'enabled'        => app(ClosureSettings::class)->selfAssignEnabled(),
             'allowedTypes'   => app(ClosureSettings::class)->selfAssignTypes(),
         ]);
@@ -178,6 +194,7 @@ class All extends Component
         }
 
         $this->receipt          = ['successes' => $successes, 'refusals' => $refusals];
+        $this->showReceipt      = true;
         $this->selectedOrderIds = [];
 
         $ok   = count($successes);
@@ -200,24 +217,103 @@ class All extends Component
         $this->resetPage();
     }
 
-    public function updatedScope(): void
-    {
-        $this->resetPage();
-    }
-
     public function updatedPerPage(): void
     {
         $this->resetPage();
     }
 
+    protected function listFilterDefinitions(): array
+    {
+        $definitions = $this->orderFilterDefinitions();
+        // "Minhas" é um cartão desta lista; o filtro de Responsável não faz sentido para quem só vê o que pode assumir.
+        unset($definitions['assignee']);
+
+        return $definitions;
+    }
+
+    /** Cartões de escopo: Total limpa; Sem posse e Minhas ligam e desligam (um por vez). */
+    public function toggleCard(string $card): void
+    {
+        $this->scope = $card === 'all' || $this->scope === $card ? 'all' : (in_array($card, ['free', 'mine'], true) ? $card : $this->scope);
+        $this->afterListFiltersChanged();
+    }
+
+    /** Marca (ou desmarca) as Ordens da página que o usuário pode assumir. */
+    public function toggleAssumablePage(): void
+    {
+        $page = app(ClosureDispatchListQuery::class)->overview($this->filters(), $this->perPage, $this->page)['orders']->getCollection();
+        $ids  = $page->filter(fn ($row) => $this->assumability($row)[0])->pluck('id')->map(fn ($id) => (int) $id);
+
+        $this->selectedOrderIds = $ids->isNotEmpty() && $ids->every(fn (int $id) => in_array($id, $this->selectedOrderIds, true))
+            ? array_values(array_diff($this->selectedOrderIds, $ids->all()))
+            : array_values(array_unique(array_merge($this->selectedOrderIds, $ids->all())));
+    }
+
+    public function clearSelection(): void
+    {
+        $this->selectedOrderIds = [];
+    }
+
+    public function closeReceipt(): void
+    {
+        $this->showReceipt = false;
+        $this->receipt     = [];
+    }
+
+    protected function afterListFiltersChanged(): void
+    {
+        $this->resetPage();
+        $this->selectedOrderIds = [];
+        $this->dispatchBrowserEvent('ops-filters', ['sel' => (object) $this->filters]);
+    }
+
     public function clearFilters(): void
     {
-        $this->search    = '';
-        $this->type      = 'all';
-        $this->scope     = 'all';
-        $this->bulkTerms = [];
-        $this->bulkText  = '';
+        $this->reset('search', 'type', 'scope', 'bulkTerms', 'bulkText');
+        $this->clearListFilters();
+    }
+
+    /** Remove um chip: critério da tela ou filtro do trait. */
+    public function removeAnyFilter(string $key): void
+    {
+        match ($key) {
+            'search' => $this->search = '',
+            'bulk'   => $this->clearBulkSearch(),
+            'type'   => $this->type  = 'all',
+            'scope'  => $this->scope = 'all',
+            default  => $this->removeListFilter($key),
+        };
+
         $this->resetPage();
+    }
+
+    public function hasCriteria(): bool
+    {
+        return $this->hasListFilters() || trim($this->search) !== '' || $this->type !== 'all' || $this->scope !== 'all' || $this->bulkTerms !== [];
+    }
+
+    /** @return array<int, array{key: string, label: string, value: string}> */
+    private function criteriaChips(): array
+    {
+        $chips = [];
+
+        if (trim($this->search) !== '') {
+            $chips[] = ['key' => 'search', 'label' => 'Busca', 'value' => trim($this->search)];
+        }
+
+        if ($this->bulkTerms !== []) {
+            $chips[] = ['key' => 'bulk', 'label' => 'Busca em massa', 'value' => count($this->bulkTerms) . ' termo(s)'];
+        }
+
+        if ($this->type !== 'all') {
+            $chips[] = ['key' => 'type', 'label' => 'Tipo', 'value' => ClosureMetaClassifier::label($this->type)];
+        }
+
+        if ($this->scope !== 'all') {
+            $chips[] = ['key' => 'scope', 'label' => 'Situação', 'value' => $this->scope === 'free' ? 'Só sem posse' : 'Só as minhas'];
+        }
+
+        return $chips;
     }
 
     public function exportList(): void
@@ -238,13 +334,17 @@ class All extends Component
     /** @return array<string, mixed> */
     public function filters(): array
     {
-        return [
+        return $this->orderQueryFilters() + [
             'search'           => $this->search,
             'bulk'             => $this->bulkTerms,
             'types'            => $this->type === 'all' ? [] : [$this->type],
             'onlyUndispatched' => $this->scope === 'free',
-            'assigneeId'       => $this->scope === 'mine' ? (string) auth()->id() : null,
-        ];
+        ] + ($this->scope === 'mine' ? ['assigneeId' => (string) auth()->id()] : []);
+    }
+
+    private function listQuery(): ClosureDispatchListQuery
+    {
+        return app(ClosureDispatchListQuery::class);
     }
 
     private function currentRow(int $orderId): ?object

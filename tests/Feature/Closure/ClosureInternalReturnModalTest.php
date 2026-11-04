@@ -116,25 +116,32 @@ it('offers the RI in the actions menu only to the owner or the management, and s
 
     $ri = app(ClosureInternalReturnService::class)->send($f['note'], $f['dispatcher'], 'x');
 
-    $html = Livewire::actingAs($f['internal'])->test(WorkIndex::class)->payload['effects']['html'];
+    // Com RI ativo a obra espera o Desenho: sai de Minha atividade e vai para o Acompanhamento.
+    expect(Livewire::actingAs($f['internal'])->test(WorkIndex::class)->payload['effects']['html'])->not->toContain($f['order']->ordem);
+
+    $html = Livewire::actingAs($f['internal'])->test(WorkIndex::class, ['scope' => 'follow'])->payload['effects']['html'];
 
     expect($html)->toContain('RI com o Desenho')->toContain('Obra travada')
         ->not->toContain('Enviar RI ao Desenho…')
         ->not->toContain('Iniciar</button>');
 
     // a gestão vê "Cancelar RI…" no menu
-    expect(Livewire::actingAs($f['dispatcher'])->test(WorkIndex::class)->payload['effects']['html'])->toContain('Cancelar RI…');
+    expect(Livewire::actingAs($f['dispatcher'])->test(WorkIndex::class, ['scope' => 'follow'])->payload['effects']['html'])->toContain('Cancelar RI…');
 
     expect($ri->status)->toBe('SENT');
 });
 
-it('groups the actions menu by intent when the work is free', function () {
+it('keeps the actions menu flat and returns only to Medição and Fiscalização when the work is free', function () {
     $f    = riModalFixture();
     $html = Livewire::actingAs($f['internal'])->test(WorkIndex::class)->payload['effects']['html'];
 
-    $missing = array_values(array_filter(['Trabalhar a Ordem', 'Devolver / pedir correção', 'Enviar RI ao Desenho…', 'Enviar à parceira…', 'Passar para outra pessoa', 'Abrir'], fn ($text) => !str_contains($html, $text)));
+    $missing = array_values(array_filter(['Devolver à Medição…', 'Devolver à Fiscalização…', 'Transferir…', 'Abrir obra', 'Abrir ordem'], fn ($text) => !str_contains($html, $text)));
 
-    expect($missing)->toBe([])->and($html)->not->toContain('Devolver à pilha');
+    expect($missing)->toBe([])
+        ->and($html)->not->toContain('Devolver à pilha')
+        ->and($html)->not->toContain('Enviar RI ao Desenho…')
+        ->and($html)->not->toContain('Enviar à parceira…')
+        ->and($html)->not->toContain('dropdown-header');
 });
 
 it('does not let the executor return an order to the pile from the work screen', function () {

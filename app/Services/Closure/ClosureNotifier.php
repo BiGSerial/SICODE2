@@ -51,9 +51,58 @@ class ClosureNotifier
         );
     }
 
+    /** A área (Medição/Fiscalização) finalizou a solicitação despachada para a caixa dela. */
+    public function areaResponded(ClosureIssue $issue, User $actor): void
+    {
+        $issue->loadMissing(['Order.Note', 'State']);
+
+        $this->deliver(
+            event: 'closure.area_responded',
+            entity: "issue:{$issue->id}:c{$issue->cycle}",
+            authorId: $actor->id,
+            recipients: fn () => $this->internalUsers([
+                $issue->opened_by,
+                $issue->State?->assigned_user_id,
+                $issue->State?->current_holder_user_id,
+            ]),
+            title: ClosureArea::label((string) $issue->destination_area) . ' retornou a pendência',
+            message: $this->context($issue->Order) . ': ' . ClosureArea::label((string) $issue->destination_area) . ' finalizou a pendência #' . $issue->id . '.',
+            status: 'message',
+            link: fn (User $recipient) => $this->workLink($issue->Order, $recipient, ClosureNavContext::DISPATCH),
+            extras: $this->extras($issue),
+        );
+    }
+
     public function issueRequestedToPartner(ClosureIssue $issue, User $actor): void
     {
         $this->notifyPartnerOfIssue($issue, $actor, 'closure.issue_requested', 'Nova pendência de encerramento', 'assignment', 'enviou uma pendência para a sua empresa');
+    }
+
+    /** O Encerramento devolveu/pediu correção à caixa da área (Medição/Fiscalização): avisa quem tem vínculo com o Service dela. */
+    public function issueRequestedToArea(ClosureIssue $issue, User $actor): void
+    {
+        $issue->loadMissing(['Order.Note']);
+        $area   = (string) $issue->destination_area;
+        $folder = ClosureArea::serviceFolder($area);
+
+        $this->deliver(
+            event: 'closure.issue_requested_area',
+            entity: "issue:{$issue->id}:c{$issue->cycle}",
+            authorId: $actor->id,
+            recipients: fn () => $folder === null ? collect() : User::query()->whereHas('ToServices', fn ($q) => $q->whereHas('Service', fn ($s) => $s->where('folder', $folder))->where(fn ($w) => $w->where('dispatch', true)->orWhere('service', true)))->get(),
+            title: 'Encerramento pediu correção',
+            message: $this->context($issue->Order) . ': o Encerramento enviou uma pendência para a caixa de ' . ClosureArea::label($area) . ' (#' . $issue->id . ').',
+            status: 'assignment',
+            link: fn () => $this->areaInboxLink($folder),
+            extras: $this->extras($issue),
+        );
+    }
+
+    private function areaInboxLink(?string $folder): ?string
+    {
+        $service = $folder ? \App\Models\Service::query()->where('folder', $folder)->first() : null;
+
+        return $service && Route::has('services.closure_inbox') ? route('services.closure_inbox', ['service' => $service->uuid]) : null;
     }
 
     public function issueReturnedToPartner(ClosureIssue $issue, User $actor): void

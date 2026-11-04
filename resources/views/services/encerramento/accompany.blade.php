@@ -18,5 +18,5 @@
 @endsection
 
 @section('content')
-    @livewire('closure.work.index', key('closure-work'))
+    @livewire('closure.work.index', ['scope' => 'follow'], key('closure-work-follow'))
 @endsection

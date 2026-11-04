@@ -1,43 +1,4 @@
-
-
-@if ($opsState)
-    @php
-        $opsTotal = $opsList->count();
-        $opsConf  = $opsList->filter(fn ($op) => $this->isConfirmedOperation($op->status))->count();
-        $opsPct   = $opsTotal ? round($opsConf / $opsTotal * 100) : 0;
-    @endphp
-    <div class="cpop-overlay" wire:click.self="closeOperations" x-data @keydown.escape.window="$wire.closeOperations()">
-        <div class="cpop" style="max-width: 520px; --tone: #155f67;" role="dialog" aria-modal="true" aria-label="Operações da Ordem {{ $opsState->Order?->ordem }}">
-            <div class="cpop-head">
-                <span class="cpop-icon"><i class="ri-list-check-2"></i></span>
-                <div class="flex-grow-1">
-                    <h3 class="cpop-title">Operações da Ordem {{ $opsState->Order?->ordem }}</h3>
-                    <div class="cpop-sub">Nota {{ $opsState->Order?->Note?->note ?? '—' }} · {{ $opsConf }} de {{ $opsTotal }} confirmadas</div>
-                    <div class="cpop-progress" aria-hidden="true"><span style="width: {{ $opsPct }}%;"></span></div>
-                </div>
-                <button type="button" class="cpop-close" aria-label="Fechar" wire:click="closeOperations"><i class="ri-close-line"></i></button>
-            </div>
-            <div class="cpop-body">
-                <ul class="cpop-ops">
-                    @forelse ($opsList as $op)
-                        @php $done = $this->isConfirmedOperation($op->status); @endphp
-                        <li wire:key="cpop-op-{{ $op->id }}">
-                            <i class="{{ $done ? 'ri-checkbox-circle-fill text-success' : 'ri-checkbox-blank-circle-line text-muted' }}" aria-hidden="true"></i>
-                            <span class="cpop-op-code">{{ $op->operacao }}</span>
-                            <span class="cpop-op-desc text-truncate" title="{{ $op->descOperacao }}">{{ $op->descOperacao ?: '—' }}</span>
-                            <span class="badge {{ $done ? 'bg-success' : 'bg-light text-dark border' }}">{{ $op->status ?: '—' }}</span>
-                        </li>
-                    @empty
-                        <li class="text-muted justify-content-center py-4">Esta Ordem não possui operações.</li>
-                    @endforelse
-                </ul>
-            </div>
-            <div class="cpop-foot">
-                <button type="button" class="btn btn-outline-secondary btn-sm px-3" wire:click="closeOperations">Fechar</button>
-            </div>
-        </div>
-    </div>
-@endif
+@include('livewire.closure.partials.operations-modal', ['opsOrder' => $opsState?->Order, 'opsList' => $opsList, 'opsClose' => 'closeOperations'])
 
 @if ($manageState ?? null)
     @php

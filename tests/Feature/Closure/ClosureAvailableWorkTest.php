@@ -88,7 +88,7 @@ it('lists only available orders of the allowed types from the user company pile'
         ->assertDontSee($f->Order->ordem)
         ->assertDontSee($busy->Order->ordem)
         ->assertDontSee($theirs->Order->ordem)
-        ->assertSeeHtml('title="Passivo">P<')
+        ->assertSeeHtml('ops-badge tone-red ops-badge--mono')
         ->set('type', 'P')
         ->assertSee($p->Order->ordem)->assertDontSee($m->Order->ordem);
 

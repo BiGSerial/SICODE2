@@ -106,20 +106,18 @@ final class DispatchNav extends SidebarNav
                     ['components.count.closure-priority-requests'],
                     ['components.count.closure-transfers'],
                 ], $params),
-                self::item('mapa', 'Caixas das atividades', 'closure.status_map', 'ri-flow-chart'),
-                self::item('painel', 'Painel analítico', 'dispatch.dashboard', 'ri-bar-chart-box-line', [], [], $params),
             ]);
         }
 
-        $management = [
-            self::item('visao-geral', 'Visão geral', 'closure.overview', 'ri-dashboard-3-line', [], [], [], ['can' => 'closure.manager']),
-            self::item('meta', 'Meta', 'closure.meta', 'ri-focus-3-line', [], [], [], ['can' => 'closure.manager']),
-            self::item('passivo', 'Passivo', 'closure.passive', 'ri-timer-line', [], [], [], ['can' => 'closure.manager']),
-        ];
+        $management = [];
 
         if ($service) {
+            $management[] = self::item('painel', 'Painel analítico', 'dispatch.dashboard', 'ri-bar-chart-box-line', [], [], ['service' => $service->uuid], ['can' => 'closure.dispatch']);
+            $management[] = self::item('mapa', 'Caixas das atividades', 'closure.status_map', 'ri-flow-chart', [], [], [], ['can' => 'closure.manage']);
             $management[] = self::item('depositos', 'Calendário de depósitos', 'dispatch.deposits', 'ri-calendar-check-line', [], [], ['service' => $service->uuid], ['can' => 'closure.dispatch']);
         }
+
+        $management[] = self::item('config', 'Configurações', 'closure.settings', 'ri-settings-3-line', [], [], [], ['can' => 'closure.dispatch']);
 
         $groups[] = self::group('gestao', 'Gestão do ciclo', 'ri-honour-line', $management);
 

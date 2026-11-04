@@ -8,7 +8,7 @@
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{{ route('home') }}">Home</a></li>
         <li class="breadcrumb-item">Encerramento</li>
-        <li class="breadcrumb-item active" aria-current="page">Mapa de status por serviço</li>
+        <li class="breadcrumb-item active" aria-current="page">Caixas das atividades</li>
     </ol>
 @endsection
 

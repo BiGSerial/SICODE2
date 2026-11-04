@@ -593,6 +593,11 @@ Route::prefix('encerramento')->name('closure.')->middleware(['auth', 'can:closur
         Route::get('/passivo', 'passive')->name('passive');
     });
 
+Route::prefix('encerramento')->name('closure.')->middleware(['auth', 'can:closure.dispatch'])
+    ->controller(\App\Http\Controllers\ClosureController::class)->group(function () {
+        Route::get('/configuracoes', 'settings')->name('settings');
+    });
+
 Route::prefix('encerramento')->name('closure.')->middleware(['auth', 'can:closure.manage'])
     ->controller(\App\Http\Controllers\ClosureController::class)->group(function () {
         Route::get('/configuracoes/status-usuario', 'statusMap')->name('status_map');

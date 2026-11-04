@@ -4,8 +4,8 @@ namespace App\Http\Livewire\Closure\Inbox;
 
 use App\Http\Livewire\Closure\Concerns\WithBulkSearch;
 use App\Http\Livewire\Concerns\WithListFilters;
-use App\Models\Closure\ClosureOrderState;
-use App\Services\Closure\{ClosureArea, ClosureInboxRowPresenter};
+use App\Models\Closure\{ClosureIssue, ClosureOrderState};
+use App\Services\Closure\{ClosureArea, ClosureEventLabels, ClosureInboxPaymentContext, ClosureInboxRowPresenter, ClosureIssueWorkflowException, ClosureIssueWorkflowService};
 use App\Services\Closure\Queries\{ClosureDispatchListQuery, ClosureInboxQuery};
 use Livewire\{Component, WithPagination};
 
@@ -14,6 +14,9 @@ use Livewire\{Component, WithPagination};
  *  - "Em acompanhamento" (só visão): Ordens do Encerramento no status usuário mapeado para a área (ClosureStatusUserRouteService);
  *    nada a responder, saem sozinhas quando o status muda.
  *  - "Despachos para retorno" (exige resposta): pendências que o Encerramento enviou e esperam a área (Fase 3).
+ *
+ * A caixa é autônoma: não leva ao Encerramento (nem a rotas `closure.*`). O detalhe da Ordem é só leitura, dentro da própria tela, e o
+ * despacho para retorno tem fluxo próprio de resolução: a área lê a solicitação e a finaliza com um retorno (`respondByArea`).
  *
  * Padrão de lista operacional (docs/PADRAO_LISTAS_OPERACIONAIS.md): filtros pelo `WithListFilters` (na URL), busca com debounce,
  * linha pronta no `ClosureInboxRowPresenter`, selos e datas pelos `<x-ops.*>`. Lista de controle: não despacha, só acompanha.
@@ -37,6 +40,14 @@ class Index extends Component
     public string $type = 'all';
 
     public string $issueStatus = 'open';
+
+    /** Ordem aberta no detalhe só de leitura (id da Ordem). */
+    public ?int $detailOrderId = null;
+
+    /** Pendência aberta no modal de resolução (id) e o retorno que a área está escrevendo. */
+    public ?int $issueId = null;
+
+    public string $issueReply = '';
 
     protected $queryString = [
         'search'      => ['except' => '', 'as' => 'buscar'],
@@ -67,6 +78,13 @@ class Index extends Component
         $since     = $stateIds === [] ? collect() : ClosureOrderState::query()->whereIn('id', $stateIds)->get(['id', 'status_user_changed_at', 'status_user_estimated'])->keyBy('id');
         $presenter = app(ClosureInboxRowPresenter::class);
 
+        // Medição: o que o usuário de Pagamento acompanha (fila de Pagamento, informe, Valor ADS, prazo de medição), por Nota da página.
+        $payment = $accompanying && $this->area === ClosureArea::MEASUREMENT
+            ? app(ClosureInboxPaymentContext::class)->forNotes($accompanying->getCollection()->pluck('note_id')->all())
+            : [];
+
+        $rows = $accompanying ? $accompanying->getCollection()->map(fn ($order) => $presenter->present($order, $order->state_id ? $since->get($order->state_id) : null) + ['payment' => $payment[(int) $order->note_id] ?? null]) : collect();
+
         return view('livewire.closure.inbox.index', [
             'areaLabel'    => ClosureArea::label($this->area),
             'counts'       => $counts,
@@ -74,12 +92,97 @@ class Index extends Component
             'dispatched'   => $query->dispatched($this->area, 'open')->count(),
             'mapped'       => array_keys($counts),
             'accompanying' => $accompanying,
-            'rows'         => $accompanying ? $accompanying->getCollection()->map(fn ($order) => $presenter->present($order, $order->state_id ? $since->get($order->state_id) : null)) : collect(),
+            'rows'         => $rows,
+            'detail'       => $this->detailOrderId ? $rows->firstWhere('id', $this->detailOrderId) : null,
+            'issueDetail'  => $this->issueId ? $this->issueDetail($presenter) : null,
+            'canRespond'   => (bool) auth()->user()?->can('closure.inbox.' . strtolower($this->area) . '.respond'),
+            'paymentView'  => $this->area === ClosureArea::MEASUREMENT,
             'issues'       => $issues,
             'issueRows'    => $issues ? $issues->getCollection()->map(fn ($issue) => $presenter->issue($issue)) : collect(),
             'hasCriteria'  => $this->hasCriteria(),
-            'canConfigure' => auth()->user()?->can('closure.manage'),
         ]);
+    }
+
+    public function openDetail(int $orderId): void
+    {
+        $this->detailOrderId = $orderId;
+    }
+
+    public function closeDetail(): void
+    {
+        $this->detailOrderId = null;
+    }
+
+    public function openIssue(int $issueId): void
+    {
+        if ($this->ownIssue($issueId)) {
+            $this->issueId    = $issueId;
+            $this->issueReply = '';
+            $this->resetErrorBag();
+        }
+    }
+
+    public function closeIssue(): void
+    {
+        $this->issueId    = null;
+        $this->issueReply = '';
+        $this->resetErrorBag();
+    }
+
+    /** Finaliza a solicitação: grava o retorno da área e devolve a pendência ao Encerramento para validar. */
+    public function finalizeIssue(): void
+    {
+        abort_unless(auth()->user()?->can('closure.inbox.' . strtolower($this->area) . '.respond'), 403);
+
+        $issue = $this->issueId ? $this->ownIssue($this->issueId) : null;
+
+        if (!$issue) {
+            $this->closeIssue();
+
+            return;
+        }
+
+        try {
+            app(ClosureIssueWorkflowService::class)->respondByArea($issue, auth()->user(), $this->issueReply);
+        } catch (ClosureIssueWorkflowException $e) {
+            $this->addError('issueReply', $e->getMessage());
+
+            return;
+        }
+
+        $this->closeIssue();
+        $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'success', 'title' => 'Solicitação finalizada', 'html' => '<p class="mb-0">O retorno foi enviado ao Encerramento para validação.</p>', 'timer' => 3500]);
+    }
+
+    /** Só pendências destinadas a esta caixa: o id vem do navegador e nunca é confiável sozinho. */
+    private function ownIssue(int $issueId): ?ClosureIssue
+    {
+        return ClosureIssue::query()->whereKey($issueId)->where('destination_area', $this->area)->first();
+    }
+
+    /** @return array<string, mixed>|null */
+    private function issueDetail(ClosureInboxRowPresenter $presenter): ?array
+    {
+        $issue = ClosureIssue::query()->whereKey($this->issueId)->where('destination_area', $this->area)
+            ->with(['Order.Note', 'Category', 'Subcategory', 'OpenedBy', 'Events.Actor'])->first();
+
+        if (!$issue) {
+            return null;
+        }
+
+        return $presenter->issue($issue) + [
+            'description'  => $issue->description,
+            'requirements' => array_values((array) ($issue->requirements ?? [])),
+            'openedBy'     => $issue->OpenedBy?->name,
+            'canFinalize'  => in_array($issue->status, [ClosureIssue::STATUS_REQUESTED, ClosureIssue::STATUS_RETURNED], true),
+            'timeline'     => $issue->Events->map(fn ($event) => [
+                'label' => ClosureEventLabels::issueLabel($event->type),
+                'at'    => $event->created_at,
+                'by'    => $event->Actor?->name,
+                'tone'  => ClosureEventLabels::issueTone($event->type),
+                'note'  => $event->meta['message'] ?? null,
+            ])->all(),
+        ];
     }
 
     public function hasCriteria(): bool

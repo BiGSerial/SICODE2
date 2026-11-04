@@ -13,7 +13,8 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     Carbon::setTestNow('2026-11-04 09:00:00');
-    config()->set('sicode.ruleset', 'es');   // ES usa 15 dias corridos no Controle; aqui o prazo é sempre 8 úteis
+    config()->set('sicode.ruleset', 'es');   // ES usa 20 dias corridos em produção; estes testes fixam 8 úteis para exercitar a contagem
+    config()->set('sicode.rules.es.payment.accompany_deadline', ['partial' => ['days' => 8, 'business_days' => true], 'final' => ['days' => 8, 'business_days' => true]]);
 
     $this->mock(ProductionFiveNoteResolver::class, fn ($mock) => $mock->shouldReceive('resolve')->andReturn(null));
 });
@@ -153,4 +154,13 @@ it('a hora do evento não muda o vencimento: só conta o dia', function () {
 
     expect(accompanyRow(null, $cedo)['dueAt']->toDateTimeString())->toBe(accompanyRow(null, $tarde)['dueAt']->toDateTimeString())
         ->and(accompanyRow(null, $cedo)['dueAt']->format('H:i'))->toBe('00:00');
+});
+
+it('o ES usa 20 dias corridos: Parcial da aprovação do engenheiro e Final da entrega da ADS', function () {
+    $rules = require base_path('config/sicode.php');
+
+    expect($rules['rules']['es']['payment']['accompany_deadline'])->toBe([
+        'partial' => ['days' => 20, 'business_days' => false],
+        'final'   => ['days' => 20, 'business_days' => false],
+    ]);
 });

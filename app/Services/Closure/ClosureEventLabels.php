@@ -23,6 +23,7 @@ class ClosureEventLabels
         'FINISHED'                 => ['Finalizada', 'ri-checkbox-circle-line'],
         'WAITING_FUTURE'           => ['Aguardando a meta', 'ri-calendar-event-line'],
         'WAITING_PROMOTED'         => ['Liberada para a meta', 'ri-calendar-check-line'],
+        'REOPENED'                 => ['Atividade reaberta', 'ri-refresh-line'],
         'SAP_CLOSED'               => ['Encerrada no SAP', 'ri-lock-line'],
         'SAP_CANCELLED'            => ['Cancelada no SAP', 'ri-close-circle-line'],
         'RI_SENT'                  => ['RI enviado ao Desenho', 'ri-lock-line'],

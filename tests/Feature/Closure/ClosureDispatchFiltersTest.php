@@ -66,10 +66,10 @@ it('filters by several municipalities (rdMunicipio); empty means everything', fu
 
     Livewire::actingAs(fltManager())->test(Index::class)
         ->assertSee($o['ara']->ordem)->assertSee($o['none']->ordem)
-        ->set('cityCodes', ['1001', '2002'])
+        ->call('applyListFilters', ['city' => ['1001', '2002']])
         ->assertSee($o['ara']->ordem)->assertSee($o['anc']->ordem)
         ->assertDontSee($o['soo']->ordem)->assertDontSee($o['gua']->ordem)->assertDontSee($o['none']->ordem)
-        ->set('cityCodes', [])
+        ->call('clearListFilters')
         ->assertSee($o['soo']->ordem)->assertSee($o['none']->ordem);
 });
 
@@ -77,14 +77,14 @@ it('restricts results to the regions/regionals when no municipality is chosen, a
     $o = fltGeo();
 
     Livewire::actingAs(fltManager())->test(Index::class)
-        ->set('regions', ['Norte'])
+        ->call('applyListFilters', ['region' => ['Norte']])
         ->assertSee($o['ara']->ordem)->assertSee($o['soo']->ordem)->assertSee($o['ita']->ordem)
         ->assertDontSee($o['gua']->ordem)->assertDontSee($o['none']->ordem)
-        ->set('regionals', ['Linhares'])
+        ->call('applyListFilters', ['region' => ['Norte'], 'regional' => ['Linhares']])
         ->assertSee($o['soo']->ordem)->assertDontSee($o['ita']->ordem)
-        ->set('cityCodes', ['1002'])
+        ->call('applyListFilters', ['region' => ['Norte'], 'regional' => ['Linhares'], 'city' => ['1002']])
         ->assertSee($o['soo']->ordem)->assertDontSee($o['ara']->ordem)
-        ->set('regions', ['Norte', 'Sul'])->set('regionals', [])->set('cityCodes', [])
+        ->call('applyListFilters', ['region' => ['Norte', 'Sul']])
         ->assertSee($o['gua']->ordem)->assertSee($o['ita']->ordem);
 });
 
@@ -112,53 +112,64 @@ it('shows only the first two status tokens, distinct and counted, and filters to
         ->toBe(['CANC PLAR' => 1, 'JAND INVE' => 2, 'JAND INVEX' => 1, 'JAND PLAR' => 1]);
 
     Livewire::actingAs(fltManager())->test(Index::class)
-        ->set('statusUsers', ['JAND INVE'])
+        ->call('applyListFilters', ['statusUser' => ['JAND INVE']])
         ->assertSee($a->ordem)->assertSee($b->ordem)
         ->assertDontSee($c->ordem)->assertDontSee($d->ordem)->assertDontSee($e->ordem)
-        ->set('statusUsers', ['JAND INVE', 'CANC PLAR'])
+        ->call('applyListFilters', ['statusUser' => ['JAND INVE', 'CANC PLAR']])
         ->assertSee($a->ordem)->assertSee($e->ordem)->assertDontSee($d->ordem);
 });
 
-it('combines region, status user, type and search; applyMultiFilters prunes out-of-scope city and regional', function () {
+it('combines region, status user, type and search; the server prunes out-of-scope city and regional (cascade)', function () {
     fltGeo();
     $hit   = fltOrder('1001', 'JAND INVE BLOQ');
     $other = fltOrder('1001', 'JAND PRES');
     $sul   = fltOrder('2001', 'JAND INVE');
 
     Livewire::actingAs(fltManager())->test(Index::class)
-        ->call('applyMultiFilters', ['Norte'], ['Linhares', 'Guarapari'], ['1001', '2001'], ['JAND INVE'])
-        ->assertSet('regionals', ['Linhares'])
-        ->assertSet('cityCodes', ['1001'])
+        ->call('applyListFilters', ['region' => ['Norte'], 'regional' => ['Linhares', 'Guarapari'], 'city' => ['1001', '2001'], 'statusUser' => ['JAND INVE']])
+        ->assertSet('filters', ['region' => ['Norte'], 'regional' => ['Linhares'], 'city' => ['1001'], 'statusUser' => ['JAND INVE']])
         ->assertSee($hit->ordem)->assertDontSee($other->ordem)->assertDontSee($sul->ordem)
-        ->set('types', ['P'])
+        ->call('toggleCard', 'P')
         ->assertDontSee($hit->ordem)
-        ->set('types', ['M'])
+        ->call('toggleCard', 'P')
+        ->call('toggleCard', 'M')
         ->set('search', $hit->ordem)
         ->assertSee($hit->ordem)
-        ->call('removeFilter', 'su', 'JAND INVE')
-        ->assertSet('statusUsers', [])
+        ->call('removeAnyFilter', 'statusUser')
+        ->assertSet('filters', ['region' => ['Norte'], 'regional' => ['Linhares'], 'city' => ['1001']])
         ->call('clearFilters')
-        ->assertSet('regions', [])->assertSet('cityCodes', []);
+        ->assertSet('filters', [])->assertSet('types', [])->assertSet('search', '');
 });
 
-it('persists the new filters in the query string and renders chips with the result count', function () {
+it('persists the filters in the query string and renders chips', function () {
     fltGeo();
 
-    Livewire::withQueryParams(['regions' => ['Norte'], 'cities' => ['1001'], 'su' => ['JAND INVE']])
+    Livewire::withQueryParams(['f' => ['region' => ['Norte'], 'city' => ['1001'], 'statusUser' => ['JAND INVE']]])
         ->actingAs(fltManager())->test(Index::class)
-        ->assertSet('regions', ['Norte'])->assertSet('cityCodes', ['1001'])->assertSet('statusUsers', ['JAND INVE'])
-        ->assertSee('Região: Norte')->assertSee('Município: Aracruz')->assertSee('Status usuário: JAND INVE');
-
+        ->assertSet('filters', ['region' => ['Norte'], 'city' => ['1001'], 'statusUser' => ['JAND INVE']])
+        ->assertSee('Região')->assertSee('Município')->assertSee('Aracruz')->assertSee('Status usuário');
 });
 
 it('removes a municipality chip and shows the full list again', function () {
     $o = fltGeo();
 
     Livewire::actingAs(fltManager())->test(Index::class)
-        ->set('cityCodes', ['1001'])
-        ->assertSee('Município: Aracruz')
-        ->assertSee($o['ara']->ordem)
-        ->call('removeFilter', 'city', '1001')
-        ->assertSet('cityCodes', [])
+        ->call('applyListFilters', ['city' => ['1001']])
+        ->assertSee($o['ara']->ordem)->assertDontSee($o['gua']->ordem)
+        ->call('removeAnyFilter', 'city')
+        ->assertSet('filters', [])
         ->assertSee($o['gua']->ordem);
+});
+
+it('treats the type cards as one exclusive choice: a click switches, a second click undoes, Total clears', function () {
+    fltGeo();
+
+    Livewire::actingAs(fltManager())->test(Index::class)
+        ->call('toggleCard', 'M')->assertSet('types', ['M'])
+        ->call('toggleCard', 'P')->assertSet('types', ['P'])
+        ->call('toggleCard', 'P')->assertSet('types', [])
+        ->call('toggleCard', 'F')->call('toggleCard', 'undispatched')
+        ->assertSet('types', ['F'])->assertSet('onlyUndispatched', true)
+        ->call('toggleCard', 'all')
+        ->assertSet('types', [])->assertSet('onlyUndispatched', false)->assertSet('onlyBlocked', false);
 });

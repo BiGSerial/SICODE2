@@ -103,7 +103,7 @@ class ClosureSpecializedNavigationTest extends TestCase
     {
         $this->actingAs($this->closureUser(operator: true));
 
-        Livewire::test(WorkIndex::class)->assertOk()->assertSee('Ordens atribuídas a você')->assertSee('Fila operacional');
+        Livewire::test(WorkIndex::class)->assertOk()->assertSee('Ordens atribuídas a você')->assertSee('Minhas Ordens');
         Livewire::test(History::class)->assertOk()->assertSee('Meu histórico');
         Livewire::test(Available::class)->assertOk();
     }
@@ -191,10 +191,10 @@ class ClosureSpecializedNavigationTest extends TestCase
             route('dispatch.transprod', ['service' => $uuid])                    => 'Transferência de Encerramento',
             route('dispatch.dashboard', ['service' => $uuid])                    => 'Painel analítico',
             route('services.main', ['service' => $uuid])                         => 'Lista Encerramento',
-            route('services.main', ['service' => $uuid, 'aba' => 'minhas'])      => 'Minha Atividade',
+            route('services.main', ['service' => $uuid, 'aba' => 'minhas'])      => 'Minha atividade',
             route('services.transfers', ['service' => $uuid])                    => 'Transferências de atividade',
             route('services.main', ['service' => $uuid, 'aba' => 'disponiveis']) => 'Atividade Encerramento',
-            route('services.accompany', ['service' => $uuid])                    => 'Minha Atividade',
+            route('services.accompany', ['service' => $uuid])                    => 'Aguardando outras pessoas',
             route('services.historic', ['service' => $uuid])                     => 'Meu histórico',
         ] as $url => $text) {
             $this->get($url)->assertOk()->assertSee($text, false);

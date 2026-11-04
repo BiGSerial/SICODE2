@@ -4,3 +4,5 @@ import './confirm';
 import './toast';
 import './drawer';
 import './filter-panel';
+import './dispatch-selection';
+import './fixed-dropdown';

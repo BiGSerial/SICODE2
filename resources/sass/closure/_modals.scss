@@ -158,6 +158,27 @@
     min-width: 0;
 }
 
+.closure-dash .cpop.cpop-wide {
+    max-width: 620px;
+}
+
+.closure-dash .cpop-op-date {
+    color: var(--dash-ink, #102033);
+    font-size: .84rem;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    min-width: 84px;
+    text-align: right;
+}
+
+.closure-dash .cpop-op-date small {
+    color: #64748b;
+    display: block;
+    font-size: .66rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+}
+
 .closure-dash .cpop-progress {
     background: #e5eaf0;
     border-radius: 99px;

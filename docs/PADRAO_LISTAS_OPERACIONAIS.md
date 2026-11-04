@@ -249,7 +249,7 @@ Legenda: ✔ no padrão · — não existe · ✖ fora do padrão (a definir). D
 | Fluxo Reverso | ✔ / ✔ | ✔ / ✔ | ✔ | ✔ |
 | Default (Cadastro etc.) | ✔ / ✔ | ✔ / ✔ | — | a definir |
 | Incorporação, Análise (inc), Cadastro, Entidade Externa | — | — | ✔ | ✔ Incorporação e Cadastro; Entidade Externa não expõe acompanhamento no menu |
-| Encerramento | padrão próprio (`closure-dash`, ver `docs/encerramento/`) | | | |
+| Encerramento | ✔ Despacho (`Closure\Dispatch\Index`, filtros pelo `WithListFilters`, cartões que ligam/desligam, depósito bloqueado marcado por Ordem); Controle e demais telas ainda no padrão próprio (`closure-dash`, ver `docs/encerramento/`) | | | |
 
 ### Outras telas no padrão de controle
 
