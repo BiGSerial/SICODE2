@@ -140,7 +140,7 @@
                                 $adsDate = $partial ? $partial->created_at : ($adsForm ? ($adsTacit ? $adsForm->tacit_delivered_at : $adsForm->created_at) : null);
                                 $adsDays = $adsDate ? (int) \Carbon\Carbon::parse($adsDate)->startOfDay()->diffInDays(\Carbon\Carbon::today(), true) : null;
                                 $deadline = $this->measurementDeadlineFor($list);
-                                $deadlineTone = match ($deadline['status'] ?? null) { 'no_prazo' => 'green', 'vencendo' => 'amber', 'vencido' => 'red', default => 'muted' };
+                                $deadlineTone = match ($deadline['status'] ?? null) { 'no_prazo' => 'green', 'vencendo' => 'amber', 'vencido' => 'red', 'd5' => 'secondary', default => 'muted' };
                             @endphp
                             <tr wire:key="line-{{ $list->id }}" @class(['ops-row-priority' => $list->priority])>
                                 <td><input class="form-check-input" type="checkbox" data-ops-row value="{{ $list->id }}" wire:model.defer="selected" aria-label="Selecionar {{ $list->Note->note }}" @change="recount()"></td>
@@ -205,15 +205,15 @@
                                     </div>
                                 </td>
 
-                                <td><x-ops.date :date="$adsDate" :sub="$adsDays === null ? null : $adsDays . ($adsDays === 1 ? ' dia' : ' dias')" :hint="$partial ? 'Data da ADS da parcial' : 'Entrega da ADS do informe'" /></td>
+                                <td><x-ops.date :date="$adsDate" :tone="($deadline['status'] ?? null) === 'd5' ? 'secondary' : 'muted'" :sub="($deadline['status'] ?? null) === 'd5' ? 'D5' : ($adsDays === null ? null : $adsDays . ($adsDays === 1 ? ' dia' : ' dias'))" :hint="($deadline['status'] ?? null) === 'd5' ? 'D5 de 2º ciclo (retorno): não conta prazo de medição' : ($partial ? 'Data da ADS da parcial' : 'Entrega da ADS do informe')" /></td>
                                 <td><x-ops.age :date="$list->dispatch_at" rule="dispatch" /></td>
                                 <td><x-ops.age :date="$list->att_at" rule="assigned" /></td>
 
                                 <td>
                                     @if ($deadline)
                                         <x-ops.date :date="$deadline['due_at']" :tone="$deadlineTone"
-                                            :sub="$deadline['remaining_days'] < 0 ? abs($deadline['remaining_days']) . ($deadline['remaining_days'] === -1 ? ' dia vencido' : ' dias vencido') : $deadline['remaining_days'] . ($deadline['remaining_days'] === 1 ? ' dia útil' : ' dias úteis')"
-                                            :hint="$deadline['hint']" />
+                                            :sub="$deadline['status'] === 'd5' ? 'D5' : ($deadline['remaining_days'] < 0 ? abs($deadline['remaining_days']) . ($deadline['remaining_days'] === -1 ? ' dia vencido' : ' dias vencido') : $deadline['remaining_days'] . ($deadline['remaining_days'] === 1 ? ' dia útil' : ' dias úteis'))"
+                                            :hint="$deadline['status'] === 'd5' ? 'D5 de 2º ciclo (retorno para liberar a carta): não tem prazo de medição e não entra nos filtros de prazo' : $deadline['hint']" />
                                     @else
                                         <span class="ops-empty">—</span>
                                     @endif

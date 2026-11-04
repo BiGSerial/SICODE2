@@ -163,15 +163,15 @@
                                         <td><x-ops.date :date="$row['attAt']" :sub="$row['attAt'] ? $row['attDays'] . ($row['attDays'] === 1 ? ' dia' : ' dias') : null" hint="Data em que foi atribuída a você e dias desde então" /></td>
 
                                         <td>
-                                            <x-ops.date :date="$row['informedAt']" :tone="$row['informedTone']" :sub="$row['informedDays'] . ($row['informedDays'] === 1 ? ' dia' : ' dias')"
-                                                hint="Dias desde o informe (verde até 20 dias, âmbar de 21 a 27, vermelho a partir de 28)" />
+                                            <x-ops.date :date="$row['informedAt']" :tone="$row['informedTone']" :sub="$row['cycleTwo'] ? 'D5' : $row['informedDays'] . ($row['informedDays'] === 1 ? ' dia' : ' dias')"
+                                                :hint="$row['cycleTwo'] ? 'D5 de 2º ciclo: o prazo do informe não é cobrado aqui' : 'Dias desde o informe (verde até 20 dias, âmbar de 21 a 27, vermelho a partir de 28)'" />
                                         </td>
 
                                         <td>
                                             <div class="ops-cell-stack is-center">
                                                 @if ($row['adsAt'])
-                                                    <x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']" :sub="$row['adsDays'] . ($row['adsDays'] === 1 ? ' dia' : ' dias')"
-                                                        hint="Entrega da ADS e dias desde então (verde até 6 dias, âmbar até 9, vermelho acima de 9)" />
+                                                    <x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']" :sub="$row['cycleTwo'] ? 'D5' : $row['adsDays'] . ($row['adsDays'] === 1 ? ' dia' : ' dias')"
+                                                        :hint="$row['cycleTwo'] ? 'D5 de 2º ciclo: o prazo da ADS não é cobrado aqui' : 'Entrega da ADS e dias desde então (verde até 6 dias, âmbar até 9, vermelho acima de 9)'" />
                                                 @elseif ($row['adsTacit'])
                                                     <x-ops.badge sm tone="red" label="Aguardando entrega" hint="ADS tácita ainda não entregue" />
                                                 @else

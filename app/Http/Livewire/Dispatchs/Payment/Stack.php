@@ -1091,10 +1091,14 @@ class Stack extends Component
             return null;
         }
 
+        // D5 de 2º ciclo (retorno para liberar a carta): sem prazo a cumprir, fora dos atalhos No prazo/Vencendo/Vencido.
+        $five     = $partial ? null : ($workReport?->FiveNote ?? $production->Note?->FiveNote);
+        $cycleTwo = (bool) $five?->isEligibleForPaymentReturn();
+
         return [
             'due_at'         => $deadline['dueAt'],
             'remaining_days' => $deadline['days'],
-            'status'         => $this->deadlinePolicy()->statusForRemainingDays($deadline['days']),
+            'status'         => $cycleTwo ? 'd5' : $this->deadlinePolicy()->statusForRemainingDays($deadline['days']),
             'business'       => $deadline['unit'] === 'úteis',
             'hint'           => $deadline['hint'],
         ];

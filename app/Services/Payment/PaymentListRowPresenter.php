@@ -84,6 +84,21 @@ class PaymentListRowPresenter
             $adsText   = $adsAge === null ? null : $adsAge . ($adsAge === 1 ? ' dia' : ' dias');
         }
 
+        // D5 de 2º ciclo (retorno para liberar a carta): a medição daquele informe já foi feita, então não há prazo a cumprir.
+        // Datas em cinza (`secondary`), "D5" no lugar da contagem de dias e fora dos atalhos de prazo (só o 1º ciclo é cobrado).
+        $cycleTwo = $profile !== 'partner' && !$partial && $list->FiveNote?->isEligibleForPaymentReturn();
+        $adsTone  = $adsAt || $partial ? Deadline::age($adsAge) : 'muted';
+        $adsHint  = 'Entrega da ADS · ' . Deadline::ageText($adsAge) . ' (verde até 14 dias, âmbar até 20, vermelho acima)';
+
+        if ($cycleTwo) {
+            $adsTone = $adsAt ? 'secondary' : 'muted';
+            $dueTone = $dueDate ? 'secondary' : 'muted';
+            $adsText = $adsAt ? 'D5' : null;
+            $dueText = $dueDate ? 'D5' : null;
+            $adsHint = 'D5 de 2º ciclo (retorno): não conta prazo de medição';
+            $dueHint = 'D5 de 2º ciclo (retorno para liberar a carta): não tem prazo de medição e não entra nos filtros de prazo';
+        }
+
         $informedAt = $wf
             ? ($wf->informed_at ?: $wf->created_at)
             : $partial?->created_at;
@@ -108,7 +123,7 @@ class PaymentListRowPresenter
             ])->all() : [],
             'd5'           => $this->d5($partial ? null : $list->FiveNote),
             'workReportId' => $workReportId ?: null,
-            'partialId'    => $partialId ?: null,
+            'partialId'    => $partialId ?: ((int) ($partial?->id) ?: null),
             'orders'       => $orders->map(fn ($order) => $this->order($order))->values()->all(),
             'adsAmount'    => $partial ? $partial->value : $ads?->amount,
             'company'      => $wf ? $wf->Company?->name : $partial?->Company?->name,
@@ -117,7 +132,9 @@ class PaymentListRowPresenter
             'informedAt'   => $informedAt,
             'adsAt'        => $adsAt,
             'adsAge'       => $adsAge,
-            'adsTone'      => $adsAt || $partial ? Deadline::age($adsAge) : 'muted',
+            'adsTone'      => $adsTone,
+            'adsHint'      => $adsHint,
+            'cycleTwo'     => (bool) $cycleTwo,
             'fiscalAt'     => $fiscalAt,
             // Só a Parcial tem prazo de fiscalização (5 dias); o Informe Final mostra a data sem cor.
             'fiscalTone'   => $partial && $fiscalAt ? Deadline::remaining(Deadline::daysFromNow($fiscalAt), self::PARTIAL_SUPERVISION_DAYS - 1) : 'muted',

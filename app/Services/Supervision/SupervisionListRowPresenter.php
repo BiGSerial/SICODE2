@@ -75,6 +75,9 @@ class SupervisionListRowPresenter
 
         $rowState = $this->rowState($stack, $eval);
 
+        // D5 (2º ciclo do informe): as datas do informe e da ADS não são cobradas; ficam em cinza (`secondary`) com "D5" no lugar dos dias.
+        $cycleTwo = (bool) ($five?->is_completed && !$five?->is_supervisioned);
+
         $assignee = $production?->User ? $this->shortName($production->User->name) : null;
         $company  = $production?->Company ? mb_convert_case(mb_strtolower(explode(' ', $production->Company->name)[0], 'UTF-8'), MB_CASE_TITLE, 'UTF-8') : null;
 
@@ -105,9 +108,13 @@ class SupervisionListRowPresenter
             'postes'       => $list->postes,
             'informedAt'   => $informedAt,
             'informedDays' => $informedDays,
-            'informedTone' => Deadline::age($informedDays, self::INFORMED_OK_UNTIL, self::INFORMED_WARN_UNTIL),
+            'informedTone' => $cycleTwo ? ($informedAt ? 'secondary' : 'muted') : Deadline::age($informedDays, self::INFORMED_OK_UNTIL, self::INFORMED_WARN_UNTIL),
+            'informedText' => $cycleTwo && $informedAt ? 'D5' : null,
             'adsAt'        => $adsAt,
             'adsAfter'     => $adsAfter,
+            'adsTone'      => $cycleTwo && $adsAt ? 'secondary' : 'muted',
+            'adsText'      => $cycleTwo && $adsAt ? 'D5' : null,
+            'cycleTwo'     => $cycleTwo,
             'adsTacit'     => (bool) (($workForm?->Adsform?->tacit ?? null) ?? ($list->Adsform?->tacit ?? false)),
             'numPedido'    => $list->numPedido ? mb_strtoupper($list->numPedido) : null,
             'rubrica'      => $list->rubrica,
