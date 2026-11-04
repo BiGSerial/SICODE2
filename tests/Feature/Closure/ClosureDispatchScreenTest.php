@@ -3,7 +3,7 @@
 use App\Http\Livewire\Closure\Dispatch\Index;
 use App\Models\Closure\ClosureOrderState;
 use App\Models\{Company, Note, Operation, Order, Partial, Service, User, WorkReport};
-use App\Services\Closure\{ClosureDispatchService, ClosureEligibleOrders, ClosureMetaClassifier, ClosureSettings};
+use App\Services\Closure\{ClosureDispatchService, ClosureEligibleOrders, ClosureMetaClassifier};
 use App\Services\Closure\Queries\ClosureDispatchListQuery;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,9 +62,9 @@ it('lists one row per order with P/M/F badges', function () {
         ->assertSee($passive->ordem)
         ->assertSee($meta->ordem)
         ->assertSee($future->ordem)
-        ->assertSeeHtml('type-dot badge bg-danger')
-        ->assertSeeHtml('type-dot badge bg-success')
-        ->assertSeeHtml('type-dot badge bg-primary')
+        ->assertSeeHtml('ops-badge tone-red ops-badge--mono')
+        ->assertSeeHtml('ops-badge tone-green ops-badge--mono')
+        ->assertSeeHtml('ops-badge tone-blue ops-badge--mono')
         ->assertSee('Passivo')
         ->assertSee('Meta futura');
 });
@@ -83,7 +83,6 @@ it('filters by meta type and by undispatched', function () {
         ->assertSee($meta->ordem)
         ->assertDontSee($passive->ordem)
         ->set('types', [])
-        ->set('filterAssigneeId', '')
         ->set('search', $future->ordem)
         ->assertSee($future->ordem)
         ->assertDontSee($meta->ordem);
@@ -105,22 +104,19 @@ it('hides dispatched orders when only undispatched is on', function () {
         ->assertSee($open->ordem);
 });
 
-it('has no floating bulk bar and puts the batch button in the Orders card header', function () {
-    $order = screenOrder('2026-09-10');
+it('puts the batch button in the selection bar, which only shows with a selection', function () {
+    screenOrder('2026-09-10');
 
-    $component = Livewire::actingAs(screenManager())->test(Index::class)
+    $html = Livewire::actingAs(screenManager())->test(Index::class)
         ->assertDontSee('Ver prévia do despacho')
-        ->assertDontSeeHtml('bulk-bar')
+        ->assertSeeHtml('class="ops-selection"')
+        ->assertSeeHtml('x-show="count > 0"')
         ->assertSeeHtml('id="closure-dispatch-open"')
         ->assertSeeHtml('Despachar selecionadas (')
-        ->assertSeeHtml('x-show="selected.length > 0"')
-        ->assertSeeHtml(':disabled="selected.length === 0"');
+        ->lastRenderedDom;
 
-    $html = $component->lastRenderedDom;
-
-    // O botão de lote fica no cabeçalho do card "Ordens", depois de "Selecionar todas filtradas".
-    expect(strpos($html, 'Selecionar todas filtradas'))->toBeLessThan(strpos($html, 'Despachar selecionadas ('))
-        ->and(strpos($html, 'Despachar selecionadas ('))->toBeLessThan(strpos($html, '<table'))
+    // "Selecionar todas filtradas" fica no cabeçalho do painel, antes da tabela; o botão de lote vive na barra, uma vez só.
+    expect(strpos($html, 'Selecionar todas filtradas'))->toBeLessThan(strpos($html, '<table'))
         ->and(substr_count($html, 'id="closure-dispatch-open"'))->toBe(1);
 });
 
@@ -146,34 +142,17 @@ it('keeps only refused orders selected after the modal dispatch and counts by ty
         ->call('toggleOrder', $b->id)
         ->emit('closureOrdersDispatched', [$b->id])
         ->assertSet('selectedOrderIds', [$b->id])
-        ->call('setCard', 'P')
+        ->call('toggleCard', 'P')
         ->assertSet('types', ['P'])
-        ->call('setCard', 'undispatched')
+        ->call('toggleCard', 'undispatched')
         ->assertSet('onlyUndispatched', true)
+        ->assertSet('types', ['P'])
+        ->call('toggleCard', 'all')
         ->assertSet('types', [])
+        ->assertSet('onlyUndispatched', false)
         ->call('selectAllFiltered');
 
     expect($component->get('selectedOrderIds'))->toHaveCount(2);
-});
-
-it('persists settings and shows a single toast on save', function () {
-    $manager = screenManager();
-
-    Livewire::actingAs($manager)->test(Index::class)
-        ->call('openSettings')
-        ->assertSet('showSettings', true)
-        ->set('allowFutureCompletion', true)
-        ->set('selfAssignEnabled', true)
-        ->set('selfAssignTypes', ['M', 'F'])
-        ->call('saveSettings')
-        ->assertDispatchedBrowserEvent('notification:toast')
-        ->assertSet('showSettings', false);
-
-    $settings = app(ClosureSettings::class);
-
-    expect($settings->allowFutureCompletion())->toBeTrue()
-        ->and($settings->selfAssignEnabled())->toBeTrue()
-        ->and($settings->selfAssignTypes())->toBe(['M', 'F']);
 });
 
 it('forbids users without the dispatch gate', function () {
@@ -339,9 +318,10 @@ it('filters and sorts by competence and offers the present competences with coun
 
     Livewire::actingAs(screenManager())->test(Index::class)
         ->assertSee('Competência')
-        ->assertSee('08/2026 (1)')
-        ->assertSee('10/2026 (2)')
-        ->set('competence', '2026-08')
+        ->assertSee('08/2026')
+        ->assertSee('10/2026')
+        ->call('applyListFilters', ['competence' => ['2026-08']])
+        ->assertSet('filters', ['competence' => ['2026-08']])
         ->assertSee($c->ordem)
         ->assertDontSee($a->ordem)
         ->call('sortBy', 'competence')
@@ -350,7 +330,7 @@ it('filters and sorts by competence and offers the present competences with coun
         ->call('sortBy', 'competence')
         ->assertSet('sortDir', 'desc')
         ->call('clearFilters')
-        ->assertSet('competence', null);
+        ->assertSet('filters', []);
 });
 
 function informCompany(string $name): Company
@@ -370,16 +350,13 @@ it('renders the list without an inner scroll window and with the per-page select
     screenOrder('2026-09-10');
 
     $component = Livewire::actingAs(screenManager())->test(Index::class)
-        ->assertSeeHtml('id="closure-dispatch-per-page-top"')
-        ->assertSeeHtml('id="closure-dispatch-per-page"')
-        ->assertSee('Itens por página')
-        ->assertSee('Exibindo 1–1 de 1');
+        ->assertSeeHtml('class="ops-pager"')
+        ->assertSeeHtml('<strong>1–1</strong>');
 
     $html = $component->lastRenderedDom;
 
-    expect(substr_count($html, 'wire:model="perPage"'))->toBe(2)
-        ->and(strpos($html, 'closure-dispatch-per-page-top'))->toBeLessThan(strpos($html, '<table'))
-        ->and(strpos($html, '</table>'))->toBeLessThan(strpos($html, 'id="closure-dispatch-per-page"'));
+    expect(substr_count($html, 'wire:model="perPage"'))->toBe(1)
+        ->and(strpos($html, '</table>'))->toBeLessThan(strpos($html, 'wire:model="perPage"'));
 
     // O CSS do módulo vive em resources/sass/closure/ (o _styles.blade.php é só um stub depreciado).
     $styles = file_get_contents(resource_path('sass/closure/_layout.scss'));
@@ -396,9 +373,9 @@ it('paginates by the chosen page size and keeps the page selection hooks on ever
 
     Livewire::actingAs(screenManager())->test(Index::class)
         ->set('perPage', 10)
-        ->assertSee('Exibindo 1–10 de 12')
+        ->assertSeeHtml('<strong>1–10</strong>')
         ->call('gotoPage', 2)
-        ->assertSee('Exibindo 11–12 de 12')
+        ->assertSeeHtml('<strong>11–12</strong>')
         ->assertSeeHtml('data-order-check=')
         ->set('perPage', 999)
         ->assertSet('perPage', 25);
@@ -418,12 +395,12 @@ it('uses the company of the order inform (work report) in the column and filter,
         ->assertSee('Empreiteira do Informe')
         ->assertSeeHtml('data-company="' . $informer->id . '"')
         ->assertSeeHtml('Com a Ordem agora: ' . $holder->name)
-        ->set('filterCompanyId', $informer->id)
+        ->call('applyListFilters', ['company' => [(string) $informer->id]])
         ->assertSee($a->ordem)
         ->assertDontSee($b->ordem)
-        ->set('filterCompanyId', $holder->id)
-        ->assertDontSee($a->ordem)
-        ->assertDontSee($b->ordem);
+        // Quem só está com a Ordem (sem informe) não é opção do filtro: o servidor descarta o valor desconhecido.
+        ->call('applyListFilters', ['company' => [(string) $holder->id]])
+        ->assertSet('filters', []);
 
     expect(app(ClosureDispatchListQuery::class)->companies()->pluck('name')->all())->toBe(['Empreiteira do Informe']);
 });
@@ -478,12 +455,11 @@ it('keeps the list fast with a warm cache', function () {
 
 it('gives the Control list the same per-page selector and footer without an inner scroll', function () {
     $component = Livewire::actingAs(screenManager())->test(\App\Http\Livewire\Closure\Dispatch\Control::class)
-        ->assertSeeHtml('id="closure-work-per-page-top"')
-        ->assertSeeHtml('id="closure-work-per-page"')
-        ->assertSee('Exibindo');
+        ->assertSeeHtml('class="ops-pager"')
+        ->assertSee('Nenhum registro');
 
-    expect($component->lastRenderedDom)->toContain('dash-scroll')
-        ->and(view('livewire.closure._styles')->render())->not->toContain('max-height: 68vh');
+    // Lista de controle no padrão ops: sem janela de rolagem interna, um seletor de itens por página só.
+    expect($component->lastRenderedDom)->toContain('ops-control')->and(substr_count($component->lastRenderedDom, 'wire:model="perPage"'))->toBe(1);
 });
 
 it('shows the Control list with a single actions dropdown, compact SAP status and on-demand operations', function () {
@@ -497,7 +473,7 @@ it('shows the Control list with a single actions dropdown, compact SAP status an
     $state = ClosureOrderState::query()->where('order_id', $order->id)->firstOrFail();
 
     $component = Livewire::actingAs($manager)->test(\App\Http\Livewire\Closure\Dispatch\Control::class)
-        ->assertSeeHtml('>LIB CNPA</span>')
+        ->assertSee('LIB CNPA')
         ->assertDontSeeHtml('>LIB CNPA CAPC DMNV<')
         ->assertSee('1/2')
         ->assertSee('Trocar responsável')

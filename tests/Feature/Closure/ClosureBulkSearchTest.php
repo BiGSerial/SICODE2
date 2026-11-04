@@ -72,7 +72,7 @@ it('filters the dispatch list by the pasted Notes and Orders, exact match only',
 
     $component->assertSee('Busca em massa')->assertSee('2 de 4 encontrada(s)')->assertSee('2 não encontrada(s)')->assertSee('999999999')
         ->assertSee('Copiar não encontradas')
-        ->assertSee('Busca em massa: 4 termo(s)');
+        ->assertSeeHtml('<strong>Busca em massa:</strong> 4 termo(s)');
 });
 
 it('combines the bulk search with the other filters and clears it with the filters', function () {
@@ -100,7 +100,7 @@ it('removes the bulk search chip and the selection only reaches the pasted Order
 
     expect(array_map('intval', $component->get('selectedOrderIds')))->toBe([$a->id]);
 
-    $component->call('removeFilter', 'bulk')->assertSet('bulkTerms', []);
+    $component->call('removeAnyFilter', 'bulk')->assertSet('bulkTerms', []);
 });
 
 it('renders the button, the modal with the live counter and no inline style or script', function () {
@@ -175,7 +175,9 @@ it('lets the filter menus overflow the card and keeps colored rows distinguishab
         ->and($signals)->toContain('border-bottom: 1px solid color-mix')
         ->and($signals)->toContain('tr.signal-row:nth-child(even) > td');
 
-    foreach (['dispatch/_control-top', 'work/available', 'work/history', 'dispatch/index'] as $view) {
-        expect(file_get_contents(resource_path("views/livewire/closure/{$view}.blade.php")))->toContain('filter-bar');
+    expect(file_get_contents(resource_path('views/livewire/closure/dispatch/index.blade.php')))->toContain('x-ops.filters');
+
+    foreach (['dispatch/control', 'work/mine', 'work/all', 'work/available', 'work/history'] as $view) {
+        expect(file_get_contents(resource_path("views/livewire/closure/{$view}.blade.php")))->toContain('x-ops.filters');
     }
 });

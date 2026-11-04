@@ -69,6 +69,27 @@ enum ClosureOperationalStatus: string
         };
     }
 
+    /** Tom semântico dos selos `<x-ops.badge>` (green|blue|amber|red|teal|muted). */
+    public function tone(): string
+    {
+        return match ($this) {
+            self::AVAILABLE, self::CANCELLED => 'muted',
+            self::ASSIGNED, self::WAITING => 'teal',
+            self::IN_PROGRESS     => 'blue',
+            self::WAITING_PARTNER => 'amber',
+            self::DEPOSIT_BLOCKED => 'red',
+            self::PAUSED          => 'amber',
+            self::DEPOSIT_RELEASED, self::FINISHED, self::CLOSED => 'green',
+        };
+    }
+
+    public static function toneFor(?string $value): string
+    {
+        $case = $value === null ? null : self::tryFrom($value);
+
+        return $case?->tone() ?? 'muted';
+    }
+
     public function isTerminal(): bool
     {
         return in_array($this, [self::CLOSED, self::CANCELLED], true);

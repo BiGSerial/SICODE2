@@ -69,26 +69,52 @@ class ClosureDispatchListQuery
             $query->where(fn (Builder $q) => $q->whereIn('orders.ordem', $bulk)->orWhereIn('notes.note', $bulk));
         }
 
-        $status = $filters['status'] ?? null;
+        $statuses = $this->many($filters, 'statuses', 'status');
 
-        if ($status === self::NO_STATE) {
-            $query->whereNull('s.id');
-        } elseif ($status) {
-            $query->where('s.operational_status', $status);
+        if ($statuses !== []) {
+            $none = in_array(self::NO_STATE, $statuses, true);
+            $real = array_values(array_diff($statuses, [self::NO_STATE]));
+
+            $query->where(function (Builder $q) use ($none, $real) {
+                if ($none) {
+                    $q->whereNull('s.id');
+                }
+
+                if ($real !== []) {
+                    $none ? $q->orWhereIn('s.operational_status', $real) : $q->whereIn('s.operational_status', $real);
+                }
+            });
         }
 
-        if (!empty($filters['assigneeId'])) {
-            $query->where('s.assigned_user_id', $filters['assigneeId']);
+        $rubrics = $this->strings($filters['rubrics'] ?? []);
+
+        if ($rubrics !== []) {
+            $query->whereIn('notes.rubrica', $rubrics);
+        }
+
+        $assignees = $this->many($filters, 'assigneeIds', 'assigneeId');
+
+        if ($assignees !== []) {
+            $query->whereIn('s.assigned_user_id', $assignees);
+        }
+
+        // Ordens no alcance de um depósito bloqueado: centro de trabalho da operação 0010 entre os centros dos bloqueios ativos.
+        $centers = $this->strings($filters['blockedCenters'] ?? []);
+
+        if ($centers !== []) {
+            $marks = implode(',', array_fill(0, count($centers), '?'));
+            $query->selectRaw("exists(select 1 from operations ob where ob.order_id = orders.id and ob.operacao = '0010' and ob.cenTrab in ({$marks})) as in_blocked_deposit", $centers);
         }
 
         $rows = $query->orderBy('orders.ordem')->orderBy('orders.id')->get()
-            ->map(fn ($row) => ['id' => (int) $row->id, 'state_id' => $row->state_id ? (int) $row->state_id : null])->all();
+            ->map(fn ($row) => ['id' => (int) $row->id, 'state_id' => $row->state_id ? (int) $row->state_id : null, 'blocked' => (bool) ($row->in_blocked_deposit ?? false)])->all();
 
         // Empresa = a da relação com o informe (mapa cacheado em ClosureEligibleOrders), não a de quem está com a Ordem.
-        if (!empty($filters['companyId'])) {
+        $companies = $this->many($filters, 'companyIds', 'companyId');
+
+        if ($companies !== []) {
             $inform = $this->eligible->informCompanies();
-            $wanted = (string) $filters['companyId'];
-            $rows   = array_values(array_filter($rows, fn ($row) => ($inform[$row['id']] ?? '') === $wanted));
+            $rows   = array_values(array_filter($rows, fn ($row) => in_array((string) ($inform[$row['id']] ?? ''), $companies, true)));
         }
 
         return $rows;
@@ -173,6 +199,16 @@ class ClosureDispatchListQuery
         return $codes;
     }
 
+    /**
+     * Valores de um filtro que aceita vários (`plural`) e, por compatibilidade, um só (`singular`).
+     *
+     * @return array<int, string>
+     */
+    private function many(array $filters, string $plural, string $singular): array
+    {
+        return $this->strings(array_merge((array) ($filters[$plural] ?? []), (array) ($filters[$singular] ?? [])));
+    }
+
     /** @return array<int, string> */
     private function strings($values): array
     {
@@ -245,7 +281,7 @@ class ClosureDispatchListQuery
         $set  = $this->eligible->all();
         $base = $this->baseRows($filters, $set);
 
-        $counts      = ['total' => 0, 'P' => 0, 'M' => 0, 'F' => 0, 'undispatched' => 0];
+        $counts      = ['total' => 0, 'P' => 0, 'M' => 0, 'F' => 0, 'undispatched' => 0, 'blocked' => 0];
         $competences = [];
 
         foreach ($base as $row) {
@@ -257,6 +293,7 @@ class ClosureDispatchListQuery
             }
 
             $counts['undispatched'] += $row['state_id'] === null ? 1 : 0;
+            $counts['blocked'] += $row['blocked'] ? 1 : 0;
             $type = $set[$row['id']]['type'] ?? null;
 
             if ($type !== null) {
@@ -358,11 +395,11 @@ class ClosureDispatchListQuery
      * Contagens para os cards-resumo, respeitando os filtros, exceto tipo e "só não despachadas"
      * (os próprios cards são esses filtros).
      *
-     * @return array{total: int, P: int, M: int, F: int, undispatched: int}
+     * @return array{total: int, P: int, M: int, F: int, undispatched: int, blocked: int}
      */
     public function counts(array $filters = []): array
     {
-        unset($filters['types'], $filters['onlyUndispatched']);
+        unset($filters['types'], $filters['onlyUndispatched'], $filters['onlyBlocked']);
 
         return $this->overview($filters, 1, 1)['counts'];
     }
@@ -385,10 +422,14 @@ class ClosureDispatchListQuery
             $rows = array_filter($rows, fn ($row) => $row['state_id'] === null);
         }
 
-        $competence = $filters['competence'] ?? null;
+        if (!empty($filters['onlyBlocked'])) {
+            $rows = array_filter($rows, fn ($row) => $row['blocked']);
+        }
 
-        if ($competence) {
-            $rows = array_filter($rows, fn ($row) => ($set[$row['id']]['competence'] ?? null) === $competence);
+        $competences = $this->many($filters, 'competences', 'competence');
+
+        if ($competences !== []) {
+            $rows = array_filter($rows, fn ($row) => in_array((string) ($set[$row['id']]['competence'] ?? ''), $competences, true));
         }
 
         $rows = array_values($rows);
@@ -451,6 +492,7 @@ class ClosureDispatchListQuery
             ->selectRaw('(select count(*) from operations o where o.order_id = orders.id) as ops_total')
             ->selectRaw("(select count(*) from operations o where o.order_id = orders.id and o.status like 'CONF%') as ops_conf")
             ->selectRaw('(select max(op.partial_id) from order_partial op where op.order_id = orders.id) as partial_id')
+            ->selectRaw("(select max(o10.cenTrab) from operations o10 where o10.order_id = orders.id and o10.operacao = '0010') as cen_trab")
             ->whereIn('orders.id', $ids)
             ->orderBy('orders.ordem')->orderBy('orders.id');
     }
@@ -499,6 +541,23 @@ class ClosureDispatchListQuery
         }
 
         return $rows;
+    }
+
+    /** @return array<int, string> competências (YYYY-MM) do conjunto elegível, em ordem (opções do filtro) */
+    public function competenceOptions(): array
+    {
+        $periods = array_values(array_unique(array_filter(array_column($this->eligible->all(), 'competence'))));
+        sort($periods);
+
+        return $periods;
+    }
+
+    /** @return array<int, string> rubricas cadastradas nas Notas (opções do filtro e da configuração), mais usadas primeiro */
+    public static function rubricOptions(): array
+    {
+        return \Illuminate\Support\Facades\Cache::remember('closure:rubric-options:v1', 600, fn () => \Illuminate\Support\Facades\DB::table('notes')
+            ->whereNotNull('rubrica')->where('rubrica', '!=', '')
+            ->selectRaw('rubrica, count(*) as n')->groupBy('rubrica')->orderByDesc('n')->pluck('rubrica')->map(fn ($r) => (string) $r)->all());
     }
 
     /** @return Collection<int, Company> empresas que têm informe/parcial em alguma Ordem do conjunto (filtro "Empresa") */

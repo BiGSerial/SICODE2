@@ -1,423 +1,339 @@
 @php
-    $monthNames = [1 => 'Janeiro', 2 => 'Fevereiro', 3 => 'Março', 4 => 'Abril', 5 => 'Maio', 6 => 'Junho', 7 => 'Julho', 8 => 'Agosto', 9 => 'Setembro', 10 => 'Outubro', 11 => 'Novembro', 12 => 'Dezembro'];
-    $statusMeta = [
-        'PENDING'  => ['Pendente', '#fef3c7', '#b45309'],
-        'BLOCKED'  => ['Bloqueado', '#fee2e2', '#b91c1c'],
-        'RELEASED' => ['Liberado', '#dcfce7', '#15803d'],
-        'SKIPPED'  => ['Dispensado', '#f1f5f9', '#475569'],
+    $statusTone  = ['PENDING' => 'amber', 'BLOCKED' => 'red', 'RELEASED' => 'green', 'SKIPPED' => 'muted'];
+    $statusLabel = ['PENDING' => 'Pendente', 'BLOCKED' => 'Bloqueado', 'RELEASED' => 'Liberado', 'SKIPPED' => 'Dispensado'];
+    $statusHint  = [
+        'PENDING'  => 'Aguardando a confirmação do bloqueio na data do inventário.',
+        'BLOCKED'  => 'Depósito bloqueado: as Ordens dos centros de trabalho vinculados estão em Depósito Bloqueado.',
+        'RELEASED' => 'Depósito liberado: as Ordens voltaram ao status anterior.',
+        'SKIPPED'  => 'Data dispensada (por exemplo, inventário adiado). Pode ser reaberta.',
     ];
-    $kpiCards = [
-        ['today', 'Vencem hoje', $kpis['today'], 'ri-calendar-event-line', '#c0392b', 'confirmar o bloqueio hoje'],
-        ['week', 'Próximos 7 dias', $kpis['week'], 'ri-calendar-2-line', '#263cc8', 'agenda da semana'],
-        ['overdue', 'Atrasados', $kpis['overdue'], 'ri-alarm-warning-line', '#b45309', 'data passou, sem confirmação'],
-        ['active', 'Bloqueios ativos', $kpis['active'], 'ri-lock-line', '#155f67', 'por inventário'],
+    $statusFilter   = $filters['status'] ?? [];
+    $loadingTargets = 'search,setDue,gotoPage,nextPage,previousPage,clearFilters,removeAnyFilter,applyListFilters,removeListFilter,clearListFilters,selectFiltered';
+    $pageIds        = $entries->pluck('id')->map(fn ($i) => (string) $i)->all();
+    $allOnPage      = $entries->count() > 0 && collect($pageIds)->diff($selected)->isEmpty();
+    $bulkMeta       = [
+        'block'   => ['Confirmar bloqueio', 'ri-lock-line', 'PENDING', 'Bloqueia, de uma vez, as Ordens dos centros de trabalho cadastrados.'],
+        'skip'    => ['Dispensar datas', 'ri-forbid-line', 'PENDING', 'Não bloqueia nestas datas (inventário adiado). Dá para reabrir.'],
+        'release' => ['Liberar depósitos', 'ri-lock-unlock-line', 'BLOCKED', 'As Ordens voltam ao status anterior ao bloqueio.'],
+        'reopen'  => ['Reabrir datas', 'ri-restart-line', 'SKIPPED', 'Volta a data dispensada para Pendente.'],
     ];
-    $chips = [];
-    if (trim($search) !== '') { $chips[] = ['search', 'Busca: ' . trim($search)]; }
-    if ($status !== '') { $chips[] = ['status', 'Status: ' . ($statusMeta[$status][0] ?? $status)]; }
-    if ($month !== '') { $chips[] = ['month', 'Mês: ' . ($monthNames[(int) $month] ?? $month)]; }
-    if ($serviceType !== '') { $chips[] = ['serviceType', 'Tipo: ' . $serviceType]; }
-    if ($due !== '') { $chips[] = ['due', ['today' => 'Vencem hoje', 'week' => 'Próximos 7 dias', 'overdue' => 'Atrasados'][$due] ?? $due]; }
 @endphp
-<div class="closure-dash">
-    @include('livewire.closure._styles')
 
-    <div class="dash-hero mb-3">
-        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-            <div>
-                <h2 class="dash-title">Calendário de depósitos</h2>
-                <div class="dash-subtitle">Inventário da gestão de ativos: na data de cada depósito, confirme o bloqueio e as Ordens dos centros de trabalho vinculados passam a Depósito Bloqueado.</div>
-            </div>
-            <button type="button" class="btn btn-light btn-sm fw-semibold" wire:click="openImport"><i class="ri-upload-2-line"></i> Importar calendário</button>
+{{-- Calendário de depósitos: lista operacional (docs/PADRAO_LISTAS_OPERACIONAIS.md). Hero → cartões-filtro → ferramentas → painel → barra de seleção. --}}
+<div class="closure-dash my-panel ops-list">
+
+    <x-ops.hero eyebrow="Gestão do ciclo · Encerramento" title="Calendário de depósitos" subtitle="Inventário da gestão de ativos: na data de cada depósito, confirme o bloqueio e as Ordens dos centros de trabalho vinculados passam a Depósito Bloqueado.">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="openImport"><i class="ri-upload-2-line" aria-hidden="true"></i> Importar calendário</button>
         </div>
-    </div>
+    </x-ops.hero>
 
-    <div class="row g-2 mb-3">
-        @foreach ($kpiCards as [$key, $label, $value, $icon, $color, $note])
-            <div class="col-6 col-xl-3" wire:key="dkpi-{{ $key }}">
-                <button type="button" class="kpi w-100 text-start {{ $due === $key ? 'is-active' : '' }}" style="--k: {{ $color }}; {{ $key === 'active' ? 'cursor: default;' : 'cursor: pointer;' }}" @if ($key !== 'active') wire:click="setDue('{{ $key }}')" @endif>
-                    <div class="kpi-top"><span>{{ $label }}</span><i class="{{ $icon }}"></i></div>
-                    <div class="kpi-value">{{ number_format($value, 0, ',', '.') }}</div>
-                    <div class="kpi-note">{{ $note }}</div>
-                </button>
-            </div>
-        @endforeach
+    <div class="ops-stats">
+        <x-ops.stat wire:key="dstat-today" wire:click="setDue('today')" tone="red" icon="ri-calendar-event-line" label="Vencem hoje" :value="number_format($kpis['today'], 0, ',', '.')" :active="$due === 'today'" title="Pendentes com a data de hoje: confirme o bloqueio hoje" />
+        <x-ops.stat wire:key="dstat-week" wire:click="setDue('week')" tone="blue" icon="ri-calendar-2-line" label="Próximos 7 dias" :value="number_format($kpis['week'], 0, ',', '.')" :active="$due === 'week'" title="Agenda da semana" />
+        <x-ops.stat wire:key="dstat-overdue" wire:click="setDue('overdue')" tone="amber" icon="ri-alarm-warning-line" label="Atrasados" :value="number_format($kpis['overdue'], 0, ',', '.')" :active="$due === 'overdue'" title="A data passou e o bloqueio não foi confirmado" />
+        <x-ops.stat wire:key="dstat-active" tone="teal" icon="ri-lock-line" label="Bloqueios ativos" :value="number_format($kpis['active'], 0, ',', '.')" disabled title="Bloqueios por inventário em vigor agora" />
     </div>
 
     @if (!$hasEntries)
-        <div class="table-card p-5 text-center">
-            <i class="ri-calendar-line d-block text-muted" style="font-size: 2.6rem; opacity: .5;"></i>
-            <h3 class="chart-title mt-2">Nenhum calendário carregado</h3>
-            <p class="text-muted mb-3">Carregue a planilha de inventário entregue pela gestão de ativos (colunas Centro, Depósito e Data inicial das contagens). O sistema identifica as datas e os depósitos automaticamente.</p>
-            <button type="button" class="btn btn-primary" wire:click="openImport"><i class="ri-upload-2-line"></i> Importar calendário</button>
-        </div>
+        <section class="mp-panel">
+            <div class="mp-panel-body">
+                <x-closure.empty-state title="Nenhum calendário carregado" text="Carregue a planilha de inventário entregue pela gestão de ativos (colunas Centro, Depósito e Data inicial das contagens). O sistema identifica as datas e os depósitos sozinho." icon="ri-calendar-line" />
+                <div class="text-center mt-2"><button type="button" class="btn btn-primary btn-sm btn-dash" wire:click="openImport"><i class="ri-upload-2-line" aria-hidden="true"></i> Importar calendário</button></div>
+            </div>
+        </section>
     @else
-        <div class="table-card p-3 mb-3">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <div class="d-flex align-items-center gap-2 fw-bold"><i class="ri-filter-3-line"></i> Filtros @if (count($chips))<span class="badge bg-light text-dark border">{{ count($chips) }} ativo(s)</span>@endif</div>
-                @if (count($chips))
-                    <button type="button" class="btn btn-link btn-sm text-decoration-none p-0 text-danger" wire:click="clearFilters"><i class="ri-close-circle-line"></i> Limpar filtros</button>
+        <section class="ops-toolbar" aria-label="Filtros da lista">
+            <div class="ops-toolbar-row">
+                <x-ops.search wire:model.debounce.500ms="search" placeholder="Depósito, denominação, cidade ou centro" label="Buscar depósito" />
+                <span class="ops-toolbar-spacer"></span>
+                @if ($hasCriteria)
+                    <button type="button" class="ops-chips-clear" wire:click="clearFilters"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar tudo</button>
                 @endif
             </div>
-            <div class="row g-3">
-                <div class="col-12 col-md-6 col-xl-4">
-                    <label class="ctl-label">Busca</label>
-                    <div class="input-group"><span class="input-group-text bg-white"><i class="ri-search-line"></i></span><input type="search" class="form-control" wire:model.debounce.400ms="search" placeholder="Depósito, denominação, cidade ou centro"></div>
-                </div>
-                <div class="col-6 col-xl-2">
-                    <label class="ctl-label">Mês</label>
-                    <select class="form-select" wire:model="month">
-                        <option value="">Todos</option>
-                        @foreach ($months as $m)
-                            <option value="{{ $m }}">{{ $monthNames[$m] ?? $m }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-6 col-xl-3">
-                    <label class="ctl-label">Tipo de serviço</label>
-                    <select class="form-select" wire:model="serviceType">
-                        <option value="">Todos</option>
-                        @foreach ($serviceTypes as $type)
-                            <option value="{{ $type }}">{{ $type }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-12 col-xl-3">
-                    <label class="ctl-label">Status</label>
-                    <select class="form-select" wire:model="status">
-                        <option value="">Todos</option>
-                        @foreach ($statusMeta as $key => [$label])
-                            <option value="{{ $key }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
+            <div class="ops-toolbar-row">
+                <span class="ops-toolbar-label">Filtros</span>
+                <x-ops.filters :payload="$this->listFilterPayload()" />
             </div>
-            @if (count($chips))
-                <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                    <span class="small text-muted">Filtros aplicados:</span>
-                    @foreach ($chips as [$kind, $label])
-                        <span class="ctl-chip" wire:key="dchip-{{ $kind }}">{{ $label }}<button type="button" wire:click="$set('{{ $kind }}', '')" aria-label="Remover filtro"><i class="ri-close-line"></i></button></span>
-                    @endforeach
+            @if ($hasCriteria)
+                <div class="ops-toolbar-row">
+                    <x-ops.chips :chips="array_merge($criteriaChips, $this->listFilterChips())" remove-action="removeAnyFilter" clear-action="clearFilters" />
                 </div>
             @endif
-        </div>
-
-        @if (count($selected))
-            @php
-                $bulkMeta = [
-                    'block'   => ['Confirmar bloqueio', 'ri-lock-line', 'PENDING', 'btn-danger'],
-                    'skip'    => ['Dispensar', 'ri-forbid-line', 'PENDING', 'btn-outline-secondary'],
-                    'release' => ['Liberar depósitos', 'ri-lock-unlock-line', 'BLOCKED', 'btn-success'],
-                    'reopen'  => ['Reabrir', 'ri-restart-line', 'SKIPPED', 'btn-outline-secondary'],
-                ];
-            @endphp
-            <div class="table-card p-3 mb-3 d-flex flex-wrap align-items-center gap-3" style="border-left: 4px solid #155f67;">
-                <div>
-                    <div class="fw-bold">{{ count($selected) }} depósito(s) selecionado(s)</div>
-                    <div class="small text-muted">
-                        @foreach ($selectedCounts as $st => $total){{ $total }} {{ strtolower($statusMeta[$st][0] ?? $st) }}(s){{ !$loop->last ? ' · ' : '' }}@endforeach
-                    </div>
-                </div>
-                <div class="d-flex flex-wrap gap-2 ms-auto align-items-center">
-                    @foreach ($bulkMeta as $act => [$label, $icon, $needs, $btn])
-                        @if (($selectedCounts[$needs] ?? 0) > 0)
-                            <button type="button" class="btn btn-sm {{ $btn }} fw-semibold" wire:click="startBulk('{{ $act }}')"><i class="{{ $icon }}"></i> {{ $label }} ({{ $selectedCounts[$needs] }})</button>
-                        @endif
-                    @endforeach
-                    <button type="button" class="btn btn-sm btn-outline-dark" wire:click="selectFiltered">Selecionar todos do filtro</button>
-                    <button type="button" class="btn btn-link btn-sm text-decoration-none text-danger" wire:click="clearSelection"><i class="ri-close-line"></i> Limpar seleção</button>
-                </div>
-            </div>
-        @endif
+        </section>
 
         @if ($bulkResult)
-            <div class="table-card p-3 mb-3" style="border-left: 4px solid {{ $bulkResult['refused'] ? '#b45309' : '#0f8a77' }};">
-                <div class="d-flex justify-content-between align-items-start gap-2">
-                    <div>
-                        <div class="fw-bold">{{ $bulkResult['done'] }} depósito(s) processado(s)@if ($bulkResult['orders']) · {{ $bulkResult['orders'] }} Ordem(ns) {{ $bulkResult['action'] === 'release' ? 'liberadas' : 'bloqueadas' }}@endif</div>
-                        @if ($bulkResult['ignored'])<div class="small text-muted">{{ $bulkResult['ignored'] }} selecionado(s) não estavam no status exigido e foram ignorados.</div>@endif
-                    </div>
-                    <button type="button" class="btn-close" aria-label="Fechar" wire:click="dismissBulkResult"></button>
+            <div class="ops-notice {{ $bulkResult['refused'] ? 'ops-notice--warn' : '' }}" role="status">
+                <i class="{{ $bulkResult['refused'] ? 'ri-error-warning-line' : 'ri-checkbox-circle-line' }}" aria-hidden="true"></i>
+                <div>
+                    <strong>{{ $bulkResult['done'] }} depósito(s) processado(s)</strong>@if ($bulkResult['orders']) · {{ $bulkResult['orders'] }} Ordem(ns) {{ $bulkResult['action'] === 'release' ? 'liberadas' : 'bloqueadas' }}@endif
+                    @if ($bulkResult['ignored'])<div class="small">{{ $bulkResult['ignored'] }} selecionado(s) não estavam no status exigido e foram ignorados.</div>@endif
+                    @if ($bulkResult['refused'])
+                        <div class="small fw-semibold mt-1">{{ count($bulkResult['refused']) }} recusado(s):</div>
+                        <ul class="small mb-0 ps-3">@foreach ($bulkResult['refused'] as $r)<li>{{ $r }}</li>@endforeach</ul>
+                    @endif
                 </div>
-                @if ($bulkResult['refused'])
-                    <div class="small fw-semibold mt-2" style="color:#b45309;">{{ count($bulkResult['refused']) }} recusado(s):</div>
-                    <ul class="small mb-0 ps-3" style="max-height:160px;overflow:auto;">@foreach ($bulkResult['refused'] as $r)<li>{{ $r }}</li>@endforeach</ul>
-                @endif
+                <button type="button" class="btn-close" aria-label="Fechar" wire:click="dismissBulkResult"></button>
             </div>
         @endif
 
-        <div class="table-card mb-3">
-            <div class="od-section-head">
-                <div><h3><i class="ri-calendar-check-line text-muted"></i> Datas de bloqueio <span class="od-count">{{ $entries->total() }} depósito(s)</span></h3><div class="small text-muted mt-1">Ordenadas pela data inicial das contagens.</div></div>
+        <section class="mp-panel" aria-label="Datas de bloqueio">
+            <div class="mp-panel-head">
+                <div>
+                    <h2 class="mp-panel-title">Datas de bloqueio</h2>
+                    <div class="mp-panel-sub">{{ number_format($entries->total(), 0, ',', '.') }} {{ $entries->total() === 1 ? 'depósito' : 'depósitos' }}, ordenados pela data inicial das contagens.</div>
+                </div>
+                <div class="ops-panel-actions">
+                    <span class="mp-pill" wire:loading.delay wire:target="{{ $loadingTargets }}">Atualizando…</span>
+                    <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="selectPage({{ json_encode($pageIds) }})">{{ $allOnPage ? 'Limpar página' : 'Selecionar página' }}</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm btn-dash" wire:click="selectFiltered">Selecionar todos do filtro ({{ number_format(min($entries->total(), 500), 0, ',', '.') }})</button>
+                </div>
             </div>
-            <div class="table-responsive dash-scroll">
-                <table class="table table-sm align-middle mb-0 dash-table" style="min-width: 1040px;">
-                    <thead>
-                        <tr>
-                            <th class="ps-3" style="width:34px;"><input type="checkbox" class="form-check-input" aria-label="Selecionar a página" wire:click="selectPage({{ json_encode($entries->pluck('id')->map(fn ($i) => (string) $i)->all()) }})" @checked($entries->count() && $entries->pluck('id')->map(fn ($i) => (string) $i)->diff($selected)->isEmpty())></th>
-                            <th>Data</th>
-                            <th>Depósito</th>
-                            <th>Cidade / Serviço</th>
-                            <th>Empresa e centro de trabalho</th>
-                            <th class="text-center">Ordens afetadas</th>
-                            <th>Status</th>
-                            <th class="pe-3 text-end">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($entries as $entry)
-                            @php
-                                $meta    = $statusMeta[$entry->status] ?? [$entry->status, '#f1f5f9', '#475569'];
-                                $link    = $links[$entry->id];
-                                $days    = (int) $today->diffInDays($entry->scheduled_date, false);
-                                $isToday = $days === 0;
-                                $late    = $days < 0 && $entry->status === 'PENDING';
-                                $companies = $link['rows']->groupBy('company_id');
-                            @endphp
-                            <tr wire:key="dep-{{ $entry->id }}" @class(['is-selected' => in_array((string) $entry->id, $selected, true) || ($isToday && $entry->status === 'PENDING')])>
-                                <td class="ps-3"><input type="checkbox" class="form-check-input" value="{{ $entry->id }}" wire:model="selected" aria-label="Selecionar depósito {{ $entry->deposit }}"></td>
-                                <td class="text-nowrap">
-                                    <div class="ord-main">{{ $entry->scheduled_date->format('d/m/Y') }}</div>
-                                    <div class="ord-sub" @if ($late) style="color:#b45309;font-weight:700;" @endif>
-                                        @if ($isToday) hoje @elseif ($days > 0) em {{ $days }} dia(s) @else há {{ abs($days) }} dia(s) @endif
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="ord-main">{{ $entry->deposit }} <span class="fw-normal text-muted" style="font-size:.78rem;">centro {{ $entry->center }}</span></div>
-                                    <div class="ord-sub text-truncate" style="max-width: 240px;" title="{{ $entry->denomination }}">{{ $entry->denomination ?: '—' }}</div>
-                                </td>
-                                <td>
-                                    <div class="small fw-semibold">{{ $entry->city ?: '—' }}</div>
-                                    <div class="ord-sub">{{ $entry->service_type ?: '—' }}</div>
-                                </td>
-                                <td>
-                                    @if ($link['rows']->isEmpty())
-                                        <span class="st-chip" style="background:#fff5f5;color:#b91c1c;" title="Cadastre em Administração > Empresa > Centros e depósitos">Sem centro de trabalho cadastrado</span>
-                                    @else
-                                        <div class="d-flex flex-column gap-1">
-                                            @foreach ($companies as $companyRows)
-                                                <div class="d-flex flex-wrap align-items-center gap-1">
-                                                    <span class="small fw-semibold">{{ $companyRows->first()->Company?->display_name ?? '—' }}</span>
-                                                    @foreach ($companyRows->pluck('centerjob')->unique() as $code)<span class="co-code">{{ $code }}</span>@endforeach
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
-                                </td>
-                                <td class="text-center">
-                                    @if ($entry->status === 'BLOCKED' && $entry->Signal)
-                                        <strong>{{ $entry->Signal->affected_count }}</strong> <span class="small text-muted">bloqueada(s)</span>
-                                    @elseif ($link['affected'] !== null)
-                                        <strong>{{ $link['affected'] }}</strong> <span class="small text-muted">em tratativa</span>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-                                <td><span class="st-chip" style="background: {{ $meta[1] }}; color: {{ $meta[2] }};">{{ $meta[0] }}</span>@if ($entry->status === 'SKIPPED' && $entry->skip_reason)<div class="ord-sub" title="{{ $entry->skip_reason }}">{{ \Illuminate\Support\Str::limit($entry->skip_reason, 30) }}</div>@endif</td>
-                                <td class="pe-3 text-end cell-visible">
-                                    @if ($entry->status === 'PENDING')
-                                        <button type="button" class="btn btn-sm {{ $days <= 0 ? 'btn-danger fw-semibold' : 'btn-outline-secondary' }}" wire:click="startConfirm({{ $entry->id }})" @disabled($link['rows']->isEmpty())><i class="ri-lock-line"></i> Confirmar bloqueio</button>
-                                        <div class="dropdown d-inline-block">
-                                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-closure-fixed-dropdown aria-expanded="false" aria-label="Mais ações"></button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><button type="button" class="dropdown-item" wire:click="startSkip({{ $entry->id }})"><i class="ri-forbid-line me-2"></i>Dispensar esta data</button></li>
-                                            </ul>
-                                        </div>
-                                    @elseif ($entry->status === 'BLOCKED')
-                                        <button type="button" class="btn btn-sm btn-success fw-semibold" wire:click="startRelease({{ $entry->id }})"><i class="ri-lock-unlock-line"></i> Liberar depósito</button>
-                                    @elseif ($entry->status === 'SKIPPED')
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="reopen({{ $entry->id }})"><i class="ri-restart-line"></i> Reabrir</button>
-                                    @else
-                                        <span class="small text-muted">{{ $entry->Signal?->released_at?->format('d/m/Y H:i') }}</span>
-                                    @endif
-                                </td>
+
+            <x-ops.skeleton wire:loading.delay.class.remove="d-none" wire:target="{{ $loadingTargets }}" class="d-none" :rows="min(10, max(4, $entries->count()))" :cols="7" />
+
+            @if ($entries->isEmpty())
+                <div class="mp-panel-body">
+                    <x-closure.empty-state :title="$hasCriteria ? 'Nenhum depósito para os filtros escolhidos' : 'Nenhum depósito no calendário'" :text="$hasCriteria ? 'Ajuste ou limpe os filtros para ver mais depósitos.' : 'Importe a planilha do inventário.'" icon="ri-calendar-check-line" />
+                    @if ($hasCriteria)
+                        <div class="text-center mt-2"><button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearFilters">Limpar filtros</button></div>
+                    @endif
+                </div>
+            @else
+                <div class="ops-table-wrap" wire:loading.delay.class="d-none" wire:target="{{ $loadingTargets }}">
+                    <table class="table ops-table">
+                        <colgroup>
+                            <col style="width: 38px"><col style="width: 120px"><col style="width: 220px"><col style="width: 190px"><col style="width: 250px"><col style="width: 130px"><col style="width: 130px"><col style="width: 200px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th><input type="checkbox" class="form-check-input" aria-label="Selecionar a página" wire:click="selectPage({{ json_encode($pageIds) }})" @checked($allOnPage)></th>
+                                <th class="is-left">Data</th>
+                                <th class="is-left">Depósito</th>
+                                <th class="is-left">Cidade / Serviço</th>
+                                <th class="is-left">Empresa e centro de trabalho</th>
+                                <th title="Ordens em tratativa nesses centros de trabalho">Ordens afetadas</th>
+                                <th>Status</th>
+                                <th><span class="visually-hidden">Ações</span></th>
                             </tr>
-                        @empty
-                            <tr><td colspan="8" class="text-center text-muted py-5"><i class="ri-calendar-check-line d-block" style="font-size:2rem;opacity:.5;"></i>Nenhum depósito para os filtros selecionados.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            @if ($entries->hasPages())
-                <div class="p-3 border-top">{{ $entries->links() }}</div>
+                        </thead>
+                        <tbody>
+                            @foreach ($entries as $entry)
+                                @php
+                                    $link      = $links[$entry->id];
+                                    $days      = (int) $today->diffInDays($entry->scheduled_date, false);
+                                    $isPending = $entry->status === 'PENDING';
+                                    $noCenter  = $link['rows']->isEmpty();
+                                    $dateTone  = !$isPending ? 'muted' : ($days < 0 ? 'red' : ($days === 0 ? 'amber' : 'muted'));
+                                    $dateSub   = $days === 0 ? 'hoje' : ($days > 0 ? 'em ' . $days . ' dia(s)' : 'há ' . abs($days) . ' dia(s)');
+                                    $companies = $link['rows']->groupBy('company_id');
+                                @endphp
+                                <tr wire:key="dep-{{ $entry->id }}" @class(['is-selected' => in_array((string) $entry->id, $selected, true)])>
+                                    <td><input type="checkbox" class="form-check-input" value="{{ $entry->id }}" wire:model="selected" aria-label="Selecionar depósito {{ $entry->deposit }}"></td>
+                                    <td class="is-left"><x-ops.date :date="$entry->scheduled_date" :tone="$dateTone" :sub="$dateSub" :hint="$isPending ? ($days < 0 ? 'A data passou e o bloqueio não foi confirmado.' : ($days === 0 ? 'É hoje: confirme o bloqueio.' : 'Data do inventário.')) : 'Data do inventário.'" /></td>
+                                    <td class="is-left">
+                                        <div class="ops-note">{{ $entry->deposit }} <span class="ops-sub d-inline">centro {{ $entry->center }}</span></div>
+                                        <span class="ops-sub text-truncate" title="{{ $entry->denomination }}">{{ $entry->denomination ?: '—' }}</span>
+                                    </td>
+                                    <td class="is-left">
+                                        <div class="fw-semibold">{{ $entry->city ?: '—' }}</div>
+                                        <span class="ops-sub">{{ $entry->service_type ?: '—' }}</span>
+                                    </td>
+                                    <td class="is-left">
+                                        @if ($noCenter)
+                                            <x-ops.badge tone="red" icon="ri-error-warning-line" label="Sem centro de trabalho cadastrado" hint="O bloqueio precisa de ao menos um centro de trabalho ligado a este depósito. Cadastre em Administração > Empresa > Centros e depósitos." />
+                                        @else
+                                            <div class="ops-cell-stack">
+                                                @foreach ($companies as $companyRows)
+                                                    <div class="d-flex flex-wrap align-items-center gap-1">
+                                                        <span class="small fw-semibold">{{ $companyRows->first()->Company?->display_name ?? '—' }}</span>
+                                                        @foreach ($companyRows->pluck('centerjob')->unique() as $code)<x-ops.badge sm mono tone="teal" :label="$code" hint="Centro de trabalho (cenTrab)" />@endforeach
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if ($entry->status === 'BLOCKED' && $entry->Signal)
+                                            <strong>{{ $entry->Signal->affected_count }}</strong> <span class="ops-sub d-inline">bloqueada(s)</span>
+                                        @elseif ($link['affected'] !== null)
+                                            <strong>{{ $link['affected'] }}</strong> <span class="ops-sub d-inline">em tratativa</span>
+                                        @else
+                                            <span class="ops-empty">—</span>
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <div class="ops-cell-stack is-center">
+                                            <x-ops.badge :tone="$statusTone[$entry->status] ?? 'muted'" :label="$statusLabel[$entry->status] ?? $entry->status" :hint="$statusHint[$entry->status] ?? null" />
+                                            @if ($entry->status === 'SKIPPED' && $entry->skip_reason)<span class="ops-sub" title="{{ $entry->skip_reason }}">{{ \Illuminate\Support\Str::limit($entry->skip_reason, 28) }}</span>@endif
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="ops-buttons">
+                                            @if ($isPending)
+                                                <button type="button" class="btn btn-sm ops-action {{ $days <= 0 && !$noCenter ? 'btn-danger' : 'btn-outline-secondary' }}" wire:click="startConfirm({{ $entry->id }})" @if ($noCenter) title="Sem centro de trabalho cadastrado: abra para ver como resolver" @endif><i class="ri-lock-line" aria-hidden="true"></i> Confirmar bloqueio</button>
+                                                <div class="dropdown ops-row-actions">
+                                                    <button type="button" class="btn btn-sm btn-outline-secondary ops-menu-btn" data-bs-toggle="dropdown" data-closure-fixed-dropdown aria-expanded="false" aria-label="Mais ações do depósito {{ $entry->deposit }}"><i class="ri-more-2-fill" aria-hidden="true"></i></button>
+                                                    <ul class="dropdown-menu dropdown-menu-end">
+                                                        <li><button type="button" class="dropdown-item" wire:click="startSkip({{ $entry->id }})"><i class="ri-forbid-line me-2"></i>Dispensar esta data</button></li>
+                                                    </ul>
+                                                </div>
+                                            @elseif ($entry->status === 'BLOCKED')
+                                                <button type="button" class="btn btn-sm btn-success ops-action" wire:click="startRelease({{ $entry->id }})"><i class="ri-lock-unlock-line" aria-hidden="true"></i> Liberar depósito</button>
+                                            @elseif ($entry->status === 'SKIPPED')
+                                                <button type="button" class="btn btn-sm btn-outline-secondary ops-action" wire:click="reopen({{ $entry->id }})"><i class="ri-restart-line" aria-hidden="true"></i> Reabrir</button>
+                                            @else
+                                                <span class="ops-sub">{{ $entry->Signal?->released_at?->format('d/m/Y H:i') }}</span>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
             @endif
-        </div>
+
+            <x-ops.pager :paginator="$entries" />
+        </section>
+
+        @if (count($selected))
+            <div class="ops-selection" id="deposit-bulk">
+                <div class="ops-selection-count"><strong>{{ count($selected) }}</strong> {{ count($selected) === 1 ? 'selecionado' : 'selecionados' }}
+                    <small class="d-block opacity-75">@foreach ($selectedCounts as $st => $total){{ $total }} {{ strtolower($statusLabel[$st] ?? $st) }}(s){{ !$loop->last ? ' · ' : '' }}@endforeach</small>
+                </div>
+                <div class="ops-selection-actions">
+                    <div class="dropup">
+                        <button type="button" class="btn btn-light btn-sm btn-dash dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false"><i class="ri-stack-line" aria-hidden="true"></i> Ações em massa</button>
+                        <ul class="dropdown-menu ops-bulk-menu">
+                            @foreach ($bulkMeta as $act => [$label, $icon, $needs, $hint])
+                                @php $n = $selectedCounts[$needs] ?? 0; @endphp
+                                <li><button type="button" class="dropdown-item" wire:click="startBulk('{{ $act }}')" @disabled($n === 0)><i class="{{ $icon }}" aria-hidden="true"></i><span>{{ $label }} ({{ $n }})<small>{{ $n === 0 ? 'Nenhum selecionado está no status exigido (' . strtolower($statusLabel[$needs]) . ').' : $hint }}</small></span></button></li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+                <button type="button" class="ops-selection-clear" wire:click="clearSelection" aria-label="Limpar seleção"><i class="ri-close-line"></i></button>
+            </div>
+        @endif
     @endif
 
     {{-- Importar --}}
     @if ($importModal)
-        <div class="cpop-overlay" wire:click.self="closeImport" x-data @keydown.escape.window="$wire.closeImport()">
-            <div class="cpop" style="max-width: 600px; --tone: #155f67;" role="dialog" aria-modal="true" aria-label="Importar calendário">
-                <div class="cpop-head">
-                    <span class="cpop-icon"><i class="ri-upload-2-line"></i></span>
-                    <div><h3 class="cpop-title">Importar calendário de depósitos</h3><div class="cpop-sub">Planilha de inventário da gestão de ativos (.xlsx)</div></div>
-                    <button type="button" class="cpop-close" aria-label="Fechar" wire:click="closeImport"><i class="ri-close-line"></i></button>
-                </div>
-                <div class="cpop-body">
-                    <div class="cpop-hint">Colunas usadas: <strong>Centro</strong>, <strong>Depósito</strong> e <strong>Data inicial das contagens</strong> (obrigatórias), mais Cidade, Denominação, Tipo de serviço, Mês e Responsável. Importar de novo atualiza as datas ainda pendentes e não mexe em depósitos já bloqueados, liberados ou dispensados.</div>
-                    <label for="calendar-file" class="cpop-label">Planilha</label>
-                    <input id="calendar-file" type="file" class="form-control @error('calendarFile') is-invalid @enderror" wire:model="calendarFile" accept=".xlsx,.xls">
-                    @error('calendarFile') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    <div wire:loading wire:target="calendarFile" class="small text-muted mt-2"><span class="spinner-border spinner-border-sm"></span> Carregando arquivo…</div>
+        <x-ops.modal title="Importar calendário de depósitos" eyebrow="Planilha de inventário da gestão de ativos (.xlsx)" close="closeImport" size="modal-lg">
+            <p class="ops-modal-note">Colunas usadas: <strong>Centro</strong>, <strong>Depósito</strong> e <strong>Data inicial das contagens</strong> (obrigatórias), mais Cidade, Denominação, Tipo de serviço, Mês e Responsável. Importar de novo atualiza as datas ainda pendentes e não mexe em depósitos já bloqueados, liberados ou dispensados.</p>
+            <label for="calendar-file" class="form-label text-uppercase small fw-bold">Planilha</label>
+            <input id="calendar-file" type="file" class="form-control @error('calendarFile') is-invalid @enderror" wire:model="calendarFile" accept=".xlsx,.xls">
+            @error('calendarFile') <div class="invalid-feedback">{{ $message }}</div> @enderror
+            <div wire:loading wire:target="calendarFile" class="small text-muted mt-2"><span class="spinner-border spinner-border-sm"></span> Carregando arquivo…</div>
 
-                    @if ($importResult)
-                        <div class="mt-3 p-3 rounded" style="background:#f6fafb;border:1px solid #e3edf0;">
-                            <div class="d-flex flex-wrap gap-2 mb-2">
-                                <span class="badge bg-success">{{ $importResult['created'] }} nova(s)</span>
-                                <span class="badge bg-primary">{{ $importResult['updated'] }} atualizada(s)</span>
-                                <span class="badge bg-secondary">{{ $importResult['kept'] }} mantida(s)</span>
-                                <span class="badge {{ count($importResult['errors']) ? 'bg-danger' : 'bg-light text-dark border' }}">{{ count($importResult['errors']) }} erro(s)</span>
-                            </div>
-                            @if ($importResult['errors'])
-                                <ul class="small text-danger mb-0 ps-3" style="max-height: 160px; overflow:auto;">
-                                    @foreach (array_slice($importResult['errors'], 0, 30) as $error)<li>{{ $error }}</li>@endforeach
-                                </ul>
-                            @endif
+            @if ($importResult)
+                <div class="ops-modal-card mt-3">
+                    <div class="ops-modal-card-head tone-{{ count($importResult['errors']) ? 'red' : 'green' }}"><i class="ri-file-list-3-line" aria-hidden="true"></i> Resultado</div>
+                    <div class="ops-modal-card-body">
+                        <div class="d-flex flex-wrap gap-2 mb-2">
+                            <x-ops.badge tone="green" :label="$importResult['created'] . ' nova(s)'" />
+                            <x-ops.badge tone="blue" :label="$importResult['updated'] . ' atualizada(s)'" />
+                            <x-ops.badge tone="muted" :label="$importResult['kept'] . ' mantida(s)'" />
+                            <x-ops.badge :tone="count($importResult['errors']) ? 'red' : 'muted'" :label="count($importResult['errors']) . ' erro(s)'" />
                         </div>
-                    @endif
+                        @if ($importResult['errors'])
+                            <ul class="small text-danger mb-0 ps-3">@foreach (array_slice($importResult['errors'], 0, 30) as $error)<li>{{ $error }}</li>@endforeach</ul>
+                        @endif
+                    </div>
                 </div>
-                <div class="cpop-foot">
-                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" wire:click="closeImport">Fechar</button>
-                    <button type="button" class="btn btn-sm px-3 text-white fw-semibold" style="background:#155f67;" wire:click="import" wire:loading.attr="disabled" wire:target="import,calendarFile"><i class="ri-upload-2-line"></i> Importar</button>
-                </div>
-            </div>
-        </div>
+            @endif
+            <x-slot name="footer">
+                <button type="button" class="btn btn-outline-secondary" wire:click="closeImport">Fechar</button>
+                <button type="button" class="btn btn-primary" wire:click="import" wire:loading.attr="disabled" wire:target="import,calendarFile"><i class="ri-upload-2-line" aria-hidden="true"></i> Importar</button>
+            </x-slot>
+        </x-ops.modal>
     @endif
 
-    {{-- Confirmar bloqueio --}}
+    {{-- Confirmar bloqueio: se não há centro de trabalho cadastrado, o modal explica o motivo e como resolver (não há botão morto). --}}
     @if ($confirming && $confirmInfo)
-        <div class="cpop-overlay" wire:click.self="cancelConfirm" x-data @keydown.escape.window="$wire.cancelConfirm()">
-            <div class="cpop" style="max-width: 620px; --tone: #c0392b;" role="dialog" aria-modal="true" aria-label="Confirmar bloqueio de depósito">
-                <div class="cpop-head">
-                    <span class="cpop-icon"><i class="ri-lock-line"></i></span>
-                    <div><h3 class="cpop-title">Confirmar bloqueio do depósito {{ $confirming->deposit }}</h3><div class="cpop-sub">{{ $confirming->denomination }} · contagem em {{ $confirming->scheduled_date->format('d/m/Y') }}</div></div>
-                    <button type="button" class="cpop-close" aria-label="Fechar" wire:click="cancelConfirm"><i class="ri-close-line"></i></button>
-                </div>
-                <div class="cpop-body">
-                    <dl class="cpop-meta">
-                        <div><dt>Centro</dt><dd>{{ $confirming->center }}</dd></div>
-                        <div><dt>Cidade</dt><dd>{{ $confirming->city ?: '—' }}</dd></div>
-                        <div class="col-span-2" style="grid-column: 1 / -1;"><dt>Empresa e centro de trabalho cadastrados</dt><dd>
-                            @foreach ($confirmInfo['rows']->groupBy('company_id') as $rows)
-                                <div>{{ $rows->first()->Company?->display_name }} — @foreach ($rows->pluck('centerjob')->unique() as $code)<span class="co-code me-1">{{ $code }}</span>@endforeach</div>
-                            @endforeach
-                        </dd></div>
-                    </dl>
-                    <div class="cpop-hint"><strong>{{ $confirmInfo['affected'] }}</strong> Ordem(ns) em tratativa desses centros de trabalho passam para <strong>Depósito Bloqueado</strong> agora. Cada uma volta ao status anterior quando o depósito for liberado.</div>
-                    @if ($confirmInfo['active'])
-                        <div class="alert alert-warning py-2 small mb-3">Já existe um bloqueio ativo para este depósito. Libere-o antes de confirmar de novo.</div>
-                    @endif
-                    <label for="confirm-reason" class="cpop-label">Motivo <span class="text-danger">*</span></label>
-                    <textarea id="confirm-reason" class="form-control @error('confirmReason') is-invalid @enderror" rows="3" wire:model.defer="confirmReason" maxlength="1000"></textarea>
-                    @error('confirmReason') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                </div>
-                <div class="cpop-foot">
-                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" wire:click="cancelConfirm">Cancelar</button>
-                    <button type="button" class="btn btn-sm px-3 text-white fw-semibold" style="background:#c0392b;" wire:click="confirmBlock" wire:loading.attr="disabled" wire:target="confirmBlock"><i class="ri-lock-line"></i> Bloquear depósito</button>
+        @php $noCenters = $confirmInfo['rows']->isEmpty(); @endphp
+        <x-ops.modal :title="'Confirmar bloqueio do depósito ' . $confirming->deposit" :eyebrow="$confirming->denomination . ' · contagem em ' . $confirming->scheduled_date->format('d/m/Y')" close="cancelConfirm" size="modal-lg">
+            <div class="ops-modal-card mb-3">
+                <div class="ops-modal-card-head tone-{{ $noCenters ? 'red' : 'teal' }}"><i class="ri-building-line" aria-hidden="true"></i> Empresa e centro de trabalho cadastrados</div>
+                <div class="ops-modal-card-body">
+                    <div class="small text-muted">Centro SAP {{ $confirming->center }} · {{ $confirming->city ?: '—' }}</div>
+                    @forelse ($confirmInfo['rows']->groupBy('company_id') as $rows)
+                        <div class="mt-1">{{ $rows->first()->Company?->display_name }} — @foreach ($rows->pluck('centerjob')->unique() as $code)<x-ops.badge sm mono tone="teal" :label="$code" />@endforeach</div>
+                    @empty
+                        <div class="mt-1 text-danger fw-semibold">Nenhum centro de trabalho cadastrado para o depósito {{ $confirming->deposit }}.</div>
+                    @endforelse
                 </div>
             </div>
-        </div>
+
+            @if ($noCenters)
+                <div class="ops-warning">
+                    <strong>Por que não dá para confirmar:</strong> o bloqueio age sobre as Ordens dos centros de trabalho ligados ao depósito, e este depósito ainda não tem nenhum cadastrado
+                    (a data estar em dia não basta). Cadastre o centro de trabalho em <strong>Administração › Empresa › Centros e depósitos</strong>, informando o depósito <strong>{{ $confirming->deposit }}</strong> (centro SAP {{ $confirming->center }}), e volte aqui.
+                    @if ($canRegister)
+                        <a href="{{ route('admin.company.list') }}" class="btn btn-sm btn-outline-dark ms-1" target="_blank" rel="noopener"><i class="ri-external-link-line" aria-hidden="true"></i> Abrir cadastro de empresas</a>
+                    @else
+                        Peça a um administrador para fazer o cadastro.
+                    @endif
+                </div>
+            @else
+                <p class="ops-modal-note"><strong>{{ $confirmInfo['affected'] }}</strong> Ordem(ns) em tratativa desses centros de trabalho passam para <strong>Depósito Bloqueado</strong> agora. Cada uma volta ao status anterior quando o depósito for liberado.</p>
+            @endif
+
+            @if ($confirmInfo['active'])
+                <div class="ops-warning mb-3">Já existe um bloqueio ativo para este depósito. Libere-o antes de confirmar de novo.</div>
+            @endif
+
+            <label for="confirm-reason" class="form-label text-uppercase small fw-bold">Motivo <span class="text-danger">*</span></label>
+            <textarea id="confirm-reason" class="form-control @error('confirmReason') is-invalid @enderror" rows="3" wire:model.defer="confirmReason" maxlength="1000" @disabled($noCenters)></textarea>
+            @error('confirmReason') <div class="invalid-feedback">{{ $message }}</div> @enderror
+            <x-slot name="footer">
+                <button type="button" class="btn btn-outline-secondary" wire:click="cancelConfirm">Cancelar</button>
+                <button type="button" class="btn btn-danger" wire:click="confirmBlock" wire:loading.attr="disabled" wire:target="confirmBlock" @disabled($noCenters || $confirmInfo['active']) @if ($noCenters) title="Cadastre o centro de trabalho do depósito antes de bloquear." @endif><i class="ri-lock-line" aria-hidden="true"></i> Bloquear depósito</button>
+            </x-slot>
+        </x-ops.modal>
     @endif
 
     {{-- Ação em massa --}}
     @if ($bulkAction)
-        @php
-            $bm = [
-                'block'   => ['Confirmar bloqueio em massa', 'ri-lock-line', '#c0392b', 'Bloquear depósitos'],
-                'skip'    => ['Dispensar datas em massa', 'ri-forbid-line', '#64748b', 'Dispensar'],
-                'release' => ['Liberar depósitos em massa', 'ri-lock-unlock-line', '#0f8a77', 'Liberar todos'],
-                'reopen'  => ['Reabrir datas em massa', 'ri-restart-line', '#155f67', 'Reabrir'],
-            ][$bulkAction];
-        @endphp
-        <div class="cpop-overlay" wire:click.self="cancelBulk" x-data @keydown.escape.window="$wire.cancelBulk()">
-            <div class="cpop" style="max-width: 560px; --tone: {{ $bm[2] }};" role="dialog" aria-modal="true" aria-label="{{ $bm[0] }}">
-                <div class="cpop-head">
-                    <span class="cpop-icon"><i class="{{ $bm[1] }}"></i></span>
-                    <div><h3 class="cpop-title">{{ $bm[0] }}</h3><div class="cpop-sub">{{ $bulkCount }} depósito(s) elegíveis na seleção</div></div>
-                    <button type="button" class="cpop-close" aria-label="Fechar" wire:click="cancelBulk"><i class="ri-close-line"></i></button>
-                </div>
-                <div class="cpop-body">
-                    <div class="cpop-hint">
-                        @if ($bulkAction === 'block')
-                            Cada depósito selecionado bloqueia, de uma vez, as Ordens em tratativa dos centros de trabalho cadastrados. Depósitos sem centro de trabalho ou já bloqueados serão recusados e listados ao final.
-                        @elseif ($bulkAction === 'release')
-                            As Ordens bloqueadas de cada depósito voltam ao status que tinham antes do bloqueio.
-                        @elseif ($bulkAction === 'skip')
-                            Os depósitos não serão bloqueados nestas datas (ex.: inventário adiado). Você pode reabri-los depois.
-                        @else
-                            Os depósitos dispensados voltam a Pendente.
-                        @endif
-                        Apenas os selecionados no status exigido são processados.
-                    </div>
-                    @if (in_array($bulkAction, ['block', 'release', 'skip'], true))
-                        <label for="bulk-reason" class="cpop-label">{{ $bulkAction === 'skip' ? 'Motivo (opcional)' : 'Motivo' }} @if ($bulkAction !== 'skip')<span class="text-danger">*</span>@endif</label>
-                        <textarea id="bulk-reason" class="form-control @error('bulkReason') is-invalid @enderror" rows="3" wire:model.defer="bulkReason" maxlength="1000"></textarea>
-                        @error('bulkReason') <div class="invalid-feedback">{{ $message }}</div> @enderror
-                    @endif
-                </div>
-                <div class="cpop-foot">
-                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" wire:click="cancelBulk">Cancelar</button>
-                    <button type="button" class="btn btn-sm px-3 text-white fw-semibold" style="background:{{ $bm[2] }};" wire:click="confirmBulk" wire:loading.attr="disabled" wire:target="confirmBulk" @disabled($bulkCount === 0)><i class="{{ $bm[1] }}"></i> {{ $bm[3] }} ({{ $bulkCount }})</button>
-                </div>
-            </div>
-        </div>
+        @php [$bTitle, $bIcon, $bNeeds, $bHint] = $bulkMeta[$bulkAction]; @endphp
+        <x-ops.modal :title="$bTitle . ' em massa'" :eyebrow="$bulkCount . ' depósito(s) elegíveis na seleção'" close="cancelBulk">
+            <p class="ops-modal-note">{{ $bHint }} @if ($bulkAction === 'block')Depósitos sem centro de trabalho ou já bloqueados são recusados e listados ao final.@endif Só os selecionados no status exigido ({{ strtolower($statusLabel[$bNeeds]) }}) são processados.</p>
+            @if (in_array($bulkAction, ['block', 'release', 'skip'], true))
+                <label for="bulk-reason" class="form-label text-uppercase small fw-bold">{{ $bulkAction === 'skip' ? 'Motivo (opcional)' : 'Motivo' }} @if ($bulkAction !== 'skip')<span class="text-danger">*</span>@endif</label>
+                <textarea id="bulk-reason" class="form-control @error('bulkReason') is-invalid @enderror" rows="3" wire:model.defer="bulkReason" maxlength="1000"></textarea>
+                @error('bulkReason') <div class="invalid-feedback">{{ $message }}</div> @enderror
+            @endif
+            <x-slot name="footer">
+                <button type="button" class="btn btn-outline-secondary" wire:click="cancelBulk">Cancelar</button>
+                <button type="button" class="btn btn-primary" wire:click="confirmBulk" wire:loading.attr="disabled" wire:target="confirmBulk" @disabled($bulkCount === 0)><i class="{{ $bIcon }}" aria-hidden="true"></i> {{ $bTitle }} ({{ $bulkCount }})</button>
+            </x-slot>
+        </x-ops.modal>
     @endif
 
     {{-- Dispensar --}}
     @if ($skipping)
-        <div class="cpop-overlay" wire:click.self="cancelSkip" x-data @keydown.escape.window="$wire.cancelSkip()">
-            <div class="cpop" style="max-width: 480px; --tone: #64748b;" role="dialog" aria-modal="true" aria-label="Dispensar data">
-                <div class="cpop-head">
-                    <span class="cpop-icon"><i class="ri-forbid-line"></i></span>
-                    <div><h3 class="cpop-title">Dispensar esta data</h3><div class="cpop-sub">Depósito {{ $skipping->deposit }} · {{ $skipping->scheduled_date->format('d/m/Y') }}</div></div>
-                    <button type="button" class="cpop-close" aria-label="Fechar" wire:click="cancelSkip"><i class="ri-close-line"></i></button>
-                </div>
-                <div class="cpop-body">
-                    <div class="cpop-hint">O depósito não será bloqueado nesta data (por exemplo, inventário adiado). Você pode reabrir depois.</div>
-                    <label for="skip-reason" class="cpop-label">Motivo (opcional)</label>
-                    <textarea id="skip-reason" class="form-control" rows="3" wire:model.defer="skipReason" maxlength="500"></textarea>
-                </div>
-                <div class="cpop-foot">
-                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" wire:click="cancelSkip">Cancelar</button>
-                    <button type="button" class="btn btn-sm px-3 text-white fw-semibold" style="background:#64748b;" wire:click="confirmSkip">Dispensar</button>
-                </div>
-            </div>
-        </div>
+        <x-ops.modal title="Dispensar esta data" :eyebrow="'Depósito ' . $skipping->deposit . ' · ' . $skipping->scheduled_date->format('d/m/Y')" close="cancelSkip">
+            <p class="ops-modal-note">O depósito não será bloqueado nesta data (por exemplo, inventário adiado). Você pode reabrir depois.</p>
+            <label for="skip-reason" class="form-label text-uppercase small fw-bold">Motivo (opcional)</label>
+            <textarea id="skip-reason" class="form-control" rows="3" wire:model.defer="skipReason" maxlength="500"></textarea>
+            <x-slot name="footer">
+                <button type="button" class="btn btn-outline-secondary" wire:click="cancelSkip">Cancelar</button>
+                <button type="button" class="btn btn-primary" wire:click="confirmSkip"><i class="ri-forbid-line" aria-hidden="true"></i> Dispensar</button>
+            </x-slot>
+        </x-ops.modal>
     @endif
 
     {{-- Liberar --}}
     @if ($releasing)
-        <div class="cpop-overlay" wire:click.self="cancelRelease" x-data @keydown.escape.window="$wire.cancelRelease()">
-            <div class="cpop" style="max-width: 500px; --tone: #0f8a77;" role="dialog" aria-modal="true" aria-label="Liberar depósito">
-                <div class="cpop-head">
-                    <span class="cpop-icon"><i class="ri-lock-unlock-line"></i></span>
-                    <div><h3 class="cpop-title">Liberar depósito {{ $releasing->deposit }}</h3><div class="cpop-sub">{{ $releasing->denomination }}</div></div>
-                    <button type="button" class="cpop-close" aria-label="Fechar" wire:click="cancelRelease"><i class="ri-close-line"></i></button>
-                </div>
-                <div class="cpop-body">
-                    <div class="cpop-hint">As <strong>{{ $releasing->Signal?->affected_count ?? 0 }}</strong> Ordem(ns) bloqueadas voltam, de uma vez, ao status que tinham antes do bloqueio.</div>
-                    <label for="rel-note" class="cpop-label">Observação (opcional)</label>
-                    <textarea id="rel-note" class="form-control" rows="3" wire:model.defer="releaseNote" maxlength="1000" placeholder="Ex.: inventário concluído."></textarea>
-                </div>
-                <div class="cpop-foot">
-                    <button type="button" class="btn btn-outline-secondary btn-sm px-3" wire:click="cancelRelease">Cancelar</button>
-                    <button type="button" class="btn btn-sm px-3 text-white fw-semibold" style="background:#0f8a77;" wire:click="confirmRelease" wire:loading.attr="disabled" wire:target="confirmRelease"><i class="ri-lock-unlock-line"></i> Liberar todas</button>
-                </div>
-            </div>
-        </div>
+        <x-ops.modal :title="'Liberar depósito ' . $releasing->deposit" :eyebrow="$releasing->denomination" close="cancelRelease">
+            <p class="ops-modal-note">As <strong>{{ $releasing->Signal?->affected_count ?? 0 }}</strong> Ordem(ns) bloqueadas voltam, de uma vez, ao status que tinham antes do bloqueio.</p>
+            <label for="rel-note" class="form-label text-uppercase small fw-bold">Observação (opcional)</label>
+            <textarea id="rel-note" class="form-control" rows="3" wire:model.defer="releaseNote" maxlength="1000" placeholder="Ex.: inventário concluído."></textarea>
+            <x-slot name="footer">
+                <button type="button" class="btn btn-outline-secondary" wire:click="cancelRelease">Cancelar</button>
+                <button type="button" class="btn btn-primary" wire:click="confirmRelease" wire:loading.attr="disabled" wire:target="confirmRelease"><i class="ri-lock-unlock-line" aria-hidden="true"></i> Liberar todas</button>
+            </x-slot>
+        </x-ops.modal>
     @endif
-
-    @once
-        <script>
-            if (!window.__closureFixedDropdown) {
-                window.__closureFixedDropdown = true;
-                document.addEventListener('click', function (event) {
-                    const toggle = event.target.closest('[data-closure-fixed-dropdown]');
-                    if (toggle && window.bootstrap && !window.bootstrap.Dropdown.getInstance(toggle)) {
-                        window.bootstrap.Dropdown.getOrCreateInstance(toggle, { popperConfig: (defaults) => ({ ...defaults, strategy: 'fixed' }) });
-                    }
-                }, true);
-            }
-        </script>
-    @endonce
 </div>

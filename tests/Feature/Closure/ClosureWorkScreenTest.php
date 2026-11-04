@@ -59,9 +59,9 @@ it('shows P, M and F badges per order and filters by type', function () {
     $this->actingAs($user);
 
     Livewire::test(WorkIndex::class)
-        ->assertSeeHtml('badge bg-danger" title="Passivo">P<')
-        ->assertSeeHtml('badge bg-success" title="Meta atual">M<')
-        ->assertSeeHtml('badge bg-primary" title="Meta futura">F<')
+        ->assertSeeHtml('ops-badge tone-red ops-badge--mono')
+        ->assertSeeHtml('ops-badge tone-green ops-badge--mono')
+        ->assertSeeHtml('ops-badge tone-blue ops-badge--mono')
         ->assertSee($p->Order->ordem)->assertSee($m->Order->ordem)->assertSee($f->Order->ordem)
         ->set('type', 'F')
         ->assertSee($f->Order->ordem)->assertDontSee($m->Order->ordem)->assertDontSee($p->Order->ordem)

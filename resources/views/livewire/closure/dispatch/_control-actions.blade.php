@@ -1,5 +1,5 @@
-<div class="dropdown">
-    <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" data-closure-fixed-dropdown aria-expanded="false" aria-label="Ações da Ordem {{ $state->Order?->ordem }}">Ações</button>
+<div class="dropdown ops-row-actions">
+    <button type="button" class="btn btn-sm btn-outline-secondary ops-menu-btn" data-bs-toggle="dropdown" data-closure-fixed-dropdown aria-expanded="false" aria-label="Ações da Ordem {{ $state->Order?->ordem }}" title="Mais ações da Ordem"><i class="ri-more-2-fill" aria-hidden="true"></i></button>
     <ul class="dropdown-menu dropdown-menu-end closure-actions-menu">
         @php
             $statusIcons = ['IN_PROGRESS' => 'ri-play-line text-success', 'PAUSED' => 'ri-pause-circle-line text-secondary', 'DEPOSIT_BLOCKED' => 'ri-lock-line text-danger', 'DEPOSIT_RELEASED' => 'ri-lock-unlock-line text-success'];
@@ -78,18 +78,3 @@
         <li><a class="dropdown-item" href="{{ route('closure.order.detail', ['order' => $state->order_id, 'ctx' => ($controlMode ?? false) ? 'dispatch' : 'service']) }}"><i class="ri-file-list-3-line me-2"></i>Abrir ordem</a></li>
     </ul>
 </div>
-
-@once
-    <script>
-        // O menu fica em posição fixa para não ser cortado pelo overflow da tabela (a última linha ficava escondida).
-        if (!window.__closureFixedDropdown) {
-            window.__closureFixedDropdown = true;
-            document.addEventListener('click', function (event) {
-                const toggle = event.target.closest('[data-closure-fixed-dropdown]');
-                if (toggle && window.bootstrap && !window.bootstrap.Dropdown.getInstance(toggle)) {
-                    window.bootstrap.Dropdown.getOrCreateInstance(toggle, { popperConfig: (defaults) => ({ ...defaults, strategy: 'fixed', modifiers: [...(defaults.modifiers || []), { name: 'flip', options: { fallbackPlacements: ['top-end', 'bottom-end', 'top-start'] } }, { name: 'preventOverflow', options: { padding: 8 } }] }) });
-                }
-            }, true);
-        }
-    </script>
-@endonce

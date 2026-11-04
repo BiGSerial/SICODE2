@@ -18,12 +18,18 @@ class ClosureSettings
 
     public const KEY_SELF_ASSIGN_TYPES = 'self_assign_types';
 
+    /** Rubricas (`notes.rubrica`) fora do Encerramento: não entram como candidatas ao despacho. Padrão do banco: "Recomposição". */
+    public const KEY_EXCLUDED_RUBRICS = 'excluded_rubrics';
+
+    public const DEFAULT_EXCLUDED_RUBRICS = ['Recomposição'];
+
     public const CACHE_TTL_SECONDS = 60;
 
     private const DEFAULTS = [
         self::KEY_ALLOW_FUTURE_COMPLETION => false,
         self::KEY_SELF_ASSIGN_ENABLED     => false,
         self::KEY_SELF_ASSIGN_TYPES       => [ClosureMetaClassifier::TYPE_PASSIVE, ClosureMetaClassifier::TYPE_META],
+        self::KEY_EXCLUDED_RUBRICS        => self::DEFAULT_EXCLUDED_RUBRICS,
     ];
 
     public function allowFutureCompletion(): bool
@@ -40,6 +46,20 @@ class ClosureSettings
     public function selfAssignTypes(): array
     {
         return $this->normalizeTypes((array) $this->get(self::KEY_SELF_ASSIGN_TYPES));
+    }
+
+    /** @return array<int, string> */
+    public function excludedRubrics(): array
+    {
+        return $this->normalizeRubrics((array) $this->get(self::KEY_EXCLUDED_RUBRICS));
+    }
+
+    /** @param array<int, string> $rubrics */
+    public function setExcludedRubrics(array $rubrics, ?User $actor): void
+    {
+        $this->set(self::KEY_EXCLUDED_RUBRICS, $this->normalizeRubrics($rubrics), $actor);
+        // A elegibilidade (cacheada) depende desta lista.
+        ClosureEligibleOrders::forget();
     }
 
     public function setAllowFutureCompletion(bool $value, ?User $actor): void
@@ -93,6 +113,15 @@ class ClosureSettings
         $valid = [ClosureMetaClassifier::TYPE_PASSIVE, ClosureMetaClassifier::TYPE_META, ClosureMetaClassifier::TYPE_FUTURE];
 
         return array_values(array_intersect($valid, array_map(fn ($type) => strtoupper((string) $type), $types)));
+    }
+
+    /**
+     * @param array<int, mixed> $rubrics
+     * @return array<int, string>
+     */
+    private function normalizeRubrics(array $rubrics): array
+    {
+        return array_values(array_unique(array_filter(array_map(fn ($r) => trim((string) $r), array_filter($rubrics, 'is_scalar')), fn ($r) => $r !== '')));
     }
 
     private function cacheKey(string $key): string

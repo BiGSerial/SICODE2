@@ -2,6 +2,7 @@
 
 namespace App\Http\Livewire\Closure\Dispatch;
 
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Models\Closure\{ClosureDepositCalendarEntry, ClosurePartnerSignal};
 use App\Services\Closure\{ClosureDepositCalendarImporter, ClosureOrderWorkflowException, ClosurePartnerSignalService};
 use Carbon\Carbon;
@@ -16,6 +17,7 @@ use Livewire\{Component, WithFileUploads, WithPagination};
 class DepositCalendar extends Component
 {
     use WithFileUploads;
+    use WithListFilters;
     use WithPagination;
 
     public const PER_PAGE = 25;
@@ -24,13 +26,14 @@ class DepositCalendar extends Component
 
     public string $search = '';
 
-    public string $month = '';
-
-    public string $status = 'PENDING';
-
-    public string $serviceType = '';
-
+    /** Atalho dos cartões: today | week | overdue (vazio = sem recorte de data). */
     public string $due = '';
+
+    protected $queryString = [
+        'search'  => ['except' => ''],
+        'due'     => ['except' => ''],
+        'filters' => ['except' => [], 'as' => 'f'],
+    ];
 
     public $calendarFile = null;
 
@@ -62,28 +65,96 @@ class DepositCalendar extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('closure.dispatch'), 403);
+
+        // Abre mostrando o que falta confirmar; "Limpar filtros" mostra tudo.
+        if ($this->filters === [] && !request()->has('f')) {
+            $this->filters = ['status' => [ClosureDepositCalendarEntry::STATUS_PENDING]];
+        }
     }
 
-    public function updated($property): void
+    public function updatedSearch(): void
     {
-        if (in_array($property, ['search', 'month', 'status', 'serviceType', 'due'], true)) {
-            $this->selected = [];
-            $this->resetPage();
+        $this->selected = [];
+        $this->resetPage();
+    }
+
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'status'      => ['label' => 'Status'],
+            'month'       => ['label' => 'Mês'],
+            'serviceType' => ['label' => 'Tipo de serviço'],
+        ];
+    }
+
+    protected function listFilterOptions(): array
+    {
+        $months = [1 => 'Janeiro', 2 => 'Fevereiro', 3 => 'Março', 4 => 'Abril', 5 => 'Maio', 6 => 'Junho', 7 => 'Julho', 8 => 'Agosto', 9 => 'Setembro', 10 => 'Outubro', 11 => 'Novembro', 12 => 'Dezembro'];
+
+        return [
+            'status' => [
+                ['v' => ClosureDepositCalendarEntry::STATUS_PENDING, 'l' => 'Pendente'],
+                ['v' => ClosureDepositCalendarEntry::STATUS_BLOCKED, 'l' => 'Bloqueado'],
+                ['v' => ClosureDepositCalendarEntry::STATUS_RELEASED, 'l' => 'Liberado'],
+                ['v' => ClosureDepositCalendarEntry::STATUS_SKIPPED, 'l' => 'Dispensado'],
+            ],
+            'month'       => $this->entries()->select('month')->distinct()->orderBy('month')->pluck('month')->map(fn ($m) => ['v' => (string) $m, 'l' => $months[(int) $m] ?? (string) $m])->all(),
+            'serviceType' => $this->entries()->whereNotNull('service_type')->select('service_type')->distinct()->orderBy('service_type')->pluck('service_type')->map(fn ($t) => ['v' => (string) $t, 'l' => (string) $t])->all(),
+        ];
+    }
+
+    /** Cartões de prazo ligam e desligam; sempre sobre os pendentes (é o que o cartão conta). */
+    public function setDue(string $due): void
+    {
+        $this->due = $this->due === $due ? '' : $due;
+
+        if ($this->due !== '') {
+            $this->filters['status'] = [ClosureDepositCalendarEntry::STATUS_PENDING];
         }
+
+        $this->afterListFiltersChanged();
+    }
+
+    public function removeAnyFilter(string $key): void
+    {
+        if ($key === 'search') {
+            $this->search = '';
+            $this->resetPage();
+        } elseif ($key === 'due') {
+            $this->due = '';
+            $this->resetPage();
+        } else {
+            $this->removeListFilter($key);
+        }
+
+        $this->selected = [];
     }
 
     public function clearFilters(): void
     {
-        $this->reset('search', 'month', 'serviceType', 'due');
-        $this->status = '';
-        $this->resetPage();
+        $this->reset('search', 'due');
+        $this->clearListFilters();
     }
 
-    public function setDue(string $due): void
+    public function hasCriteria(): bool
     {
-        $this->due    = $this->due === $due ? '' : $due;
-        $this->status = $due === 'done' ? '' : 'PENDING';
-        $this->resetPage();
+        return $this->hasListFilters() || trim($this->search) !== '' || $this->due !== '';
+    }
+
+    /** @return array<int, array{key: string, label: string, value: string}> */
+    private function criteriaChips(): array
+    {
+        $chips = [];
+
+        if (trim($this->search) !== '') {
+            $chips[] = ['key' => 'search', 'label' => 'Busca', 'value' => trim($this->search)];
+        }
+
+        if ($this->due !== '') {
+            $chips[] = ['key' => 'due', 'label' => 'Prazo', 'value' => ['today' => 'Vencem hoje', 'week' => 'Próximos 7 dias', 'overdue' => 'Atrasados'][$this->due] ?? $this->due];
+        }
+
+        return $chips;
     }
 
     // ------------------------------------------------------------- Importação
@@ -356,8 +427,9 @@ class DepositCalendar extends Component
                 'overdue' => (clone $pending)->whereDate('scheduled_date', '<', $today)->count(),
                 'active'  => ClosurePartnerSignal::query()->active()->where('origin', ClosurePartnerSignal::ORIGIN_CALENDAR)->count(),
             ],
-            'months'         => $this->entries()->select('month')->distinct()->orderBy('month')->pluck('month'),
-            'serviceTypes'   => $this->entries()->whereNotNull('service_type')->select('service_type')->distinct()->orderBy('service_type')->pluck('service_type'),
+            'hasCriteria'    => $this->hasCriteria(),
+            'criteriaChips'  => $this->criteriaChips(),
+            'canRegister'    => (bool) auth()->user()?->can('admin'),
             'confirming'     => $this->confirmingId ? $this->entries()->find($this->confirmingId) : null,
             'confirmInfo'    => $this->confirmingId ? $this->confirmInfo() : null,
             'skipping'       => $this->skippingId ? $this->entries()->find($this->skippingId) : null,
@@ -396,9 +468,9 @@ class DepositCalendar extends Component
         $today = Carbon::today();
 
         return $this->entries()
-            ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
-            ->when($this->month !== '', fn ($q) => $q->where('month', (int) $this->month))
-            ->when($this->serviceType !== '', fn ($q) => $q->where('service_type', $this->serviceType))
+            ->when($this->filterValues('status') !== [], fn ($q) => $q->whereIn('status', $this->filterValues('status')))
+            ->when($this->filterValues('month') !== [], fn ($q) => $q->whereIn('month', array_map('intval', $this->filterValues('month'))))
+            ->when($this->filterValues('serviceType') !== [], fn ($q) => $q->whereIn('service_type', $this->filterValues('serviceType')))
             ->when($this->due === 'today', fn ($q) => $q->whereDate('scheduled_date', $today))
             ->when($this->due === 'week', fn ($q) => $q->whereDate('scheduled_date', '>=', $today)->whereDate('scheduled_date', '<=', $today->copy()->addDays(7)))
             ->when($this->due === 'overdue', fn ($q) => $q->whereDate('scheduled_date', '<', $today))

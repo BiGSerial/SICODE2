@@ -69,6 +69,13 @@
     --ops-warn-ink: #7a5d00;
     --ops-danger-ink: #a11d1d;
 
+    --ops-notice-danger-bg: rgba(227, 44, 44, .08);
+    --ops-notice-danger-border: rgba(227, 44, 44, .35);
+    --ops-notice-bg: var(--ops-surface-chip);
+    --ops-overlay: rgba(16, 32, 51, .45);
+    --ops-shadow-drawer: -12px 0 30px rgba(16, 32, 51, .2);
+    --ops-priority-flag: #d9b400;
+
     // ---------- Esqueleto de carregamento ----------
     --ops-skel-a: #dbe4ec;
     --ops-skel-b: #eef3f7;

@@ -159,7 +159,7 @@ it('shows the work value column on the dispatch list, only the status in the sta
     $row = preg_match('/<tr[^>]*data-order-row="' . $f['order']->id . '".*?<\/tr>/s', $html, $m) ? $m[0] : '';
 
     // o status da atividade aparece uma vez, sem o selo repetido; a cor está na linha (com a explicação no tooltip)
-    expect($row)->toContain('signal-row signal-assigned')->and($row)->toContain('data-signal="assigned"')->and($row)->toContain('title="Atribuída:')
+    expect($row)->toContain('ops-row-assigned')->and($row)->toContain('data-signal="assigned"')->and($row)->toContain('title="Atribuída:')
         ->and($row)->not->toContain('class="signal signal-')
         ->and(substr_count($row, 'Atribuída'))->toBeLessThanOrEqual(3);
 
@@ -180,8 +180,11 @@ it('shows the work value on the service lists (Minha atividade/Controle, Dispon�
 
     Livewire::actingAs($f['dispatcher'])->test(Control::class)->assertSee('Valor da obra')->assertSee('R$ 31.415,92')->assertSee('R$ 2.718,28');
 
-    foreach ([Available::class, History::class] as $class) {
-        Livewire::actingAs($f['dispatcher'])->test($class)->assertSee('Valor da obra');
+    // Minha atividade mostra o valor; Disponíveis e Histórico só desenham a tabela quando há Ordens (estado vazio explica o que fazer).
+    Livewire::actingAs($f['internal'])->test(\App\Http\Livewire\Closure\Work\Index::class)->assertSee('Valor da obra')->assertSee('R$ 31.415,92');
+
+    foreach ([Available::class => 'Atividade Encerramento', History::class => 'Meu histórico'] as $class => $title) {
+        Livewire::actingAs($f['dispatcher'])->test($class)->assertSee($title);
     }
 
     expect(Livewire::actingAs($f['dispatcher'])->test(Control::class)->lastRenderedDom)->not->toContain('class="signal signal-');
@@ -194,9 +197,9 @@ it('keeps only the activity status in the Control status column', function () {
     $html = Livewire::actingAs($f['dispatcher'])->test(Control::class)->lastRenderedDom;
     $row  = preg_match('/<tr[^>]*closure-work-state-' . $f['state']->id . '.*?<\/tr>/s', $html, $m) ? $m[0] : '';
 
-    // status único "Finalizado"; o vermelho (+24h sem baixa no SAP) vem da cor da linha
+    // status único "Finalizado" no selo; o Controle não pinta a linha por situação
     expect(substr_count($row, 'Finalizado'))->toBe(1)
-        ->and($row)->toContain('signal-row signal-overdue')->and($row)->not->toContain('Sem baixa no SAP</span>');
+        ->and($row)->not->toContain('signal-row')->and($row)->not->toContain('Sem baixa no SAP</span>');
 });
 
 // ---------------------------------------------------------------- exportação
@@ -232,7 +235,7 @@ it('leaves orders already closed in SAP (ENT/ENC) out of the dispatch list', fun
     $open   = valOrder();
     $closed = valOrder();
     $closed->update(['statusSist' => 'ENTE CONF CNPA']);
-    $other  = valOrder();
+    $other = valOrder();
     $other->update(['statusSist' => 'ENCE CONF']);
     ClosureEligibleOrders::forget();
 

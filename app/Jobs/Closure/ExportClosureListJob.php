@@ -154,9 +154,32 @@ class ExportClosureListJob implements ShouldQueue
             'onlyUndispatched' => 'Só não despachadas',
             'onlyPriority'     => 'Só prioritárias',
             'competence'       => 'Competência',
+            'competences'      => 'Competência',
+            'statuses'         => 'Status',
+            'companyIds'       => 'Empresa (informe)',
+            'assigneeIds'      => 'Responsável',
+            'rubrics'          => 'Rubrica',
+            'onlyBlocked'      => 'Só afetadas por depósito bloqueado',
         ];
 
+        // Filtros do WithListFilters (Controle): chave => rótulo da tela.
+        $listLabels = ['statusUser' => 'Status usuário', 'company' => 'Empresa (posse atual)', 'user' => 'Responsável', 'rubric' => 'Rubrica', 'status' => 'Status'];
+
         $rows = [];
+
+        foreach ($listLabels as $key => $label) {
+            $values = (array) ($this->filters['filters'][$key] ?? []);
+
+            if ($values !== []) {
+                $values = match ($key) {
+                    'company' => \App\Models\Company::query()->whereIn('id', $values)->pluck('name')->all(),
+                    'user'    => User::query()->whereIn('id', $values)->pluck('name')->all(),
+                    'status'  => array_map(fn ($v) => \App\Enum\ClosureOperationalStatus::labelFor($v), $values),
+                    default   => $values,
+                };
+                $rows[] = ['Filtro - ' . $label, implode(', ', $values)];
+            }
+        }
 
         foreach ($labels as $key => $label) {
             if (!array_key_exists($key, $this->filters)) {

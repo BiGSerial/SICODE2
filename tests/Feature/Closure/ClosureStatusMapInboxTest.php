@@ -176,7 +176,7 @@ it('lets only closure managers open the status map screen', function () {
     $manager = mapActor();
     $other   = mapActor(['closure_operator' => true]);
 
-    $this->actingAs($manager)->get(route('closure.status_map'))->assertOk()->assertSee('Mapa de status por serviço');
+    $this->actingAs($manager)->get(route('closure.status_map'))->assertOk()->assertSee('Caixas das atividades');
     $this->actingAs($other)->get(route('closure.status_map'))->assertForbidden();
 
     Livewire::actingAs($other)->test(StatusUserMap::class)->assertForbidden();

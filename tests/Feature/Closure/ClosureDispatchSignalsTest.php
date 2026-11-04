@@ -62,16 +62,16 @@ it('paints the whole row: yellow pile, blue assigned, green done, red 24h withou
     $closedOk->Order->update(['statusSist' => 'LIB CNPA']);
 
     $html = Livewire::actingAs(sigManager())->test(Index::class)
-        ->assertSee('Na pilha, sem atribuição')->assertSee('Atribuída')->assertSee('Concluída')->assertSee('Sem baixa no SAP')
-        ->assertSeeHtml('signal-legend')
+        ->assertSee('Na pilha')->assertSee('Com usuário')->assertSee('Concluída')->assertSee('SAP pendente')
+        ->assertSeeHtml('ops-legend')
         ->lastRenderedDom;
 
     foreach ([
-        [$pile, 'pile'], [$assigned, 'assigned'], [$done, 'done'], [$overdue, 'overdue'],
-    ] as [$state, $key]) {
+        [$pile, 'pile', 'stack'], [$assigned, 'assigned', 'assigned'], [$done, 'done', 'done'], [$overdue, 'overdue', 'late'],
+    ] as [$state, $key, $rowState]) {
         $row = preg_match('/<tr[^>]*data-order-row="' . $state->order_id . '".*?<\/tr>/s', $html, $m) ? $m[0] : '';
 
-        expect($row)->toContain('signal-row signal-' . $key)->and($row)->toContain('data-signal="' . $key . '"');
+        expect($row)->toContain('ops-row-' . $rowState)->and($row)->toContain('data-signal="' . $key . '"');
     }
 
     // o vermelho cobre também a Ordem finalizada há dias sem baixa no SAP
@@ -89,7 +89,7 @@ it('does not color an Order that was not dispatched, and a SAP-closed finished O
 
     $row = preg_match('/<tr[^>]*data-order-row="' . $undispatched->id . '".*?<\/tr>/s', $html, $m) ? $m[0] : '';
 
-    expect($row)->not->toContain('signal-row')->and($row)->not->toContain('data-signal=')->and($row)->toContain('Não despachada');
+    expect($row)->not->toContain('ops-row-')->and($row)->not->toContain('data-signal=')->and($row)->toContain('Não despachada');
 });
 
 it('disables selection and dispatch on an Order that already has an owner, explaining why', function () {
@@ -180,13 +180,15 @@ it('flags it in the eligibility preview of the dispatch modal', function () {
         ->and($rows[0]['reason'])->toContain('já foi despachada')->toContain('Beltrano');
 });
 
-it('shows the same signals and legend on the Control list', function () {
+it('keeps the Control list without situation colors: the status lives in the badge', function () {
     $assignee = User::factory()->create();
     $overdue  = sigState('FINISHED', ['assigned_user_id' => $assignee->id, 'entered_current_status_at' => '2026-10-23 08:00:00']);
 
     $html = Livewire::actingAs(sigManager())->test(\App\Http\Livewire\Closure\Dispatch\Control::class)->lastRenderedDom;
 
-    expect($html)->toContain('signal-legend')->toContain('data-signal="overdue"')->toContain('signal-row signal-overdue');
+    // Lista de controle (padrão ops): sem cor de situação na linha; o status é o selo, com a explicação em português.
+    expect($html)->toContain('ops-control')->not->toContain('signal-row')->not->toContain('signal-legend')
+        ->and($html)->toContain('Finalizado')->toContain('Finalizada pelo responsável');
 
     expect($overdue->operational_status)->toBe('FINISHED');
 });

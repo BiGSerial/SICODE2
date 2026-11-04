@@ -649,7 +649,7 @@ it('os menus de atividade (despacho e serviço) levam a atividade nos parâmetro
 
     $groups = \App\Support\Menu\DispatchNav::resolve(['service' => $noGate, 'variant' => 'encerramento'])['atividade']['groups'];
     expect(collect($groups)->pluck('key')->all())->toBe(['acompanhamento', 'gestao'])
-        ->and(collect($groups[1]['items'])->pluck('key')->all())->toBe(['depositos']);
+        ->and(collect($groups[1]['items'])->pluck('key')->all())->toBe(['painel', 'depositos', 'config']);
 });
 
 it('o componente do menu renderiza a atividade, os parâmetros da rota e o painel extra do rodapé', function () {

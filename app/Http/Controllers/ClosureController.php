@@ -17,6 +17,11 @@ class ClosureController extends Controller
         return view('closure.meta');
     }
 
+    public function settings()
+    {
+        return view('closure.settings');
+    }
+
     public function statusMap()
     {
         return view('closure.status-map');

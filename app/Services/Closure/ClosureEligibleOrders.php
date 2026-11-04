@@ -235,7 +235,10 @@ class ClosureEligibleOrders
     /** @return array<int, array{fim: ?string, competence: ?string}> order_id => fimReal e competência pelo fimReal (somente elegíveis) */
     private function computeEligible(): array
     {
-        $rows = $this->classifier->scopeEligible(Order::query())
+        $excluded = app(ClosureSettings::class)->excludedRubrics();
+        $rows     = $this->classifier->scopeEligible(Order::query())
+            // Rubricas fora do Encerramento (configuráveis em Gestão do ciclo) não são candidatas; Ordem já despachada continua visível pelo estado.
+            ->when($excluded !== [], fn ($q) => $q->whereNotIn('orders.note_id', fn ($sub) => $sub->select('id')->from('notes')->whereIn('rubrica', $excluded)))
             ->select('orders.id')
             ->selectRaw("(select max(o.fimReal) from operations o where o.order_id = orders.id and o.operacao = '0020' and o.status like 'CONF%' and o.fimReal is not null) as fim")
             ->get();

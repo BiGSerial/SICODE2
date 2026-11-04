@@ -2,7 +2,7 @@
 
 namespace App\Http\Livewire\Closure\Work;
 
-use App\Http\Livewire\Closure\Work\Concerns\ClosureWorkListing;
+use App\Http\Livewire\Closure\Work\Concerns\{ClosureWorkListing, WithOpsWorkFilters};
 use App\Services\Closure\ClosureOrderWorkflowService;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\{Component, WithPagination};
@@ -13,8 +13,15 @@ use Livewire\{Component, WithPagination};
  */
 class History extends Component
 {
-    use ClosureWorkListing;
+    use ClosureWorkListing, WithOpsWorkFilters {
+        WithOpsWorkFilters::clearFilters insteadof ClosureWorkListing;
+        ClosureWorkListing::clearFilters as protected clearListingFilters;
+        WithOpsWorkFilters::statusUserOptions insteadof ClosureWorkListing;
+        ClosureWorkListing::statusUserOptions as protected statusUserOptionsFromListing;
+    }
     use WithPagination;
+
+    private ?array $memoStatusUserOptions = null;
 
     public const PER_PAGE = 25;
 
@@ -30,14 +37,19 @@ class History extends Component
         return $this->historyQuery();
     }
 
-    public function updatedStatusUsers(): void
+    protected function statusFilterLabel(): ?string
     {
-        $this->resetPage();
+        return 'Situação';
+    }
+
+    protected function statusFilterValues(): array
+    {
+        return self::HISTORY_STATUSES;
     }
 
     public function exportList(): void
     {
-        \App\Jobs\Closure\ExportClosureListJob::dispatch(static::class, ['type' => $this->type, 'status' => $this->status, 'search' => $this->search, 'statusUsers' => $this->statusUsers, 'bulkTerms' => $this->bulkTerms], (string) auth()->id());
+        \App\Jobs\Closure\ExportClosureListJob::dispatch(static::class, ['type' => $this->type, 'status' => $this->status, 'search' => $this->search, 'statusUsers' => $this->statusUsers, 'bulkTerms' => $this->bulkTerms, 'filters' => $this->filters], (string) auth()->id());
 
         $this->dispatchBrowserEvent('swal', ['position' => 'center', 'icon' => 'success', 'title' => 'Exportação iniciada', 'html' => '<p class="mb-0"><strong>Você será notificado quando o download estiver disponível.</strong></p>', 'timer' => 5000]);
     }
@@ -60,8 +72,9 @@ class History extends Component
     public function render()
     {
         return view('livewire.closure.work.history', [
-            'states'   => $this->historyQuery()->paginate(self::PER_PAGE),
-            'statuses' => self::HISTORY_STATUSES,
+            'states'        => $this->historyQuery()->paginate(self::PER_PAGE),
+            'hasCriteria'   => $this->hasCriteria(),
+            'criteriaChips' => $this->criteriaChips(),
         ]);
     }
 
@@ -74,14 +87,18 @@ class History extends Component
 
     private function historyQuery(): Builder
     {
+        $this->syncWorkFilters();
+
         $user = auth()->user();
 
         $query = $this->baseListingQuery()
             ->where('closure_order_states.assigned_user_id', $user->id);
 
-        in_array($this->status, self::HISTORY_STATUSES, true)
-            ? $query->where('closure_order_states.operational_status', $this->status)
-            : $query->whereIn('closure_order_states.operational_status', self::HISTORY_STATUSES);
+        $this->applyRubricFilter($query);
+
+        $statuses = array_values(array_intersect($this->filterValues('status'), self::HISTORY_STATUSES));
+
+        $query->whereIn('closure_order_states.operational_status', $statuses ?: self::HISTORY_STATUSES);
 
         return $query->orderByDesc('closure_order_states.entered_current_status_at');
     }

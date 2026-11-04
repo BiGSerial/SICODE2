@@ -116,6 +116,37 @@ class ClosurePartnerSignalService
         return $pairs->mapWithKeys(fn (ClosurePartnerSignalState $pair) => [$pair->closure_order_state_id => $pair->Signal]);
     }
 
+    /** @var Collection<int, ClosurePartnerSignal>|null memo por requisição */
+    private ?Collection $activeMemo = null;
+
+    /**
+     * Bloqueios de depósito ativos agora (poucos), com os centros de trabalho que cobrem.
+     *
+     * @return Collection<int, ClosurePartnerSignal>
+     */
+    public function activeSignals(): Collection
+    {
+        return $this->activeMemo ??= ClosurePartnerSignal::query()->active()->where('type', ClosurePartnerSignal::TYPE_DEPOSIT_BLOCKED)->orderBy('deposit_code')->get();
+    }
+
+    /** @return array<int, string> centros de trabalho cobertos por qualquer bloqueio ativo */
+    public function activeWorkCenters(): array
+    {
+        return $this->activeSignals()->flatMap(fn (ClosurePartnerSignal $s) => (array) $s->work_centers)->map(fn ($c) => $this->normalize((string) $c))->unique()->values()->all();
+    }
+
+    /** Bloqueio ativo que cobre o centro de trabalho informado (centro da operação 0010 da Ordem). */
+    public function signalForCenter(?string $workCenter): ?ClosurePartnerSignal
+    {
+        if ($workCenter === null || trim($workCenter) === '') {
+            return null;
+        }
+
+        $workCenter = $this->normalize($workCenter);
+
+        return $this->activeSignals()->first(fn (ClosurePartnerSignal $s) => in_array($workCenter, array_map(fn ($c) => $this->normalize((string) $c), (array) $s->work_centers), true));
+    }
+
     public function activeFor(string $deposit, string $type = ClosurePartnerSignal::TYPE_DEPOSIT_BLOCKED): ?ClosurePartnerSignal
     {
         return ClosurePartnerSignal::query()->active()->where('type', $type)->where('deposit_code', $this->normalize($deposit))->first();

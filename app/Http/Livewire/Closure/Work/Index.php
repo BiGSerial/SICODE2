@@ -4,9 +4,11 @@ namespace App\Http\Livewire\Closure\Work;
 
 use App\Enum\ClosureOperationalStatus;
 use App\Http\Livewire\Closure\Work\Concerns\ClosureWorkListing;
+use App\Http\Livewire\Concerns\WithListFilters;
 use App\Models\Closure\{ClosureIssueCategory, ClosureOrderState};
 use App\Models\{Company, Operation, User};
 use App\Services\Closure\{ClosureIssueWorkflowException, ClosureIssueWorkflowService, ClosureMetaClassifier, ClosureOrderBatchWorkflowService, ClosureOrderWorkflowException, ClosureOrderWorkflowService, ClosureSettings};
+use App\Services\Closure\Queries\ClosureDispatchListQuery;
 use Illuminate\Database\Eloquent\Builder;
 use Livewire\{Component, WithPagination};
 
@@ -14,10 +16,29 @@ class Index extends Component
 {
     use ClosureWorkListing {
         clearFilters as protected clearListingFilters;
+        statusUserOptions as protected statusUserOptionsFromTrait;
     }
+    use WithListFilters;
     use WithPagination;
 
     public const PER_PAGE = 25;
+
+    public const SELECT_ALL_LIMIT = 1000;
+
+    /** Modal de ação em massa aberto. */
+    public bool $showBatch = false;
+
+    /** Calcula os cartões sem o recorte de status (cada cartão é um filtro de status e conta no mesmo recorte). */
+    protected bool $ignoreStatusScope = false;
+
+    private ?array $statusUserMemo = null;
+
+    protected $queryString = [
+        'search'       => ['except' => ''],
+        'type'         => ['except' => 'all'],
+        'onlyPriority' => ['except' => false, 'as' => 'prioridade'],
+        'filters'      => ['except' => [], 'as' => 'f'],
+    ];
 
     public const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 
@@ -85,9 +106,15 @@ class Index extends Component
     {
         $settings = app(ClosureSettings::class);
 
-        $states = $this->visibleStatesQuery()->paginate($this->perPage);
+        $states  = $this->visibleStatesQuery()->paginate($this->perPage);
+        $signals = app(\App\Services\Closure\ClosurePartnerSignalService::class);
 
-        return view('livewire.closure.work.index', [
+        return view($this->listView(), [
+            'activeDeposits'    => $signals->activeSignals(),
+            'centerSignals'     => $states->getCollection()->pluck('cen_trab')->filter()->unique()->mapWithKeys(fn ($center) => [$center => $signals->signalForCenter($center)])->filter(),
+            'hasCriteria'       => $this->hasCriteria(),
+            'criteriaChips'     => $this->criteriaChips(),
+            'batchActions'      => $this->availableBatchActions(),
             'states'            => $states,
             'depositSignals'    => app(\App\Services\Closure\ClosurePartnerSignalService::class)->activeByState($states->getCollection()->pluck('id')),
             'selfAssignEnabled' => $settings->selfAssignEnabled(),
@@ -106,6 +133,245 @@ class Index extends Component
         ]);
     }
 
+    /** View da lista; o Controle sobrescreve. */
+    protected function listView(): string
+    {
+        return 'livewire.closure.work.mine';
+    }
+
+    // ------------------------------------------------------------------ filtros (WithListFilters)
+
+    /** @return array<string, array{label: string, depends?: array<int, string>}> */
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'statusUser' => ['label' => 'Status usuário'],
+            'rubric'     => ['label' => 'Rubrica'],
+            'status'     => ['label' => 'Status da atividade'],
+        ];
+    }
+
+    /** @return array<string, array<int, array{v: string, l: string, p?: array<string, string>}>> */
+    protected function listFilterOptions(): array
+    {
+        return [
+            'statusUser' => $this->statusUserFilterOptions(),
+            'rubric'     => $this->rubricFilterOptions(),
+            'status'     => $this->statusFilterOptions(),
+        ];
+    }
+
+    protected function statusUserFilterOptions(): array
+    {
+        return array_map(fn ($o) => ['v' => $o['v'], 'l' => $o['v'] . ' (' . $o['n'] . ')'], $this->statusUserOptions());
+    }
+
+    protected function rubricFilterOptions(): array
+    {
+        return $this->rememberFilterOptions('rubric', fn () => array_map(fn ($r) => ['v' => $r, 'l' => $r], ClosureDispatchListQuery::rubricOptions()));
+    }
+
+    protected function statusFilterOptions(): array
+    {
+        return collect(ClosureOperationalStatus::cases())
+            ->reject(fn (ClosureOperationalStatus $case) => $case->isTerminal())
+            ->map(fn (ClosureOperationalStatus $case) => ['v' => $case->value, 'l' => $case->label()])->values()->all();
+    }
+
+    /** Opções do filtro Status usuário, uma vez por requisição (a consulta agrega a lista inteira). */
+    public function statusUserOptions(): array
+    {
+        return $this->statusUserMemo ??= $this->filteredStatusUserOptions();
+    }
+
+    private function filteredStatusUserOptions(): array
+    {
+        // As opções contam a lista sem o próprio filtro de Status usuário.
+        $saved = $this->filters;
+        unset($this->filters['statusUser']);
+
+        try {
+            return $this->statusUserOptionsFromTrait();
+        } finally {
+            $this->filters = $saved;
+        }
+    }
+
+    protected function afterListFiltersChanged(): void
+    {
+        $this->resetPage();
+        $this->selectedStateIds = [];
+        $this->batchPreview     = [];
+        $this->dispatchBrowserEvent('ops-filters', ['sel' => (object) $this->filters]);
+    }
+
+    /** Traz os filtros do trait para as propriedades que a consulta herdada lê. */
+    protected function syncListing(): void
+    {
+        $this->statusUsers = $this->filterValues('statusUser');
+        $this->status      = 'all';
+    }
+
+    /** Conjuntos de status dos cartões que juntam vários status. */
+    protected const CARD_STATUS_SETS = [
+        'blocked' => [ClosureOrderWorkflowService::STATUS_PAUSED, ClosureOrderWorkflowService::STATUS_WAITING_PARTNER, ClosureOrderWorkflowService::STATUS_DEPOSIT_BLOCKED],
+    ];
+
+    /** Cartões: status liga/desliga (um recorte por vez), prioridade liga/desliga e "Total" limpa os recortes dos cartões. */
+    public function toggleCard(string $card): void
+    {
+        $filters = $this->filters;
+
+        if ($card === 'priority') {
+            $this->onlyPriority = !$this->onlyPriority;
+        } elseif ($card === 'all') {
+            unset($filters['status']);
+            $this->onlyPriority = false;
+        } else {
+            $set = self::CARD_STATUS_SETS[$card] ?? (in_array($card, ClosureOperationalStatus::values(), true) ? [$card] : null);
+
+            if ($set === null) {
+                return;
+            }
+
+            $current = (array) ($filters['status'] ?? []);
+            sort($current);
+            $wanted = $set;
+            sort($wanted);
+
+            if ($current === $wanted) {
+                unset($filters['status']);
+            } else {
+                $filters['status'] = $set;
+            }
+        }
+
+        $this->filters = $filters;
+        $this->afterListFiltersChanged();
+    }
+
+    /** O cartão está aceso? (mesma regra do toggleCard) */
+    public function cardActive(string $card): bool
+    {
+        $current = (array) ($this->filters['status'] ?? []);
+        sort($current);
+        $wanted = self::CARD_STATUS_SETS[$card] ?? [$card];
+        sort($wanted);
+
+        return $current === $wanted;
+    }
+
+    public function clearFilters(): void
+    {
+        $this->clearListingFilters();
+        $this->onlyPriority     = false;
+        $this->selectedStateIds = [];
+        $this->clearListFilters();
+    }
+
+    /** Remove um chip: critério da tela (busca, tipo, prioridade, busca em massa) ou filtro do trait. */
+    public function removeAnyFilter(string $key): void
+    {
+        match ($key) {
+            'search'   => $this->search = '',
+            'bulk'     => $this->clearBulkSearch(),
+            'type'     => $this->type         = 'all',
+            'priority' => $this->onlyPriority = false,
+            default    => $this->removeListFilter($key),
+        };
+
+        $this->resetPage();
+        $this->selectedStateIds = [];
+    }
+
+    public function hasCriteria(): bool
+    {
+        return $this->hasListFilters() || trim($this->search) !== '' || $this->type !== 'all' || $this->onlyPriority || $this->bulkTerms !== [];
+    }
+
+    /** @return array<int, array{key: string, label: string, value: string}> */
+    protected function criteriaChips(): array
+    {
+        $chips = [];
+
+        if (trim($this->search) !== '') {
+            $chips[] = ['key' => 'search', 'label' => 'Busca', 'value' => trim($this->search)];
+        }
+
+        if ($this->bulkTerms !== []) {
+            $chips[] = ['key' => 'bulk', 'label' => 'Busca em massa', 'value' => count($this->bulkTerms) . ' termo(s)'];
+        }
+
+        if ($this->type !== 'all') {
+            $chips[] = ['key' => 'type', 'label' => 'Tipo', 'value' => ClosureMetaClassifier::label($this->type)];
+        }
+
+        if ($this->onlyPriority) {
+            $chips[] = ['key' => 'priority', 'label' => 'Situação', 'value' => 'Só prioritárias'];
+        }
+
+        return $chips;
+    }
+
+    // ------------------------------------------------------------------ ações em massa (modal)
+
+    /** @return array<string, array{label: string, icon: string, hint: string}> */
+    public function availableBatchActions(): array
+    {
+        return [
+            'start'         => ['label' => 'Iniciar', 'icon' => 'ri-play-circle-line', 'hint' => 'Põe em andamento as Ordens atribuídas a você.'],
+            'change_status' => ['label' => 'Alterar status', 'icon' => 'ri-refresh-line', 'hint' => 'Pausa, depósito bloqueado/liberado ou volta a Em andamento, com motivo quando exigido.'],
+            'finish'        => ['label' => 'Finalizar', 'icon' => 'ri-checkbox-circle-line', 'hint' => 'Marca como finalizadas; aguardam a baixa no SAP.'],
+        ];
+    }
+
+    public function openBatch(string $action): void
+    {
+        if (!array_key_exists($action, $this->availableBatchActions())) {
+            $this->toast('Ação indisponível', 'Você não tem acesso a esta ação em massa.', 'warning');
+
+            return;
+        }
+
+        if ($this->selectedStateIds === []) {
+            $this->toast('Nada selecionado', 'Marque as Ordens antes de escolher a ação.', 'warning');
+
+            return;
+        }
+
+        $this->batchAction       = $action;
+        $this->batchPreview      = [];
+        $this->batchReceipt      = [];
+        $this->batchReason       = '';
+        $this->batchStatus       = '';
+        $this->managerCompanyId  = null;
+        $this->managerAssigneeId = null;
+        $this->managerPriority   = '1';
+        $this->showBatch         = true;
+    }
+
+    public function closeBatch(): void
+    {
+        $this->showBatch    = false;
+        $this->batchAction  = '';
+        $this->batchPreview = [];
+        $this->batchReceipt = [];
+        $this->batchReason  = '';
+        $this->batchStatus  = '';
+    }
+
+    /** Volta da prévia para os campos, sem perder a seleção. */
+    public function editBatch(): void
+    {
+        $this->batchPreview = [];
+    }
+
+    /** Seleciona todas as Ordens do recorte atual (até o limite), entre páginas. */
+    public function selectAllFilteredStates(): void
+    {
+        $this->selectedStateIds = $this->visibleStatesQuery()->reorder()->limit(self::SELECT_ALL_LIMIT)->pluck('closure_order_states.id')->map(fn ($id) => (int) $id)->all();
+        $this->batchPreview     = [];
+    }
     public function exportQuery(): Builder
     {
         return $this->visibleStatesQuery();
@@ -144,6 +410,7 @@ class Index extends Component
             'filterCompany' => $this->filterCompany,
             'filterUser'    => $this->filterUser,
             'onlyPriority'  => $this->onlyPriority,
+            'filters'       => $this->filters,
         ];
     }
 
@@ -168,16 +435,6 @@ class Index extends Component
     public function updatedPerPage(): void
     {
         $this->perPage = in_array((int) $this->perPage, self::PER_PAGE_OPTIONS, true) ? (int) $this->perPage : self::PER_PAGE;
-        $this->resetPage();
-    }
-
-    public function clearFilters(): void
-    {
-        $this->clearListingFilters();
-        $this->filterCompany    = null;
-        $this->filterUser       = null;
-        $this->onlyPriority     = false;
-        $this->selectedStateIds = [];
         $this->resetPage();
     }
 
@@ -526,21 +783,29 @@ class Index extends Component
         }
     }
 
-    /** Indicadores da faixa de KPIs, sobre o conjunto já filtrado. */
+    /** Indicadores dos cartões, sobre o conjunto filtrado e SEM o recorte de status (cada cartão é um filtro de status). */
     public function stats(): array
     {
-        $base                     = $this->visibleStatesQuery()->reorder()->toBase();
-        $base->columns            = null;
-        $base->orders             = null;
-        $base->bindings['select'] = [];
+        $this->ignoreStatusScope = true;
 
-        $row = $base->selectRaw("count(*) as total, coalesce(sum(closure_order_states.operational_status = 'IN_PROGRESS'), 0) as progress, coalesce(sum(closure_order_states.priority = 1), 0) as priority, coalesce(sum(closure_order_states.operational_status = 'AVAILABLE'), 0) as available, coalesce(sum(closure_order_states.operational_status in ('PAUSED','WAITING_PARTNER','DEPOSIT_BLOCKED')), 0) as blocked, coalesce(avg(timestampdiff(MINUTE, closure_order_states.entered_current_status_at, now())), 0) as avg_min")->first();
+        try {
+            $base                     = $this->visibleStatesQuery()->reorder()->toBase();
+            $base->columns            = null;
+            $base->orders             = null;
+            $base->bindings['select'] = [];
+
+            $row = $base->selectRaw("count(*) as total, coalesce(sum(closure_order_states.operational_status = 'IN_PROGRESS'), 0) as progress, coalesce(sum(closure_order_states.operational_status = 'ASSIGNED'), 0) as assigned, coalesce(sum(closure_order_states.priority = 1), 0) as priority, coalesce(sum(closure_order_states.operational_status = 'AVAILABLE'), 0) as available, coalesce(sum(closure_order_states.operational_status = 'DEPOSIT_BLOCKED'), 0) as deposit, coalesce(sum(closure_order_states.operational_status in ('PAUSED','WAITING_PARTNER','DEPOSIT_BLOCKED')), 0) as blocked, coalesce(avg(timestampdiff(MINUTE, closure_order_states.entered_current_status_at, now())), 0) as avg_min")->first();
+        } finally {
+            $this->ignoreStatusScope = false;
+        }
 
         return [
             'total'     => (int) ($row->total ?? 0),
             'progress'  => (int) ($row->progress ?? 0),
+            'assigned'  => (int) ($row->assigned ?? 0),
             'priority'  => (int) ($row->priority ?? 0),
             'available' => (int) ($row->available ?? 0),
+            'deposit'   => (int) ($row->deposit ?? 0),
             'blocked'   => (int) ($row->blocked ?? 0),
             'avg_min'   => (int) round((float) ($row->avg_min ?? 0)),
         ];
@@ -802,8 +1067,18 @@ class Index extends Component
 
     protected function visibleStatesQuery(): Builder
     {
-        $user  = auth()->user();
-        $query = $this->baseListingQuery();
+        $this->syncListing();
+
+        $user    = auth()->user();
+        $query   = $this->baseListingQuery();
+        $rubrics = $this->filterValues('rubric');
+
+        if ($rubrics !== []) {
+            $query->whereIn('orders.note_id', fn ($sub) => $sub->select('id')->from('notes')->whereIn('rubrica', $rubrics));
+        }
+
+        // Centro de trabalho da operação 0010: base para marcar as Ordens no alcance de um depósito bloqueado.
+        $query->selectRaw("(select max(o10.cenTrab) from operations o10 where o10.order_id = orders.id and o10.operacao = '0010') as cen_trab");
 
         $query->when(!$user->can('closure.manage'), function (Builder $builder) use ($user) {
             $builder->where(function (Builder $own) use ($user) {
@@ -816,19 +1091,31 @@ class Index extends Component
             $query->where('closure_order_states.priority', true);
         }
 
-        if ($this->status === 'all') {
-            $query->whereNotIn('closure_order_states.operational_status', [
-                ClosureOrderWorkflowService::STATUS_CLOSED,
-                ClosureOrderWorkflowService::STATUS_CANCELLED,
-                ClosureOrderWorkflowService::STATUS_AVAILABLE,
-            ]);
-        } else {
-            $query->where('closure_order_states.operational_status', $this->status);
-        }
+        $this->applyStatusScope($query);
 
         return $query
             ->orderByDesc('closure_order_states.priority')
             ->orderBy('closure_order_states.entered_current_status_at');
+    }
+
+    /** Recorte por status da atividade; a visão de controle sobrescreve (várias opções e Disponível incluído). */
+    protected function applyStatusScope(Builder $query): void
+    {
+        $statuses = $this->ignoreStatusScope ? [] : $this->filterValues('status');
+
+        if ($statuses !== []) {
+            $query->whereIn('closure_order_states.operational_status', $statuses);
+
+            return;
+        }
+
+        $query->whereNotIn('closure_order_states.operational_status', $this->hiddenStatuses());
+    }
+
+    /** Status que ficam fora quando não há filtro de status. A lista do executor também esconde a pilha (Disponível). */
+    protected function hiddenStatuses(): array
+    {
+        return [ClosureOrderWorkflowService::STATUS_CLOSED, ClosureOrderWorkflowService::STATUS_CANCELLED, ClosureOrderWorkflowService::STATUS_AVAILABLE];
     }
 
     private function runWorkflow(string $action, ClosureOrderState $state, ?string $reason = null, ?string $newStatus = null): void
@@ -882,7 +1169,7 @@ class Index extends Component
         }
     }
 
-    private function clearSelection(): void
+    protected function clearSelection(): void
     {
         $this->selectedStateIds = [];
         $this->batchPreview     = [];

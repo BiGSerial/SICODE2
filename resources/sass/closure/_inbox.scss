@@ -336,40 +336,6 @@
     }
 }
 
-// ---- Mapa de status por serviço (configuração) ----
-.closure-dash {
-    .map-list {
-        border: 1px solid var(--dash-line);
-        border-radius: 8px;
-        max-height: 420px;
-        overflow-y: auto;
-    }
-
-    .map-item {
-        align-items: center;
-        border-bottom: 1px solid var(--dash-line);
-        cursor: pointer;
-        display: flex;
-        font-size: .86rem;
-        gap: 10px;
-        margin: 0;
-        padding: 8px 12px;
-    }
-
-    .map-item:last-child {
-        border-bottom: 0;
-    }
-
-    .map-item:hover {
-        background: var(--dash-soft);
-    }
-
-    .map-item.is-taken {
-        cursor: not-allowed;
-        opacity: .6;
-    }
-}
-
 // ---- Menu de ações por linha: nunca passa da tela (rola por dentro) e agrupa por intenção ----
 .closure-dash,
 body {

@@ -77,7 +77,7 @@ it('hides the list (tab and access) while the dispatch has not enabled self-assi
 
     foreach ([[], ['aba' => 'todas'], ['aba' => 'disponiveis']] as $query) {
         $this->get(route('services.main', ['service' => $service->uuid] + $query))
-            ->assertOk()->assertSee('Minha Atividade')->assertDontSee('Todas as Ordens')->assertDontSee('Lista Encerramento');
+            ->assertOk()->assertSee('Minha atividade')->assertDontSee('Todas as Ordens')->assertDontSee('Lista Encerramento');
     }
 });
 
@@ -92,7 +92,7 @@ it('shows the tab and the list as the default once the dispatch enabled self-ass
     $this->actingAs($user)->get(route('services.main', ['service' => $service->uuid]))
         ->assertOk()->assertSee('Todas as Ordens')->assertSee('Lista Encerramento');
 
-    $this->get(route('services.main', ['service' => $service->uuid, 'aba' => 'minhas']))->assertOk()->assertSee('Minha Atividade');
+    $this->get(route('services.main', ['service' => $service->uuid, 'aba' => 'minhas']))->assertOk()->assertSee('Minha atividade');
 });
 
 it('does not take anything if the dispatch revokes the permission after the list was opened', function () {
