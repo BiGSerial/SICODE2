@@ -83,7 +83,7 @@ it('vencido fica vermelho e conta os dias úteis em atraso', function () {
     expect($row['dueAt']->toDateString())->toBe('2026-10-13')
         ->and($row['dueDays'])->toBeLessThan(0)
         ->and($row['dueTone'])->toBe('red')
-        ->and($row['dueLabel'])->toContain('vencidos');
+        ->and($row['dueLabel'])->toContain('dias vencido');
 });
 
 it('feriado do estado não conta como dia útil', function () {

@@ -212,7 +212,7 @@
                                 <td>
                                     @if ($deadline)
                                         <x-ops.date :date="$deadline['due_at']" :tone="$deadlineTone"
-                                            :sub="$deadline['remaining_days'] < 0 ? abs($deadline['remaining_days']) . ($deadline['remaining_days'] === -1 ? ' dia útil vencido' : ' dias úteis vencidos') : $deadline['remaining_days'] . ($deadline['remaining_days'] === 1 ? ' dia útil' : ' dias úteis')"
+                                            :sub="$deadline['remaining_days'] < 0 ? abs($deadline['remaining_days']) . ($deadline['remaining_days'] === -1 ? ' dia vencido' : ' dias vencido') : $deadline['remaining_days'] . ($deadline['remaining_days'] === 1 ? ' dia útil' : ' dias úteis')"
                                             :hint="$deadline['hint']" />
                                     @else
                                         <span class="ops-empty">—</span>

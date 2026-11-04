@@ -179,7 +179,7 @@ class PaymentAccompanyRowPresenter
 
         return match (true) {
             $days === null => null,
-            $days < 0      => abs($days) . ($business ? (abs($days) === 1 ? ' dia útil vencido' : ' dias úteis vencidos') : (abs($days) === 1 ? ' dia vencido' : ' dias vencidos')),
+            $days < 0      => abs($days) . (abs($days) === 1 ? ' dia vencido' : ' dias vencido'),
             default        => $days . ($business ? ' d úteis' : ' d'),
         };
     }
