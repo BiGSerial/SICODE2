@@ -68,7 +68,7 @@ trait ActivityNavHelpers
 
         return self::group('encerramento', 'Encerramento', 'ri-door-lock-line', [
             self::item('enc-acomp', 'Em acompanhamento', $inboxRoute, 'ri-eye-line', [], [['components.count.closure-inbox-count', ['area' => $area, 'kind' => 'accompanying']]], $params, ['can' => $gate]),
-            self::item('enc-despachadas', 'Despachadas para resolver', $inboxRoute, 'ri-send-plane-line', [], [['components.count.closure-inbox-count', ['area' => $area, 'kind' => 'dispatched']]], $params + ['tab' => 'dispatched'], ['can' => $gate]),
+            self::item('enc-despachadas', 'Despachos para retorno', $inboxRoute, 'ri-send-plane-line', [], [['components.count.closure-inbox-count', ['area' => $area, 'kind' => 'dispatched']]], $params + ['tab' => 'dispatched'], ['can' => $gate]),
         ]);
     }
 }

@@ -30,7 +30,7 @@ class ClosureInboxQuery
      * Filtros da lista do Despacho para a caixa: os status escolhidos (sempre dentro dos mapeados) ou todos os mapeados.
      * Sem status mapeado a caixa fica vazia (nunca "tudo").
      *
-     * @param array{search?: string, prefixes?: array<int, string>, type?: string, bulk?: array<int, string>, holderUserId?: ?string, companyId?: ?string} $filters
+     * @param array{search?: string, prefixes?: array<int, string>, type?: string, bulk?: array<int, string>, holderUserId?: ?string, holderUserIds?: array<int, string>, companyId?: ?string, companyIds?: array<int, string>} $filters
      *
      * @return array<string, mixed>
      */
@@ -51,7 +51,9 @@ class ClosureInboxQuery
             'bulk'        => array_values(array_filter($filters['bulk'] ?? [])),
             'types'       => in_array($type, ['P', 'M', 'F'], true) ? [$type] : [],
             'assigneeId'  => ($filters['holderUserId'] ?? null) ?: null,
+            'assigneeIds' => array_values(array_filter((array) ($filters['holderUserIds'] ?? []))),
             'companyId'   => ($filters['companyId'] ?? null) ?: null,
+            'companyIds'  => array_values(array_filter((array) ($filters['companyIds'] ?? []))),
         ];
     }
 
@@ -101,7 +103,7 @@ class ClosureInboxQuery
      */
     public function filterOptions(string $area, array $filters = []): array
     {
-        $ids = $this->list->filteredIds($this->listFilters($area, ['holderUserId' => null, 'companyId' => null] + $filters));
+        $ids = $this->list->filteredIds($this->listFilters($area, ['holderUserId' => null, 'holderUserIds' => [], 'companyId' => null, 'companyIds' => []] + $filters));
 
         $userIds = $ids === [] ? [] : ClosureOrderState::query()->whereIn('order_id', $ids)->whereNotNull('assigned_user_id')->distinct()->pluck('assigned_user_id')->all();
 

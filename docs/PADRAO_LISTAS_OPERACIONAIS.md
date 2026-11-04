@@ -35,6 +35,7 @@ Wrapper obrigatório: `<div class="closure-dash my-panel ops-list" x-data="opsSe
 ## 3. Tabela e cor da linha
 
 - Uma tabela `.ops-table` com `colgroup` de larguras fixas (somar no máximo ~1.460 px para caber num monitor de 1920 sem rolagem lateral), sem altura máxima (a rolagem vertical é só a da página, nunca uma segunda barra dentro do painel; só há rolagem lateral se a tabela não couber), centralizada, texto de nome alinhado à esquerda (`is-left`).
+- **Largura:** as larguras do `colgroup` são o mínimo de cada coluna; `resources/js/ops/table-fit.js` reparte a sobra entre elas (proporcional) para a tabela ocupar toda a área do painel em monitor largo, e some sozinho quando não há sobra (aí vale a rolagem lateral). Não crie coluna "curinga" nem CSS por tela para isso.
 - Primeira coluna: caixa de seleção com `data-ops-row` e `@change="recount()"`. Última coluna: **ação como botão** (`btn btn-primary btn-sm ops-action`, ícone + verbo), nunca ícone solto.
 - Rodapé `tfoot` com totais da página quando houver valor somável.
 - **Cor da linha = situação**, fonte única `RowState` (a legenda `<x-ops.legend>` lê dela). A linha ganha uma barra de acento à esquerda e um fundo suave (`ops-row-{estado}`); linha livre fica branca.
@@ -223,6 +224,13 @@ O **Acompanhamento** (`services.accompany`) é a fila de trabalho do próprio us
 O selo mostra a data de vencimento e, embaixo, os dias úteis que faltam ("N d úteis") ou "N dias vencido". Cor: verde com mais de 1 dia útil, âmbar de 1 a 0, vermelho vencido (a mesma faixa do Controle de Pagamento). O Controle de Pagamento continua com a regra própria (`payment.measurement_deadline`, 15 corridos em ES).
 
 A **Lista de Pagamento/Medição** (`Services\Payment\Main`, perfil `service` do `PaymentListRowPresenter`) usa o mesmo prazo, pelo `PaymentAccompanyRowPresenter::deadline()`: a coluna Vencimento é a data da regra acima, a coluna ADS mostra a data da ADS também na Parcial, e o atalho **Todos · Vencendo · Vencidos** (`prazo` na URL) filtra pelo tom do vencimento. Como o prazo é calculado em PHP, com o atalho ligado a lista inteira é apresentada e paginada depois.
+
+### Caixa do Encerramento (Medição e Fiscalização)
+
+`Closure\Inbox\Index` (`services/{service}/closure_inbox`) é uma **lista de controle** com duas abas de natureza diferente, e a tela diz qual é qual (selo no hero e faixa explicativa):
+
+- **Em acompanhamento (só visão):** Ordens do Encerramento em status mapeado para a área, despachadas ou não. Nada a responder; a Ordem sai sozinha quando o status muda. Cartões de status (`<x-ops.stat>`) filtram; filtros Status usuário, Responsável (Encerramento) e Empresa (informe) pelo `WithListFilters` (na URL), busca com debounce, busca em massa e Excel. Linha pronta em `Closure\ClosureInboxRowPresenter`; a cor da linha é o `ClosureSignal` do Encerramento (mesmas quatro situações do `RowState`).
+- **Despachos para retorno (exige resposta):** pendências que o Encerramento enviou para a área; situação (Aberta, Aguardando resposta, Respondida, Em validação, Devolvida, Resolvida) como selo.
 
 ## 14. Situação da migração
 

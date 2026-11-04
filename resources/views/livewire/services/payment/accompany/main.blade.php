@@ -123,10 +123,10 @@
                             <col style="width: 120px">
                             <col style="width: 140px">
                             <col style="width: 100px">
-                            <col style="width: 100px">
+                            <col style="width: 86px">
                             <col style="width: 88px">
                             <col style="width: 92px">
-                            <col style="width: 110px">
+                            <col style="width: 124px">
                             <col style="width: 96px">
                             <col style="width: 140px">
                         </colgroup>

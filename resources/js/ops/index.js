@@ -3,3 +3,4 @@
 import './filter-panel';
 import './selection';
 import './copy';
+import './table-fit';

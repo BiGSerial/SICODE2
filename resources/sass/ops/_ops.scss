@@ -641,3 +641,11 @@
         .ops-selection { left: 12px; right: 12px; transform: none; }
     }
 }
+
+// A tabela espera o primeiro ajuste de largura das colunas (resources/js/ops/table-fit.js); se o JS falhar, aparece depois de 0,8 s.
+html:not(.ops-fit-ready) .ops-list .ops-table {
+    animation: ops-fit-reveal 0s linear .8s forwards;
+    opacity: 0;
+}
+
+@keyframes ops-fit-reveal { to { opacity: 1; } }

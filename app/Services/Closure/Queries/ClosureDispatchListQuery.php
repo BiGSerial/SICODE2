@@ -77,18 +77,21 @@ class ClosureDispatchListQuery
             $query->where('s.operational_status', $status);
         }
 
-        if (!empty($filters['assigneeId'])) {
-            $query->where('s.assigned_user_id', $filters['assigneeId']);
+        $assignees = array_values(array_filter([...(array) ($filters['assigneeIds'] ?? []), $filters['assigneeId'] ?? null]));
+
+        if ($assignees !== []) {
+            $query->whereIn('s.assigned_user_id', $assignees);
         }
 
         $rows = $query->orderBy('orders.ordem')->orderBy('orders.id')->get()
             ->map(fn ($row) => ['id' => (int) $row->id, 'state_id' => $row->state_id ? (int) $row->state_id : null])->all();
 
         // Empresa = a da relação com o informe (mapa cacheado em ClosureEligibleOrders), não a de quem está com a Ordem.
-        if (!empty($filters['companyId'])) {
+        $companies = array_map('strval', array_values(array_filter([...(array) ($filters['companyIds'] ?? []), $filters['companyId'] ?? null])));
+
+        if ($companies !== []) {
             $inform = $this->eligible->informCompanies();
-            $wanted = (string) $filters['companyId'];
-            $rows   = array_values(array_filter($rows, fn ($row) => ($inform[$row['id']] ?? '') === $wanted));
+            $rows   = array_values(array_filter($rows, fn ($row) => in_array((string) ($inform[$row['id']] ?? ''), $companies, true)));
         }
 
         return $rows;

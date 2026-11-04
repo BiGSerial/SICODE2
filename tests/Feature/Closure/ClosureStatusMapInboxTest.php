@@ -330,8 +330,8 @@ it('shows the inbox filters on the screen', function () {
 
     Livewire::actingAs($f['dispatcher'])->test(InboxIndex::class, ['area' => ClosureArea::MEASUREMENT])
         ->assertSee('Status usuário')->assertSee('Responsável (Encerramento)')->assertSee('Empresa (informe)')
-        ->set('holderUserId', 'x')->assertSee('Limpar filtros')
-        ->call('clearFilters')->assertSet('holderUserId', null);
+        ->set('search', 'x')->assertSee('Limpar filtros')
+        ->call('clearFilters')->assertSet('search', '')->assertSet('filters', []);
 });
 
 it('counts the two menu badges: orders in accompaniment (blue) and dispatched issues to resolve (red)', function () {
@@ -362,6 +362,40 @@ it('counts the two menu badges: orders in accompaniment (blue) and dispatched is
         ->assertDontSeeHtml('badge');
 
     // o link do menu abre direto na aba das despachadas
-    Livewire::actingAs($admin)->test(InboxIndex::class, ['area' => ClosureArea::MEASUREMENT, 'tab' => 'dispatched'])->assertSet('tab', 'dispatched')->assertSee('Pendências despachadas');
+    Livewire::actingAs($admin)->test(InboxIndex::class, ['area' => ClosureArea::MEASUREMENT, 'tab' => 'dispatched'])->assertSet('tab', 'dispatched')->assertSee('Despachos para retorno');
     Livewire::actingAs($admin)->test(InboxIndex::class, ['area' => ClosureArea::MEASUREMENT, 'tab' => 'qualquer'])->assertSet('tab', 'accompanying');
+});
+
+it('keeps accompaniment (view only) and dispatches for return (needs a reply) clearly apart', function () {
+    $admin = mapActor();
+    app(ClosureStatusUserRouteService::class)->sync(ClosureArea::MEASUREMENT, ['JAND INVE'], $admin);
+
+    Livewire::actingAs($admin)->test(InboxIndex::class, ['area' => ClosureArea::MEASUREMENT])
+        ->assertSee('Em acompanhamento')->assertSee('Despachos para retorno')
+        ->assertSee('Só visão')->assertDontSee('Exige resposta')
+        ->call('setTab', 'dispatched')
+        ->assertSee('Exige resposta')->assertSee('esperam o seu retorno');
+});
+
+it('filters the inbox by several statuses, responsibles and companies through the shared list filters', function () {
+    $mine   = inboxOrder('JAND INVE BLOQ');
+    $free   = inboxOrder('JAND PPAG X');
+    $admin  = mapActor();
+    $holder = allUserForInbox();
+
+    app(\App\Services\Closure\ClosureDispatchService::class)->dispatchOrders([$mine->id], $holder->Company, $holder, $admin);
+    app(ClosureStatusUserRouteService::class)->sync(ClosureArea::MEASUREMENT, ['JAND INVE', 'JAND PPAG'], $admin);
+
+    expect(inboxIds(ClosureArea::MEASUREMENT, ['holderUserIds' => [(string) $holder->id]]))->toBe([$mine->id])
+        ->and(inboxIds(ClosureArea::MEASUREMENT, ['holderUserIds' => ['00000000-0000-0000-0000-000000000000']]))->toBe([]);
+
+    Livewire::actingAs($admin)->test(InboxIndex::class, ['area' => ClosureArea::MEASUREMENT])
+        ->call('togglePrefix', 'JAND PPAG')
+        ->assertSet('filters', ['status' => ['JAND PPAG']])
+        ->assertSee($free->ordem)->assertDontSee($mine->ordem)
+        ->call('togglePrefix', 'JAND PPAG')
+        ->assertSet('filters', [])
+        ->call('applyListFilters', ['responsavel' => [(string) $holder->id], 'status' => ['FORA DAQUI']])
+        ->assertSet('filters', ['responsavel' => [(string) $holder->id]])
+        ->assertSee($mine->ordem)->assertDontSee($free->ordem);
 });

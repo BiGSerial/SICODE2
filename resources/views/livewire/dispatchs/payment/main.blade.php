@@ -93,7 +93,7 @@
                         <col style="width: 108px">
                         <col style="width: 92px">
                         <col style="width: 92px">
-                        <col style="width: 92px">
+                        <col style="width: 124px">
                         <col style="width: 104px">
                     </colgroup>
                     <thead>
