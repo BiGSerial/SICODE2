@@ -1,622 +1,300 @@
 @php
-    use Carbon\Carbon;
-    use App\Custom\Notestatus;
-    use App\Helpers\DaysLeft;
+    $activity = $service->service;
+    $hasRows  = $rows->isNotEmpty();
 @endphp
-<div class="user-activity-page payment-accompany-page">
-    {{-- Carrega o Loading da página --}}
-    <x-show-loading />
-    @include('livewire.services.partials.user-activity-list-style')
-    <style>
-        .payment-accompany-page .payment-accompany-table {
-            min-width: 1540px;
-            table-layout: auto;
-        }
 
-        .payment-accompany-page .ads-info {
-            line-height: 1.2;
-        }
+{{-- Acompanhamento de Pagamento (a fila de trabalho do usuário): padrão em docs/PADRAO_LISTAS_OPERACIONAIS.md. Hero → ferramentas (busca, tipo, filtros)
+     → abas → painel com a tabela. Prazo de medição: 8 dias úteis (regra em App\Services\Payment\PaymentAccompanyRowPresenter). --}}
+<div class="closure-dash my-panel ops-list">
 
-        .payment-accompany-page .ads-info-date {
-            font-size: .78rem;
-            font-weight: 700;
-            white-space: nowrap;
-        }
-
-        .payment-accompany-page .activity-filter-card,
-        .payment-accompany-page .user-activity-summary {
-            margin-left: 0;
-            margin-right: 0;
-            width: 100%;
-        }
-
-        .payment-accompany-page .user-activity-table-card {
-            max-width: 100%;
-        }
-
-        .payment-accompany-page .payment-accompany-table th,
-        .payment-accompany-page .payment-accompany-table td {
-            white-space: nowrap;
-            vertical-align: middle;
-        }
-
-        .payment-accompany-page .payment-accompany-table {
-            font-size: .78rem;
-        }
-
-        .payment-accompany-page .payment-accompany-table th,
-        .payment-accompany-page .payment-accompany-table td {
-            padding: .2rem .35rem;
-        }
-
-        .payment-accompany-page .payment-type-scope-cell {
-            width: 28px;
-        }
-
-        .payment-accompany-page .payment-note-cell {
-            min-width: 100px;
-        }
-
-        .payment-accompany-page .payment-company-cell {
-            min-width: 140px;
-            white-space: normal;
-        }
-
-        .payment-accompany-page .payment-pep-cell {
-            min-width: 100px;
-        }
-
-        .payment-accompany-page .payment-date-cell {
-            min-width: 80px;
-        }
-
-        .payment-accompany-page .payment-action-cell {
-            min-width: 58px;
-        }
-    </style>
-    @include('livewire.services.partials.user-activity-hero', [
-        'context' => 'Acompanhamento de produção',
-        'subtitle' => 'Gestão das atividades de medição',
-        'total' => $lists->total(),
-        'accent' => '#0f766e',
-    ])
-
-    <div class="row g-3 activity-filter-card mb-3 justify-content-end">
-        <div class="col-md-4 col-lg-4 col-xl-1">
-            <label for="" class="form-label">Por Página</label>
-            <select wire:model="perPage" class="form-select form-control-sm  border border-2 border-secondary">
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500">500</option>
-            </select>
+    <x-ops.hero
+        :eyebrow="'Serviços · ' . $activity"
+        :title="'Acompanhamento de ' . mb_strtolower($activity)"
+        subtitle="As Notas e OVs que estão com você. Inicie, transfira ou devolva cada uma; o prazo de medição é de 8 dias úteis, contados da aprovação do engenheiro (Parcial) ou da entrega da ADS (Final).">
+        <div class="d-flex flex-wrap gap-2 justify-content-end">
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="export_d5tolist" wire:loading.attr="disabled" wire:target="export_d5tolist">
+                <i class="ri-file-text-line" aria-hidden="true"></i> Exportar D5
+            </button>
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="export_excel" wire:loading.attr="disabled" wire:target="export_excel">
+                <i class="ri-file-excel-2-line" aria-hidden="true"></i> Exportar Excel
+            </button>
         </div>
+    </x-ops.hero>
 
-        <div class="col-md-6 col-xl-2 ">
-            <label for="search" class="form-label">Buscar</label>
-            <div class="input-group">
-                <input wire:model.bounce.2s="search" type="text"
-                    class="form-control border border-2 border-secondary" id="search" placeholder="Buscar">
-                <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#buscar_multi"><i
-                        class="ri-checkbox-multiple-blank-line"></i></button>
-            </div>
-        </div>
+    <section class="ops-toolbar" aria-label="Filtros do acompanhamento">
+        <div class="ops-toolbar-row">
+            <x-ops.search wire:model.debounce.500ms="search" placeholder="Buscar nota ou material" label="Buscar nota ou material">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#buscar_multi" title="Buscar várias notas de uma vez" aria-label="Buscar várias notas de uma vez">
+                    <i class="ri-list-check-2" aria-hidden="true"></i>
+                </button>
+            </x-ops.search>
 
-        <div class="col-md-9 d-flex mb-3 justify-content-end py-4">
-            <label for="search" class="form-label"> </label>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="1">
-                <label class="form-check-label" for="inlineRadio1">Nota</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="2">
-                <label class="form-check-label" for="inlineRadio1">OV</label>
-            </div>
-            <div class="form-check form-check-inline">
-                <input class="form-check-input" type="radio" name="typeNote" wire:model="typeNote" value="">
-                <label class="form-check-label" for="inlineRadio1">Ambos</label>
-            </div>
+            <x-ops.segmented name="paymentAccompanyTypeNote" label="Tipo de nota" wire:model="typeNote" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
 
-            @livewire('components.filter.filter', ['myKey' => 'company', 'sendFilter' => '', 'model' => 'App\Models\Company', 'column' => 'id', 'filter' => 'Empreiteira', 'group_filter' => 'payments_acc', 'values' => 'name', 'direction' => 'ASC', 'query' => ''], key('company'))
-            @livewire('components.filter.filter', ['myKey' => 'rubrica', 'sendFilter' => '', 'model' => 'App\Models\Note', 'column' => 'rubrica', 'filter' => 'Rubrica', 'group_filter' => 'payments_acc', 'values' => 'rubrica', 'direction' => 'ASC', 'query' => ''], key('rubrica'))
-            @livewire('components.filter.filter', ['myKey' => 'region', 'sendFilter' => 'regional', 'model' => 'App\Models\City', 'column' => 'regiao', 'filter' => 'Regiao', 'group_filter' => 'payments_acc', 'values' => 'regiao', 'direction' => 'ASC', 'query' => ''], key('region'))
-            @livewire('components.filter.filter', ['myKey' => 'regional', 'sendFilter' => 'city', 'model' => 'App\Models\City', 'column' => 'regional', 'filter' => 'Regional', 'group_filter' => 'payments_acc', 'values' => 'regional', 'direction' => 'ASC', 'query' => ''], key('regional'))
-            @livewire('components.filter.filter', ['myKey' => 'city', 'sendFilter' => '', 'model' => 'App\Models\City', 'column' => 'cidade', 'filter' => 'Municipio', 'group_filter' => 'payments_acc', 'values' => 'cidade', 'direction' => 'ASC', 'query' => ''], key('city'))
-            @livewire('components.filter.remove-all', ['group_filter' => 'payments_acc'], key('removeAll'))
-        </div>
+            <span class="ops-toolbar-spacer"></span>
 
-
-
-    </div>
-
-
-    <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist">
-            <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
-                type="button" role="tab" aria-controls="nav-home" aria-selected="true"
-                wire:click.prevent="$emit('refresh_accomany')">Produção</button>
-            <button class="nav-link" id="nav-transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer"
-                type="button" role="tab" aria-controls="nav-profile" aria-selected="false"
-                wire:click.prevent="$emit('refresh_translist')">Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))</button>
-
-        </div>
-    </nav>
-
-    <div class="tab-content" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
-            tabindex="0">
-            @if ($lists->count())
-                <div class="row user-activity-summary my-3 align-items-center">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
-                    </div>
-                </div>
-            @endif
-            <div class="user-activity-table-card">
-
-                @if (!$lists->count())
-                    <div class="card-body">
-                        <h4 class="text-center">VOCÊ NAO TEM TAREFA ATRIBUÍDA
-                            <strong>{{ mb_strtoupper($service->service) }}</strong>
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    ({{ $sts->value }})
-                                @endforeach
-                            @endif
-                        </h4>
-                    </div>
-                @else
-                    <div class="user-activity-table-header text-bg-danger">
-                        <div class="row">
-                            <div class="col">
-                                <h4 class="user-activity-table-title">ACOMPANHAMENTO -
-                                    {{ mb_strtoupper($service->service) }}
-                                </h4>
-                            </div>
-                            <div class="col-3 d-flex justify-content-end">
-                                <button class="btn btn-sm btn-warning me-2" wire:click.prevent='export_d5tolist'><i
-                                        class="ri-file-text-line"></i> Exportar D5</button>
-                                <button class="btn btn-sm btn-primary me-2" wire:click.prevent='export_excel'><i
-                                        class="ri-file-excel-2-line"></i> Exportar</button>
-                                <button class="btn btn-sm btn-secondary" onclick="cleanLocalStorage()"
-                                    title="Limpar LocalStorage"><i class="ri-delete-bin-line"></i></button>
-                            </div>
-                        </div>
-                    </div>
-
-
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped table-condensed table-hover payment-accompany-table">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th class="align-middle text-center" title="Tipo / Escopo">T</th>
-                                    <th class="align-middle text-center">Nota</th>
-                                    <th class="align-middle text-center">Files</th>
-                                    <th class="align-middle text-center">Ordem</th>
-                                    <th class="align-middle text-center">Valor ADS</th>
-                                    {{-- <th class="align-middle text-center">Status</th> --}}
-                                    <th class="align-middle text-center" title="Status das operações 0030 / 0040 / 0050 por ordem">OP30 / 40 / 50</th>
-                                    <th class="align-middle text-center">Empresa / Responsável</th>
-                                    <th class="align-middle text-center">PEP</th>
-                                    <th class="align-middle text-center">Município</th>
-                                    <th class="align-middle text-center">Execução</th>
-                                    <th class="align-middle text-center">Informe</th>
-                                    <th class="align-middle text-center">Prazo Medição</th>
-                                    <th class="align-middle text-center">Status</th>
-                                    <th class="align-middle text-center"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @php
-                                    $soma = 0;
-
-                                    if (!function_exists('FiveStatus')) {
-                                        function FiveStatus($list, $fiveNote = null): object
-                                        {
-                                            $object = (object) [
-                                                'exists' => false,
-                                                'bgColor' => '',
-                                                'message' => '',
-                                            ];
-
-                                            if ($five = $fiveNote) {
-                                                if (!$five->is_supervisioned) {
-                                                    $object->exists = true;
-                                                    $object->bgColor = 'text-bg-primary';
-                                                    $object->message = 'Gerar D5 e reter carta';
-                                                } else {
-                                                    $object->exists = true;
-                                                    $object->bgColor = 'text-bg-success';
-                                                    $object->message = 'D5 Fiscalizada Liberar carta';
-                                                }
-                                            }
-
-                                            return (object) $object;
-                                        }
-                                    }
-                                @endphp
-                                @foreach ($lists as $list)
-                                    @php
-                                        $flowWorkForm = $list->WorkReportFlowProductions
-                                            ->firstWhere('stage', \App\Models\WorkReportFlowProduction::STAGE_PAYMENT)
-                                            ?->WorkReport;
-                                        $workForm = $flowWorkForm ?? $list->Note->WorkForm;
-
-                                        $daysLeft = $this->deadline($list->Note);
-                                        if ($list->partial) {
-                                            $partial = $list->note->partials?->last();
-                                        } else {
-                                            $partial = null;
-                                        }
-
-                                        $orders = $workForm && !$partial
-                                            ? $workForm->Orders ?? collect()
-                                            : ($partial
-                                                ? $partial->Orders ?? collect()
-                                                : collect());
-
-                                        $fiveNote = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($list);
-                                        $five = FiveStatus($list, $fiveNote);
-                                        $adsForm = $workForm?->Adsform ?? $list->Note->Adsform;
-                                        $isTacitAds = (bool) ($adsForm?->tacit ?? false);
-                                        $tacitDelivered = (bool) ($adsForm?->tacit_delivered_at ?? false);
-                                    @endphp
-
-                                    <tr wire:key="work-{{ $list->id }}"
-                                        class="align-middle text-center align-middle @if ($list->block) table-primary @endif">
-                                    @if ($partial)
-                                        <td class="payment-type-scope-cell align-middle" style="cursor: pointer" title="Duplo clique para ver detalhes"
-                                            wire:dblclick="$emitTo('partner.show.show-partial-info', 'show_form', {{ $partial }})">
-                                    @elseif ($workForm)
-                                        <td class="payment-type-scope-cell align-middle" style="cursor: pointer" title="Duplo clique para ver detalhes"
-                                            wire:dblclick="$emitTo('partner.show.show-work-form', 'show_form', {{ $workForm->id }})">
-                                    @else
-                                        <td class="payment-type-scope-cell align-middle">
-                                    @endif
-                                        @if ($list->partial)
-                                            <span class="badge text-bg-warning">P</span>
-                                        @else
-                                            @php
-                                                $isConnection = $workForm ? collect($workForm->finalScopeBadges())->pluck('scope')->contains('connection') : false;
-                                            @endphp
-                                            <span class="badge {{ $isConnection ? 'text-bg-warning' : 'text-bg-success' }}">F</span>
-                                        @endif
-                                    </td>
-                                    <td class="payment-note-cell fw-bold @if ($list->priority) text-danger fw-bold @endif">
-
-
-                                        @if ($five->exists)
-                                            <span class="badge {{ $five->bgColor }} fs-6" tabindex="0"
-                                                data-bs-toggle="popover" data-bs-trigger="hover focus"
-                                                data-bs-placement="top" data-bs-title="Nota com D5"
-                                                data-bs-content="{{ $five->message }}"
-                                                wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $list->Note->id }}, {{ $fiveNote?->id }})"
-                                                style="cursor: pointer;" z-index="0">
-                                                <span class="fw-bold">D5</span>
-                                                {{ $list->Note->note }}
-                                            </span>
-                                        @else
-                                            {{ $list->Note->note }}
-                                        @endif
-                                        <div class="mt-1">
-                                            <x-legal.note-demand-tags
-                                                :demands="$legalTagsByNoteId[$list->note_id] ?? []"
-                                                :row-key="'services-payment-accompany-'.$list->id"
-                                            />
-                                        </div>
-                                        {{-- <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                            style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                            data-bs-trigger="hover focus" data-bs-placement="top"
-                                            data-bs-content="Copiar Número da Nota"> <i
-                                                class="ri-file-copy-line"></i></span> --}}
-
-                                        @if ($list->priority)
-                                            <i class="ri-alert-fill align-middle"
-                                                wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                data-bs-trigger="hover focus" data-bs-placement="top"
-                                                data-bs-title="Exibir Prioridade"
-                                                data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
-                                        @endif
-                                        @if ($isTacitAds)
-                                            <div class="mt-1">
-                                                <span class="badge text-bg-dark">ADS TÁCITA</span>
-                                                <span class="badge {{ $tacitDelivered ? 'text-bg-success' : 'text-bg-danger' }}">
-                                                    {{ $tacitDelivered ? 'ENTREGUE' : 'NÃO ENTREGUE' }}
-                                                </span>
-                                            </div>
-                                        @endif
-                                    </td>
-                                    <td class="align-middle">
-                                        {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                        <x-files.select-download-list :files='$list->Note->Files' :allow-tacit="true" />
-
-                                    </td>
-                                    <td class="fw-light text-center align-middle">
-                                        @forelse ($orders as $order)
-                                            <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                        @empty
-                                            <p class="my-0 py-0">---</p>
-                                        @endforelse
-                                    </td>
-                                    <td class="text-center align-middle fw-bold">
-                                        @php
-                                            $adsAmount = $partial ? $partial->value : $adsForm?->amount;
-                                        @endphp
-
-                                        @if ($adsAmount !== null)
-                                            @php
-                                                $soma += (float) $adsAmount;
-                                            @endphp
-                                            R$ {{ number_format((float) $adsAmount, 2, ',', '.') }}
-                                        @else
-                                            ---
-                                        @endif
-                                    </td>
-                                    {{--
-                                        <td class="text-center align-middle">
-                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
-                                                    <span class="my-0py-0">
-                                                        {{ $order->statusSist }}
-                                                    </span>
-                                                @endforeach
-                                            @endif
-
-                                        </td> --}}
-
-                                    <td class="text-center align-middle">
-                                        @forelse ($orders as $order)
-                                            @php
-                                                $opStatus = fn ($code) => ($op = $order->Operations->firstWhere('operacao', $code)) && $op->status
-                                                    ? explode(' ', $op->status)[0]
-                                                    : '---';
-                                            @endphp
-                                            <p class="my-0 py-0">{{ $opStatus('0030') }} · {{ $opStatus('0040') }} · {{ $opStatus('0050') }}</p>
-                                        @empty
-                                            <p class="my-0 py-0">---</p>
-                                        @endforelse
-                                    </td>
-                                    <td class="payment-company-cell text-center">
-                                        @php
-                                            $informantFull = trim((string) ($partial ? $partial->responsible : $workForm?->informer));
-                                            $informantParts = $informantFull !== '' ? preg_split('/\s+/', $informantFull) : [];
-                                            $informantName = count($informantParts) > 1
-                                                ? $informantParts[0].' '.end($informantParts)
-                                                : ($informantParts[0] ?? null);
-                                        @endphp
-                                        <div class="fw-semibold">{{ $workForm ? $workForm->Company?->name : ($partial?->Company?->name ?? '---') }}</div>
-                                        @if ($informantName)
-                                            <small class="text-muted">{{ $informantName }}</small>
-                                        @endif
-                                    </td>
-
-                                    <td class="payment-pep-cell text-center">
-                                        @forelse ($orders as $order)
-                                            @php $available = $order->Pep?->disponivel; @endphp
-                                            <p class="my-0 py-0 fw-bold {{ $available !== null && $available < 0 ? 'text-danger' : ($available !== null && $available > 0 ? 'text-success' : '') }}"
-                                                @if ($order->pep) wire:dblclick="$emit('openPepFinancialModal', '{{ $order->pep }}')" style="cursor: pointer" title="Duplo clique para consultar o PEP {{ $order->pep }}" @endif>
-                                                {{ $available === null ? '---' : 'R$ '.number_format((float) $available, 2, ',', '.') }}
-                                            </p>
-                                        @empty
-                                            <p class="my-0 py-0">---</p>
-                                        @endforelse
-                                    </td>
-
-                                    <td class="fw-light text-center">{{ $list->Note->lexp }}</td>
-
-                                    <td class="payment-date-cell fw-light text-center">
-                                        @if ($workForm)
-                                            {{ $workForm->date ? date('d/m/Y', strToTime($workForm->date)) : '---' }}
-                                        @else
-                                            ---
-                                        @endif
-                                    </td>
-                                    <td class="payment-date-cell fw-light text-center">
-                                        @php
-                                            $informedAt = $workForm ? $workForm->informed_at : $partial?->supervision_at;
-                                            $informedAt = $informedAt ? Carbon::parse($informedAt) : null;
-                                        @endphp
-                                        @if ($informedAt)
-                                            <div class="ads-info">
-                                                <div class="ads-info-date">{{ $informedAt->format('d/m/Y') }}</div>
-                                                <small class="text-muted">{{ $informedAt->format('H:i') }}</small>
-                                            </div>
-                                        @else
-                                            ---
-                                        @endif
-                                    </td>
-
-                                    @php
-                                        if ($partial) {
-                                            $daysLeft = Carbon::parse($partial->supervision_at)
-                                                ->addDays(5)
-                                                ->startOfDay()
-                                                ->diffInDays(Carbon::now()->startOfDay());
-                                            $lastDate = $partial->supervision_at?->addDays(5)->format('d/m/Y');
-                                        } else {
-                                            $daysLeft = Carbon::parse($list->fimLancado)
-                                                ->startOfDay()
-                                                ->diffInDays(Carbon::now()->startOfDay());
-                                            $lastDate = Carbon::parse($list->fimLancado)->format('d/m/Y');
-                                        }
-                                    @endphp
-                                    <td scope="col" class="text-center" tabindex="0" data-bs-toggle="popover"
-                                        data-bs-trigger="hover focus" data-bs-placement="top"
-                                        data-bs-title="Prazo Medição"
-                                        data-bs-content="
-                             <p>A Data Corresponde 40 Parcial</p>
-                             <span class='fs-4 text-success'>&#9632;</span> <= 2 DIAS PARA VENCER <br>
-                             <span class='fs-4 text-warning'>&#9632;</span> <= 5 DIAS PARA VENCER <br>
-                             <span class='fs-4 text-danger'>&#9632;</span> > 5 DIAS VENCIDO <br>
-                             {{-- <span class='fs-4 text-secondary'>&#9632;</span> VENCIDO <br> --}}
-                             ">
-                                        <div class="ads-info">
-                                            <div class="ads-info-date">{{ $lastDate }}</div>
-                                            <span class="badge @if ($daysLeft <= 2) text-bg-success @elseif ($daysLeft > 5) text-bg-danger @else text-bg-warning @endif">
-                                                {{ $daysLeft }}
-                                                {{ $daysLeft === 1 ? 'dia' : 'dias' }}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td class="fw-light text-center">
-
-                                        <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                            wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                            style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
-                                    </td>
-                                    <td class="payment-action-cell fw-bold fs-5">
-                                        @if (!$list->block && !$this->blockWaiting($list->status))
-                                            @if (!$list->completed)
-                                                <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                    data-bs-title="Iniciar.">
-                                                    {{-- <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                            style="cursor: pointer;"
-                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }}, {{ $fiveNote?->id }})"></i> --}}
-                                                    <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                        style="cursor: pointer;"
-                                                        wire:click.prevent="$emitTo('services.payment.forms.jobform', 'showProduction', {{ $list }})"></i>
-                                                </span>
-                                                <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                    data-bs-title="Transferir.">
-                                                    <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                        style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                        wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                </span>
-                                            @endif
-                                        @endif
-
-                                        @if ($list->partial && !$workForm)
-                                            <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                data-bs-title="Devolver Informe">
-                                                <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
-                                                    style="cursor: pointer;"
-                                                    wire:click.prevent="$emitTo('production.return.reject-inform-partial', 'toReturn', {{ $list }})"></i>
-                                            </span>
-                                        @endif
-
-
-                                    </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                            <tfoot class="table-dark">
-                                <tr>
-                                    <td colspan="4"></td>
-                                    <td class="fw-bold">R$ {{ number_format($soma, 2, ',', '.') }}</td>
-                                    <td colspan="9"></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-
-                @endif
-
-
-            </div>
-            @if ($lists->count())
-                <div class="row user-activity-summary my-3 align-items-center">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="activity-summary-text"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
-                    </div>
-                </div>
+            @if ($hasCriteria)
+                <button type="button" class="ops-chips-clear" wire:click="clearAllCriteria"><i class="ri-filter-off-line" aria-hidden="true"></i> Limpar tudo</button>
             @endif
         </div>
 
-
-        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="0">
-            @livewire('components.transprod.translist', ['service' => $service->id])
+        <div class="ops-toolbar-row">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
         </div>
+
+        @if ($this->hasListFilters() || $multiSearch)
+            <div class="ops-toolbar-row">
+                <div class="ops-chips" aria-label="Critérios ativos">
+                    @foreach ($this->listFilterChips() as $chip)
+                        <span class="ops-chip" wire:key="chip-{{ $chip['key'] }}">
+                            <span><strong>{{ $chip['label'] }}:</strong> {{ $chip['value'] }}</span>
+                            <button type="button" class="btn-close" aria-label="Remover filtro {{ $chip['label'] }}" wire:click="removeListFilter('{{ $chip['key'] }}')"></button>
+                        </span>
+                    @endforeach
+                    @if ($multiSearch)
+                        <span class="ops-chip" wire:key="chip-multi">
+                            <span><strong>Busca em lote:</strong> {{ count($multiSearch) }} {{ count($multiSearch) === 1 ? 'item' : 'itens' }}</span>
+                            <button type="button" class="btn-close" aria-label="Remover a busca em lote" wire:click="clearMultiSearch"></button>
+                        </span>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </section>
+
+    <div class="mp-presets mb-3" role="tablist" aria-label="Acompanhamento">
+        <button type="button" role="tab" class="mp-preset {{ $tab === 'producao' ? 'is-active' : '' }}" wire:click="setTab('producao')" aria-selected="{{ $tab === 'producao' ? 'true' : 'false' }}">Produção</button>
+        <button type="button" role="tab" class="mp-preset {{ $tab === 'transferencias' ? 'is-active' : '' }}" wire:click="setTab('transferencias')" aria-selected="{{ $tab === 'transferencias' ? 'true' : 'false' }}">
+            Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('acc-transfer-count'))
+        </button>
     </div>
 
+    @if ($tab === 'transferencias')
+        <section class="mp-panel" aria-label="Transferências de {{ $activity }}">
+            <div class="mp-panel-head">
+                <div>
+                    <h2 class="mp-panel-title">Transferências</h2>
+                    <div class="mp-panel-sub">Notas que você transferiu ou que foram transferidas para você.</div>
+                </div>
+            </div>
+            <div class="mp-panel-body">
+                @livewire('components.transprod.translist', ['service' => $service->id], key('acc-translist-' . $service->id))
+            </div>
+        </section>
+    @else
+        <section class="mp-panel" aria-label="Acompanhamento de {{ $activity }}">
+            <div class="mp-panel-head">
+                <div>
+                    <h2 class="mp-panel-title">Minha fila</h2>
+                    <div class="mp-panel-sub">{{ number_format($lists->total(), 0, ',', '.') }} {{ $lists->total() === 1 ? 'registro' : 'registros' }} · prioridade primeiro, depois a mais antiga</div>
+                </div>
+                <span class="mp-pill" wire:loading.delay>Atualizando…</span>
+            </div>
 
-    <!-- Modal -->
-    {{-- <div wire:ignore.self class="modal fade" id="analise_form" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
-        <div class="modal-dialog modal-fullscreen modal-dialog-scrollable">
-            <div class="modal-content h-100">
-                <div class="modal-header text-bg-success">
-                    <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
-                        {{ mb_strtoupper($service->service) }}
-                    </h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="9" />
+
+            @if (!$hasRows)
+                <div class="mp-panel-body">
+                    <x-closure.empty-state
+                        :title="$hasCriteria ? 'Nenhum resultado para os critérios escolhidos' : 'Você não tem tarefa atribuída em ' . $activity"
+                        :text="$hasCriteria ? 'Ajuste ou limpe os critérios para ver mais registros.' : 'Assuma Notas e OVs na lista da atividade para elas aparecerem aqui.'"
+                        icon="ri-inbox-line" />
+                    <div class="text-center mt-2">
+                        @if ($hasCriteria)
+                            <button type="button" class="btn btn-outline-primary btn-sm btn-dash" wire:click="clearAllCriteria">Limpar critérios</button>
+                        @else
+                            <a class="btn btn-outline-primary btn-sm btn-dash" href="{{ route('services.main', ['service' => $service->uuid]) }}"><i class="ri-list-check-2" aria-hidden="true"></i> Ir para a lista de {{ mb_strtolower($activity) }}</a>
+                        @endif
+                    </div>
+                </div>
+            @else
+                <div class="ops-table-wrap" wire:loading.delay.class="d-none">
+                    <table class="table ops-table">
+                        <colgroup>
+                            <col style="width: 76px">
+                            <col style="width: 140px">
+                            <col style="width: 64px">
+                            <col style="width: 88px">
+                            <col style="width: 104px">
+                            <col style="width: 120px">
+                            <col style="width: 140px">
+                            <col style="width: 100px">
+                            <col style="width: 100px">
+                            <col style="width: 88px">
+                            <col style="width: 92px">
+                            <col style="width: 110px">
+                            <col style="width: 96px">
+                            <col style="width: 140px">
+                        </colgroup>
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Nota</th>
+                                <th>Arquivos</th>
+                                <th>Ordem</th>
+                                <th>Valor ADS</th>
+                                <th>Operações 30 · 40 · 50</th>
+                                <th class="is-left">Empresa</th>
+                                <th>Saldo PEP</th>
+                                <th class="is-left">Município</th>
+                                <th>Execução</th>
+                                <th>Informe</th>
+                                <th>Prazo medição</th>
+                                <th>Status</th>
+                                <th><span class="visually-hidden">Ação</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($rows as $row)
+                                <tr wire:key="acc-{{ $row['id'] }}" @class(['ops-row-priority' => $row['priority']])>
+                                    <td @if ($row['detail']) class="ops-clickable" title="Duplo clique para ver os detalhes do informe"
+                                        wire:dblclick="$emitTo('{{ $row['detail']['kind'] === 'partial' ? 'partner.show.show-partial-info' : 'partner.show.show-work-form' }}', 'show_form', {{ $row['detail']['id'] }})" @endif>
+                                        <x-ops.badge :tone="$row['scopeTone']" :label="$row['scopeText']" :hint="$row['scopeHint']" />
+                                    </td>
+
+                                    <td>
+                                        <div class="ops-cell-stack is-center">
+                                            @if ($row['d5'])
+                                                <x-ops.badge class="ops-note-badge ops-clickable" :tone="$row['d5']['tone']" :hint="$row['d5']['hint']"
+                                                    wire:click.prevent="$emitTo('components.d5.d5details', 'openD5Details', {{ $row['noteId'] }}, {{ $row['five'] ?? 'null' }})"><strong>D5</strong> {{ $row['note'] }}</x-ops.badge>
+                                            @else
+                                                <span class="ops-note copy-text" data-value="{{ $row['note'] }}">{{ $row['note'] }}</span>
+                                            @endif
+                                            @if ($row['priority'])
+                                                <x-ops.badge sm tone="red" icon="ri-alert-fill" label="Prioridade" class="ops-clickable" hint="Clique para ver a informação da prioridade desta Nota/OV" wire:click.prevent="$emit('infoPriority', '{{ $row['id'] }}')" />
+                                            @endif
+                                            @if ($row['tacit'])
+                                                <x-ops.badge sm tone="muted" label="ADS tácita" hint="A ADS deste informe é tácita" />
+                                                <x-ops.badge sm :tone="$row['tacitSent'] ? 'green' : 'red'" :label="$row['tacitSent'] ? 'Entregue' : 'Não entregue'" hint="Situação da entrega da ADS tácita" />
+                                            @endif
+                                            <x-legal.note-demand-tags :demands="$row['legal']" :row-key="'services-payment-accompany-' . $row['id']" />
+                                        </div>
+                                    </td>
+
+                                    <td><x-files.select-download-list :files="$row['files']" :allow-tacit="true" /></td>
+
+                                    <td><div class="ops-cell-stack is-center">@forelse ($row['orders'] as $order)<span class="fw-semibold">{{ $order['ordem'] }}</span>@empty<span class="ops-empty">—</span>@endforelse</div></td>
+
+                                    <td><x-ops.money :value="$row['adsAmount']" /></td>
+
+                                    <td>
+                                        <div class="ops-cell-stack is-center">
+                                            @forelse ($row['orders'] as $order)
+                                                <span class="d-inline-flex gap-1">
+                                                    @foreach (['op30', 'op40', 'op50'] as $op)
+                                                        @if ($order[$op])
+                                                            <x-ops.badge sm mono tone="muted" :label="$order[$op]" :hint="'Operação 00' . substr($op, 2)" />
+                                                        @else
+                                                            <span class="ops-empty ops-badge ops-badge--sm">—</span>
+                                                        @endif
+                                                    @endforeach
+                                                </span>
+                                            @empty
+                                                <span class="ops-empty">—</span>
+                                            @endforelse
+                                        </div>
+                                    </td>
+
+                                    <td class="is-left">
+                                        <span class="fw-semibold d-block text-truncate" title="{{ $row['company'] }}">{{ $row['company'] ?: '—' }}</span>
+                                        <span class="ops-sub text-truncate">{{ $row['informant'] ?: '' }}</span>
+                                    </td>
+
+                                    <td>
+                                        <div class="ops-cell-stack is-center">
+                                            @forelse ($row['orders'] as $order)
+                                                <span class="ops-clickable" @if ($order['pep']) wire:dblclick="$emit('openPepFinancialModal', '{{ $order['pep'] }}')" title="Duplo clique para consultar o PEP {{ $order['pep'] }}" @endif>
+                                                    <x-ops.money :value="$order['saldo']" signed />
+                                                </span>
+                                            @empty
+                                                <span class="ops-empty">—</span>
+                                            @endforelse
+                                        </div>
+                                    </td>
+
+                                    <td class="is-left"><span class="d-block text-truncate" title="{{ $row['city'] }}">{{ $row['city'] ?: '—' }}</span></td>
+
+                                    <td><x-ops.date :date="$row['executedAt']" hint="Data de execução informada no informe" /></td>
+                                    <td><x-ops.date :date="$row['informedAt']" time hint="Data em que o informe foi enviado" /></td>
+                                    <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['dueLabel']" :hint="$row['dueHint']" /></td>
+
+                                    <td>
+                                        <x-ops.badge :tone="$row['statusTone']" :label="$row['statusLabel']" class="ops-clickable" hint="Ver o histórico deste status"
+                                            wire:click="$emitTo('components.status.show-status', 'showStatus', {{ $row['id'] }}, {{ $row['status'] }})" />
+                                    </td>
+
+                                    <td>
+                                        <div class="d-inline-flex gap-1">
+                                            @if ($row['canAct'])
+                                                <button type="button" class="btn btn-primary btn-sm ops-action" wire:click.prevent="$emitTo('services.payment.forms.jobform', 'showProduction', {{ $row['id'] }})" title="Abrir o formulário de pagamento desta Nota/OV">
+                                                    <i class="ri-play-circle-line" aria-hidden="true"></i> Iniciar
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary btn-sm ops-action" wire:click.prevent="goTransferProd({{ $row['id'] }})" title="Transferir esta Nota/OV para outro usuário">
+                                                    <i class="ri-arrow-left-right-line" aria-hidden="true"></i><span class="visually-hidden">Transferir</span>
+                                                </button>
+                                            @elseif ($row['blocked'])
+                                                <x-ops.badge tone="blue" label="Bloqueada" hint="Esta Nota/OV está bloqueada e não pode ser iniciada agora" />
+                                            @endif
+                                            @if ($row['canReturn'])
+                                                <button type="button" class="btn btn-outline-danger btn-sm ops-action" wire:click.prevent="$emitTo('production.return.reject-inform-partial', 'toReturn', {{ $row['id'] }})" title="Devolver o informe parcial para a empreiteira">
+                                                    <i class="ri-delete-back-2-line" aria-hidden="true"></i><span class="visually-hidden">Devolver informe</span>
+                                                </button>
+                                            @endif
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="is-right">Total da página</td>
+                                <td><x-ops.money :value="$rows->sum('adsAmount')" /></td>
+                                <td colspan="9"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            @endif
+
+            <x-ops.pager :paginator="$lists" :per-page="$perPage" :sizes="$pageSizes" />
+        </section>
+    @endif
+
+    {{-- MODAIS --}}
+    <div wire:ignore.self class="modal fade ops-modal" id="buscar_multi" tabindex="-1" aria-labelledby="buscarMultiLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content closure-dash ops-list">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="buscarMultiLabel"><span class="modal-eyebrow">{{ $activity }}</span>Buscar em lote</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
-                    @livewire('services.publication.forms.analise', key('analise-form'))
+                    <label class="form-label fw-semibold" for="advanceSearch">Notas ou ordens</label>
+                    <textarea class="form-control" id="advanceSearch" rows="8" wire:model.defer="advanceSearch" placeholder="Cole uma nota por linha ou separe por espaço, vírgula ou ponto e vírgula."></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                        wire:click.prevent="$emit('analise_clean')">Close</button>
-                    <button type="button" class="btn btn-primary">Understood</button>
+                    <button type="button" class="btn btn-outline-secondary btn-dash" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary btn-dash" wire:click="buscarMulti"><i class="ri-search-line" aria-hidden="true"></i> Aplicar busca</button>
                 </div>
             </div>
         </div>
-    </div> --}}
+    </div>
 
-    <!-- Modal -->
-    <div wire:ignore.self class="modal fade" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false"
-        tabindex="-1" aria-labelledby="staticBackdropLabel" aria-hidden="true">
+    <div wire:ignore.self class="modal fade ops-modal" id="pause_note" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="accPauseLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content h-100">
-                <div class="modal-header text-bg-warning">
-                    <h1 class="modal-title fs-5 text-center" id="staticBackdropLabel">
-                        PARAR {{ mb_strtoupper($service->service) }}
-                    </h1>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="accPauseLabel"><span class="modal-eyebrow">Pausar</span>{{ mb_strtoupper($activity) }}</h5>
+                    <button type="button" class="btn-close btn-close-white ms-auto" data-bs-dismiss="modal" aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     @livewire('components.pausenote.pausenote')
                 </div>
-                {{-- <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"
-                        wire:click.prevent="$emit('analise_clean')">Close</button>
-                    <button type="button" class="btn btn-primary">Understood</button>
-                </div> --}}
             </div>
         </div>
     </div>
 
-
-    <div wire:ignore.self class="modal fade" id="buscar_multi" tabindex="-1" aria-labelledby="exampleModalLabel"
-        aria-hidden="true">
-
-
-        <div class="modal-dialog">
-
-            <div class="modal-content edp-bg-stategrey-50">
-                <div class="modal-header edp-bg-sprucegreen-70 text-edp-verde">
-                    Buscar Multi-Notas
-                </div>
-                <div>
-                    <textarea class="form-control" name="advanceSearch" id="advanceSearch" cols="50" rows="10"
-                        wire:model.defer="advanceSearch"></textarea>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" wire:click="buscarMulti">OK</button>
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-
-    {{-- MODAL COMPLEMENTS TRANSFER NOTE --}}
     @livewire('components.transprod.transprod', key('Transfer_production'))
     @livewire('partner.show.show-work-form', key('WorkFormCompany'))
     @livewire('services.payment.forms.jobform', key('payment-form'))
@@ -626,46 +304,5 @@
     @livewire('components.d5.d5details', key('d5_details'))
     @livewire('components.pep.financial-modal', key('payment-accompany-pep-financial-modal'))
 
-
-    {{-- <div wire:init="checkOpen"></div> --}}
-
+    <div wire:init="checkOpen"></div>
 </div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-
-        Livewire.emitTo('services.payment.accompany.main', 'checkOpen');
-
-    });
-</script>
-
-@push('script')
-    <script>
-        const copyTextCells = document.querySelectorAll('.copy-text');
-
-        copyTextCells.forEach(cell => {
-            cell.addEventListener('click', () => {
-                const value = cell.getAttribute('data-value');
-                copyToClipboard(value);
-                livewire.emit('getCopy',
-                    `Valor "${value}" copiado para a área de transferência.`);
-                // alert(`Valor "${value}" copiado para a área de transferência.`);
-            });
-        });
-
-        function copyToClipboard(text) {
-            const textArea = document.createElement('textarea');
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-        }
-
-        function cleanLocalStorage() {
-            localStorage.clear();
-            livewire.emit('refresh_accomany');
-        }
-
-    </script>
-@endpush

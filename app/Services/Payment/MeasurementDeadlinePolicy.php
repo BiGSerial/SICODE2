@@ -36,12 +36,40 @@ class MeasurementDeadlinePolicy
         return $date;
     }
 
+    /** Vencimento em `$days` dias úteis (sem sábado, domingo e feriado do estado) depois de `$from`, qualquer que seja a região. */
+    public function businessDueAt(Carbon $from, int $days): Carbon
+    {
+        $date      = $from->copy()->startOfDay();
+        $remaining = $days;
+
+        while ($remaining > 0) {
+            $date->addDay();
+
+            if ($this->isBusinessDay($date)) {
+                $remaining--;
+            }
+        }
+
+        return $date;
+    }
+
+    /** Dias úteis entre hoje (ou `$referenceAt`) e o vencimento: positivo faltam, negativo venceu. */
+    public function businessRemainingDays(Carbon $dueAt, ?Carbon $referenceAt = null): int
+    {
+        return $this->countRemaining($dueAt, $referenceAt, true);
+    }
+
     public function remainingDays(Carbon $dueAt, ?Carbon $referenceAt = null): int
+    {
+        return $this->countRemaining($dueAt, $referenceAt, $this->usesBusinessDays());
+    }
+
+    private function countRemaining(Carbon $dueAt, ?Carbon $referenceAt, bool $businessDays): int
     {
         $referenceAt = ($referenceAt ?: now())->copy()->startOfDay();
         $dueAt       = $dueAt->copy()->startOfDay();
 
-        if (!$this->usesBusinessDays()) {
+        if (!$businessDays) {
             return $referenceAt->diffInDays($dueAt, false);
         }
 

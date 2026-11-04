@@ -213,13 +213,22 @@ O **Acompanhamento** (`services.accompany`) é a fila de trabalho do próprio us
 - **Encerramento em massa** unificado em `ClosesAccompanyInBulk` (só encerra o que é do usuário da tela), com a barra de seleção `<x-ops.selection-bar>` e o modal no padrão `ops-modal`.
 - **Modais legados** (formulário da atividade, pausa, transferência, histórico de status) continuam sendo os componentes de sempre, apenas com o cabeçalho no padrão.
 
+### Acompanhamento de Pagamento: prazo de medição
+
+`Services\Payment\Accompany\Main` segue o mesmo desenho do Acompanhamento por nota (hero → ferramentas → abas → painel), com filtros do `WithNoteListFilters` (Empreiteira, Rubrica, Região, Regional, Município) na URL e a linha pronta em `Services\Payment\PaymentAccompanyRowPresenter`. O prazo de medição é de **8 dias úteis** (sem sábado, domingo e feriado do estado, em ES e SP; `MeasurementDeadlinePolicy::businessDueAt`), contado:
+
+- **Parcial:** da aprovação do engenheiro (`partials.decision_at`);
+- **Final:** da entrega da ADS do informe (`tacit_delivered_at` na ADS tácita; senão `created_at` da ADS). ADS tácita ainda não entregue = sem prazo.
+
+O selo mostra a data de vencimento e, embaixo, os dias úteis que faltam ("N d úteis") ou "N dias úteis vencidos". Cor: verde com mais de 4 dias úteis, âmbar nos últimos 4, vermelho vencido (a mesma faixa do Controle de Pagamento). O Controle de Pagamento continua com a regra própria (`payment.measurement_deadline`, 15 corridos em ES).
+
 ## 14. Situação da migração
 
 Legenda: ✔ no padrão · — não existe · ✖ fora do padrão (a definir). Despacho = lista operacional (`Main`) e a da parceira (`PartnerMain`); Controle = `Stack` e `PartnerStack`; Serviços = lista do usuário.
 
 | Atividade | Despacho (Main / Parceira) | Controle (Stack / Parceira) | Serviços | Accompany |
 |---|---|---|---|---|
-| Pagamento | ✔ / ✔ | ✔ / ✔ | ✔ | ✖ (ADS, PEP e operações; ver pendências) |
+| Pagamento | ✔ / ✔ | ✔ / ✔ | ✔ | ✔ (`Services\Payment\Accompany\Main`; prazo de medição abaixo) |
 | Publicação | ✔ / ✔ | ✔ / ✔ | ✔ (hoje sem uso na tela: o menu monta o accompany) | ✖ (3 abas, devoluções e BT Zero; ver pendências) |
 | Fiscalização | ✔ / ✔ | ✔ / ✔ | ✔ | a definir |
 | Levantamento | ✔ / ✔ | ✔ / ✔ (`Stack2` ✖: tela legada à parte) | ✔ | a definir |
@@ -237,7 +246,7 @@ Legenda: ✔ no padrão · — não existe · ✖ fora do padrão (a definir). D
 - **Usuários da empresa terceira** (`/partner/admin/users`): `Partner\Admin\Users` (Livewire) no padrão de controle (`ops-control`): cartões-filtro (ativos, online, nunca acessaram, administradores, desativados), `WithListFilters` (empresa/filial, perfil, conexão), menu "⋮" por linha e barra de seleção para ações em massa. Escopo (matriz + filiais, só `onlyparner`), regras de proteção (ninguém desativa a si mesmo nem remove o próprio admin; reset só em ativo) e auditoria ficam em `App\Services\PartnerAccess\PartnerUserManager`, também usado pelo `PartnerAdminController`. Toda alteração de acesso passa por modal de confirmação que explica o efeito; desativar é reversível (rota `users.restore`). Ação em massa grava um único evento de auditoria (`bulk_updated_users`); ação em um usuário grava o evento dela. Testes: `tests/Feature/PartnerAdminUsersTest.php`.
 
 Pendências conhecidas (dívida que as migrações revelaram):
-- **Acompanhamento de Pagamento e de Publicação** ainda no desenho antigo (filtros legados em `$_SESSION`, CSS inline, regra de negócio dentro do Blade). Pagamento mostra ADS, PEP, operações e D5, e a coluna "Prazo Medição" mede dias absolutos desde a data (não os que faltam), então a cor precisa de decisão de negócio antes de migrar; dá para reaproveitar o `PaymentListRowPresenter` (perfil `service`) com um estado sintético. Publicação tem três abas (Produção, Em espera, Transferências), escopo e equipamentos, devoluções (`return-work`, `return-ramal-work`) e o formulário do BT Zero.
+- **Acompanhamento de Publicação** ainda no desenho antigo (filtros legados em `$_SESSION`, CSS inline, regra de negócio dentro do Blade). Tem três abas (Produção, Em espera, Transferências), escopo e equipamentos, devoluções (`return-work`, `return-ramal-work`) e o formulário do BT Zero.
 - `services/*/accompany` de Comissionamento, Levantamento e Fiscalização apontam para componentes que não existem (`services.comission.accompany.main`, `services.survey.accompany.main`) e o menu não os expõe: rota morta; `Services\Analisesinc\Accompany\Main` e o acompanhamento de Entidade Externa também não têm acesso pelo menu.
 - **Prazo "vencido":** a regra do padrão é vermelho (`Deadline::remaining`). Análises, Análises Pré, Comissionamento, Desenho, Fluxo Reverso e Default preservaram a regra antiga (vencido = cinza); Levantamento já usa vermelho. Decidir uma só.
 - **Consultas lentas sem índice** (limite do banco, não da tela): `notes(nstats)` e `notes(type_note, nstats)` (Main de Desenho, Default, Análises Pré, Levantamento) e `count(*)` das regras de status (`RuleBuilder`).
