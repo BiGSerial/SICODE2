@@ -64,6 +64,12 @@ return [
                     'days'          => 15,
                     'business_days' => false,
                 ],
+                // Prazo do Acompanhamento de Pagamento (Serviços), contado em dias inteiros (a hora é ignorada): Parcial da aprovação do
+                // engenheiro; Final da entrega da ADS do informe. `business_days` troca dias úteis (sem fim de semana e feriado) por corridos.
+                'accompany_deadline' => [
+                    'partial' => ['days' => 8, 'business_days' => true],
+                    'final'   => ['days' => 8, 'business_days' => true],
+                ],
             ],
             'dispatch' => [
                 'allows_company_stack'            => true,
@@ -139,6 +145,12 @@ return [
                 'measurement_deadline' => [
                     'days'          => 8,
                     'business_days' => true,
+                ],
+                // Prazo do Acompanhamento de Pagamento (Serviços), contado em dias inteiros (a hora é ignorada): Parcial da aprovação do
+                // engenheiro; Final da entrega da ADS do informe. `business_days` troca dias úteis (sem fim de semana e feriado) por corridos.
+                'accompany_deadline' => [
+                    'partial' => ['days' => 8, 'business_days' => true],
+                    'final'   => ['days' => 8, 'business_days' => true],
                 ],
             ],
             'dispatch' => [

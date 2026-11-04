@@ -113,3 +113,44 @@ it('a tela é fina: filtros centralizados, sem CSS, JS nem cor de Bootstrap na v
         ->and($class)->not->toContain('$_SESSION[\'filter\']')
         ->and($class)->not->toContain('Storage::');
 });
+
+it('os atalhos Vencidos e Vencendo apontam para os tons vermelho e âmbar do selo de prazo', function () {
+    $component = new App\Http\Livewire\Services\Payment\Accompany\Main();
+
+    expect(App\Http\Livewire\Services\Payment\Accompany\Main::PRAZOS)->toBe(['vencido' => 'red', 'vencendo' => 'amber']);
+
+    $component->toggleDeadline('vencido');
+    expect($component->prazo)->toBe('vencido');
+
+    $component->toggleDeadline('vencido');
+    expect($component->prazo)->toBe('');
+
+    $component->toggleDeadline('qualquer');
+    expect($component->prazo)->toBe('');
+});
+
+it('a região define a quantidade e o tipo de dia: ES pode ter regra própria sem mexer no código', function () {
+    config()->set('sicode.rules.es.payment.accompany_deadline.final', ['days' => 5, 'business_days' => false]);
+
+    $ads             = new Adsform(['tacit' => false]);
+    $ads->created_at = '2026-10-30 08:00:00';
+    $es              = accompanyRow(null, $ads);
+
+    config()->set('sicode.ruleset', 'sp');
+    $sp = accompanyRow(null, $ads);
+
+    expect($es['dueAt']->toDateString())->toBe('2026-11-04')   // 5 dias corridos
+        ->and($es['dueLabel'])->toBe('0 d')
+        ->and($es['dueHint'])->toContain('5 dias corridos')
+        ->and($sp['dueAt']->toDateString())->toBe('2026-11-11'); // SP segue com 8 úteis
+});
+
+it('a hora do evento não muda o vencimento: só conta o dia', function () {
+    $cedo              = new Adsform(['tacit' => false]);
+    $cedo->created_at  = '2026-10-30 00:01:00';
+    $tarde             = new Adsform(['tacit' => false]);
+    $tarde->created_at = '2026-10-30 23:59:00';
+
+    expect(accompanyRow(null, $cedo)['dueAt']->toDateTimeString())->toBe(accompanyRow(null, $tarde)['dueAt']->toDateTimeString())
+        ->and(accompanyRow(null, $cedo)['dueAt']->format('H:i'))->toBe('00:00');
+});

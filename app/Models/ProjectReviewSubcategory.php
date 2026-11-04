@@ -29,4 +29,9 @@ class ProjectReviewSubcategory extends Model
     {
         return $this->hasMany(ProjectReviewItem::class, 'subcategory_id');
     }
+
+    public function Findings()
+    {
+        return $this->hasMany(ProjectReviewFinding::class, 'subcategory_id');
+    }
 }

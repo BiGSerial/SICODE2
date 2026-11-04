@@ -2,16 +2,29 @@
 
 namespace App\Jobs\Dispatchs;
 
-use App\Exports\Dispatchs\DispatchSupervisionStack;
-use App\Models\{Production, Service, User, WorkReportFlowProduction};
+use App\Custom\Notestatus;
+use App\Exports\Dispatchs\DispatchSupervisionControlExport;
+use App\Models\{Production, Service, User};
 use App\Notifications\SystemNotification;
+use App\Services\Files\ExportStorage;
+use App\Services\Supervision\{SupervisionControlQuery, SupervisionControlRowPresenter};
+use App\Support\Notifications\UserNotificationData;
+use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\{InteractsWithQueue, SerializesModels};
-use Illuminate\Support\Facades\{DB, Log, Storage};
+use Illuminate\Support\Facades\{Log, URL};
+use Maatwebsite\Excel\Facades\Excel;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
 use Throwable;
 
+/**
+ * Excel do Controle de Fiscalização (e da parceira): todas as páginas dos critérios da tela, com a mesma consulta
+ * (`SupervisionControlQuery`) e a mesma regra de visibilidade de quem pediu. O arquivo vai para o solicitante.
+ *
+ * Params: os critérios de `SupervisionControlQuery::normalize` (service, search, multiSearch, note_type, users, status, cityCodes).
+ */
 class ExportDispatchSupervisionJob implements ShouldQueue
 {
     use Dispatchable;
@@ -21,128 +34,67 @@ class ExportDispatchSupervisionJob implements ShouldQueue
 
     public array $params;
 
-    public string $userId;
+    public string|int $userId;
 
     public $tries = 2;
 
     public $backoff = [60, 180];
 
-    public function __construct(array $params, string $userId)
+    public int $timeout = 900;
+
+    public function __construct(array $params, string|int $userId)
     {
-        $this->onQueue('exports');
         $this->params = $params;
         $this->userId = $userId;
+        $this->onQueue('exports');
     }
 
-    public function handle(): void
+    public function handle(SupervisionControlQuery $query, SupervisionControlRowPresenter $presenter, ExportStorage $exports): void
     {
-        $user    = User::find($this->userId);
-        $service = Service::where('uuid', $this->params['service_id'])->first();
+        $ownerId  = (string) $this->userId;
+        $user     = User::find($ownerId);
+        $service  = Service::where('uuid', $this->params['service'] ?? $this->params['service_id'] ?? null)->first();
+        $filePath = null;
 
-        if (!$service) {
-            throw new \RuntimeException('Serviço não encontrado para exportação.');
+        if (!$user || !$service) {
+            throw new \RuntimeException('Usuário ou atividade não encontrados para a exportação.');
         }
 
-        $disk     = Storage::disk('local');
-        $filePath = 'exports/' . now()->format('Ymd_His') . '_supervision_' . $service->uuid . '.xlsx';
-        $disk->makeDirectory(dirname($filePath));
-
         try {
-            // === Base query igual à da tela ===
-            $builder = Production::query()
-                ->where('service_id', $service->uuid)
-                ->where('completed', false)
-                ->leftJoin('notes as n', 'productions.note_id', '=', 'n.id')
-                ->leftJoin('work_report_flow_productions as wrfp', function ($join) {
-                    $join->on('wrfp.production_id', '=', 'productions.id')
-                        ->where('wrfp.stage', WorkReportFlowProduction::STAGE_FISCALIZATION)
-                        ->where('wrfp.is_current', true)
-                        ->whereRaw("wrfp.id = (
-                            SELECT MAX(wrfp_latest.id)
-                            FROM work_report_flow_productions wrfp_latest
-                            WHERE wrfp_latest.production_id = productions.id
-                              AND wrfp_latest.stage = 'fiscalization'
-                              AND wrfp_latest.is_current = 1
-                        )");
-                })
-                ->leftJoin('work_reports as wr', function ($join) {
-                    $join->on('wr.id', '=', 'wrfp.work_report_id')
-                        ->where('wr.canceled', false);
-                })
-                ->leftJoin('adsforms as af', 'wr.id', '=', 'af.work_report_id')
-                ->addSelect('productions.*')
-                ->addSelect(DB::raw("
-                    CASE
-                        WHEN n.type_note = 1 AND n.mesalization REGEXP '^M[0-9]{1,2}/[0-9]{4}$'
-                        THEN DATE_ADD(
-                            MAKEDATE(CAST(SUBSTRING_INDEX(n.mesalization, '/', -1) AS UNSIGNED), 1),
-                            INTERVAL (CAST(SUBSTRING(SUBSTRING_INDEX(n.mesalization, '/', 1), 2) AS UNSIGNED) - 1) MONTH
-                        ) + INTERVAL 27 DAY
-                        WHEN n.type_note = 2 THEN DATE_ADD(CURDATE(), INTERVAL COALESCE(n.days_left, 0) DAY)
-                        ELSE NULL
-                    END AS pzo
-                "))
-                ->addSelect(DB::raw('af.created_at AS dt_ads'))
-                ->addSelect(DB::raw('af.amount AS ads_amount'))
-                ->with([
-                    'wpas:id,production_id,dd,execstats,ststusexec,completed_at',
-                    'service:id,uuid,service',
-                    'user:id,name',
-                    'note:id,note,nstats,dt_status,rubrica,postes,lexp,type_note,mesalization,days_left',
-                    'note.workform:id,company_id,note_id,informed_at,rejected',
-                    'note.workform.adsform:id,work_report_id,amount,created_at',
-                    'note.orders:id,note_id,moaberto',
-                ]);
+            $criteria = $query->normalize($this->params + ['service' => $service->uuid]);
+            $rows     = [];
+            $byStatus = [];
 
-            // filtros simples (igual à tela)
-            if (!empty($this->params['search'])) {
-                $search = '%' . $this->params['search'] . '%';
-                $builder->where(function ($q) use ($search) {
-                    $q->where('n.note', 'like', $search)
-                        ->orWhere('n.rubrica', 'like', $search)
-                        ->orWhere('n.lexp', 'like', $search);
-                });
-            }
+            $query->list($criteria, $user)->with('note.orders:id,note_id,ordem')->chunk(500, function ($chunk) use (&$rows, &$byStatus, $presenter) {
+                foreach ($chunk as $production) {
+                    $line   = $presenter->present($production);
+                    $rows[] = $this->row($production, $line);
 
-            if (!empty($this->params['multiSearch'])) {
-                $multi = (array) $this->params['multiSearch'];
-                $builder->whereHas('note', fn ($q) => $q->whereIn('note', $multi));
-            }
+                    $byStatus[$line['statusLabel']] = ($byStatus[$line['statusLabel']] ?? 0) + 1;
+                }
+            });
 
-            if (!empty($this->params['note_type'])) {
-                $builder->where('n.type_note', $this->params['note_type']);
-            }
+            $fileName = now()->format('YmdHis') . "_{$ownerId}_controle_" . $service->folder . '.xlsx';
+            $filePath = 'exports/' . $fileName;
+            $disk     = $exports->disk();
+            $exports->ensureDirectory();
 
-            if (!empty($this->params['user_fs'])) {
-                $builder->whereIn('productions.user_id', (array) $this->params['user_fs']);
-            }
+            $export = new DispatchSupervisionControlExport($rows, $this->summary($byStatus, count($rows)), $this->audit($user, $service, $criteria, count($rows)), $service->service);
 
-            // === Executa exportação ===
-            $stored = (new DispatchSupervisionStack($builder, $service->uuid))
-                ->store($filePath, 'local');
-
-            // === Notificação ===
-            if ($stored && $user && $disk->exists($filePath)) {
-                $user->notify(new SystemNotification(
-                    'Exportação concluída!',
-                    'Seu relatório de Fiscalização foi gerado com sucesso.',
-                    Storage::url($filePath),
-                    4,
-                    []
-                ));
-            } else {
+            if (!Excel::store($export, $filePath, $exports->diskName())) {
                 throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
 
+            $user->notify(new SystemNotification(new UserNotificationData(
+                title: 'Exportação concluída!',
+                message: 'O controle de ' . mb_strtolower($service->service) . ' está pronto para download em Excel.',
+                link: URL::temporarySignedRoute('exports.download', now()->addDays(7), ['user' => $ownerId, 'file' => $fileName]),
+                status: 'download',
+            )));
         } catch (Throwable $e) {
-            Log::error('ExportDispatchSupervisionJob falhou', [
-                'user_id' => $this->userId,
-                'params'  => $this->params,
-                'attempt' => $this->attempts(),
-                'error'   => $e->getMessage(),
-            ]);
+            Log::error('ExportDispatchSupervisionJob falhou', ['user_id' => $this->userId, 'params' => $this->params, 'attempt' => $this->attempts(), 'error' => $e->getMessage()]);
 
-            if ($filePath && $disk->exists($filePath)) {
+            if (isset($disk) && $filePath && $disk->exists($filePath)) {
                 $disk->delete($filePath);
             }
 
@@ -150,16 +102,82 @@ class ExportDispatchSupervisionJob implements ShouldQueue
         }
     }
 
-    public function failed(Throwable $e): void
+    public function failed(Throwable $exception): void
     {
-        if ($user = User::find($this->userId)) {
-            $user->notify(new SystemNotification(
-                'Exportação falhou',
-                'A geração do relatório de Fiscalização falhou após novas tentativas.',
-                null,
-                5,
-                []
-            ));
-        }
+        User::find((string) $this->userId)?->notify(new SystemNotification(new UserNotificationData(
+            title: 'Exportação falhou',
+            message: 'A geração do Excel do controle falhou após novas tentativas. Tente novamente mais tarde.',
+            status: 'error',
+        )));
+    }
+
+    /** @return array<int, mixed> mesma ordem de `DispatchSupervisionControlExport::HEADINGS` */
+    private function row(Production $production, array $line): array
+    {
+        $excel = fn ($date) => $date ? Date::dateTimeToExcel(Carbon::parse($date)) : null;
+        $note  = $line['note'];
+
+        return [
+            ctype_digit((string) $note) ? (int) $note : $note,
+            $production->note?->orders->pluck('ordem')->filter()->unique()->implode(', '),
+            $this->type($line),
+            $line['rubrica'],
+            $line['city'],
+            $line['group2'],
+            $line['postes'],
+            $production->dispatcher?->name,
+            $production->dispatcher?->Company?->name,
+            $production->user?->name,
+            $production->company?->name ?? $production->user?->Company?->name,
+            $line['wpa']['dd'],
+            $line['wpa']['sub'],
+            $excel($line['adsAt']),
+            $line['adsAmount'],
+            $line['adsAt'] ? ($line['adsTacit'] ? ($line['adsDelivered'] ? 'Tácita entregue' : 'Tácita') : 'Entregue') : null,
+            $excel($line['informedAt']),
+            $line['informedDays'],
+            $excel($line['dispatchAt']),
+            $line['dispatchDays'],
+            $excel($line['attAt']),
+            $line['attDays'],
+            $line['statusLabel'],
+            $line['priority'] ? 'Sim' : 'Não',
+            $line['block'] ? 'Sim' : 'Não',
+        ];
+    }
+
+    /** Tipo como a tela mostra: Parcial, Final (ou Conexão), com a marca de RI ou D5. */
+    private function type(array $line): string
+    {
+        $type = $line['isPartial'] ? 'Parcial' : ($line['isConnection'] ? 'Final (conexão)' : 'Final');
+
+        return $type . ($line['ri'] ? ' · RI' : ($line['d5'] ? ' · D5' : ''));
+    }
+
+    /** @param array<string, int> $byStatus @return array<int, array<int, mixed>> */
+    private function summary(array $byStatus, int $total): array
+    {
+        arsort($byStatus);
+
+        return collect($byStatus)->map(fn ($count, $label) => [$label, $count, $total ? round($count / $total * 100, 2) : 0])->values()->all();
+    }
+
+    /** @return array<int, array{0: string, 1: string}> */
+    private function audit(User $user, Service $service, array $c, int $total): array
+    {
+        $filter = fn (array $values, \Closure $label) => $values ? implode(', ', array_map($label, $values)) : 'Todos';
+
+        return [
+            ['Usuário', (string) $user->name],
+            ['E-mail', (string) $user->email],
+            ['Gerado em', now()->format('d/m/Y H:i:s')],
+            ['Tipo', 'Controle de ' . mb_strtolower($service->service) . ($user->usesContractDispatch() ? ' (parceira)' : '')],
+            ['Total de notas', (string) $total],
+            ['Busca', $c['search'] !== '' ? $c['search'] : ($c['multiSearch'] ? count($c['multiSearch']) . ' notas/ordens' : '—')],
+            ['Tipo de nota', ['1' => 'Nota', '2' => 'OV'][$c['note_type']] ?? 'Ambos'],
+            ['Usuário (responsável)', $filter($c['users'], fn ($id) => (string) (User::withTrashed()->whereKey($id)->value('name') ?? $id))],
+            ['Status', $filter($c['status'], fn ($s) => Notestatus::status((int) $s)->status)],
+            ['Localidade (Região/Regional/Município)', $c['cityCodes'] === null ? 'Todas' : count($c['cityCodes']) . ' município(s)'],
+        ];
     }
 }

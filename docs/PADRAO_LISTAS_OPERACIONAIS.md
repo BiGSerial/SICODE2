@@ -222,6 +222,8 @@ O **Acompanhamento** (`services.accompany`) é a fila de trabalho do próprio us
 
 O selo mostra a data de vencimento e, embaixo, os dias úteis que faltam ("N d úteis") ou "N dias úteis vencidos". Cor: verde com mais de 4 dias úteis, âmbar nos últimos 4, vermelho vencido (a mesma faixa do Controle de Pagamento). O Controle de Pagamento continua com a regra própria (`payment.measurement_deadline`, 15 corridos em ES).
 
+A **Lista de Pagamento/Medição** (`Services\Payment\Main`, perfil `service` do `PaymentListRowPresenter`) usa o mesmo prazo, pelo `PaymentAccompanyRowPresenter::deadline()`: a coluna Vencimento é a data da regra acima, a coluna ADS mostra a data da ADS também na Parcial, e o atalho **Todos · Vencendo · Vencidos** (`prazo` na URL) filtra pelo tom do vencimento. Como o prazo é calculado em PHP, com o atalho ligado a lista inteira é apresentada e paginada depois.
+
 ## 14. Situação da migração
 
 Legenda: ✔ no padrão · — não existe · ✖ fora do padrão (a definir). Despacho = lista operacional (`Main`) e a da parceira (`PartnerMain`); Controle = `Stack` e `PartnerStack`; Serviços = lista do usuário.

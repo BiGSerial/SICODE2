@@ -6,22 +6,22 @@ use App\Custom\Notestatus;
 use App\Models\{Production, WorkReportFlowProduction};
 use App\Services\D5\ProductionFiveNoteResolver;
 use App\Support\Ops\{Deadline, Tone};
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 
 /**
  * Linha do Acompanhamento de Pagamento (Serviços): tudo que a tela mostra, já com tom semântico (padrão:
  * docs/PADRAO_LISTAS_OPERACIONAIS.md). A view só desenha.
  *
- * Prazo de medição (8 dias úteis, sem sábado, domingo e feriado do estado):
+ * Prazo de medição, contado em dias inteiros (a hora é ignorada). Quantidade e tipo de dia (úteis ou corridos) vêm da região
+ * (`SicodeRules::paymentAccompanyDeadline`, config/sicode.php); hoje 8 dias úteis em ES e SP:
  *  - Parcial: conta da aprovação do engenheiro (`partials.decision_at`);
  *  - Final: conta da entrega da ADS do informe (`tacit_delivered_at` na ADS tácita; senão a criação da ADS).
- * Verde com 5 dias úteis ou mais, âmbar nos últimos 4 (até o dia do vencimento), vermelho vencido (mesma faixa do Controle de Pagamento).
+ * Verde com 5 dias ou mais, âmbar nos últimos 4 (até o dia do vencimento), vermelho vencido (mesma faixa do Controle de Pagamento).
  */
 class PaymentAccompanyRowPresenter
 {
-    public const DEADLINE_DAYS = 8;
-
-    /** Dias úteis restantes até onde a cor passa a âmbar. */
+    /** Dias restantes até onde a cor passa a âmbar. */
     public const WARN_UNTIL = 4;
 
     public function __construct(
@@ -69,27 +69,23 @@ class PaymentAccompanyRowPresenter
             'detail'    => $partial
                 ? ['kind' => 'partial', 'id' => $partial->id]
                 : ($workForm ? ['kind' => 'workform', 'id' => $workForm->id] : null),
-            'd5'         => $this->d5($five),
-            'five'       => $five?->id,
-            'files'      => $note?->Files,
-            'legal'      => $legalTags,
-            'tacit'      => $tacit,
-            'tacitSent'  => $tacit && (bool) $ads?->tacit_delivered_at,
-            'orders'     => $orders->map(fn ($order) => $this->order($order))->values()->all(),
-            'adsAmount'  => $partial ? $partial->value : $ads?->amount,
-            'company'    => $workForm ? $workForm->Company?->name : $partial?->Company?->name,
-            'informant'  => count($parts) > 1 ? $parts[0] . ' ' . end($parts) : ($parts[0] ?? null),
-            'city'       => $note?->lexp,
-            'executedAt' => $workForm?->date ? Carbon::parse($workForm->date) : null,
-            'informedAt' => $workForm ? $workForm->informed_at : $partial?->supervision_at,
-            'dueAt'      => $deadline['dueAt'],
-            'dueDays'    => $deadline['days'],
-            'dueTone'    => $deadline['tone'],
-            'dueLabel'   => match (true) {
-                $deadline['days'] === null => null,
-                $deadline['days'] < 0      => abs($deadline['days']) . (abs($deadline['days']) === 1 ? ' dia útil vencido' : ' dias úteis vencidos'),
-                default                    => $deadline['days'] . ' d úteis',
-            },
+            'd5'          => $this->d5($five),
+            'five'        => $five?->id,
+            'files'       => $note?->Files,
+            'legal'       => $legalTags,
+            'tacit'       => $tacit,
+            'tacitSent'   => $tacit && (bool) $ads?->tacit_delivered_at,
+            'orders'      => $orders->map(fn ($order) => $this->order($order))->values()->all(),
+            'adsAmount'   => $partial ? $partial->value : $ads?->amount,
+            'company'     => $workForm ? $workForm->Company?->name : $partial?->Company?->name,
+            'informant'   => count($parts) > 1 ? $parts[0] . ' ' . end($parts) : ($parts[0] ?? null),
+            'city'        => $note?->lexp,
+            'executedAt'  => $workForm?->date ? Carbon::parse($workForm->date) : null,
+            'informedAt'  => $workForm ? $workForm->informed_at : $partial?->supervision_at,
+            'dueAt'       => $deadline['dueAt'],
+            'dueDays'     => $deadline['days'],
+            'dueTone'     => $deadline['tone'],
+            'dueLabel'    => $this->dueLabel($deadline['days'], $deadline['unit']),
             'dueHint'     => $deadline['hint'],
             'status'      => (int) $list->status,
             'statusLabel' => Notestatus::status($list->status)->status,
@@ -100,10 +96,17 @@ class PaymentAccompanyRowPresenter
         ];
     }
 
-    /** @return array{dueAt: ?Carbon, days: ?int, tone: string, hint: string} */
-    private function deadline($partial, $adsAt, bool $tacit): array
+    /**
+     * Prazo de medição (também usado pela Lista para Medição): Parcial conta da aprovação do engenheiro, Final da entrega da ADS.
+     *
+     * @return array{dueAt: ?Carbon, days: ?int, tone: string, hint: string, unit: string}
+     */
+    public function deadline($partial, $adsAt, bool $tacit): array
     {
-        $rule = self::DEADLINE_DAYS . ' dias úteis';
+        $config   = SicodeRules::paymentAccompanyDeadline($partial ? 'partial' : 'final');
+        $business = $config['business_days'];
+        $unit     = $business ? 'úteis' : 'corridos';
+        $rule     = $config['days'] . ' dias ' . $unit;
 
         if ($partial) {
             $base  = $partial->decision_at;
@@ -118,20 +121,22 @@ class PaymentAccompanyRowPresenter
                 'dueAt' => null,
                 'days'  => null,
                 'tone'  => 'muted',
+                'unit'  => $unit,
                 'hint'  => !$partial && $tacit
                     ? 'ADS tácita ainda não entregue: o prazo (' . $rule . ' após a entrega da ADS) começa quando ela chegar'
                     : 'Sem data de ' . $basis . ': o prazo (' . $rule . ') não começou',
             ];
         }
 
-        $dueAt = $this->policy->businessDueAt(Carbon::parse($base), self::DEADLINE_DAYS);
-        $days  = $this->policy->businessRemainingDays($dueAt);
+        $dueAt = $this->policy->dueAtIn(Carbon::parse($base), $config['days'], $business);
+        $days  = $this->policy->remainingIn($dueAt, $business);
 
         return [
             'dueAt' => $dueAt,
             'days'  => $days,
             'tone'  => Deadline::remaining($days, self::WARN_UNTIL),
-            'hint'  => $this->remainingText($days) . ' · ' . $rule . ' após a ' . $basis . ' (' . Carbon::parse($base)->format('d/m/Y') . '); verde acima de ' . self::WARN_UNTIL . ' dias úteis, âmbar nos últimos ' . self::WARN_UNTIL . ', vermelho vencido',
+            'unit'  => $unit,
+            'hint'  => $this->remainingText($days, $business) . ' · ' . $rule . ' após a ' . $basis . ' (' . Carbon::parse($base)->format('d/m/Y') . '); verde acima de ' . self::WARN_UNTIL . ' dias, âmbar nos últimos ' . self::WARN_UNTIL . ', vermelho vencido',
         ];
     }
 
@@ -164,10 +169,21 @@ class PaymentAccompanyRowPresenter
         ];
     }
 
-    private function remainingText(int $days): string
+    private function dueLabel(?int $days, string $unit): ?string
+    {
+        $business = $unit === 'úteis';
+
+        return match (true) {
+            $days === null => null,
+            $days < 0      => abs($days) . ($business ? (abs($days) === 1 ? ' dia útil vencido' : ' dias úteis vencidos') : (abs($days) === 1 ? ' dia vencido' : ' dias vencidos')),
+            default        => $days . ($business ? ' d úteis' : ' d'),
+        };
+    }
+
+    private function remainingText(int $days, bool $business): string
     {
         $abs  = abs($days);
-        $unit = $abs === 1 ? 'dia útil' : 'dias úteis';
+        $unit = $business ? ($abs === 1 ? 'dia útil' : 'dias úteis') : ($abs === 1 ? 'dia' : 'dias');
 
         return match (true) {
             $days === 0 => 'Vence hoje',

@@ -12,6 +12,7 @@ use App\Models\WorkReportFlowProduction;
 use App\Services\Files\FileStorageService;
 use App\Services\Payment\PaymentAccompanyRowPresenter;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Livewire\{Component, WithPagination};
 
@@ -33,6 +34,9 @@ class Main extends Component
 
     public const TABS = ['producao', 'transferencias'];
 
+    /** Atalho de prazo => tom do selo de vencimento (`Deadline`). */
+    public const PRAZOS = ['vencido' => 'red', 'vencendo' => 'amber'];
+
     protected $paginationTheme = 'bootstrap';
 
     public $service;
@@ -44,6 +48,9 @@ class Main extends Component
     public $typeNote = '';
 
     public $tab = 'producao';
+
+    /** Atalho de prazo: '' (todos), 'vencido' ou 'vencendo' (últimos dias úteis). */
+    public $prazo = '';
 
     public $advanceSearch;
 
@@ -63,6 +70,7 @@ class Main extends Component
             'filters'  => ['except' => [], 'as' => 'f'],
             'perPage'  => ['except' => 50, 'as' => 'pp'],
             'tab'      => ['except' => 'producao', 'as' => 'aba'],
+            'prazo'    => ['except' => '', 'as' => 'prazo'],
         ];
     }
 
@@ -107,6 +115,12 @@ class Main extends Component
         $this->tab = in_array($tab, self::TABS, true) ? $tab : 'producao';
     }
 
+    public function toggleDeadline(string $prazo): void
+    {
+        $this->prazo = $this->prazo === $prazo || !array_key_exists($prazo, self::PRAZOS) ? '' : $prazo;
+        $this->resetPage();
+    }
+
     /** "Limpar tudo": filtros, busca (simples e em lote) e tipo. Não mexe na quantidade por página. */
     public function clearAllCriteria(): void
     {
@@ -114,6 +128,7 @@ class Main extends Component
         $this->advanceSearch = '';
         $this->multiSearch   = [];
         $this->typeNote      = '';
+        $this->prazo         = '';
         $this->filters       = [];
 
         $this->afterListFiltersChanged();
@@ -121,7 +136,7 @@ class Main extends Component
 
     public function hasCriteria(): bool
     {
-        return $this->hasListFilters() || filled($this->search) || filled($this->typeNote) || $this->multiSearch !== [];
+        return $this->hasListFilters() || filled($this->search) || filled($this->typeNote) || filled($this->prazo) || $this->multiSearch !== [];
     }
 
     public function buscarMulti(): void
@@ -218,9 +233,9 @@ class Main extends Component
     }
 
     /** Relações da página (carregadas depois da paginação, para a consulta principal ficar leve). */
-    private function loadPageRelations($lists): void
+    private function loadPageRelations($collection): void
     {
-        $lists->getCollection()->load([
+        $collection->load([
             'User:id,name',
             'Note.Files',
             'Note.Adsform:id,work_report_id,note_id,amount,tacit,tacit_due_at,tacit_delivered_at,created_at',
@@ -325,15 +340,39 @@ class Main extends Component
 
     public function render()
     {
-        $lists = $this->listQuery()->paginate((int) $this->perPage);
-        $this->loadPageRelations($lists);
-
-        $legal     = $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all());
         $presenter = app(PaymentAccompanyRowPresenter::class);
+
+        if ($this->prazo) {
+            // O vencimento é calculado em PHP (dias úteis e feriados): filtra a fila do usuário e pagina depois.
+            $all = $this->listQuery()->get();
+            $this->loadPageRelations($all);
+            $legal = $this->buildLegalTagsByNoteIds($all->pluck('note_id')->all());
+
+            $rows = $all
+                ->map(fn (Production $p) => $presenter->present($p, $legal[$p->note_id] ?? [], $this->blockWaiting($p->status)))
+                ->filter(fn (array $row) => $row['dueTone'] === self::PRAZOS[$this->prazo])
+                ->values();
+
+            $lists = new LengthAwarePaginator(
+                $rows->forPage($this->page, (int) $this->perPage)->values(),
+                $rows->count(),
+                (int) $this->perPage,
+                $this->page,
+                ['path' => request()->url(), 'pageName' => 'page']
+            );
+            $rows = collect($lists->items());
+        } else {
+            $lists = $this->listQuery()->paginate((int) $this->perPage);
+            $this->loadPageRelations($lists->getCollection());
+            $legal = $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all());
+            $rows  = collect($lists->items())
+                ->map(fn (Production $p) => $presenter->present($p, $legal[$p->note_id] ?? [], $this->blockWaiting($p->status)))
+                ->values();
+        }
 
         return view('livewire.services.payment.accompany.main', [
             'lists'       => $lists,
-            'rows'        => collect($lists->items())->map(fn (Production $p) => $presenter->present($p, $legal[$p->note_id] ?? [], $this->blockWaiting($p->status)))->values(),
+            'rows'        => $rows,
             'pageSizes'   => self::PAGE_SIZES,
             'hasCriteria' => $this->hasCriteria(),
         ]);

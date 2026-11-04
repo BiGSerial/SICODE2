@@ -168,6 +168,24 @@ class SicodeRules
         return self::boolRule('ov_phases.order_by_date', self::ruleset() === 'sp');
     }
 
+    /**
+     * Prazo do Acompanhamento de Pagamento por tipo de informe (`partial` ou `final`): dias e se são úteis. Por região em
+     * config/sicode.php (`payment.accompany_deadline`) e sobrescrevível em system_settings (`payment.accompany_deadline.{tipo}.days|business_days`).
+     *
+     * @return array{days: int, business_days: bool}
+     */
+    public static function paymentAccompanyDeadline(string $kind): array
+    {
+        $kind = $kind === 'partial' ? 'partial' : 'final';
+        $base = 'payment.accompany_deadline.' . $kind;
+        $days = self::databaseRule($base . '.days') ?? config('sicode.rules.' . self::ruleset() . '.' . $base . '.days');
+
+        return [
+            'days'          => is_numeric($days) && (int) $days > 0 ? (int) $days : 8,
+            'business_days' => self::boolRule($base . '.business_days', true),
+        ];
+    }
+
     public static function paymentMeasurementDeadlineUsesBusinessDays(): bool
     {
         return self::boolRule('payment.measurement_deadline.business_days', self::ruleset() === 'sp');

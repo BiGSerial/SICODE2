@@ -10,7 +10,7 @@
     <x-ops.hero
         :eyebrow="'Serviços · ' . $activity"
         :title="'Acompanhamento de ' . mb_strtolower($activity)"
-        subtitle="As Notas e OVs que estão com você. Inicie, transfira ou devolva cada uma; o prazo de medição é de 8 dias úteis, contados da aprovação do engenheiro (Parcial) ou da entrega da ADS (Final).">
+        subtitle="As Notas e OVs que estão com você. Inicie, transfira ou devolva cada uma; o prazo de medição conta em dias, da aprovação do engenheiro (Parcial) ou da entrega da ADS (Final); a regra vem da região.">
         <div class="d-flex flex-wrap gap-2 justify-content-end">
             <button type="button" class="btn btn-light btn-sm btn-dash" wire:click.prevent="export_d5tolist" wire:loading.attr="disabled" wire:target="export_d5tolist">
                 <i class="ri-file-text-line" aria-hidden="true"></i> Exportar D5
@@ -30,6 +30,9 @@
             </x-ops.search>
 
             <x-ops.segmented name="paymentAccompanyTypeNote" label="Tipo de nota" wire:model="typeNote" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
+
+            <x-ops.toggle label="Vencidos" icon="ri-alarm-warning-line" :on="$prazo === 'vencido'" wire:click.prevent="toggleDeadline('vencido')" title="Mostra só o que já passou do prazo de medição" />
+            <x-ops.toggle label="Vencendo" icon="ri-time-line" :on="$prazo === 'vencendo'" wire:click.prevent="toggleDeadline('vencendo')" title="Mostra só o que vence hoje ou nos próximos 4 dias" />
 
             <span class="ops-toolbar-spacer"></span>
 
@@ -216,7 +219,7 @@
                                     <td class="is-left"><span class="d-block text-truncate" title="{{ $row['city'] }}">{{ $row['city'] ?: '—' }}</span></td>
 
                                     <td><x-ops.date :date="$row['executedAt']" hint="Data de execução informada no informe" /></td>
-                                    <td><x-ops.date :date="$row['informedAt']" time hint="Data em que o informe foi enviado" /></td>
+                                    <td><x-ops.date :date="$row['informedAt']" hint="Data em que o informe foi enviado" /></td>
                                     <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['dueLabel']" :hint="$row['dueHint']" /></td>
 
                                     <td>

@@ -15,5 +15,5 @@
 @endsection
 
 @section('content')
-    @livewire('admin.category.project-review-category')
+    @livewire('admin.catalog.manager', ['only' => 'analise-projetos'])
 @endsection

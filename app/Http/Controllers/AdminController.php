@@ -29,11 +29,16 @@ class AdminController extends Controller
         return view('admin.audits.notes');
     }
 
-
     // User Hierarchy View
     public function user_hierarchy()
     {
         return view('admin.users.hierarchy');
+    }
+
+    /** Árvore plana + selos de cobertura para o organograma (montado no navegador). */
+    public function user_hierarchy_nodes(\App\Services\Hierarchy\HierarchyTreeService $tree)
+    {
+        return response()->json(['nodes' => $tree->nodes()] + $tree->badges());
     }
 
     public function control_d5()
