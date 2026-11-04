@@ -18,6 +18,9 @@ class Production extends Model
     public const STATUS_REJECTED_PROJECT_REVIEW = 31;
     public const STATUS_RELEASED_TO_FINISH      = 32;
 
+    /** Atribuído, em andamento, em pausa e reprovado na análise (retorno para o desenhista): o que está de fato nas mãos da pessoa. */
+    public const OWNED_OPEN_STATUSES = [2, 3, 4, self::STATUS_REJECTED_PROJECT_REVIEW];
+
     protected $fillable = [
         'note_id',
         'service_id',

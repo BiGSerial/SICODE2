@@ -98,7 +98,7 @@ final class TopbarNav
 
         $groups = [
             $phase('project', 'PROJETO', [
-                ['label' => 'QUALIDADE', 'route' => 'quality.index', 'icon' => 'ri-shield-check-line', 'can' => 'quality.access'],
+                ['label' => 'QUALIDADE', 'route' => 'quality.index', 'icon' => 'ri-shield-check-line', 'can' => 'quality.menu'],
                 ['label' => 'ANÁLISE DE PROJETO', 'route' => 'project_review.list', 'icon' => 'ri-file-search-line', 'can' => 'analyst'],
             ]),
             $phase('construction', 'CONSTRUÇÃO'),

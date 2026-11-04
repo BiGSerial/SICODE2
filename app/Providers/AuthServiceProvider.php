@@ -62,6 +62,7 @@ class AuthServiceProvider extends ServiceProvider
         });
 
         Gate::define('quality.access', fn (User $user) => app(QualityRoles::class)->canAccess($user));
+        Gate::define('quality.menu', fn (User $user) => app(QualityRoles::class)->showsInMenu($user));
         Gate::define('quality.n1', fn (User $user) => app(QualityRoles::class)->isN1($user));
         Gate::define('quality.n2', fn (User $user) => app(QualityRoles::class)->isN2($user));
         Gate::define('quality.pool', fn (User $user) => app(QualityRoles::class)->canDispatch($user));

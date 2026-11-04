@@ -3,6 +3,7 @@
 namespace App\Services\Home\MyPanel;
 
 use App\Custom\Notestatus;
+use App\Models\Production;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -157,6 +158,9 @@ final class MyPanelAnalytics
             ->where('p.user_id', $userId)
             ->where('p.completed', false)
             ->where('p.rejected', false)
+            // Só o que está nas mãos da pessoa: atribuído, em andamento, em pausa e retorno da análise. Em análise de projeto,
+            // em transferência etc. já não são dela e poluíam a fila.
+            ->whereIn('p.status', Production::OWNED_OPEN_STATUSES)
             ->when(!$f['include_ri'], fn ($q) => $q->where('p.d5', false))
             ->when($f['service'], fn ($q, $service) => $q->where('p.service_id', $service))
             ->selectRaw("p.id, p.note_id, n.note, s.uuid as service_id, s.service, s.folder, s.project, s.construction, s.post_construction,

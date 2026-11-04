@@ -21,6 +21,9 @@ class MyPanel extends Component
         'prev'  => 'Mês anterior',
     ];
 
+    /** Período ao abrir a tela: o mês atual, do dia 1 até hoje. */
+    public const DEFAULT_PRESET = 'month';
+
     /** Linhas da tabela "mais antigas" antes de expandir. */
     public const OLDEST_VISIBLE = 10;
 
@@ -28,7 +31,7 @@ class MyPanel extends Component
 
     public ?string $selectedService = null;
 
-    public string $preset = '30d';
+    public string $preset = self::DEFAULT_PRESET;
 
     public ?string $dt_in = null;
 
@@ -40,7 +43,7 @@ class MyPanel extends Component
 
     protected $queryString = [
         'selectedService' => ['except' => '', 'as' => 'servico'],
-        'preset'          => ['except' => '30d', 'as' => 'periodo'],
+        'preset'          => ['except' => self::DEFAULT_PRESET, 'as' => 'periodo'],
         'dt_in'           => ['except' => '', 'as' => 'dtin'],
         'dt_out'          => ['except' => '', 'as' => 'dtout'],
         'includeRi'       => ['except' => false, 'as' => 'ri'],
@@ -152,10 +155,11 @@ class MyPanel extends Component
             '7d'    => [$today->copy()->subDays(6), $today],
             'month' => [$today->copy()->startOfMonth(), $today],
             'prev'  => [$today->copy()->subMonthNoOverflow()->startOfMonth(), $today->copy()->subMonthNoOverflow()->endOfMonth()],
-            default => [$today->copy()->subDays(29), $today],
+            '30d'   => [$today->copy()->subDays(29), $today],
+            default => [$today->copy()->startOfMonth(), $today],
         };
 
-        $this->preset = array_key_exists($preset, self::PRESETS) ? $preset : '30d';
+        $this->preset = array_key_exists($preset, self::PRESETS) ? $preset : self::DEFAULT_PRESET;
         $this->dt_in  = $from->toDateString();
         $this->dt_out = $to->toDateString();
     }

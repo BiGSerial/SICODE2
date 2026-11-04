@@ -84,6 +84,25 @@ it('lista as abertas da mais antiga para a mais recente, só do usuário, contan
         ->and(collect($snapshot['open_by'])->pluck('service')->all())->toBe(['Fiscalização', 'Análise']);
 });
 
+it('só conta como aberta o que está nas mãos da pessoa: atribuída, em andamento, em pausa e retorno da análise', function () {
+    $f = panelFixture();
+
+    foreach ([2 => 'atribuída', 3 => 'em andamento', 4 => 'em pausa', 31 => 'reprovada na análise'] as $status => $label) {
+        panelProduction($f, $f['me'], $f['analysis'], ['status' => $status]);
+    }
+
+    foreach ([1, 19, 21, 30, 32] as $status) {   // não atribuída, em transferência, transferida, em análise de projeto, liberada para finalizar
+        panelProduction($f, $f['me'], $f['analysis'], ['status' => $status]);
+    }
+
+    $snapshot = app(MyPanelAnalytics::class)->snapshot($f['me']->id, []);
+
+    expect($snapshot['summary']['open'])->toBe(4)
+        ->and(collect($snapshot['open'])->pluck('status_code')->sort()->values()->all())->toBe([2, 3, 4, 31])
+        ->and($snapshot['summary']['running'])->toBe(1)
+        ->and($snapshot['summary']['paused'])->toBe(1);
+});
+
 it('deixa a RI de fora até o filtro ser ligado', function () {
     $f = panelFixture();
     panelProduction($f, $f['me'], $f['analysis'], ['d5' => true, 'att_at' => '2026-10-23 08:00:00']);
@@ -135,7 +154,9 @@ it('renderiza a home, troca o período e manda os gráficos para atualização i
         ->assertSee('Rafael')
         ->assertSee('Mais antiga em aberto')
         ->assertSee('PN-')
-        ->assertSet('preset', '30d')
+        ->assertSet('preset', 'month')                       // abre no mês atual
+        ->assertSet('dt_in', now()->startOfMonth()->toDateString())
+        ->assertSet('dt_out', now()->toDateString())
         ->call('setPreset', '7d')
         ->assertSet('dt_in', '2026-10-19')
         ->assertDispatchedBrowserEvent('my-panel:charts')
