@@ -32,7 +32,7 @@
 
             <x-ops.segmented name="servicePaymentTypeNote" label="Tipo de nota" wire:model="typeNote" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
 
-            <x-ops.segmented name="servicePaymentDeadline" label="Prazo de medição" wire:model="prazo" :options="['' => 'Todos', 'vencendo' => 'Vencendo', 'vencido' => 'Vencidos']" />
+            <x-ops.segmented name="servicePaymentDeadline" label="Prazo de medição" wire:model="prazo" :options="['' => 'Todos', 'no_prazo' => 'No prazo', 'vencendo' => 'Vencendo', 'vencido' => 'Vencidos']" />
 
             <x-ops.toggle label="Só livres" icon="ri-user-unfollow-line" :on="$not_assigned" wire:click.prevent="filterStatus" title="Mostra só o que ainda não foi atribuído a ninguém" />
             <x-ops.toggle label="Somente D5" icon="ri-file-list-3-line" :on="$filter_d5" wire:click.prevent="filterD5" title="Mostra só notas que têm D5" />
@@ -195,10 +195,10 @@
                                     </div>
                                 </td>
 
-                                <td><x-ops.date :date="$row['informedAt']" time /></td>
-                                <td><x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']" time :hint="'Entrega da ADS · ' . \App\Support\Ops\Deadline::ageText($row['adsAge']) . ' (verde até 14 dias, âmbar até 20, vermelho acima)'" /></td>
+                                <td><x-ops.date :date="$row['informedAt']" /></td>
+                                <td><x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']" :sub="$row['adsLabel']" :hint="'Entrega da ADS · ' . \App\Support\Ops\Deadline::ageText($row['adsAge']) . ' (verde até 14 dias, âmbar até 20, vermelho acima)'" /></td>
                                 <td><x-ops.date :date="$row['fiscalAt']" :tone="$row['fiscalTone']" :hint="$row['isPartial'] ? 'Fiscalização da parcial + 5 dias (verde com 5 dias ou mais, âmbar abaixo disso, vermelho vencido)' : 'Data da fiscalização'" /></td>
-                                <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :hint="$row['dueHint']" /></td>
+                                <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['dueLabel']" :hint="$row['dueHint']" /></td>
 
                                 <td>
                                     @if ($row['canDispatch'])

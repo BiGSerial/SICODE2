@@ -67,12 +67,14 @@ class PaymentListRowPresenter
         $dueDate   = $dueLabel === '---' ? null : Carbon::createFromFormat('d/m/Y', $dueLabel)->startOfDay();
         $dueRemain = $dueDate ? $dueDays->getDaysLeft() : null;
         $dueTone   = Deadline::remaining($dueRemain);
+        $dueText   = null;
+        $adsText   = null;
         $dueHint   = Deadline::remainingText($dueRemain) . ' (verde acima de 15 dias, âmbar até 15, vermelho vencido)';
 
         // Medição (Despacho e Serviços): o mesmo prazo do Acompanhamento. Parcial: 8 dias úteis da aprovação do engenheiro; Final: da entrega da ADS.
         if ($profile !== 'partner') {
             $adsAt     = $partial ? $partial->created_at : ($ads ? ($tacit ? $ads->tacit_delivered_at : $ads->created_at) : null);
-            $adsAge    = $adsAt ? (int) Carbon::parse($adsAt)->diffInDays(Carbon::now(), true) : null;
+            $adsAge    = $adsAt ? (int) Carbon::parse($adsAt)->startOfDay()->diffInDays(Carbon::today(), true) : null;
             $deadline  = $this->accompany->deadline($partial, $partial ? null : $adsAt, $tacit);
             $dueDate   = $deadline['dueAt'];
             $dueRemain = $deadline['days'];
@@ -121,6 +123,8 @@ class PaymentListRowPresenter
             'dueDays'      => $dueRemain,
             'dueTone'      => $dueTone,
             'dueHint'      => $dueHint,
+            'dueLabel'     => $dueText,
+            'adsLabel'     => $adsText,
             'productionId' => $production?->id,
             'state'        => $rowState,
             'reason'       => $reason,

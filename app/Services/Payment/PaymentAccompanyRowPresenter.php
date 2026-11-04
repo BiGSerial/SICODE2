@@ -169,7 +169,7 @@ class PaymentAccompanyRowPresenter
         ];
     }
 
-    private function dueLabel(?int $days, string $unit): ?string
+    public function dueLabel(?int $days, string $unit): ?string
     {
         $business = $unit === 'úteis';
 
