@@ -42,8 +42,8 @@ class MeasurementDeadlinePolicyTest extends TestCase
         config()->set('sicode.ruleset', 'es');
         $policy = app(MeasurementDeadlinePolicy::class);
 
-        $this->assertSame('no_prazo', $policy->statusForRemainingDays(4));
-        $this->assertSame('vencendo', $policy->statusForRemainingDays(3));
+        $this->assertSame('no_prazo', $policy->statusForRemainingDays(2));
+        $this->assertSame('vencendo', $policy->statusForRemainingDays(1));
         $this->assertSame('vencendo', $policy->statusForRemainingDays(0));
         $this->assertSame('vencido', $policy->statusForRemainingDays(-1));
     }

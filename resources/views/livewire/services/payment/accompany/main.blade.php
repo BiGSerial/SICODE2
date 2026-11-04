@@ -32,7 +32,7 @@
             <x-ops.segmented name="paymentAccompanyTypeNote" label="Tipo de nota" wire:model="typeNote" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
 
             <x-ops.toggle label="Vencidos" icon="ri-alarm-warning-line" :on="$prazo === 'vencido'" wire:click.prevent="toggleDeadline('vencido')" title="Mostra só o que já passou do prazo de medição" />
-            <x-ops.toggle label="Vencendo" icon="ri-time-line" :on="$prazo === 'vencendo'" wire:click.prevent="toggleDeadline('vencendo')" title="Mostra só o que vence de 3 a 0 dias" />
+            <x-ops.toggle label="Vencendo" icon="ri-time-line" :on="$prazo === 'vencendo'" wire:click.prevent="toggleDeadline('vencendo')" title="Mostra só o que vence de 1 a 0 dias" />
 
             <span class="ops-toolbar-spacer"></span>
 

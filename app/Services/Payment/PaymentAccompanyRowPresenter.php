@@ -17,12 +17,12 @@ use Carbon\Carbon;
  * (`SicodeRules::paymentAccompanyDeadline`, config/sicode.php); hoje 8 dias úteis em ES e SP:
  *  - Parcial: conta da aprovação do engenheiro (`partials.decision_at`);
  *  - Final: conta da entrega da ADS do informe (`tacit_delivered_at` na ADS tácita; senão a criação da ADS).
- * Verde com mais de 3 dias, âmbar de 3 a 0 dias (até o dia do vencimento), vermelho vencido (mesma faixa do Controle de Pagamento).
+ * Verde com mais de 1 dia, âmbar de 1 a 0 dias (até o dia do vencimento), vermelho vencido (mesma faixa do Controle de Pagamento).
  */
 class PaymentAccompanyRowPresenter
 {
     /** Dias restantes até onde a cor passa a âmbar. */
-    public const WARN_UNTIL = 3;
+    public const WARN_UNTIL = 1;
 
     public function __construct(
         private readonly MeasurementDeadlinePolicy $policy,

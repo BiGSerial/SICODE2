@@ -108,7 +108,7 @@ class MeasurementDeadlinePolicy
     {
         return match (true) {
             $remainingDays < 0  => 'vencido',
-            $remainingDays <= 3 => 'vencendo',
+            $remainingDays <= 1 => 'vencendo',
             default             => 'no_prazo',
         };
     }

@@ -67,7 +67,7 @@ class Main extends Component
 
     public $assigned_mmgd = false;
 
-    /** Atalho de prazo de medição: '' (todos), 'no_prazo', 'vencendo' (de 3 a 0 dias úteis) ou 'vencido'. */
+    /** Atalho de prazo de medição: '' (todos), 'no_prazo', 'vencendo' (de 1 a 0 dias úteis) ou 'vencido'. */
     public $prazo = '';
 
     /** Atalho de prazo => tom do selo de vencimento (`Deadline`). */
