@@ -84,6 +84,15 @@ class QualityRoles
         return $this->canManage($user) || $this->isN2Member($user);
     }
 
+    /**
+     * Quem vê a Qualidade no menu Atividades: só o superadm e quem está cadastrado como N1 ou N2 (ativo). Admin e gerência continuam
+     * acessando o módulo (Pool, despacho e configuração) pelo endereço, mas não ganham o atalho no menu.
+     */
+    public function showsInMenu(User $user): bool
+    {
+        return (bool) $user->superadm || $this->hasAnyMembership($user);
+    }
+
     public function canAccess(User $user): bool
     {
         return $this->canManage($user) || $this->hasAnyMembership($user);

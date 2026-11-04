@@ -106,3 +106,39 @@ it('os contadores vêm de uma consulta só, por atividade', function () {
         ->and($counts['service:' . $b->uuid])->toBe(1)
         ->and($counts['protests'])->toBe(0);
 });
+
+it('Qualidade só aparece no menu para o superadm e para N1/N2; Análise de Projeto, só para quem tem a flag de analista', function () {
+    $company = \App\Models\Company::create(['name' => 'Compel', 'email' => 'c@example.com']);
+    $member  = fn (string $role) => tap(topbarUser(), fn (User $u) => \App\Models\QualityMember::create(['user_id' => $u->id, 'company_id' => $company->id, 'role' => $role, 'active' => true]));
+
+    $super    = topbarUser(['superadm' => true]);
+    $manager  = topbarUser(['management' => true]);
+    $admin    = topbarUser(['admin' => true]);
+    $plain    = topbarUser(['user' => true]);
+    $analyst  = topbarUser(['analyst' => true]);
+    $inactive = tap(topbarUser(), fn (User $u) => \App\Models\QualityMember::create(['user_id' => $u->id, 'company_id' => $company->id, 'role' => \App\Models\QualityMember::N1, 'active' => false]));
+
+    expect($super->can('quality.menu'))->toBeTrue()
+        ->and($member(\App\Models\QualityMember::N1)->can('quality.menu'))->toBeTrue()
+        ->and($member(\App\Models\QualityMember::N2)->can('quality.menu'))->toBeTrue()
+        ->and($manager->can('quality.menu'))->toBeFalse()   // gerência e admin acessam o módulo, mas sem o atalho no menu
+        ->and($admin->can('quality.menu'))->toBeFalse()
+        ->and($plain->can('quality.menu'))->toBeFalse()
+        ->and($inactive->can('quality.menu'))->toBeFalse();
+
+    expect($super->can('analyst'))->toBeTrue()
+        ->and($analyst->can('analyst'))->toBeTrue()
+        ->and($manager->can('analyst'))->toBeFalse()
+        ->and($admin->can('analyst'))->toBeFalse()
+        ->and($plain->can('analyst'))->toBeFalse();
+
+    // O menu amarra cada atalho ao seu gate.
+    $svc = topbarService('Cadastro', 'cadastro', ['project' => true]);
+    ServiceUser::create(['user_id' => $plain->id, 'service_id' => $svc->uuid, 'service' => true, 'dispatch' => false]);
+
+    $project = collect(collect(TopbarNav::menus($super))->firstWhere('title', 'ATIVIDADES')['nodes'] ?? [])->firstWhere('label', 'PROJETO');
+    $nodes   = collect($project['nodes'] ?? [])->keyBy('label');
+
+    expect($nodes['QUALIDADE']['can'] ?? null)->toBe('quality.menu')
+        ->and($nodes['ANÁLISE DE PROJETO']['can'] ?? null)->toBe('analyst');
+});
