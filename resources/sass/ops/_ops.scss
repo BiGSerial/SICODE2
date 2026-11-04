@@ -300,6 +300,7 @@
     }
 
     .ops-cell-stack.is-center { align-items: center; }
+    .ops-cell-stack.is-end { align-items: flex-end; }
 
     // Nota com D5: o número fica dentro do selo (azul = 1º ciclo, verde = 2º ciclo, cinza = já despachada).
     .ops-note-badge {

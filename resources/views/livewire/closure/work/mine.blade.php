@@ -191,9 +191,8 @@
                                 <td><span class="ops-sub text-body" title="{{ $this->holderLabel($state) }}{{ $since ? ' · desde ' . $since->format('d/m/Y H:i') : '' }}">{{ $this->elapsedLabel($state) }}</span></td>
                                 <td>
                                     <div class="ops-buttons">
-                                        @if ($canStart)
-                                            <button type="button" class="btn btn-primary btn-sm ops-action" wire:click="runAction({{ $state->id }}, 'start')"><i class="ri-play-circle-line" aria-hidden="true"></i> Iniciar</button>
-                                        @elseif ($canFinish)
+                                        {{-- Iniciar vive só no menu ⋮ (a ação principal aparece quando a Ordem já foi iniciada). --}}
+                                        @if ($canFinish && !$canStart)
                                             <span @if ($finishWhy) title="{{ $finishWhy }}" tabindex="0" @endif><button type="button" class="btn btn-primary btn-sm ops-action" wire:click="runAction({{ $state->id }}, 'finish')" @disabled($finishWhy)><i class="ri-checkbox-circle-line" aria-hidden="true"></i> Finalizar</button></span>
                                         @endif
                                         @include('livewire.closure.dispatch._control-actions')

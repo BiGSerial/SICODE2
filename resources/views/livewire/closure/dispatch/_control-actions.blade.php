@@ -30,7 +30,8 @@
                 $blocked   = $this->finishBlockedReason($state);
                 $canStart  = $this->canRun($state, 'start');
                 $canFinish = $this->canRun($state, 'finish');
-                $targets   = $this->canChangeStatus($state) ? array_values(array_diff($this->statusTargets($state), ['WAITING_PARTNER'])) : [];
+                // Menu dinâmico: "Iniciar" já leva a Em andamento (Atribuída), então "Voltar a Em andamento" só existe a partir de pausa/finalizada/etc.
+                $targets   = $this->canChangeStatus($state) ? array_values(array_diff($this->statusTargets($state), ['WAITING_PARTNER'], $canStart ? ['IN_PROGRESS'] : [])) : [];
                 $canPartner = $this->canChangeStatus($state) && in_array('WAITING_PARTNER', $this->statusTargets($state), true);
                 $canRi     = $this->canSendRi($state);
                 $canReturn = false; // o executor não devolve à pilha: devolver é pela parceira, pelo RI ou pela transferência

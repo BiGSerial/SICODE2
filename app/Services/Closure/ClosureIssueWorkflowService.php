@@ -11,6 +11,7 @@ class ClosureIssueWorkflowService
 {
     public const ORIGIN_INTERNAL = 'INTERNAL';
     public const ORIGIN_PARTNER  = 'PARTNER';
+    public const ORIGIN_AREA     = 'AREA';
 
     /** Resposta da parceira a cada exigência do pedido (evento RESPONDED, meta.answers). */
     public const ANSWER_DONE   = 'DONE';
@@ -27,13 +28,14 @@ class ClosureIssueWorkflowService
         ClosureOrderState $state,
         ClosureIssueCategory $category,
         ClosureIssueSubcategory $subcategory,
-        Company $destination,
+        ?Company $destination,
         User $actor,
         ?string $description,
         bool $blocking = true,
         array $requirements = [],
+        string $area = ClosureArea::PARTNER,
     ): ClosureIssue {
-        return DB::transaction(function () use ($state, $category, $subcategory, $destination, $actor, $description, $blocking, $requirements) {
+        return DB::transaction(function () use ($state, $category, $subcategory, $destination, $actor, $description, $blocking, $requirements, $area) {
             $state       = ClosureOrderState::query()->whereKey($state->id)->lockForUpdate()->firstOrFail();
             $category    = ClosureIssueCategory::query()->whereKey($category->id)->lockForUpdate()->firstOrFail();
             $subcategory = ClosureIssueSubcategory::query()->whereKey($subcategory->id)->lockForUpdate()->firstOrFail();
@@ -46,7 +48,8 @@ class ClosureIssueWorkflowService
                 'closure_order_state_id'       => $state->id,
                 'closure_issue_category_id'    => $category->id,
                 'closure_issue_subcategory_id' => $subcategory->id,
-                'destination_company_id'       => $destination->id,
+                'destination_company_id'       => $destination?->id,
+                'destination_area'             => $area,
                 'opened_by'                    => $actor->id,
                 'status'                       => ClosureIssue::STATUS_OPEN,
                 'cycle'                        => 1,
@@ -84,6 +87,34 @@ class ClosureIssueWorkflowService
     ): ClosureIssue {
         return DB::transaction(function () use ($state, $category, $subcategory, $destination, $actor, $description, $message, $blocking, $requirements) {
             $issue = $this->open($state, $category, $subcategory, $destination, $actor, $description, $blocking, $requirements);
+
+            return $this->request($issue, $actor, $message ?? $description);
+        }, 3);
+    }
+
+    /**
+     * Devolve/pede correção a uma ÁREA com caixa (Medição ou Fiscalização), sem empresa parceira: a pendência cai na caixa
+     * da área, que finaliza com `respondByArea`.
+     *
+     * @param array<int, string> $requirements
+     */
+    public function requestToArea(
+        ClosureOrderState $state,
+        string $area,
+        ClosureIssueCategory $category,
+        ClosureIssueSubcategory $subcategory,
+        User $actor,
+        ?string $description,
+        ?string $message = null,
+        bool $blocking = true,
+        array $requirements = [],
+    ): ClosureIssue {
+        if (!ClosureArea::hasInbox($area)) {
+            throw new ClosureIssueWorkflowException('Só é possível devolver para a Medição ou a Fiscalização.');
+        }
+
+        return DB::transaction(function () use ($state, $area, $category, $subcategory, $actor, $description, $message, $blocking, $requirements) {
+            $issue = $this->open($state, $category, $subcategory, null, $actor, $description, $blocking, $requirements, $area);
 
             return $this->request($issue, $actor, $message ?? $description);
         }, 3);
@@ -128,6 +159,26 @@ class ClosureIssueWorkflowService
 
             return $issue;
         }, 3);
+    }
+
+    /**
+     * Retorno da ÁREA (Medição/Fiscalização) a uma pendência despachada para a caixa dela: fluxo próprio, sem empresa parceira.
+     * A área finaliza a solicitação com uma mensagem obrigatória; a pendência vira "Respondida" e o Encerramento valida
+     * (ou devolve para correção) pelos caminhos de sempre. Só aceita pendência destinada a uma área com caixa.
+     */
+    public function respondByArea(ClosureIssue $issue, User $actor, string $message): ClosureIssue
+    {
+        $message = trim($message);
+
+        if ($message === '') {
+            throw new ClosureIssueWorkflowException('Descreva o retorno para finalizar a solicitação.');
+        }
+
+        if (!ClosureArea::hasInbox((string) $issue->destination_area)) {
+            throw new ClosureIssueWorkflowException('Esta pendência não foi despachada para uma caixa de área.');
+        }
+
+        return $this->transition($issue, $actor, 'RESPONDED', self::ORIGIN_AREA, [ClosureIssue::STATUS_REQUESTED, ClosureIssue::STATUS_RETURNED], ClosureIssue::STATUS_RESPONDED, $message);
     }
 
     /**
@@ -328,10 +379,22 @@ class ClosureIssueWorkflowService
 
         if ($next === ClosureIssue::STATUS_REQUESTED) {
             $work->recordIssueMessage($issue, $actor, $work->internalRoleFor($actor), (string) $message);
-            $notifier->issueRequestedToPartner($issue, $actor);
+
+            if (ClosureArea::hasInbox((string) $issue->destination_area)) {
+                $notifier->issueRequestedToArea($issue, $actor);
+            } else {
+                $notifier->issueRequestedToPartner($issue, $actor);
+            }
         }
 
         if ($next === ClosureIssue::STATUS_RESPONDED) {
+            if (ClosureArea::hasInbox((string) $issue->destination_area)) {
+                $work->recordIssueMessage($issue, $actor, ClosureWorkMessage::ROLE_INTERNAL, (string) $message);
+                $notifier->areaResponded($issue, $actor);
+
+                return;
+            }
+
             $work->recordIssueMessage($issue, $actor, ClosureWorkMessage::ROLE_PARTNER, (string) $message);
             $notifier->partnerResponded($issue, $actor);
         }

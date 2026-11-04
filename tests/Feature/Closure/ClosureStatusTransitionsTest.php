@@ -72,8 +72,15 @@ it('enforces the transition matrix, mandatory reasons and ownership', function (
         ->and(fn () => $service->changeStatus($state, 'CLOSED', $owner))->toThrow(ClosureOrderWorkflowException::class, 'não é permitida')
         ->and(fn () => $service->changeStatus($state, 'PAUSED', $other, 'x'))->toThrow(ClosureOrderWorkflowException::class, 'responsável');
 
-    $released = $service->changeStatus($state, 'DEPOSIT_RELEASED', $owner);
-    expect($released->operational_status)->toBe('DEPOSIT_RELEASED');
+    // Depósito: liberar quem não está bloqueado não faz sentido, e bloquear de novo quem já está bloqueado também não.
+    expect(fn () => $service->changeStatus($state, 'DEPOSIT_RELEASED', $owner))->toThrow(ClosureOrderWorkflowException::class, 'não é permitida');
+
+    $blocked = $service->changeStatus($state, 'DEPOSIT_BLOCKED', $owner, 'Depósito travado');
+    expect(fn () => $service->changeStatus($blocked, 'DEPOSIT_BLOCKED', $owner, 'de novo'))->toThrow(ClosureOrderWorkflowException::class, 'não é permitida');
+
+    $released = $service->changeStatus($blocked, 'DEPOSIT_RELEASED', $owner);
+    expect($released->operational_status)->toBe('DEPOSIT_RELEASED')
+        ->and(fn () => $service->changeStatus($released, 'DEPOSIT_RELEASED', $owner))->toThrow(ClosureOrderWorkflowException::class, 'não é permitida');
 
     $byManager = $service->changeStatus($released, 'PAUSED', $manager, 'Gestor pausou');
     expect($byManager->operational_status)->toBe('PAUSED');

@@ -14,7 +14,7 @@ use Carbon\Carbon;
  * docs/PADRAO_LISTAS_OPERACIONAIS.md). A view só desenha.
  *
  * Prazo de medição, contado em dias inteiros (a hora é ignorada). Quantidade e tipo de dia (úteis ou corridos) vêm da região
- * (`SicodeRules::paymentAccompanyDeadline`, config/sicode.php); hoje 8 dias úteis em ES e SP:
+ * (`SicodeRules::paymentAccompanyDeadline`, config/sicode.php); hoje 20 dias corridos em ES e 8 dias úteis em SP:
  *  - Parcial: conta da aprovação do engenheiro (`partials.decision_at`);
  *  - Final: conta da entrega da ADS do informe (`tacit_delivered_at` na ADS tácita; senão a criação da ADS).
  * Verde com mais de 1 dia, âmbar de 1 a 0 dias (até o dia do vencimento), vermelho vencido (mesma faixa do Controle de Pagamento).

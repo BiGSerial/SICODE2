@@ -17,9 +17,6 @@
             @else
                 <span class="ops-mode-pill" title="Nesta aba estão as pendências que o Encerramento enviou e que esperam resposta da área."><i class="ri-send-plane-line" aria-hidden="true"></i> Exige resposta</span>
             @endif
-            @if ($canConfigure)
-                <a href="{{ route('closure.status_map') }}" class="btn btn-light btn-sm btn-dash"><i class="ri-settings-3-line" aria-hidden="true"></i> Configurar status desta caixa</a>
-            @endif
         </div>
     </x-ops.hero>
 
@@ -40,13 +37,7 @@
             <section class="mp-panel">
                 <div class="mp-panel-body">
                     <x-closure.empty-state icon="ri-route-line" title="Esta caixa ainda não tem status configurados" :text="'Escolha quais status do usuário pertencem a ' . $areaLabel . ' para as Ordens aparecerem aqui.'" />
-                    <div class="text-center mt-2">
-                        @if ($canConfigure)
-                            <a href="{{ route('closure.status_map') }}" class="btn btn-primary btn-sm btn-dash"><i class="ri-settings-3-line" aria-hidden="true"></i> Configurar agora</a>
-                        @else
-                            <span class="small text-muted">Peça à gestão do Encerramento para configurar o mapa de status.</span>
-                        @endif
-                    </div>
+                    <div class="text-center mt-2"><span class="small text-muted">Peça à gestão do Encerramento para definir os status desta caixa.</span></div>
                 </div>
             </section>
         @else
@@ -91,7 +82,7 @@
                 <div class="mp-panel-head">
                     <div>
                         <h2 class="mp-panel-title">Ordens em acompanhamento</h2>
-                        <div class="mp-panel-sub">{{ number_format($accompanying->total(), 0, ',', '.') }} {{ $accompanying->total() === 1 ? 'Ordem' : 'Ordens' }}@if ($hasCriteria) com os filtros atuais @endif · o tempo no status só existe para as já despachadas</div>
+                        <div class="mp-panel-sub">{{ number_format($accompanying->total(), 0, ',', '.') }} {{ $accompanying->total() === 1 ? 'Ordem' : 'Ordens' }}@if ($hasCriteria) com os filtros atuais @endif @if (!$paymentView) · o tempo no status só existe para as já despachadas @endif</div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <span class="mp-pill" wire:loading.delay>Atualizando…</span>
@@ -103,7 +94,7 @@
 
                 <div class="mp-panel-body pb-0"><x-closure.signal-legend /></div>
 
-                <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="8" />
+                <x-ops.skeleton wire:loading.delay.class.remove="d-none" class="d-none" :rows="min(10, max(4, $rows->count()))" :cols="$paymentView ? 10 : 9" />
 
                 @if ($rows->isEmpty())
                     <div class="mp-panel-body">
@@ -119,7 +110,7 @@
                     <div class="ops-table-wrap" wire:loading.delay.class="d-none">
                         <table class="table ops-table">
                             <colgroup>
-                                @foreach ([60, 130, 130, 90, 210, 180, 150, 120, 130, 170, 110] as $w)
+                                @foreach ($paymentView ? [56, 120, 130, 230, 190, 120, 130, 170, 150, 170, 120] : [56, 120, 130, 90, 230, 130, 170, 130, 130, 170, 120] as $w)
                                     <col style="width: {{ $w }}px">
                                 @endforeach
                             </colgroup>
@@ -128,66 +119,134 @@
                                     <th>Tipo</th>
                                     <th>Nota</th>
                                     <th>Ordem</th>
-                                    <th>Compet.</th>
+                                    @unless ($paymentView)
+                                        <th>Compet.</th>
+                                    @endunless
                                     <th class="is-left">Obra / Município</th>
-                                    <th title="Custo planejado (acima) e custo realizado (abaixo) da Ordem">Valor da obra</th>
-                                    <th class="is-left">Status SAP</th>
-                                    <th>Status usuário</th>
-                                    <th>No status desde</th>
-                                    <th>Situação no Encerramento</th>
+                                    @if ($paymentView)
+                                        <th class="is-left" title="Empresa e tipo do informe da obra">Informe</th>
+                                        <th class="is-right" title="Valor da ADS do informe">Valor ADS</th>
+                                        <th title="Prazo de medição: dias úteis após a entrega da ADS (Final) ou a aprovação do engenheiro (Parcial)">Prazo de medição</th>
+                                        <th class="is-left" title="Situação da Nota na fila de Pagamento e quem está com ela">Fila de Pagamento</th>
+                                        <th title="Status usuário atual e há quanto tempo a Ordem está nele">Status usuário</th>
+                                    @else
+                                        <th class="is-right" title="Custo planejado (acima) e custo realizado (abaixo) da Ordem">Valor da obra</th>
+                                        <th class="is-left">Status SAP</th>
+                                        <th>Status usuário</th>
+                                        <th>No status desde</th>
+                                    @endif
+                                    <th class="is-left">Situação no Encerramento</th>
                                     <th><span class="visually-hidden">Ação</span></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($rows as $row)
+                                    @php
+                                        $pay   = $row['payment'];
+                                        $days  = $row['since'] ? (int) $row['since']->copy()->startOfDay()->diffInDays(\Carbon\Carbon::today(), true) : null;
+                                        $daysT = $days === null ? null : ($days === 0 ? 'hoje' : 'há ' . $days . ($days === 1 ? ' dia' : ' dias'));
+                                    @endphp
                                     <tr wire:key="inbox-order-{{ $row['id'] }}" @class(['signal-row', 'signal-' . $row['signalKey'] => $row['signalKey']]) @if ($row['signalKey']) data-signal="{{ $row['signalKey'] }}" title="{{ $row['signalHint'] }}" @endif data-ordem="{{ $row['ordem'] }}">
                                         <td><x-ops.badge :tone="$row['typeTone']" :label="$row['typeLetter'] ?? '—'" :hint="$row['typeLabel']" sm mono /></td>
                                         <td><x-ops.note :note="$row['note']" :sub="$row['partialId'] ? 'Parcial #' . $row['partialId'] : null" /></td>
-                                        <td><span class="ops-note">{{ $row['ordem'] }}</span></td>
-                                        <td>{{ $row['competence'] }}</td>
+                                        <td>
+                                            <div class="ops-cell-stack is-center">
+                                                <span class="ops-note">{{ $row['ordem'] }}</span>
+                                                @if ($paymentView)
+                                                    <span class="ops-sub" title="Competência da Ordem">{{ $row['competence'] ?: '—' }}</span>
+                                                @endif
+                                            </div>
+                                        </td>
+                                        @unless ($paymentView)
+                                            <td>{{ $row['competence'] }}</td>
+                                        @endunless
                                         <td class="is-left">
                                             <div class="ops-cell-stack">
-                                                <span class="d-block text-truncate" title="{{ $row['work'] }}">{{ $row['work'] ?? '—' }}</span>
+                                                <span class="d-block text-truncate w-100" title="{{ $row['work'] }}">{{ $row['work'] ?? '—' }}</span>
                                                 <span class="ops-sub">{{ $row['city'] ?? '—' }}</span>
                                             </div>
                                         </td>
-                                        <td>
-                                            <div class="ops-cell-stack align-items-end">
-                                                <span class="text-nowrap"><span class="text-muted">Plan.</span> <x-ops.money :value="$row['planned']" /></span>
-                                                <span class="text-nowrap"><span class="text-muted">Real.</span> <x-ops.money :value="$row['actual']" /></span>
-                                            </div>
-                                        </td>
-                                        <td class="is-left"><span class="d-block text-truncate" title="{{ $row['statusSap'] }}">{{ $row['statusSap'] ?? '—' }}</span></td>
-                                        <td>
-                                            @if ($row['statusUser'])
-                                                <x-ops.badge tone="blue" :label="$row['statusUser']" hint="Status usuário atual da Ordem" />
-                                            @else
-                                                <span class="ops-empty">—</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if ($row['since'])
-                                                @php $days = (int) $row['since']->copy()->startOfDay()->diffInDays(\Carbon\Carbon::today(), true); @endphp
-                                                <x-ops.date :date="$row['since']" :sub="$days === 0 ? 'hoje' : 'há ' . $days . ($days === 1 ? ' dia' : ' dias')"
-                                                    :hint="$row['estimated'] ? 'Primeira vez que o sistema viu a Ordem neste status; o início real pode ser anterior.' : 'Data em que a Ordem entrou neste status usuário'" />
-                                            @else
-                                                <span class="ops-sub" title="Sem data registrada: a Ordem ainda não foi despachada ao Encerramento.">sem registro</span>
-                                            @endif
-                                        </td>
-                                        <td>
-                                            @if ($row['situation'])
-                                                <div class="ops-cell-stack">
+
+                                        @if ($paymentView)
+                                            <td class="is-left">
+                                                @if ($pay)
+                                                    <div class="ops-cell-stack">
+                                                        <span class="fw-semibold d-block text-truncate w-100" title="{{ $pay['company'] }}">{{ $pay['company'] ?: '—' }}</span>
+                                                        <x-ops.badge :tone="$pay['scopeTone']" :label="$pay['scopeText']" :hint="$pay['scopeHint']" sm />
+                                                    </div>
+                                                @else
+                                                    <span class="ops-empty">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="is-right"><x-ops.money :value="$pay['adsAmount'] ?? null" /></td>
+                                            <td>
+                                                @if ($pay && $pay['dueAt'])
+                                                    <x-ops.date :date="$pay['dueAt']" :tone="$pay['dueTone']" :sub="$pay['dueLabel']" :hint="$pay['dueHint']" />
+                                                @elseif ($pay)
+                                                    <span class="ops-sub" title="{{ $pay['dueHint'] }}">não iniciado</span>
+                                                @else
+                                                    <span class="ops-empty">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="is-left">
+                                                @if ($pay)
+                                                    <div class="ops-cell-stack">
+                                                        <x-ops.badge :tone="$pay['done'] ? 'green' : $pay['statusTone']" :label="$pay['done'] ? 'Concluída' : $pay['statusLabel']" hint="Situação da Nota na fila de Pagamento" />
+                                                        <span class="ops-sub text-truncate w-100" title="Responsável pela Nota em Pagamento">{{ $pay['owner'] ?: 'Sem responsável' }}</span>
+                                                    </div>
+                                                @else
+                                                    <x-ops.badge tone="muted" label="Fora da fila" hint="Esta Nota não está na fila de Pagamento" />
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="ops-cell-stack is-center">
+                                                    @if ($row['statusUser'])
+                                                        <x-ops.badge tone="blue" :label="$row['statusUser']" :hint="'Status usuário atual da Ordem' . ($row['statusSap'] ? ' · Status SAP: ' . $row['statusSap'] : '')" />
+                                                    @else
+                                                        <span class="ops-empty">—</span>
+                                                    @endif
+                                                    <span class="ops-sub" title="{{ $row['since'] ? ($row['estimated'] ? 'Primeira vez que o sistema viu a Ordem neste status; o início real pode ser anterior.' : 'Data em que a Ordem entrou neste status usuário') : 'Sem data registrada: a Ordem ainda não foi despachada ao Encerramento.' }}">{{ $daysT ?? 'sem registro' }}</span>
+                                                </div>
+                                            </td>
+                                        @else
+                                            <td class="is-right">
+                                                <div class="ops-cell-stack is-end">
+                                                    <span class="text-nowrap"><span class="text-muted">Plan.</span> <x-ops.money :value="$row['planned']" /></span>
+                                                    <span class="text-nowrap"><span class="text-muted">Real.</span> <x-ops.money :value="$row['actual']" /></span>
+                                                </div>
+                                            </td>
+                                            <td class="is-left"><span class="d-block text-truncate" title="{{ $row['statusSap'] }}">{{ $row['statusSap'] ?? '—' }}</span></td>
+                                            <td>
+                                                @if ($row['statusUser'])
+                                                    <x-ops.badge tone="blue" :label="$row['statusUser']" hint="Status usuário atual da Ordem" />
+                                                @else
+                                                    <span class="ops-empty">—</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if ($row['since'])
+                                                    <x-ops.date :date="$row['since']" :sub="$daysT"
+                                                        :hint="$row['estimated'] ? 'Primeira vez que o sistema viu a Ordem neste status; o início real pode ser anterior.' : 'Data em que a Ordem entrou neste status usuário'" />
+                                                @else
+                                                    <span class="ops-sub" title="Sem data registrada: a Ordem ainda não foi despachada ao Encerramento.">sem registro</span>
+                                                @endif
+                                            </td>
+                                        @endif
+
+                                        <td class="is-left">
+                                            <div class="ops-cell-stack">
+                                                @if ($row['situation'])
                                                     <x-ops.badge :tone="$row['situation']['tone']" :label="$row['situation']['label']" hint="Situação da Ordem no Encerramento" />
                                                     @if ($row['holder'])
-                                                        <span class="ops-sub">{{ $row['holder'] }}</span>
+                                                        <span class="ops-sub text-truncate w-100" title="{{ $row['holder'] }}">{{ $row['holder'] }}</span>
                                                     @endif
-                                                </div>
-                                            @else
-                                                <x-ops.badge tone="muted" label="Não despachada" hint="Ainda não foi despachada a ninguém no Encerramento" />
-                                            @endif
+                                                @else
+                                                    <x-ops.badge tone="muted" label="Não despachada" hint="Ainda não foi despachada a ninguém no Encerramento" />
+                                                @endif
+                                            </div>
                                         </td>
                                         <td>
-                                            <a href="{{ route('closure.work.show', ['note' => $row['noteId'], 'ctx' => 'service']) }}" class="btn btn-outline-primary btn-sm ops-action" title="Abrir a obra da Ordem {{ $row['ordem'] }}"><i class="ri-external-link-line" aria-hidden="true"></i> Abrir obra</a>
+                                            <button type="button" class="btn btn-outline-primary btn-sm ops-action" wire:click="openDetail({{ $row['id'] }})" title="Ver os dados da Ordem {{ $row['ordem'] }} (só leitura)"><i class="ri-eye-line" aria-hidden="true"></i> Ver detalhes</button>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -230,7 +289,7 @@
                 <div class="ops-table-wrap">
                     <table class="table ops-table">
                         <colgroup>
-                            @foreach ([140, 150, 360, 190, 140] as $w)
+                            @foreach ([140, 150, 330, 190, 140, 130] as $w)
                                 <col style="width: {{ $w }}px">
                             @endforeach
                         </colgroup>
@@ -241,6 +300,7 @@
                                 <th class="is-left">Assunto</th>
                                 <th>Situação</th>
                                 <th>Enviado</th>
+                                <th><span class="visually-hidden">Ação</span></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -258,6 +318,13 @@
                                     </td>
                                     <td><x-ops.badge :tone="$row['statusTone']" :label="$row['statusText']" :hint="$row['statusHint']" /></td>
                                     <td><x-ops.date :date="$row['sentAt']" :sub="$row['sentDays'] === null ? null : 'há ' . $row['sentDays'] . ($row['sentDays'] === 1 ? ' dia' : ' dias')" hint="Data em que o Encerramento enviou o despacho" /></td>
+                                    <td>
+                                        @if ($canRespond && in_array($row['status'], ['REQUESTED', 'RETURNED'], true))
+                                            <button type="button" class="btn btn-primary btn-sm ops-action" wire:click="openIssue({{ $row['id'] }})" title="Ler a solicitação e finalizar com o seu retorno"><i class="ri-check-double-line" aria-hidden="true"></i> Finalizar</button>
+                                        @else
+                                            <button type="button" class="btn btn-outline-primary btn-sm ops-action" wire:click="openIssue({{ $row['id'] }})" title="Ver a solicitação e o andamento (só leitura)"><i class="ri-eye-line" aria-hidden="true"></i> Ver</button>
+                                        @endif
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -267,5 +334,94 @@
             @endif
         </section>
     </div>
+    @endif
+
+    {{-- Detalhe da Ordem: só leitura, dentro da atividade (não leva ao Encerramento). --}}
+    @if ($detail)
+        @php $pay = $detail['payment']; @endphp
+        <x-ops.modal :title="'Ordem ' . $detail['ordem']" :eyebrow="'Nota ' . ($detail['note'] ?? '—') . ' · só leitura'" close="closeDetail" size="modal-lg">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <div class="ops-modal-card">
+                        <div class="ops-modal-card-head tone-blue"><i class="ri-building-line" aria-hidden="true"></i> Obra</div>
+                        <div class="ops-modal-card-body">
+                            <div class="fw-semibold">{{ $detail['work'] ?? '—' }}</div>
+                            <div class="ops-sub">{{ $detail['city'] ?? '—' }} · Competência {{ $detail['competence'] ?: '—' }}</div>
+                            <div class="mt-2 d-flex flex-wrap gap-2">
+                                <x-ops.badge :tone="$detail['typeTone']" :label="$detail['typeLabel'] ?? '—'" sm />
+                                @if ($detail['statusUser'])<x-ops.badge tone="blue" :label="$detail['statusUser']" hint="Status usuário atual" sm />@endif
+                            </div>
+                            <div class="mt-2 small"><span class="text-muted">Plan.</span> <x-ops.money :value="$detail['planned']" /> · <span class="text-muted">Real.</span> <x-ops.money :value="$detail['actual']" /></div>
+                            @if ($detail['statusSap'])<div class="ops-sub mt-1">Status SAP: {{ $detail['statusSap'] }}</div>@endif
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="ops-modal-card">
+                        <div class="ops-modal-card-head tone-teal"><i class="ri-stack-line" aria-hidden="true"></i> Situação no Encerramento</div>
+                        <div class="ops-modal-card-body">
+                            @if ($detail['situation'])
+                                <x-ops.badge :tone="$detail['situation']['tone']" :label="$detail['situation']['label']" />
+                                @if ($detail['holder'])<div class="ops-sub mt-1">{{ $detail['holder'] }}</div>@endif
+                            @else
+                                <x-ops.badge tone="muted" label="Não despachada" />
+                            @endif
+                            <div class="ops-sub mt-2">No status {{ $detail['statusUser'] ?? '—' }}: {{ $detail['since'] ? $detail['since']->format('d/m/Y') : 'sem registro' }}</div>
+                        </div>
+                    </div>
+                </div>
+                @if ($paymentView)
+                    <div class="col-12">
+                        <div class="ops-modal-card">
+                            <div class="ops-modal-card-head tone-amber"><i class="ri-bank-card-line" aria-hidden="true"></i> Pagamento</div>
+                            <div class="ops-modal-card-body">
+                                @if ($pay)
+                                    <div class="row g-2">
+                                        <div class="col-md-3"><div class="ops-sub">Informe</div><div class="fw-semibold">{{ $pay['company'] ?: '—' }}</div><x-ops.badge :tone="$pay['scopeTone']" :label="$pay['scopeText']" sm /></div>
+                                        <div class="col-md-3"><div class="ops-sub">Valor ADS</div><x-ops.money :value="$pay['adsAmount'] ?? null" /></div>
+                                        <div class="col-md-3"><div class="ops-sub">Prazo de medição</div>@if ($pay['dueAt'])<x-ops.date :date="$pay['dueAt']" :tone="$pay['dueTone']" :sub="$pay['dueLabel']" />@else<span class="ops-sub">não iniciado</span>@endif</div>
+                                        <div class="col-md-3"><div class="ops-sub">Fila de Pagamento</div><x-ops.badge :tone="$pay['done'] ? 'green' : $pay['statusTone']" :label="$pay['done'] ? 'Concluída' : $pay['statusLabel']" /><div class="ops-sub">{{ $pay['owner'] ?: 'Sem responsável' }}</div></div>
+                                    </div>
+                                @else
+                                    <span class="text-muted">Esta Nota não está na fila de Pagamento.</span>
+                                @endif
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            </div>
+            <x-slot name="footer"><button type="button" class="btn btn-primary" wire:click="closeDetail">Fechar</button></x-slot>
+        </x-ops.modal>
+    @endif
+
+    {{-- Resolução do despacho para retorno: a área lê a solicitação e a finaliza com o próprio retorno (o Encerramento valida depois). --}}
+    @if ($issueDetail)
+        <x-ops.modal :title="$issueDetail['subject'] ?? 'Solicitação'" :eyebrow="'Nota ' . ($issueDetail['note'] ?? '—') . ' · Ordem ' . ($issueDetail['ordem'] ?? '—')" close="closeIssue" size="modal-lg">
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+                <x-ops.badge :tone="$issueDetail['statusTone']" :label="$issueDetail['statusText']" :hint="$issueDetail['statusHint']" />
+                @if ($issueDetail['detail'])<span class="ops-sub">{{ $issueDetail['detail'] }}</span>@endif
+                @if ($issueDetail['openedBy'])<span class="ops-sub ms-auto">Enviado por {{ $issueDetail['openedBy'] }}</span>@endif
+            </div>
+            @if ($issueDetail['description'])
+                <div class="ops-modal-card mb-3"><div class="ops-modal-card-head tone-blue"><i class="ri-message-3-line" aria-hidden="true"></i> O que foi pedido</div><div class="ops-modal-card-body">{!! nl2br(e($issueDetail['description'])) !!}</div></div>
+            @endif
+            @if ($issueDetail['requirements'])
+                <div class="ops-modal-card mb-3"><div class="ops-modal-card-head tone-amber"><i class="ri-list-check-2" aria-hidden="true"></i> Exigências</div><div class="ops-modal-card-body"><ul class="mb-0 ps-3">@foreach ($issueDetail['requirements'] as $requirement)<li>{{ is_array($requirement) ? ($requirement['text'] ?? '') : $requirement }}</li>@endforeach</ul></div></div>
+            @endif
+            @if ($issueDetail['timeline'])
+                <x-closure.timeline :items="$issueDetail['timeline']" />
+            @endif
+            @if ($issueDetail['canFinalize'] && $canRespond)
+                <label class="form-label fw-semibold mt-3" for="inbox-issue-reply">Seu retorno <span class="text-danger">*</span></label>
+                <textarea id="inbox-issue-reply" class="form-control @error('issueReply') is-invalid @enderror" rows="4" wire:model.defer="issueReply" placeholder="Conte o que foi feito para atender a solicitação"></textarea>
+                @error('issueReply')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+            @endif
+            <x-slot name="footer">
+                <button type="button" class="btn btn-outline-secondary" wire:click="closeIssue">Fechar</button>
+                @if ($issueDetail['canFinalize'] && $canRespond)
+                    <button type="button" class="btn btn-primary" wire:click="finalizeIssue" wire:loading.attr="disabled" wire:target="finalizeIssue"><i class="ri-check-double-line" aria-hidden="true"></i> Finalizar solicitação</button>
+                @endif
+            </x-slot>
+        </x-ops.modal>
     @endif
 </div>

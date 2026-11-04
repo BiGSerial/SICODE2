@@ -48,11 +48,12 @@ class ClosureOrderWorkflowService
     /**
      * Matriz de transições manuais (changeStatus). Chaves: status atual; valores: destinos permitidos.
      * AVAILABLE não aparece: a Ordem precisa ser assumida/atribuída antes. FINISHED/WAITING só reabrem para IN_PROGRESS.
+     * Depósito: um é excludente do outro. Só se libera (DEPOSIT_RELEASED) quem está bloqueado e não se bloqueia de novo quem já está bloqueado.
      */
     public const MANUAL_TRANSITIONS = [
-        self::STATUS_ASSIGNED         => [self::STATUS_IN_PROGRESS, self::STATUS_PAUSED, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED, self::STATUS_DEPOSIT_RELEASED],
-        self::STATUS_IN_PROGRESS      => [self::STATUS_PAUSED, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED, self::STATUS_DEPOSIT_RELEASED],
-        self::STATUS_PAUSED           => [self::STATUS_IN_PROGRESS, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED, self::STATUS_DEPOSIT_RELEASED],
+        self::STATUS_ASSIGNED         => [self::STATUS_IN_PROGRESS, self::STATUS_PAUSED, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED],
+        self::STATUS_IN_PROGRESS      => [self::STATUS_PAUSED, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED],
+        self::STATUS_PAUSED           => [self::STATUS_IN_PROGRESS, self::STATUS_WAITING_PARTNER, self::STATUS_DEPOSIT_BLOCKED],
         self::STATUS_WAITING_PARTNER  => [self::STATUS_IN_PROGRESS, self::STATUS_PAUSED],
         self::STATUS_DEPOSIT_BLOCKED  => [self::STATUS_DEPOSIT_RELEASED, self::STATUS_IN_PROGRESS, self::STATUS_PAUSED],
         self::STATUS_DEPOSIT_RELEASED => [self::STATUS_IN_PROGRESS, self::STATUS_PAUSED, self::STATUS_DEPOSIT_BLOCKED, self::STATUS_WAITING_PARTNER],

@@ -84,6 +84,7 @@ class ClosureInboxRowPresenter
             'statusText' => $label,
             'statusTone' => $tone,
             'statusHint' => $hint,
+            'status'     => $issue->status,
             'sentAt'     => $sentAt,
             'sentDays'   => $sentAt ? (int) Carbon::parse($sentAt)->startOfDay()->diffInDays(Carbon::today(), true) : null,
         ];

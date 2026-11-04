@@ -257,14 +257,15 @@ function allUserForInbox(): User
     return User::factory()->create(['closure_operator' => true, 'closure_manager' => false, 'admin' => false, 'superadm' => false, 'company_id' => $company->id]);
 }
 
-it('explains an empty inbox and offers the configuration only to managers', function () {
+it('explains an empty inbox without sending anyone to the Encerramento configuration', function () {
     $manager = mapActor();
     $linked  = mapActor(['closure_manager' => false]);
     mapService('pagamento', $linked);
 
     Livewire::actingAs($manager)->test(InboxIndex::class, ['area' => ClosureArea::MEASUREMENT])
         ->assertSee('ainda não tem status configurados')
-        ->assertSee('Configurar agora');
+        ->assertDontSee('Configurar agora')
+        ->assertSee('Peça à gestão');
 
     Livewire::actingAs($linked)->test(InboxIndex::class, ['area' => ClosureArea::MEASUREMENT])
         ->assertSee('ainda não tem status configurados')
