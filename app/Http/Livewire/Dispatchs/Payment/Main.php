@@ -1181,7 +1181,7 @@ class Main extends Component
             'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto', 'orders.statusSist']),
             'WorkForm.Orders.Pep:objeto,disponivel',
             'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'WorkForm.Adsform:id,work_report_id,amount,created_at',
+            'WorkForm.Adsform:id,work_report_id,amount,created_at,tacit,tacit_delivered_at',
             'WorkForms' => fn ($q) => $q->select([
                 'id',
                 'note_id',
@@ -1201,7 +1201,7 @@ class Main extends Component
             'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto', 'orders.statusSist']),
             'WorkForms.Orders.Pep:objeto,disponivel',
             'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'WorkForms.Adsform:id,work_report_id,amount,created_at',
+            'WorkForms.Adsform:id,work_report_id,amount,created_at,tacit,tacit_delivered_at',
             'Partials' => fn ($q) => $q->select([
                 'id',
                 'note_id',
@@ -1211,6 +1211,7 @@ class Main extends Component
                 'payment',
                 'supervision',
                 'supervision_at',
+                'decision_at',
                 'created_at',
                 'value',
             ])

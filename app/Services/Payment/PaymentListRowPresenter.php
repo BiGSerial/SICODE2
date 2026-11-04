@@ -69,8 +69,8 @@ class PaymentListRowPresenter
         $dueTone   = Deadline::remaining($dueRemain);
         $dueHint   = Deadline::remainingText($dueRemain) . ' (verde acima de 15 dias, âmbar até 15, vermelho vencido)';
 
-        // Medição (Serviços): o mesmo prazo do Acompanhamento. Parcial: 8 dias úteis da aprovação do engenheiro; Final: da entrega da ADS.
-        if ($profile === 'service') {
+        // Medição (Despacho e Serviços): o mesmo prazo do Acompanhamento. Parcial: 8 dias úteis da aprovação do engenheiro; Final: da entrega da ADS.
+        if ($profile !== 'partner') {
             $adsAt     = $partial ? $partial->created_at : ($ads ? ($tacit ? $ads->tacit_delivered_at : $ads->created_at) : null);
             $adsAge    = $adsAt ? (int) Carbon::parse($adsAt)->diffInDays(Carbon::now(), true) : null;
             $deadline  = $this->accompany->deadline($partial, $partial ? null : $adsAt, $tacit);
