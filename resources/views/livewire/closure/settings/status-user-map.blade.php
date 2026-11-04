@@ -18,18 +18,32 @@
                 </div>
                 <div class="mp-panel-body">
                     <input type="search" class="form-control form-control-sm mb-2" placeholder="Buscar status…" aria-label="Buscar status de {{ $label }}" x-model="q">
-                    <div class="ops-settings-list">
+                    <div class="ops-status-grid">
                         @forelse ($catalog as $row)
-                            @php $taken = $row['area'] !== null && $row['area'] !== $area; @endphp
-                            <label class="ops-settings-item @if ($taken) is-taken @endif" wire:key="map-{{ $area }}-{{ $row['prefix'] }}"
+                            @php
+                                $taken   = $row['area'] !== null && $row['area'] !== $area;
+                                $takenBy = $taken ? \App\Services\Closure\ClosureArea::label($row['area']) : null;
+                            @endphp
+                            <label class="ops-status-card @if ($taken) is-taken @endif" wire:key="map-{{ $area }}-{{ $row['prefix'] }}"
+                                   @if ($taken) title="Já pertence a {{ $takenBy }}. Libere o status lá para usá-lo aqui." @endif
                                    x-show="q === '' || @js(mb_strtolower($row['prefix'])).includes(q.toLowerCase())">
-                                <input type="checkbox" class="form-check-input mt-0" value="{{ $row['prefix'] }}" wire:model.defer="selected.{{ $area }}" @disabled($taken)>
-                                <span class="flex-grow-1 fw-semibold">{{ $row['prefix'] }}</span>
-                                @if ($taken)
-                                    <x-ops.badge sm tone="amber" :label="'Já em ' . \App\Services\Closure\ClosureArea::label($row['area'])" hint="Libere o status no outro serviço para usá-lo aqui." />
-                                @endif
-                                <x-ops.badge sm tone="blue" :label="$row['count'] . ' no Encerramento'" hint="Ordens do Encerramento (abertas) neste status agora" />
-                                <x-ops.badge sm tone="muted" :label="$row['total'] . ' no total'" hint="Todas as Ordens do SAP neste status" />
+                                <span class="ops-status-card-head">
+                                    <input type="checkbox" class="form-check-input mt-0" value="{{ $row['prefix'] }}" wire:model.defer="selected.{{ $area }}" @disabled($taken)>
+                                    <span class="ops-status-card-name" title="{{ $row['prefix'] }}">{{ $row['prefix'] }}</span>
+                                    @if ($taken)
+                                        <x-ops.badge sm tone="amber" :label="'Já em ' . $takenBy" />
+                                    @endif
+                                </span>
+                                <span class="ops-status-card-numbers">
+                                    <span class="ops-status-card-metric" title="Ordens do Encerramento (abertas) neste status agora">
+                                        <strong>{{ number_format($row['count'], 0, ',', '.') }}</strong>
+                                        <small>no Encerramento</small>
+                                    </span>
+                                    <span class="ops-status-card-metric is-total" title="Todas as Ordens do SAP neste status">
+                                        <strong>{{ number_format($row['total'], 0, ',', '.') }}</strong>
+                                        <small>no total</small>
+                                    </span>
+                                </span>
                             </label>
                         @empty
                             <x-closure.empty-state title="Nenhum status encontrado" text="Ainda não há Ordens do Encerramento com status do usuário." />
