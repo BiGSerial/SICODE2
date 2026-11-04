@@ -533,7 +533,8 @@ it('sends an Order to the partner from the status menu instead of asking for a p
     $worker = User::factory()->create(['company_id' => $company->id, 'closure_operator' => true]);
     app(ClosureDispatchService::class)->dispatchOrders([$order->id], $company, $worker, $manager);
     $state = ClosureOrderState::query()->where('order_id', $order->id)->firstOrFail();
-    $state->update(['operational_status' => 'IN_PROGRESS']);
+    // Minha atividade é só do usuário: o gestor envia à parceira uma Ordem que é dele.
+    $state->update(['operational_status' => 'IN_PROGRESS', 'assigned_user_id' => $manager->id, 'current_holder_user_id' => $manager->id]);
 
     $category = \App\Models\Closure\ClosureIssueCategory::query()->create(['name' => 'Documento pendente', 'active' => true]);
     $sub      = \App\Models\Closure\ClosureIssueSubcategory::query()->create(['closure_issue_category_id' => $category->id, 'name' => 'ART ausente', 'active' => true, 'requires_description' => false]);

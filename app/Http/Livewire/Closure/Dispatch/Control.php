@@ -183,6 +183,12 @@ class Control extends WorkIndex
         return [ClosureOrderWorkflowService::STATUS_CLOSED, ClosureOrderWorkflowService::STATUS_CANCELLED];
     }
 
+    /** O Controle é a visão de todos os usuários e empresas. */
+    protected function limitsToOwner(): bool
+    {
+        return false;
+    }
+
     protected function visibleStatesQuery(): Builder
     {
         $query     = parent::visibleStatesQuery();

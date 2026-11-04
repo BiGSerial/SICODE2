@@ -125,8 +125,8 @@ it('offers the RI in the actions menu only to the owner or the management, and s
         ->not->toContain('Enviar RI ao Desenho…')
         ->not->toContain('Iniciar</button>');
 
-    // a gestão vê "Cancelar RI…" no menu
-    expect(Livewire::actingAs($f['dispatcher'])->test(WorkIndex::class, ['scope' => 'follow'])->payload['effects']['html'])->toContain('Cancelar RI…');
+    // a gestão só vê no Acompanhamento o que é dela: o cancelamento do RI pela gestão fica na Gestão da Obra, não na lista de outra pessoa
+    expect(Livewire::actingAs($f['dispatcher'])->test(WorkIndex::class, ['scope' => 'follow'])->payload['effects']['html'])->not->toContain($f['order']->ordem);
 
     expect($ri->status)->toBe('SENT');
 });
