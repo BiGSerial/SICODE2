@@ -17,12 +17,12 @@ use Carbon\Carbon;
  * (`SicodeRules::paymentAccompanyDeadline`, config/sicode.php); hoje 8 dias úteis em ES e SP:
  *  - Parcial: conta da aprovação do engenheiro (`partials.decision_at`);
  *  - Final: conta da entrega da ADS do informe (`tacit_delivered_at` na ADS tácita; senão a criação da ADS).
- * Verde com 5 dias ou mais, âmbar nos últimos 4 (até o dia do vencimento), vermelho vencido (mesma faixa do Controle de Pagamento).
+ * Verde com mais de 3 dias, âmbar de 3 a 0 dias (até o dia do vencimento), vermelho vencido (mesma faixa do Controle de Pagamento).
  */
 class PaymentAccompanyRowPresenter
 {
     /** Dias restantes até onde a cor passa a âmbar. */
-    public const WARN_UNTIL = 4;
+    public const WARN_UNTIL = 3;
 
     public function __construct(
         private readonly MeasurementDeadlinePolicy $policy,
@@ -49,6 +49,8 @@ class PaymentAccompanyRowPresenter
         $adsAt    = $ads ? ($tacit ? $ads->tacit_delivered_at : $ads->created_at) : null;
         $five     = $this->fiveNotes->resolve($list);
         $deadline = $this->deadline($partial, $adsAt, $tacit);
+        $adsDate  = $partial ? $partial->created_at : $adsAt;
+        $adsDays  = $adsDate ? (int) Carbon::parse($adsDate)->startOfDay()->diffInDays(Carbon::today(), true) : null;
 
         $informant = trim((string) ($partial ? $partial->responsible : $workForm?->informer));
         $parts     = $informant !== '' ? preg_split('/\s+/', $informant) : [];
@@ -82,6 +84,8 @@ class PaymentAccompanyRowPresenter
             'city'        => $note?->lexp,
             'executedAt'  => $workForm?->date ? Carbon::parse($workForm->date) : null,
             'informedAt'  => $workForm ? $workForm->informed_at : $partial?->supervision_at,
+            'adsAt'       => $adsDate,
+            'adsLabel'    => $adsDays === null ? null : $adsDays . ($adsDays === 1 ? ' dia' : ' dias'),
             'dueAt'       => $deadline['dueAt'],
             'dueDays'     => $deadline['days'],
             'dueTone'     => $deadline['tone'],

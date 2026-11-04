@@ -94,7 +94,6 @@
                         <col style="width: 92px">
                         <col style="width: 92px">
                         <col style="width: 92px">
-                        <col style="width: 92px">
                         <col style="width: 104px">
                     </colgroup>
                     <thead>
@@ -109,7 +108,6 @@
                             <th class="is-left">Empresa</th>
                             <th>Final OP20</th>
                             <th>Saldo PEP</th>
-                            <th>Informe</th>
                             <th>ADS</th>
                             <th>Fiscalizado</th>
                             <th>Vencimento</th>
@@ -191,8 +189,6 @@
                                         @endforelse
                                     </div>
                                 </td>
-
-                                <td><x-ops.date :date="$row['informedAt']" /></td>
                                 <td><x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']" :sub="$row['adsLabel']" :hint="'Entrega da ADS · ' . \App\Support\Ops\Deadline::ageText($row['adsAge']) . ' (verde até 14 dias, âmbar até 20, vermelho acima)'" /></td>
                                 <td><x-ops.date :date="$row['fiscalAt']" :tone="$row['fiscalTone']" :hint="$row['isPartial'] ? 'Fiscalização da parcial + 5 dias (verde com 5 dias ou mais, âmbar abaixo disso, vermelho vencido)' : 'Data da fiscalização'" /></td>
                                 <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['dueLabel']" :hint="$row['dueHint']" /></td>

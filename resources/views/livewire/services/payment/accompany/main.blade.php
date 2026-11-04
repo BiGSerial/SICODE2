@@ -32,7 +32,7 @@
             <x-ops.segmented name="paymentAccompanyTypeNote" label="Tipo de nota" wire:model="typeNote" :options="['1' => 'Nota', '2' => 'OV', '' => 'Ambos']" />
 
             <x-ops.toggle label="Vencidos" icon="ri-alarm-warning-line" :on="$prazo === 'vencido'" wire:click.prevent="toggleDeadline('vencido')" title="Mostra só o que já passou do prazo de medição" />
-            <x-ops.toggle label="Vencendo" icon="ri-time-line" :on="$prazo === 'vencendo'" wire:click.prevent="toggleDeadline('vencendo')" title="Mostra só o que vence hoje ou nos próximos 4 dias" />
+            <x-ops.toggle label="Vencendo" icon="ri-time-line" :on="$prazo === 'vencendo'" wire:click.prevent="toggleDeadline('vencendo')" title="Mostra só o que vence de 3 a 0 dias" />
 
             <span class="ops-toolbar-spacer"></span>
 
@@ -142,7 +142,7 @@
                                 <th>Saldo PEP</th>
                                 <th class="is-left">Município</th>
                                 <th>Execução</th>
-                                <th>Informe</th>
+                                <th>ADS</th>
                                 <th>Prazo medição</th>
                                 <th>Status</th>
                                 <th><span class="visually-hidden">Ação</span></th>
@@ -219,7 +219,7 @@
                                     <td class="is-left"><span class="d-block text-truncate" title="{{ $row['city'] }}">{{ $row['city'] ?: '—' }}</span></td>
 
                                     <td><x-ops.date :date="$row['executedAt']" hint="Data de execução informada no informe" /></td>
-                                    <td><x-ops.date :date="$row['informedAt']" hint="Data em que o informe foi enviado" /></td>
+                                    <td><x-ops.date :date="$row['adsAt']" :sub="$row['adsLabel']" :hint="$row['isPartial'] ? 'Data da ADS da parcial' : 'Entrega da ADS do informe'" /></td>
                                     <td><x-ops.date :date="$row['dueAt']" :tone="$row['dueTone']" :sub="$row['dueLabel']" :hint="$row['dueHint']" /></td>
 
                                     <td>

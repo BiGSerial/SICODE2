@@ -80,6 +80,8 @@ class PaymentListRowPresenter
             $dueRemain = $deadline['days'];
             $dueTone   = $deadline['tone'];
             $dueHint   = $deadline['hint'];
+            $dueText   = $this->accompany->dueLabel($dueRemain, $deadline['unit']);
+            $adsText   = $adsAge === null ? null : $adsAge . ($adsAge === 1 ? ' dia' : ' dias');
         }
 
         $informedAt = $wf

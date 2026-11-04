@@ -112,7 +112,7 @@
                             <th>Rubrica / Município</th>
                             <th>Responsável</th>
                             <th>Saldo PEP</th>
-                            <th>Informe</th>
+                            <th>ADS</th>
                             <th>Despachado</th>
                             <th>Atribuído</th>
                             <th>Prazo medição</th>
@@ -136,7 +136,9 @@
                                 $adsAmount = $partial ? $partial->value : $adsForm?->amount;
                                 $soma += (float) ($adsAmount ?? 0);
                                 $isConnection = !$list->partial && $workForm && collect($workForm->finalScopeBadges())->pluck('scope')->contains('connection');
-                                $informedAt = $workForm?->informed_at ?? $partial?->supervision_at;
+                                $adsTacit = (bool) ($adsForm?->tacit ?? false);
+                                $adsDate = $partial ? $partial->created_at : ($adsForm ? ($adsTacit ? $adsForm->tacit_delivered_at : $adsForm->created_at) : null);
+                                $adsDays = $adsDate ? (int) \Carbon\Carbon::parse($adsDate)->startOfDay()->diffInDays(\Carbon\Carbon::today(), true) : null;
                                 $deadline = $this->measurementDeadlineFor($list);
                                 $deadlineTone = match ($deadline['status'] ?? null) { 'no_prazo' => 'green', 'vencendo' => 'amber', 'vencido' => 'red', default => 'muted' };
                             @endphp
@@ -203,15 +205,15 @@
                                     </div>
                                 </td>
 
-                                <td><x-ops.age :date="$informedAt" rule="informed" /></td>
+                                <td><x-ops.date :date="$adsDate" :sub="$adsDays === null ? null : $adsDays . ($adsDays === 1 ? ' dia' : ' dias')" :hint="$partial ? 'Data da ADS da parcial' : 'Entrega da ADS do informe'" /></td>
                                 <td><x-ops.age :date="$list->dispatch_at" rule="dispatch" /></td>
                                 <td><x-ops.age :date="$list->att_at" rule="assigned" /></td>
 
                                 <td>
                                     @if ($deadline)
                                         <x-ops.date :date="$deadline['due_at']" :tone="$deadlineTone"
-                                            :sub="$deadline['remaining_days'] < 0 ? abs($deadline['remaining_days']) . ($deadline['remaining_days'] === -1 ? ' dia vencido' : ' dias vencidos') : $deadline['remaining_days'] . ($deadline['remaining_days'] === 1 ? ' dia' : ' dias')"
-                                            hint="Prazo da medição. Verde: mais de 4 dias para vencer. Âmbar: até o vencimento. Vermelho: vencido." />
+                                            :sub="$deadline['remaining_days'] < 0 ? abs($deadline['remaining_days']) . ($deadline['remaining_days'] === -1 ? ' dia útil vencido' : ' dias úteis vencidos') : $deadline['remaining_days'] . ($deadline['remaining_days'] === 1 ? ' dia útil' : ' dias úteis')"
+                                            :hint="$deadline['hint']" />
                                     @else
                                         <span class="ops-empty">—</span>
                                     @endif
