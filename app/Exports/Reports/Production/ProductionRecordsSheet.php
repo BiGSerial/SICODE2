@@ -5,6 +5,7 @@ namespace App\Exports\Reports\Production;
 use App\Exports\Closure\Dashboard\DashboardTheme;
 use App\Models\Production;
 use App\Services\Reports\Production\ProductionReportAnalytics;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\{FromQuery, WithChunkReading, WithColumnFormatting, WithEvents, WithHeadings, WithMapping, WithStrictNullComparison, WithTitle};
 use Maatwebsite\Excel\Events\AfterSheet;
@@ -18,14 +19,17 @@ use PhpOffice\PhpSpreadsheet\Style\{Alignment, Fill, NumberFormat};
  */
 class ProductionRecordsSheet implements FromQuery, WithChunkReading, WithColumnFormatting, WithEvents, WithHeadings, WithMapping, WithStrictNullComparison, WithTitle
 {
-    private const DATETIME = 'dd/mm/yyyy hh:mm';
+    private const DATE = 'dd/mm/yyyy';
 
+    private const TIME = 'hh:mm';
+
+    /** Cada data vem em duas colunas (data e hora) para filtrar e agrupar no Excel; `Data do status` é o `dt_note` gravado na produção. */
     private const HEADINGS = [
-        'Fim', 'Início', 'Usuário', 'Empresa', 'Atividade', 'Nota', 'Material', 'Grupo 2', 'Grupo 5',
+        'Fim (data)', 'Fim (hora)', 'Início (data)', 'Início (hora)', 'Data do status', 'Hora do status', 'Usuário', 'Empresa', 'Atividade', 'Nota', 'Material', 'Grupo 2', 'Grupo 5',
         'Depende de órgão externo', 'Meio ambiente', 'RI', 'Parado (dias)', 'Postes/ativos', 'Situação', 'Conclusão',
     ];
 
-    private const WIDTHS = [18, 18, 28, 14, 24, 14, 28, 22, 14, 14, 12, 8, 12, 12, 18, 38];
+    private const WIDTHS = [13, 10, 13, 10, 14, 10, 28, 14, 24, 14, 28, 22, 14, 14, 12, 8, 12, 12, 18, 38];
 
     public function __construct(private readonly Builder $query)
     {
@@ -57,8 +61,9 @@ class ProductionRecordsSheet implements FromQuery, WithChunkReading, WithColumnF
         $note = $row->Note;
 
         return [
-            $row->completed_at ? Date::dateTimeToExcel($row->completed_at) : null,
-            $row->att_at ? Date::dateTimeToExcel($row->att_at) : null,
+            ...$this->dateAndTime($row->completed_at),
+            ...$this->dateAndTime($row->att_at),
+            ...$this->dateAndTime($row->dt_note),
             $row->User->name ?? 'Desconhecido',
             $row->Company->name ?? '',
             $row->Service->service ?? '',
@@ -76,9 +81,29 @@ class ProductionRecordsSheet implements FromQuery, WithChunkReading, WithColumnF
         ];
     }
 
+    /**
+     * Data (dia, sem hora) e hora (fração do dia) como números do Excel, cada um no seu formato de coluna.
+     *
+     * @return array{0: float|null, 1: float|null}
+     */
+    private function dateAndTime(?CarbonInterface $at): array
+    {
+        if (!$at) {
+            return [null, null];
+        }
+
+        return [
+            Date::dateTimeToExcel($at->copy()->startOfDay()),
+            ($at->hour * 3600 + $at->minute * 60 + $at->second) / 86400,
+        ];
+    }
+
     public function columnFormats(): array
     {
-        return ['A' => self::DATETIME, 'B' => self::DATETIME, 'F' => NumberFormat::FORMAT_TEXT, 'M' => '#,##0.00', 'N' => '#,##0'];
+        return [
+            'A' => self::DATE, 'B' => self::TIME, 'C' => self::DATE, 'D' => self::TIME, 'E' => self::DATE, 'F' => self::TIME,
+            'J' => NumberFormat::FORMAT_TEXT, 'Q' => '#,##0.00', 'R' => '#,##0',
+        ];
     }
 
     public function registerEvents(): array
@@ -99,7 +124,8 @@ class ProductionRecordsSheet implements FromQuery, WithChunkReading, WithColumnF
                 $sheet->getColumnDimension(Coordinate::stringFromColumnIndex($i + 1))->setWidth($width);
             }
 
-            $sheet->getStyle("J2:L{$sheet->getHighestRow()}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("A2:F{$sheet->getHighestRow()}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getStyle("N2:P{$sheet->getHighestRow()}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
             $sheet->freezePane('A2');
             $sheet->setAutoFilter("A1:{$last}1");
         }];

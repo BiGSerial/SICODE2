@@ -250,7 +250,7 @@ it('o mês escolhido vira o período e o atalho "todo o período" tira as datas'
 it('gera o Excel pelo job, com as abas do relatório e o controle da exportação', function () {
     $f = prodFixture();
     prodRow($f['alpha'], $f['ana'], $f['analysis'], ['completed_at' => '2026-10-02 10:00:00', 'ma' => true], ['note' => '4001111111', 'doe' => true], 'DEPENDE DE ORGAO EXTERNO');
-    prodRow($f['alpha'], $f['ana'], $f['analysis'], ['completed_at' => '2026-10-22 10:00:00'], ['note' => '4002222222'], 'ISR - LIBERADO');
+    prodRow($f['alpha'], $f['ana'], $f['analysis'], ['completed_at' => '2026-10-22 14:45:30', 'att_at' => '2026-10-20 08:05:00', 'dt_note' => '2026-10-15 07:30:00'], ['note' => '4002222222'], 'ISR - LIBERADO');
 
     ProductionReportExportJob::dispatchSync(['from' => '2026-10-01', 'to' => '2026-10-25', 'doe' => ''], $f['viewer']->id);
 
@@ -262,11 +262,21 @@ it('gera o Excel pelo job, com as abas do relatório e o controle da exportaçã
     expect($book->getSheetNames())->toBe(['Resumo', 'Conclusões', 'Atividades', 'Pessoas', 'Empresas', 'Evolução', 'Registros', 'Regras', 'Controle Exportacao']);
 
     $records = $book->getSheetByName('Registros')->toArray(null, true, false, false);
-    expect($records[0][5])->toBe('Nota')
-        ->and($records[1][5])->toEqual('4002222222')      // mais recente primeiro
-        ->and($records[2][5])->toEqual('4001111111')
-        ->and($records[2][9])->toBe('SIM')              // órgão externo
-        ->and($records[2][10])->toBe('SIM');            // meio ambiente
+    expect(array_slice($records[0], 0, 6))->toBe(['Fim (data)', 'Fim (hora)', 'Início (data)', 'Início (hora)', 'Data do status', 'Hora do status'])
+        ->and($records[0][9])->toBe('Nota')
+        ->and($records[1][9])->toEqual('4002222222')      // mais recente primeiro
+        ->and($records[2][9])->toEqual('4001111111')
+        ->and($records[2][13])->toBe('SIM')             // órgão externo
+        ->and($records[2][14])->toBe('SIM');            // meio ambiente
+
+    // Data e hora em colunas separadas, como números do Excel (dia inteiro e fração do dia).
+    $excelDate = fn (string $day) => \PhpOffice\PhpSpreadsheet\Shared\Date::dateTimeToExcel(new DateTime($day));
+    expect((float) $records[1][0])->toBe((float) $excelDate('2026-10-22'))                       // fim: dia
+        ->and(round((float) $records[1][1], 6))->toBe(round((14 * 3600 + 45 * 60 + 30) / 86400, 6))   // fim: 14:45:30
+        ->and((float) $records[1][2])->toBe((float) $excelDate('2026-10-20'))                    // início: dia
+        ->and(round((float) $records[1][3], 6))->toBe(round((8 * 3600 + 5 * 60) / 86400, 6))
+        ->and((float) $records[1][4])->toBe((float) $excelDate('2026-10-15'))                    // dt_note da produção
+        ->and(round((float) $records[1][5], 6))->toBe(round((7 * 3600 + 30 * 60) / 86400, 6));
 
     $control = $book->getSheetByName('Controle Exportacao')->toArray(null, true, false, false);
     expect(collect($control)->pluck(0))->toContain('Usuário', 'E-mail', 'Data/hora', 'Tipo');
