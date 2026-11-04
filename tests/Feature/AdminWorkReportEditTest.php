@@ -207,4 +207,35 @@ class AdminWorkReportEditTest extends TestCase
         $component->set('finalScopeChoice', 'network')->call('saveFinalScope');
         $this->assertNull($workReport->fresh()->selected_final_scopes);
     }
+
+    public function test_it_confirms_a_completed_production_manually_and_can_undo_it(): void
+    {
+        $company = Company::create(['name' => 'Empresa de teste', 'email' => 'empresa@example.test']);
+        $user    = User::factory()->create(['company_id' => $company->id]);
+        $note    = Note::create(['note' => '500000' . random_int(1000, 9999), 'dt_status' => now(), 'nstats' => 'NEW']);
+        $service = Service::create(['uuid' => (string) Str::uuid(), 'service' => 'Medicao', 'folder' => 'medicao']);
+        $report  = WorkReport::create(['note_id' => $note->id, 'company_id' => $company->id, 'user_id' => $user->id, 'date' => now()->toDateString(), 'informed_at' => now(), 'canceled' => false]);
+
+        $done = Production::create(['note_id' => $note->id, 'company_id' => $company->id, 'service_id' => $service->uuid, 'completed' => true, 'completed_at' => now()->subDays(40), 'confirmed' => false, 'status' => 5]);
+        $open = Production::create(['note_id' => $note->id, 'company_id' => $company->id, 'service_id' => $service->uuid, 'completed' => false, 'confirmed' => false, 'status' => 2]);
+
+        $this->actingAs($user);
+
+        $component = Livewire::test(WorkReportEdit::class)->call('getInfoResponse', $report);
+
+        // Só confirma o que já está concluído.
+        $component->call('requestConfirmProduction', $open->id)->call('confirmProductionManually');
+        $this->assertFalse((bool) $open->fresh()->confirmed);
+
+        $component->call('requestConfirmProduction', $done->id)->call('confirmProductionManually');
+
+        $fresh = $done->fresh();
+        $this->assertTrue((bool) $fresh->confirmed);
+        $this->assertTrue((bool) $fresh->conf_manual);
+        $this->assertNotNull($fresh->confirmed_at);
+        $this->assertDatabaseHas('manualconfirms', ['production_id' => $done->id, 'user_id' => $user->id]);
+
+        $component->call('requestUndoProductionConfirmation', $done->id)->call('undoProductionConfirmation');
+        $this->assertFalse((bool) $done->fresh()->confirmed);
+    }
 }

@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Admin\Control;
 
 use App\Enum\AdsRequestStatus;
 use App\Jobs\ResyncNoteInformFlowsJob;
-use App\Models\{AdsRequest, Company, File, Order, Production, User, WorkReport, WorkReportFlowProduction};
+use App\Models\{AdsRequest, Company, File, Manualconfirm, Order, Production, User, WorkReport, WorkReportFlowProduction};
 use App\Services\WorkReports\WorkReportFinalScopeResolver;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
@@ -36,6 +36,9 @@ class WorkReportEdit extends Component
     public ?int $pendingTargetWorkReportId = null;
 
     public ?int $deleteProductionId = null;
+
+    /** Production cuja confirmação manual (ou o desfazer) está esperando o "sim" do diálogo. */
+    public ?int $confirmProductionId = null;
 
     public $deleteAdsFormId = null;
 
@@ -95,6 +98,8 @@ class WorkReportEdit extends Component
         'confirmAssociateProduction' => 'associateProduction',
         'confirmDetachProduction'    => 'detachProduction',
         'confirmDeleteProduction'    => 'deleteProduction',
+        'confirmProductionManual'    => 'confirmProductionManually',
+        'confirmProductionUndo'      => 'undoProductionConfirmation',
     ];
 
     protected function rules(): array
@@ -690,6 +695,9 @@ class WorkReportEdit extends Component
                     'stage'             => $stage,
                     'stage_label'       => $this->stageLabel($stage),
                     'production_status' => $this->productionStatusLabel($production),
+                    'completed'         => (bool) $production->completed,
+                    'confirmed'         => (bool) $production->confirmed,
+                    'conf_manual'       => (bool) $production->conf_manual,
                     'production_date'   => $this->formatProductionDate($production->att_at ?? $production->created_at),
                     'current_report_id' => $currentLink?->work_report_id ? (int) $currentLink->work_report_id : null,
                     'is_linked_here'    => $isLinkedHere,
@@ -1099,6 +1107,109 @@ class WorkReportEdit extends Component
             'position' => 'center',
             'icon'     => 'success',
             'title'    => "Production #{$production->id} desassociada",
+            'timer'    => 2200,
+        ]);
+    }
+
+    /**
+     * Confirmação manual da Production concluída: quando o status da Nota no SAP demora a mudar (ou não muda), a rotina
+     * `sicode:confirm_prod` não a confirma sozinha. Fica registrada em `manualconfirms`, como na tela de Inconsistências.
+     */
+    public function requestConfirmProduction(int $productionId): void
+    {
+        $production = $this->findEligibleProduction($productionId);
+
+        if (!$production || !$production->completed || $production->confirmed) {
+            $this->dispatchBrowserEvent('swal', [
+                'position' => 'center',
+                'icon'     => 'warning',
+                'title'    => 'Só dá para confirmar uma Production concluída e ainda não confirmada',
+                'timer'    => 2600,
+            ]);
+
+            return;
+        }
+
+        $this->confirmProductionId = $production->id;
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => "Confirmar Production #{$production->id}",
+            'msg'           => 'A Production concluída será marcada como confirmada manualmente e sai do Controle da atividade. O registro fica no histórico de confirmações manuais.',
+            'icon'          => 'question',
+            'btnOktxt'      => 'Sim, confirmar',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'confirmProductionManual',
+            'cancel_titulo' => 'Operação cancelada',
+            'cancel_msg'    => 'A Production não foi alterada.',
+        ]);
+    }
+
+    public function confirmProductionManually(): void
+    {
+        $production                = $this->confirmProductionId ? $this->findEligibleProduction($this->confirmProductionId) : null;
+        $this->confirmProductionId = null;
+
+        if (!$production || !$production->completed || $production->confirmed) {
+            return;
+        }
+
+        DB::transaction(function () use ($production): void {
+            $production->update(['confirmed' => true, 'confirmed_at' => now(), 'conf_manual' => true]);
+
+            Manualconfirm::create([
+                'user_id'       => auth()->id(),
+                'production_id' => $production->id,
+                'info'          => 'Confirmada manualmente no editor de informes (status no SAP não mudou a tempo).',
+            ]);
+        });
+
+        $this->refreshNoteProductions();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => "Production #{$production->id} confirmada",
+            'timer'    => 2200,
+        ]);
+    }
+
+    /** Desfaz uma confirmação feita por engano: a Production volta a "Concluída" e ao Controle. */
+    public function requestUndoProductionConfirmation(int $productionId): void
+    {
+        $production = $this->findEligibleProduction($productionId);
+
+        if (!$production || !$production->confirmed) {
+            return;
+        }
+
+        $this->confirmProductionId = $production->id;
+        $this->dispatchBrowserEvent('alertar', [
+            'title'         => "Desfazer confirmação da Production #{$production->id}",
+            'msg'           => 'A Production volta a ficar concluída e não confirmada (e reaparece no Controle da atividade até ser confirmada).',
+            'icon'          => 'warning',
+            'btnOktxt'      => 'Sim, desfazer',
+            'btnCanceltxt'  => 'Cancelar',
+            'action'        => 'confirmProductionUndo',
+            'cancel_titulo' => 'Operação cancelada',
+            'cancel_msg'    => 'A Production não foi alterada.',
+        ]);
+    }
+
+    public function undoProductionConfirmation(): void
+    {
+        $production                = $this->confirmProductionId ? $this->findEligibleProduction($this->confirmProductionId) : null;
+        $this->confirmProductionId = null;
+
+        if (!$production || !$production->confirmed) {
+            return;
+        }
+
+        $production->update(['confirmed' => false, 'confirmed_at' => null, 'conf_manual' => false]);
+        $this->refreshNoteProductions();
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => "Confirmação da Production #{$production->id} desfeita",
             'timer'    => 2200,
         ]);
     }
