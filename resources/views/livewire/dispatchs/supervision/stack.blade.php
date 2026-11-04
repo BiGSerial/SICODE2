@@ -174,7 +174,11 @@
 
                                 <td>
                                     <div class="ops-cell-stack is-center">
-                                        <x-ops.age :date="$row['adsAt']" :days="$row['adsDays']" rule="ads" />
+                                        @if ($row['cycleTwo'])
+                                            <x-ops.date :date="$row['adsAt']" tone="secondary" sub="D5" hint="D5 de 2º ciclo: o prazo da ADS não é cobrado aqui" />
+                                        @else
+                                            <x-ops.age :date="$row['adsAt']" :days="$row['adsDays']" rule="ads" />
+                                        @endif
                                         @if ($row['adsTacit'])
                                             <span class="d-inline-flex gap-1">
                                                 <x-ops.badge sm tone="muted" label="Tácita" hint="ADS entregue de forma tácita" />
@@ -186,8 +190,8 @@
 
                                 <td><x-ops.money :value="$row['adsAmount']" /></td>
 
-                                <td><x-ops.date :date="$row['informedAt']" :tone="$row['informedTone']" :sub="$row['informedDays'] !== null ? $row['informedDays'] . ' d' : null"
-                                    hint="Dias desde o informe (verde até 5 dias, âmbar de 6 a 8, vermelho acima de 8)" /></td>
+                                <td><x-ops.date :date="$row['informedAt']" :tone="$row['informedTone']" :sub="$row['cycleTwo'] ? 'D5' : ($row['informedDays'] !== null ? $row['informedDays'] . ' d' : null)"
+                                    :hint="$row['cycleTwo'] ? 'D5 de 2º ciclo: o prazo do informe não é cobrado aqui' : 'Dias desde o informe (verde até 5 dias, âmbar de 6 a 8, vermelho acima de 8)'" /></td>
                                 <td><x-ops.date :date="$row['dispatchAt']" :tone="$row['dispatchTone']" :sub="$row['dispatchDays'] !== null ? $row['dispatchDays'] . ' d' : null"
                                     hint="Despachada há quantos dias (verde até 21 dias, âmbar até 30, vermelho acima de 30)" /></td>
                                 <td><x-ops.date :date="$row['attAt']" :tone="$row['attTone']" :sub="$row['attDays'] !== null ? $row['attDays'] . ' d' : null"

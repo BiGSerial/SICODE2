@@ -55,6 +55,9 @@ class SupervisionControlRowPresenter
 
         $wpa = $this->wpa($item);
 
+        // D5 (2º ciclo do informe): informe e ADS não são cobrados; ficam em cinza (`secondary`) com "D5" no lugar dos dias.
+        $cycleTwo = !$item->d5 && (bool) $item->dfive;
+
         return [
             'id'           => (int) $item->id,
             'noteId'       => (int) $item->note_id,
@@ -80,7 +83,8 @@ class SupervisionControlRowPresenter
             'adsAmount'    => $adsAmount === null ? null : (float) $adsAmount,
             'informedAt'   => $informedAt,
             'informedDays' => $informed,
-            'informedTone' => Deadline::age($informed, self::INFORMED_OK_UNTIL, self::INFORMED_WARN_UNTIL),
+            'informedTone' => $cycleTwo ? ($informedAt ? 'secondary' : 'muted') : Deadline::age($informed, self::INFORMED_OK_UNTIL, self::INFORMED_WARN_UNTIL),
+            'cycleTwo'     => $cycleTwo,
             'dispatchAt'   => $item->dispatch_at,
             'dispatchDays' => $dispatched,
             'dispatchTone' => Deadline::age($dispatched, self::DISPATCH_OK_UNTIL, self::DISPATCH_WARN_UNTIL),

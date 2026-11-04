@@ -10,4 +10,6 @@
     .tone-amber { --k: #b58a00;           --tone: #8a6d00;           --tone-soft: rgba(247, 210, 0, .22); }
     .tone-red   { --k: var(--dash-red);   --tone: #a11d1d;           --tone-soft: rgba(227, 44, 44, .12); }
     .tone-muted { --k: var(--dash-muted); --tone: var(--dash-muted); --tone-soft: rgba(100, 116, 139, .12); }
+    // `secondary`: cinza com fundo (o `muted` das datas é sem fundo). Usado para o que não conta prazo, como a D5 de 2º ciclo.
+    .tone-secondary { --k: var(--dash-muted); --tone: var(--dash-muted); --tone-soft: rgba(100, 116, 139, .18); }
 }

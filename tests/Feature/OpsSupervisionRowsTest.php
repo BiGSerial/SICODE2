@@ -76,6 +76,31 @@ class OpsSupervisionRowsTest extends TestCase
         $this->assertSame(['red', 'red', 'red'], [$red['informedTone'], $red['dispatchTone'], $red['attTone']]);
     }
 
+    public function test_d5_second_cycle_rows_use_secondary_dates_with_d5_instead_of_days(): void
+    {
+        // Lista de Despacho: D5 concluída aguardando fiscalização.
+        $note    = $this->blankNote();
+        $partial = (new Partial())->forceFill(['allow' => true, 'deny' => false, 'created_at' => now()->subDays(40)])->setRelation('Orders', collect());
+        $note->setRelation('Partials', collect([$partial]));
+        $note->setRelation('FiveNote', (new \App\Models\FiveNote())->forceFill(['is_completed' => true, 'is_supervisioned' => false]));
+
+        $row = (new SupervisionListRowPresenter())->present($note, ['eval' => ['block' => 0, 'command' => true, 'reason' => 'x', 'production' => null, 'isPartial' => true], 'stack' => null, 'canDispatch' => true, 'count' => 0, 'key' => 'k'], 'srv');
+
+        $this->assertTrue($row['cycleTwo']);
+        $this->assertSame(['secondary', 'D5'], [$row['informedTone'], $row['informedText']]);
+
+        // Controle: produção de D5 (dfive) que não é RI.
+        $item = (new Production())->forceFill(['id' => 1, 'note_id' => 1, 'status' => 2, 'dfive' => true, 'd5' => false, 'dt_inform' => now()->subDays(40)->toDateTimeString()]);
+        $item->setRelation('note', $this->blankNote());
+        $item->setRelation('wpas', collect());
+        $item->setRelation('WorkReportFlowProductions', collect());
+
+        $control = (new SupervisionControlRowPresenter())->present($item);
+
+        $this->assertTrue($control['cycleTwo']);
+        $this->assertSame('secondary', $control['informedTone']);
+    }
+
     public function test_views_have_no_inline_css_js_or_bootstrap_color_classes(): void
     {
         $files = [

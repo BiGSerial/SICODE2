@@ -157,14 +157,14 @@
 
                                 <td>
                                     <x-ops.date :date="$row['informedAt']" :tone="$row['informedTone']"
-                                        :sub="$row['informedDays'] !== null ? $row['informedDays'] . ' dia(s)' : null"
-                                        hint="Dias desde o informe (verde até 20 dias, âmbar de 21 a 27, vermelho a partir de 28)" />
+                                        :sub="$row['informedText'] ?? ($row['informedDays'] !== null ? $row['informedDays'] . ' dia(s)' : null)"
+                                        :hint="$row['cycleTwo'] ? 'D5 de 2º ciclo: o prazo do informe não é cobrado aqui' : 'Dias desde o informe (verde até 20 dias, âmbar de 21 a 27, vermelho a partir de 28)'" />
                                 </td>
 
                                 <td>
                                     <div class="ops-cell-stack is-center">
-                                        <x-ops.date :date="$row['adsAt']"
-                                            :sub="$row['adsAfter'] !== null ? $row['adsAfter'] . ' dia(s)' : null"
+                                        <x-ops.date :date="$row['adsAt']" :tone="$row['adsTone']"
+                                            :sub="$row['adsText'] ?? ($row['adsAfter'] !== null ? $row['adsAfter'] . ' dia(s)' : null)"
                                             :hint="$row['adsAt'] ? 'Entrega da ADS em ' . $row['adsAt']->format('d/m/Y H:i:s') . ($row['adsAfter'] !== null ? ' · ' . $row['adsAfter'] . ' dia(s) após o informe' : '') : null" />
                                         @if ($row['adsTacit'])
                                             <x-ops.badge sm tone="amber" label="Tácito" hint="ADS entregue de forma tácita" />

@@ -401,6 +401,8 @@ class Main extends Component
         $adsForm  = $note->Adsform ?? $workForm?->Adsform;
         $adsDate  = $adsForm ? $adsForm->created_at : $note->OldAds?->sortByDesc('date')->first()?->date;
         $adsDate  = $adsDate ? Carbon::parse($adsDate) : null;
+        // D5 (2º ciclo do informe): informe e ADS não são cobrados; ficam em cinza (`secondary`) com "D5" no lugar dos dias.
+        $cycleTwo = (bool) ($five?->is_completed && !$five?->is_supervisioned);
         $adsDays  = $adsDate ? (int) $adsDate->copy()->startOfDay()->diffInDays(Carbon::now()->startOfDay()) : null;
         $tacit    = (bool) ($adsForm?->tacit ?? false);
         $rejected = (bool) $workForm?->rejected;
@@ -424,7 +426,7 @@ class Main extends Component
             'isConnection' => $workForm ? collect($workForm->finalScopeBadges())->pluck('scope')->contains('connection') : false,
             'priority'     => (bool) $list->priority,
             'rejected'     => $rejected,
-            'd5'           => ($five?->is_completed && !$five?->is_supervisioned),
+            'd5'           => $cycleTwo,
             'workReportId' => $workForm?->id,
             'orders'       => $workForm?->Orders ? $workForm->Orders->pluck('ordem')->filter()->values()->all() : [],
             'dd'           => $lastWpa?->dd,
@@ -440,10 +442,11 @@ class Main extends Component
             'attDays'      => $list->att_at ? max(0, (int) $list->days_assigned) : null,
             'informedAt'   => $informed,
             'informedDays' => (int) $list->days_left,
-            'informedTone' => $informed ? Deadline::age((int) $list->days_left, 20, 27) : 'muted',
+            'informedTone' => $informed ? ($cycleTwo ? 'secondary' : Deadline::age((int) $list->days_left, 20, 27)) : 'muted',
+            'cycleTwo'     => $cycleTwo,
             'adsAt'        => $adsDate,
             'adsDays'      => $adsDays !== null ? max(0, $adsDays) : null,
-            'adsTone'      => Deadline::age($adsDays, 6, 9),
+            'adsTone'      => $cycleTwo ? 'secondary' : Deadline::age($adsDays, 6, 9),
             'adsTacit'     => $tacit,
             'adsDelivered' => (bool) ($adsForm?->tacit_delivered_at ?? false),
             'adsLegacy'    => !$tacit && $note->OldAds && $note->OldAds->isNotEmpty(),
