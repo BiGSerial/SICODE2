@@ -120,7 +120,8 @@ it('o recorte por grupo e rubrica vale para a pilha e vem da tela, e limpa junto
         ->assertSet('filters', ['group1' => ['BBB']])
         ->assertDispatchedBrowserEvent('my-panel:charts')
         ->call('clearFilters')
-        ->assertSet('filters', []);
+        ->assertSet('filters', [])
+        ->assertDispatchedBrowserEvent('ops-filters');
 });
 
 it('o relatório do Excel traz a pilha crítica completa, além das 15 da tela', function () {

@@ -79,6 +79,7 @@ class Dashboard extends Component
         $this->adherenceDays         = '8';
         $this->filters               = [];
         $this->applyPreset('month');
+        $this->dispatchBrowserEvent('ops-filters', ['sel' => (object) $this->filters]);
         $this->refreshCharts();
     }
 
