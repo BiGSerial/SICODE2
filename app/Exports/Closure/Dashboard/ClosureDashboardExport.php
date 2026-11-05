@@ -66,6 +66,60 @@ class ClosureDashboardExport implements WithMultipleSheets, WithProperties
             $sheets[]                                     = new DashboardTableSheet($title, $headings, $rows, array_merge(['description' => $description, 'generated' => $generated], $options));
         };
 
+        // Gerencial: comparador mensal, principais problemas, parceiras e atividades (período do painel)
+        $m         = $r['management'];
+        $months    = $m['months'];
+        $monthCols = range('B', chr(ord('A') + count($months)));
+        $deltaCol  = chr(ord('A') + count($months) + 1);
+        $pctCol    = chr(ord('A') + count($months) + 2);
+        $add(
+            'Comparador mensal',
+            'Melhoramos ou pioramos? ' . $m['reference'] . ' contra ' . $m['previous'] . ' (' . $m['count']['better'] . ' melhoraram, ' . $m['count']['worse'] . ' pioraram, ' . $m['count']['stable'] . ' estáveis). Variação abaixo de 5% é estável. Tempos em dias corridos.',
+            array_merge(['Indicador'], $months, ['Variação', 'Variação %', 'Veredito']),
+            $m['comparator'],
+            [
+                'tab'     => DashboardTheme::GREEN, 'center' => array_merge($monthCols, [$deltaCol, $pctCol, chr(ord($pctCol) + 1)]),
+                'formats' => array_fill_keys($monthCols, '#,##0.0;-#,##0.0;"–"') + [$deltaCol => '+#,##0.0;-#,##0.0;0', $pctCol => '+0.0"%";-0.0"%";0"%"'],
+                'widths'  => ['A' => 34],
+            ],
+        );
+
+        $add(
+            'Principais problemas',
+            'Motivos de pendência, motivos de RI e depósitos bloqueados do período ' . $m['period'] . ', do maior para o menor.',
+            ['Problema', 'Origem', 'Ocorrências', 'Em aberto agora', 'Resposta média (dias)', 'Ordens afetadas'],
+            $m['problems'],
+            [
+                'tab'      => DashboardTheme::RED, 'center' => ['C', 'D', 'E', 'F'],
+                'formats'  => ['C' => DashboardTableSheet::INT, 'D' => DashboardTableSheet::INT, 'E' => '0.0', 'F' => DashboardTableSheet::INT],
+                'dataBars' => ['C' => DashboardTheme::RED], 'widths' => ['A' => 52, 'B' => 28],
+            ],
+        );
+
+        $add(
+            'Por parceira',
+            'Pendências por parceira no período ' . $m['period'] . '. Retrabalho = devoluções para correção ÷ retornos recebidos (%). Em aberto e aguardando são de agora.',
+            ['Parceira', 'Recebidas', 'Em aberto', 'Aguardando', 'Resposta média (dias)', 'Devoluções', 'Retrabalho (%)', 'Principal motivo', 'Depósitos bloqueados'],
+            $m['partners'],
+            [
+                'tab'      => DashboardTheme::AMBER, 'center' => ['B', 'C', 'D', 'E', 'F', 'G', 'I'],
+                'formats'  => ['B' => DashboardTableSheet::INT, 'C' => DashboardTableSheet::INT, 'D' => DashboardTableSheet::INT, 'E' => '0.0', 'F' => DashboardTableSheet::INT, 'G' => '0.0', 'I' => DashboardTableSheet::INT],
+                'dataBars' => ['B' => DashboardTheme::BLUE, 'F' => DashboardTheme::RED], 'widths' => ['A' => 34, 'H' => 34],
+            ],
+        );
+
+        $add(
+            'Por atividade',
+            'Parceiras, Medição, Fiscalização (pendências) e Desenho (RI) no período ' . $m['period'] . '. "Anterior" é o período imediatamente anterior, de mesma duração.',
+            ['Atividade', 'Unidade', 'Recebidas', 'Recebidas (anterior)', 'Variação', 'Resolvidas', 'Em aberto agora', 'Aguardando agora', 'Resposta média (dias)', 'Devoluções', 'Retrabalho (%)', 'Ordens na caixa'],
+            $m['activities'],
+            [
+                'tab'     => DashboardTheme::TEAL, 'center' => ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'],
+                'formats' => ['C' => DashboardTableSheet::INT, 'D' => DashboardTableSheet::INT, 'E' => '+#,##0;-#,##0;0', 'F' => DashboardTableSheet::INT, 'G' => DashboardTableSheet::INT, 'H' => DashboardTableSheet::INT, 'I' => '0.0', 'J' => DashboardTableSheet::INT, 'K' => '0.0', 'L' => DashboardTableSheet::INT],
+                'widths'  => ['A' => 22],
+            ],
+        );
+
         // Volumetria por usuário
         $volume = $r['volume'];
         $add(

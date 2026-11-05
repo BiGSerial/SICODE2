@@ -715,6 +715,24 @@
     .ops-status-card-metric small { color: var(--ops-muted); font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
     .ops-status-card-metric.is-total strong { color: var(--ops-muted); font-weight: 600; }
 
+    // Matriz de volumetria do painel analítico (usuário × tipo × status): números clicáveis que filtram a lista.
+    .ops-matrix-cell { background: transparent; border: 0; border-radius: 6px; color: var(--ops-ink); font-variant-numeric: tabular-nums; font-weight: 700; min-width: 34px; padding: 3px 6px; }
+    .ops-matrix-cell:hover:not(:disabled) { background: var(--ops-accent-soft); }
+    .ops-matrix-cell.is-active { background: var(--ops-accent-strong); color: var(--ops-on-dark); }
+    .ops-matrix-cell:disabled { color: var(--ops-faint); cursor: default; }
+    .ops-type-chip { background: var(--k, var(--ops-muted)); border: 0; border-radius: 4px; color: var(--ops-on-dark); font-size: .72rem; font-weight: 800; min-width: 30px; padding: 2px 6px; }
+    .ops-type-chip:disabled { cursor: default; opacity: .3; }
+    .ops-type-chip.is-active { box-shadow: 0 0 0 2px var(--ops-ink); }
+    .ops-matrix-total td { background: var(--ops-surface-soft); border-top: 2px solid var(--ops-line); font-weight: 800; }
+
+    // Comparador mensal: valor do mês de referência em destaque e variação com seta (cor = veredito, não a direção do número).
+    .ops-compare-ref { font-weight: 800; }
+    .ops-compare-partial { color: var(--ops-muted); font-style: italic; }
+    .ops-delta { align-items: center; display: inline-flex; font-size: .78rem; font-variant-numeric: tabular-nums; font-weight: 700; gap: 3px; }
+    .ops-delta.tone-green { color: var(--ops-row-done); }
+    .ops-delta.tone-red { color: var(--ops-row-late); }
+    .ops-delta.tone-blue, .ops-delta.tone-muted { color: var(--ops-muted); }
+
     .ops-notice--warn { background: var(--ops-warn-bg); border-color: var(--ops-warn-border); color: var(--ops-warn-ink); }
     .ops-menu-btn { border-radius: 8px; line-height: 1; padding: 4px 8px; }
     .ops-bulk-menu { min-width: 300px; padding: 6px; }

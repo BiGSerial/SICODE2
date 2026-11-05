@@ -131,7 +131,7 @@ it('writes one tab per dashboard block and one tab per status with activities', 
     $names = $book->getSheetNames();
 
     expect($names)->toBe([
-        'Resumo', 'Volumetria', 'Por status', 'Matriz', 'Ordens ativas',
+        'Resumo', 'Comparador mensal', 'Principais problemas', 'Por parceira', 'Por atividade', 'Volumetria', 'Por status', 'Matriz', 'Ordens ativas',
         'Atividades · Em andamento', 'Atividades · Finalizado', 'Atividades · Disponível',
         'Parceiras', 'Pendências por usuário', 'Obras críticas', 'Prioridades',
     ]);
@@ -158,7 +158,7 @@ it('shows the KPIs as cards, the applied filters and a clickable index of the ta
     // índice de abas com link interno
     $links = collect($summary->getHyperlinkCollection())->map(fn ($h) => $h->getUrl())->values();
 
-    expect($links->count())->toBe(11)   // todas as abas, menos o próprio Resumo
+    expect($links->count())->toBe(15)   // todas as abas, menos o próprio Resumo
         ->and($links->first())->toStartWith("sheet://'");
 
     expect($summary->getTabColor()->getRGB())->toBe(DashboardTheme::INK);
@@ -255,7 +255,7 @@ it('flattens the matrix by user and type with the totals at the end', function (
 it('still builds a readable file when there is nothing to show', function () {
     $book = dashWorkbook(app(ClosureDashboardReport::class)->build([], 7));
 
-    expect($book->getSheetNames())->toBe(['Resumo', 'Volumetria', 'Por status', 'Matriz', 'Ordens ativas', 'Parceiras', 'Pendências por usuário', 'Obras críticas', 'Prioridades'])
+    expect($book->getSheetNames())->toBe(['Resumo', 'Comparador mensal', 'Principais problemas', 'Por parceira', 'Por atividade', 'Volumetria', 'Por status', 'Matriz', 'Ordens ativas', 'Parceiras', 'Pendências por usuário', 'Obras críticas', 'Prioridades'])
         ->and($book->getSheetByName('Ordens ativas')->getCell('A5')->getValue())->toBe('Nenhum registro para os filtros aplicados.')
         ->and($book->getSheetByName('Resumo')->getCell('A6')->getValue())->toBe(0);
 });
@@ -273,7 +273,7 @@ it('exports in the background, in the dispatcher filters, and notifies with the 
     $payload = Notification::sent($dispatcher, SystemNotification::class)->map(fn ($n) => $n->toDatabase($dispatcher))->first();
 
     expect($payload['title'])->toBe('Exportação - Painel analítico do Encerramento')
-        ->and($payload['message'])->toContain('5 Ordens ativas')->toContain('12 abas');
+        ->and($payload['message'])->toContain('5 Ordens ativas')->toContain('16 abas');
 });
 
 it('refuses the export to anyone who is not a dispatcher', function () {
@@ -294,7 +294,7 @@ it('queues the export from the dashboard with the filters on screen', function (
         ->call('exportToExcel')
         ->assertDispatchedBrowserEvent('closure:toast');
 
-    Bus::assertDispatched(ExportClosureDashboardJob::class, fn ($job) => $job->filters === ['type' => 'P', 'company_id' => (string) $company->id, 'from' => '2026-10-01', 'to' => null]
+    Bus::assertDispatched(ExportClosureDashboardJob::class, fn ($job) => $job->filters === ['type' => 'P', 'company_id' => (string) $company->id, 'from' => '2026-10-01', 'to' => null, 'period_from' => now()->startOfMonth()->toDateString(), 'period_to' => now()->endOfMonth()->toDateString()]
         && $job->staleDays === 10 && $job->userId === (string) $dispatcher->id);
 });
 

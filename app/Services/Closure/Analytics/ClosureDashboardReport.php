@@ -29,7 +29,7 @@ final class ClosureDashboardReport
         'AVAILABLE'        => 'Disponível',
     ];
 
-    public function __construct(private readonly ClosureDispatcherAnalytics $analytics)
+    public function __construct(private readonly ClosureDispatcherAnalytics $analytics, private readonly ClosureManagementAnalytics $management)
     {
     }
 
@@ -49,7 +49,11 @@ final class ClosureDashboardReport
         $critical    = $this->analytics->criticalWorks(max(1, $staleDays), 1000);
         $priorities  = $this->analytics->pendingPriorityRequests();
 
+        // Gerencial: mesmo serviço da tela (comparador, problemas, parceiras e atividades), no período escolhido.
+        $management = $this->management->snapshot(['from' => $filters['period_from'] ?? null, 'to' => $filters['period_to'] ?? null]);
+
         return [
+            'management'       => $this->managementRows($management),
             'generated_at'     => $now,
             'filters'          => $this->filterLabels($filters, $staleDays),
             'summary'          => $summary,
@@ -79,11 +83,12 @@ final class ClosureDashboardReport
         $company = !empty($filters['company_id']) ? (Company::withTrashed()->find($filters['company_id'])?->name ?? $filters['company_id']) : null;
 
         return [
-            'Tipo'                           => !empty($filters['type']) ? (self::TYPE_LABELS[$filters['type']] ?? $filters['type']) : 'Todos',
-            'Empresa (posse atual)'          => $company ?? 'Todas',
-            'No status desde'                => !empty($filters['from']) ? Carbon::parse($filters['from'])->format('d/m/Y') : '—',
-            'No status até'                  => !empty($filters['to']) ? Carbon::parse($filters['to'])->format('d/m/Y') : '—',
-            'Obra crítica: parada há (dias)' => (string) max(1, $staleDays),
+            'Tipo'                                       => !empty($filters['type']) ? (self::TYPE_LABELS[$filters['type']] ?? $filters['type']) : 'Todos',
+            'Empresa (posse atual)'                      => $company ?? 'Todas',
+            'No status desde'                            => !empty($filters['from']) ? Carbon::parse($filters['from'])->format('d/m/Y') : '—',
+            'No status até'                              => !empty($filters['to']) ? Carbon::parse($filters['to'])->format('d/m/Y') : '—',
+            'Obra crítica: parada há (dias)'             => (string) max(1, $staleDays),
+            'Período (problemas, parceiras, atividades)' => $this->periodLabel($filters),
         ];
     }
 
@@ -201,6 +206,45 @@ final class ClosureDashboardReport
         $totals[]   = array_merge(['Total geral', 'Todos'], $grandCells, [$matrix['totals']['total']]);
 
         return ['rows' => $rows, 'totals' => $totals];
+    }
+
+    private function periodLabel(array $filters): string
+    {
+        $f = $this->management->normalize(['from' => $filters['period_from'] ?? null, 'to' => $filters['period_to'] ?? null]);
+
+        return $f['from']->format('d/m/Y') . ' a ' . $f['to']->format('d/m/Y');
+    }
+
+    /**
+     * Linhas planas das abas gerenciais (mesmos números da tela).
+     *
+     * @param array<string, mixed> $m ClosureManagementAnalytics::snapshot()
+     *
+     * @return array<string, mixed>
+     */
+    private function managementRows(array $m): array
+    {
+        $cmp = $m['comparator'];
+
+        $verdictText = fn (array $v) => $v['label'];
+
+        return [
+            'period'     => $m['filters']['from']->format('d/m/Y') . ' a ' . $m['filters']['to']->format('d/m/Y'),
+            'months'     => array_column($cmp['months'], 'label'),
+            'summary'    => $m['summary'],
+            'overall'    => ['better' => 'Melhoramos', 'worse' => 'Pioramos', 'stable' => 'Estável', 'none' => 'Sem dados'][$cmp['overall']],
+            'count'      => $cmp['count'],
+            'reference'  => $cmp['reference'],
+            'previous'   => $cmp['previous'],
+            'comparator' => array_map(fn (array $r) => array_merge(
+                [$r['label']],
+                $r['values'],
+                [$r['verdict']['delta'] === null ? null : round((float) $r['verdict']['delta'], 1), $r['verdict']['percent'] === null ? null : round((float) $r['verdict']['percent'], 1), $verdictText($r['verdict'])],
+            ), $cmp['rows']),
+            'problems'   => array_map(fn (array $p) => [$p['label'], $p['source'], $p['total'], $p['open'], $p['avg_days'], $p['affected'] ?? null], $m['problems']['ranking']),
+            'partners'   => array_map(fn (array $p) => [$p['name'], $p['received'], $p['open'], $p['awaiting'], $p['avg_days'], $p['returns'], $p['rework'], $p['top_reason'], $p['deposits']], $m['partners']),
+            'activities' => array_map(fn (array $a) => [$a['name'], $a['unit'], $a['received'], $a['received_prev'], $a['received'] - $a['received_prev'], $a['resolved'], $a['open'], $a['awaiting'], $a['avg_days'], $a['returns'], $a['rework'], $a['in_box']], $m['activities']),
+        ];
     }
 
     /** @return array<int, array<int, mixed>> */
