@@ -2,500 +2,229 @@
 
 namespace App\Http\Livewire\Admin\Audits;
 
-use App\Models\Audit;
-use App\Models\Company;
-use App\Models\Note;
-use App\Models\Production;
-use App\Models\Service;
-use App\Models\User;
-use Livewire\Component;
-use Livewire\WithPagination;
+use App\Http\Livewire\Concerns\WithListFilters;
+use App\Models\{Audit, Note, Service, User};
+use App\Services\Audit\AuditPresenter;
+use Illuminate\Database\Eloquent\Builder;
+use Livewire\{Component, WithPagination};
 
+/**
+ * Auditoria de notas (lista de controle: docs/PADRAO_LISTAS_OPERACIONAIS.md; detalhes em docs/admin/AUDITORIA.md).
+ * Filtra pelas colunas indexadas de `audits` (nota, atividade, registro, usuário, modelo, data), nunca pelo JSON; o JSON só é lido
+ * para as linhas da página.
+ */
 class NoteAudit extends Component
 {
+    use WithListFilters;
     use WithPagination;
 
     protected $paginationTheme = 'bootstrap';
 
-    public $note;
-    public $serviceId;
-    public $action;
-    public $modelClass;
-    public $userId;
-    public $dateFrom;
-    public $dateTo;
-    public $perPage = 30;
+    public const PERIODS = ['today' => 'Hoje', '7d' => '7 dias', '30d' => '30 dias', 'all' => 'Tudo', 'custom' => 'Período'];
 
-    public $services = [];
-    public $users = [];
-    public $modelOptions = [];
-    public $serviceMap = [];
-    public $userMap = [];
-    protected array $companyMap = [];
-    protected array $noteNumberMap = [];
-    protected array $productionMap = [];
+    public string $note = '';
 
-    public $selectedAudit;
-    public $selectedDiff = [];
-    public $selectedSummary = [];
+    public string $record = '';
+
+    public string $period = '7d';
+
+    public ?string $dateFrom = null;
+
+    public ?string $dateTo = null;
+
+    public int $perPage = 50;
+
+    /** Auditoria aberta no modal. */
+    public ?int $detailId = null;
 
     protected $queryString = [
-        'note' => ['except' => '', 'as' => 'nota'],
-        'serviceId' => ['except' => '', 'as' => 'atividade'],
-        'action' => ['except' => '', 'as' => 'acao'],
-        'modelClass' => ['except' => '', 'as' => 'modelo'],
-        'userId' => ['except' => '', 'as' => 'usuario'],
-        'dateFrom' => ['except' => '', 'as' => 'inicio'],
-        'dateTo' => ['except' => '', 'as' => 'fim'],
-        'page' => ['except' => 1, 'as' => 'pag'],
+        'note'     => ['except' => '', 'as' => 'nota'],
+        'record'   => ['except' => '', 'as' => 'registro'],
+        'period'   => ['except' => '7d', 'as' => 'periodo'],
+        'dateFrom' => ['except' => null, 'as' => 'inicio'],
+        'dateTo'   => ['except' => null, 'as' => 'fim'],
+        'perPage'  => ['except' => 50, 'as' => 'pp'],
+        'filters'  => ['except' => [], 'as' => 'f'],
     ];
 
-    protected array $ignoreFields = [
-        'created_at',
-        'updated_at',
-        'deleted_at',
-    ];
-
-    public function mount()
+    public function mount(): void
     {
-        $this->services = Service::orderBy('service')
-            ->get(['uuid', 'service']);
-        $this->serviceMap = $this->services->pluck('service', 'uuid')->toArray();
-
-        $this->users = User::orderBy('name')
-            ->get(['id', 'name']);
-        $this->userMap = $this->users->pluck('name', 'id')->toArray();
-
-        $this->modelOptions = Audit::query()
-            ->whereNotNull('model_class')
-            ->select('model_class')
-            ->distinct()
-            ->orderBy('model_class')
-            ->pluck('model_class')
-            ->toArray();
+        $this->period  = array_key_exists($this->period, self::PERIODS) ? $this->period : '7d';
+        $this->filters = $this->normalizeFilters($this->filters);
     }
 
-    public function applyFilters()
+    protected function listFilterDefinitions(): array
     {
-        $this->resetPage();
-    }
-
-    public function updatedPerPage()
-    {
-        $this->resetPage();
-    }
-
-    public function clearFilters()
-    {
-        $this->reset([
-            'note',
-            'serviceId',
-            'action',
-            'modelClass',
-            'userId',
-            'dateFrom',
-            'dateTo',
-        ]);
-        $this->resetPage();
-    }
-
-    public function openDetails(int $auditId)
-    {
-        $audit = Audit::with('User')->find($auditId);
-
-        if (!$audit) {
-            return;
-        }
-
-        $before = $this->decodeJson($audit->before);
-        $after = $this->decodeJson($audit->after);
-
-        $this->selectedAudit = $audit;
-        $this->selectedDiff = $this->buildDiff($before, $after, $audit);
-        $this->selectedSummary = [
-            'note_id' => $after['note_id'] ?? $before['note_id'] ?? null,
-            'service_id' => $after['service_id'] ?? $before['service_id'] ?? null,
+        return [
+            'action'  => ['label' => 'Ação'],
+            'model'   => ['label' => 'Modelo'],
+            'service' => ['label' => 'Atividade'],
+            'user'    => ['label' => 'Usuário'],
+            'field'   => ['label' => 'Campo alterado'],
         ];
-
-        $this->dispatchBrowserEvent('showModal', [
-            'id' => 'audit_note_detail',
-        ]);
     }
 
-    public function diffCount($audit): int
+    protected function listFilterOptions(): array
     {
-        $before = $this->decodeJson($audit->before);
-        $after = $this->decodeJson($audit->after);
+        return [
+            'action' => collect(AuditPresenter::ACTIONS)->map(fn ($a, $key) => ['v' => $key, 'l' => $a[0]])->values()->all(),
+            'model'  => $this->rememberFilterOptions('model', fn () => Audit::query()->whereNotNull('model_class')->distinct()->orderBy('model_class')->pluck('model_class')
+                ->map(fn ($class) => ['v' => $class, 'l' => AuditPresenter::MODELS[$class] ?? class_basename($class)])->all()),
+            'service' => $this->rememberFilterOptions('service', fn () => Service::orderBy('service')->get(['uuid', 'service'])
+                ->map(fn ($s) => ['v' => (string) $s->uuid, 'l' => $s->service])->all()),
+            'user' => $this->rememberFilterOptions('user', fn () => User::withTrashed()->orderBy('name')->get(['id', 'name'])
+                ->map(fn ($u) => ['v' => (string) $u->id, 'l' => $u->name])->all()),
+            'field' => collect(AuditPresenter::FIELDS)->map(fn ($label, $key) => ['v' => $key, 'l' => $label])->sortBy('l')->values()->all(),
+        ];
+    }
 
-        return count($this->buildDiff($before, $after));
+    public function updatingNote(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingRecord(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPeriod(): void
+    {
+        $this->period = array_key_exists($this->period, self::PERIODS) ? $this->period : '7d';
+        $this->resetPage();
+    }
+
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->perPage = in_array($this->perPage, [25, 50, 100, 250], true) ? $this->perPage : 50;
+        $this->resetPage();
+    }
+
+    public function periodLabel(): string
+    {
+        return match ($this->period) {
+            'today'  => 'hoje',
+            'custom' => 'período escolhido',
+            default  => 'últimos ' . self::PERIODS[$this->period],
+        };
+    }
+
+    /** Tem algum critério além do período padrão? (alimenta "Limpar filtros" e o estado vazio) */
+    public function hasCriteria(): bool
+    {
+        return $this->note !== '' || $this->record !== '' || $this->filters !== [] || $this->period !== '7d';
+    }
+
+    public function clearAllCriteria(): void
+    {
+        $this->reset(['note', 'record', 'dateFrom', 'dateTo']);
+        $this->period = '7d';
+        $this->clearListFilters();
+    }
+
+    public function openDetails(int $auditId): void
+    {
+        $this->detailId = $auditId;
+    }
+
+    public function closeDetails(): void
+    {
+        $this->detailId = null;
     }
 
     public function render()
     {
-        $audits = $this->baseQuery()->paginate($this->perPage);
-
-        $noteIds = $audits->map(function ($audit) {
-            return $this->extractPayloadValue($audit, 'note_id');
-        })->filter()->unique()->values();
-
-        $noteMap = $noteIds->isEmpty()
-            ? []
-            : Note::whereIn('id', $noteIds)->pluck('note', 'id')->toArray();
+        $presenter = new AuditPresenter();
+        $audits    = $this->query()->with('User:id,name')->paginate($this->perPage);
+        $detail    = $this->detailId && ($audit = Audit::with('User:id,name')->find($this->detailId))
+            ? ['audit' => $audit] + $presenter->detail($audit)
+            : null;
 
         return view('livewire.admin.audits.note-audit', [
-            'audits' => $audits,
-            'noteMap' => $noteMap,
+            'rows'     => $presenter->rows($audits->getCollection()),
+            'audits'   => $audits,
+            'detail'   => $detail,
+            'noteMiss' => $this->note !== '' && $this->noteIds() === [],
+            'periodOn' => $this->note === '' && $this->record === '',
         ]);
     }
 
-    protected function baseQuery()
+    /** Números de nota (ou OV) que casam com a busca. Memo por requisição: a consulta e o aviso leem a mesma lista. */
+    private ?array $noteIdsMemo = null;
+
+    private function noteIds(): array
     {
-        $query = Audit::query()
-            ->with('User')
-            ->orderByDesc('created_at');
+        if ($this->note === '') {
+            return [];
+        }
 
-        if ($this->note) {
-            $noteIds = $this->resolveNoteIds();
+        return $this->noteIdsMemo ??= Note::query()
+            ->where('note', trim($this->note))
+            ->orWhereHas('Orders', fn ($orders) => $orders->where('ordem', trim($this->note)))
+            ->limit(50)
+            ->pluck('id')
+            ->all();
+    }
 
-            if (empty($noteIds)) {
-                $query->whereRaw('1 = 0');
-            } else {
-                $query->where(function ($q) use ($noteIds) {
-                    foreach ($noteIds as $noteId) {
-                        $q->orWhere('after->note_id', $noteId)
-                            ->orWhere('before->note_id', $noteId);
-                    }
-                });
+    /** Uma consulta só, só em colunas indexadas. Busca por nota/registro vale para todo o histórico (ignora o período). */
+    protected function query(): Builder
+    {
+        $query = Audit::query()->orderByDesc('created_at')->orderByDesc('id');
+
+        if ($this->note !== '') {
+            $query->whereIn('note_id', $this->noteIds() ?: [0]);
+        }
+
+        if ($this->record !== '') {
+            $query->where('record_id', trim($this->record));
+        }
+
+        if ($this->note === '' && $this->record === '') {
+            [$from, $to] = $this->range();
+
+            $from && $query->where('created_at', '>=', $from);
+            $to && $query->where('created_at', '<=', $to);
+        }
+
+        foreach (['action' => 'action', 'model' => 'model_class', 'service' => 'service_id', 'user' => 'user_id'] as $key => $column) {
+            if ($values = $this->filterValues($key)) {
+                $query->whereIn($column, $values);
             }
         }
 
-        if ($this->serviceId) {
-            $query->where(function ($q) {
-                $q->where('after->service_id', $this->serviceId)
-                    ->orWhere('before->service_id', $this->serviceId);
+        if ($fields = $this->filterValues('field')) {
+            $query->where(function (Builder $q) use ($fields) {
+                foreach ($fields as $field) {
+                    $q->orWhere('changed_fields', 'like', '%,' . addcslashes($field, '%_\\') . ',%');
+                }
             });
         }
-
-        $query->when($this->action, function ($q, $action) {
-            return $q->where('action', $action);
-        });
-
-        $query->when($this->modelClass, function ($q, $modelClass) {
-            return $q->where('model_class', 'like', '%' . $modelClass . '%');
-        });
-
-        $query->when($this->userId, function ($q, $userId) {
-            return $q->where('user_id', $userId);
-        });
-
-        $query->when($this->dateFrom, function ($q, $dateFrom) {
-            return $q->whereDate('created_at', '>=', $dateFrom);
-        });
-
-        $query->when($this->dateTo, function ($q, $dateTo) {
-            return $q->whereDate('created_at', '<=', $dateTo);
-        });
 
         return $query;
     }
 
-    protected function resolveNoteIds(): array
+    /** @return array{0: ?string, 1: ?string} */
+    private function range(): array
     {
-        $term = trim((string) $this->note);
-
-        if ($term === '') {
-            return [];
-        }
-
-        $noteIds = Note::query()
-            ->where('note', $term)
-            ->orWhere('id', $term)
-            ->pluck('id')
-            ->all();
-
-        return array_values(array_unique($noteIds));
-    }
-
-    protected function decodeJson(?string $value): array
-    {
-        if (!$value) {
-            return [];
-        }
-
-        $decoded = json_decode($value, true);
-
-        return is_array($decoded) ? $decoded : [];
-    }
-
-    protected function extractPayloadValue(Audit $audit, string $key)
-    {
-        $after = $this->decodeJson($audit->after);
-
-        if (array_key_exists($key, $after)) {
-            return $after[$key];
-        }
-
-        $before = $this->decodeJson($audit->before);
-
-        return $before[$key] ?? null;
-    }
-
-    protected function buildDiff(array $before, array $after, ?Audit $audit = null): array
-    {
-        $before = $this->stripIgnoredFields($before);
-        $after = $this->stripIgnoredFields($after);
-
-        $production = $this->resolveProduction($before, $after, $audit);
-
-        $keys = array_unique(array_merge(array_keys($before), array_keys($after)));
-        $changes = [];
-
-        foreach ($keys as $key) {
-            $beforeValue = $before[$key] ?? null;
-            $afterValue = $after[$key] ?? null;
-
-            if ($beforeValue !== $afterValue) {
-                $changes[] = [
-                    'field' => $key,
-                    'before' => $this->formatValueForField($key, $beforeValue, $audit, $production),
-                    'after' => $this->formatValueForField($key, $afterValue, $audit, $production),
-                ];
-            }
-        }
-
-        return $changes;
-    }
-
-    protected function stripIgnoredFields(array $data): array
-    {
-        foreach ($this->ignoreFields as $field) {
-            unset($data[$field]);
-        }
-
-        return $data;
-    }
-
-    protected function formatValueForField(string $field, $value, ?Audit $audit = null, ?Production $production = null): string
-    {
-        if ($value === null || $value === '') {
-            return 'N/A';
-        }
-
-        if (is_bool($value)) {
-            return $value ? 'true' : 'false';
-        }
-
-        if (is_array($value)) {
-            return json_encode($value);
-        }
-
-        $dateFormatted = $this->formatDateValue($field, $value);
-        if ($dateFormatted !== null) {
-            return $dateFormatted;
-        }
-
-        if (strtolower($field) === 'service_id') {
-            $label = $this->getServiceName($value);
-            if ($label) {
-                return sprintf('%s (%s)', $label, $value);
-            }
-        }
-
-        if (is_numeric($value)) {
-            $label = $this->resolveLabelForField($field, $value, $audit, $production);
-            if ($label) {
-                return sprintf('%s (%s)', $label, $value);
-            }
-        }
-
-        return (string) $value;
-    }
-
-    protected function resolveLabelForField(string $field, $value, ?Audit $audit = null, ?Production $production = null): ?string
-    {
-        $field = strtolower($field);
-
-        $userFields = [
-            'user_id',
-            'dispatch_by',
-            'dispatcher_by',
-            'att_by',
-            'engineer_id',
-            'responsible_id',
-            'created_by',
-            'updated_by',
-            'user',
-        ];
-
-        if (in_array($field, $userFields, true)) {
-            return $this->getUserName($value);
-        }
-
-        if ($field === 'company_id') {
-            return $this->getCompanyName($value);
-        }
-
-        if ($field === 'service_id') {
-            return $this->getServiceName($value);
-        }
-
-        if ($field === 'note_id') {
-            return $this->getNoteNumber($value);
-        }
-
-        if ($audit && $audit->model_class === 'App\\Models\\Production') {
-            $relationLabel = $this->getProductionRelationLabel($field, $value, $production);
-            if ($relationLabel) {
-                return $relationLabel;
-            }
-        }
-
-        return null;
-    }
-
-    protected function getProductionRelationLabel(string $field, $value, ?Production $production): ?string
-    {
-        if (!$production) {
-            return null;
-        }
-
-        if ($field === 'user_id' && $production->User && (int) $production->User->id === (int) $value) {
-            return $production->User->name;
-        }
-
-        if ($field === 'dispatch_by' && $production->Dispatcher && (int) $production->Dispatcher->id === (int) $value) {
-            return $production->Dispatcher->name;
-        }
-
-        if ($field === 'att_by' && $production->Att && (int) $production->Att->id === (int) $value) {
-            return $production->Att->name;
-        }
-
-        if ($field === 'company_id' && $production->Company && (int) $production->Company->id === (int) $value) {
-            return $production->Company->name;
-        }
-
-        if ($field === 'service_id' && $production->Service && $production->Service->uuid === (string) $value) {
-            return $production->Service->service;
-        }
-
-        if ($field === 'note_id' && $production->Note && (int) $production->Note->id === (int) $value) {
-            return $production->Note->note;
-        }
-
-        return null;
-    }
-
-    protected function resolveProduction(array $before, array $after, ?Audit $audit): ?Production
-    {
-        if (!$audit || $audit->model_class !== 'App\\Models\\Production') {
-            return null;
-        }
-
-        $productionId = $after['id'] ?? $before['id'] ?? null;
-        if (!$productionId) {
-            return null;
-        }
-
-        if (isset($this->productionMap[$productionId])) {
-            return $this->productionMap[$productionId];
-        }
-
-        $production = Production::with(['User', 'Dispatcher', 'Att', 'Company', 'Service', 'Note'])
-            ->find($productionId);
-
-        if ($production) {
-            $this->productionMap[$productionId] = $production;
-        }
-
-        return $production;
-    }
-
-    protected function formatDateValue(string $field, $value): ?string
-    {
-        if (!is_string($value) && !is_numeric($value)) {
-            return null;
-        }
-
-        $field = strtolower($field);
-        $isDateField = str_ends_with($field, '_at')
-            || str_starts_with($field, 'dt_')
-            || in_array($field, ['dhstats'], true);
-
-        if (!$isDateField) {
-            return null;
-        }
-
-        try {
-            return \Carbon\Carbon::parse($value)->format('d/m/Y H:i:s');
-        } catch (\Throwable $th) {
-            return null;
-        }
-    }
-
-    protected function getUserName($userId): ?string
-    {
-        $userId = (int) $userId;
-
-        if (isset($this->userMap[$userId])) {
-            return $this->userMap[$userId];
-        }
-
-        $user = User::withTrashed()->find($userId);
-        if ($user) {
-            $this->userMap[$userId] = $user->name;
-            return $user->name;
-        }
-
-        return null;
-    }
-
-    protected function getCompanyName($companyId): ?string
-    {
-        $companyId = (int) $companyId;
-
-        if (isset($this->companyMap[$companyId])) {
-            return $this->companyMap[$companyId];
-        }
-
-        $company = Company::find($companyId);
-        if ($company) {
-            $this->companyMap[$companyId] = $company->name;
-            return $company->name;
-        }
-
-        return null;
-    }
-
-    protected function getServiceName($serviceId): ?string
-    {
-        if (isset($this->serviceMap[$serviceId])) {
-            return $this->serviceMap[$serviceId];
-        }
-
-        $service = Service::where('uuid', $serviceId)->first();
-        if ($service) {
-            $this->serviceMap[$serviceId] = $service->service;
-            return $service->service;
-        }
-
-        return null;
-    }
-
-    protected function getNoteNumber($noteId): ?string
-    {
-        $noteId = (int) $noteId;
-
-        if (isset($this->noteNumberMap[$noteId])) {
-            return $this->noteNumberMap[$noteId];
-        }
-
-        $note = Note::find($noteId);
-        if ($note) {
-            $this->noteNumberMap[$noteId] = $note->note;
-            return $note->note;
-        }
-
-        return null;
+        return match ($this->period) {
+            'today'  => [now()->startOfDay()->toDateTimeString(), null],
+            '7d'     => [now()->subDays(7)->startOfDay()->toDateTimeString(), null],
+            '30d'    => [now()->subDays(30)->startOfDay()->toDateTimeString(), null],
+            'custom' => [
+                $this->dateFrom ? $this->dateFrom . ' 00:00:00' : null,
+                $this->dateTo ? $this->dateTo . ' 23:59:59' : null,
+            ],
+            default => [null, null],
+        };
     }
 }

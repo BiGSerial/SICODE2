@@ -17,7 +17,7 @@ class Info extends Component
     {
         $this->auditprod = '';
 
-        $this->auditprod = Audit::where('after->id', $prod['production_id'])->where('after->service_id', $prod['service_id'])->with('User')->orderBy('created_at')->get();
+        $this->auditprod = Audit::where('record_id', (string) $prod['production_id'])->where('service_id', $prod['service_id'])->with('User')->orderBy('created_at')->get();
 
         if ($this->auditprod) {
             $this->dispatchBrowserEvent('showModal', [

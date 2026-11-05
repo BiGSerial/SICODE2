@@ -18,7 +18,7 @@ class Prodbutton extends Component
         $this->prod    = $prod;
         $this->service = $service;
 
-        if (Audit::where('after->id', $prod)->where('after->service_id', $service)->count()) {
+        if (Audit::where('record_id', (string) $prod)->where('service_id', $service)->count()) {
             $this->audit = true;
         } else {
             $this->audit = false;
