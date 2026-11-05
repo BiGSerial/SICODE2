@@ -150,3 +150,34 @@ it('rejeita fiscal que não encerrou atividade da Nota e D5 duplicada no informe
 
     expect(FiveNote::count())->toBe(1)->and($f['production']->fresh()->completed)->toBeFalsy();
 });
+
+it('encerra mesmo com conjunto numérico vindo da Nota e avisa quando a validação falha', function () {
+    $f = createD5Fixture();
+    $f['note']->update(['num_material' => 12]);
+
+    fillD5(openCreateD5($f), $f, 'none')->call('to_finish')->assertDispatchedBrowserEvent('alertar');
+
+    $bad = fillD5(openCreateD5($f), $f, 'none')->set('newD5.note_d5', 'abc')->call('to_finish');
+    expect(collect($bad->payload['effects']['dispatches'])->pluck('data.title'))->toContain('Dados da D5 incompletos');
+});
+
+it('com anexos, o upload continua montado depois de encerrar e o evidenceSaved fecha o modal', function () {
+    $f = createD5Fixture();
+
+    $component = fillD5(openCreateD5($f), $f, 'none')->emit('hasEvidence', true)->call('save');
+
+    $component->assertSee('Anexar Arquivos na D5')
+        ->assertDispatchedBrowserEvent('swal');
+    expect($component->get('production'))->not->toBeNull();
+
+    $component->emit('evidenceSaved');
+    expect($component->get('production'))->toBeNull()->and($component->get('creatingD5'))->toBeFalse();
+});
+
+it('sem anexos o modal fecha direto ao encerrar', function () {
+    $f = createD5Fixture();
+
+    $component = fillD5(openCreateD5($f), $f, 'none')->call('save');
+
+    expect($component->get('production'))->toBeNull();
+});

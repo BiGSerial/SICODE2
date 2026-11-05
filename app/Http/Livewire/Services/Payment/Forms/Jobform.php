@@ -169,9 +169,9 @@ class Jobform extends Component
             'newD5.reason'      => 'required|string|max:255',
             'newD5.codify'      => 'required|string|max:255',
             'newD5.loc_install' => 'required|string|max:255',
-            'newD5.conjunto'    => 'nullable|string|max:255',
-            'newD5.pep'         => 'nullable|string|max:255',
-            'newD5.sintoms'     => 'nullable|string|max:255',
+            'newD5.conjunto'    => 'nullable|max:255',
+            'newD5.pep'         => 'nullable|max:255',
+            'newD5.sintoms'     => 'nullable|max:255',
             'newD5.description' => 'nullable|string',
         ], [
             'newD5.note_d5.required'     => 'O campo [Número da D5] é obrigatório.',
@@ -592,7 +592,19 @@ class Jobform extends Component
         $this->validate(['analise.conclusion' => 'required|min:1']);
 
         if ($this->creatingD5 && !$this->five) {
-            $this->validateNewD5();
+            try {
+                $this->validateNewD5();
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                // Sem isto o botão parecia não fazer nada: o erro podia ser de um campo fora da tela.
+                $this->dispatchBrowserEvent('swal', [
+                    'position' => 'center',
+                    'icon'     => 'warning',
+                    'title'    => 'Dados da D5 incompletos',
+                    'html'     => '<div class="card"><div class="card-body text-start"><ul><li>' . implode('</li><li>', array_map('e', $e->validator->errors()->all())) . '</li></ul></div></div>',
+                ]);
+
+                return;
+            }
         }
 
         if ($this->production->partial) {

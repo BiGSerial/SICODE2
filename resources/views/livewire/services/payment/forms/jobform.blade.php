@@ -332,7 +332,7 @@
                                 </div>
                             </div>
 
-                            @if ($five && !$five->is_supervisioned)
+                            @if ($five && !$five->is_supervisioned && !$creatingD5)
                                 <div class="card shadow-sm mb-3 border-0 rounded-3">
                                     <div class="card-header py-2 bg-white border-0">
                                         <h5 class="m-0 d-flex align-items-center gap-2">
@@ -859,7 +859,8 @@
                                         white-space: pre-line;
                                     }
                                 </style>
-                            @elseif ($this->canCreateD5)
+                            {{-- Fica montado enquanto $creatingD5: o upload dos anexos precisa existir até o evidenceSaved fechar o modal. --}}
+                            @elseif ($creatingD5 || $this->canCreateD5)
                                 <div class="close-form-card">
                                     <div class="close-form-card__head">
                                         <h5 class="close-form-card__title">

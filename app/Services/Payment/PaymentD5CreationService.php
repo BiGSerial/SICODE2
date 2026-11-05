@@ -95,8 +95,8 @@ class PaymentD5CreationService
             'loc_install' => '',
             'sintoms'     => '',
             'description' => '',
-            'conjunto'    => $production->Note?->num_material,
-            'pep'         => $order?->pep,
+            'conjunto'    => ($conjunto = $production->Note?->num_material) === null ? null : (string) $conjunto,
+            'pep'         => $order?->pep === null ? null : (string) $order->pep,
         ];
     }
 
