@@ -13,7 +13,7 @@
     $days     = fn (?int $d) => $d === null ? '—' : $d . ' ' . ($d === 1 ? 'dia' : 'dias');
     $typeText = ['2' => 'Somente OVs', '1' => 'Somente Notas', '' => 'Notas e OVs'][$f['type']];
     $period   = $f['from']->format('d/m/Y') . ' a ' . $f['to']->format('d/m/Y');
-    $custom   = $noteType !== '2' || $includeTrackingRubric || $adherenceDays !== '8';
+    $custom   = $noteType !== '2' || $includeTrackingRubric || $adherenceDays !== '8' || $this->hasListFilters();
     $ageSpark = ['values' => array_map(fn ($a, $b) => $a + $b, $snapshot['status_age']['assigned'], $snapshot['status_age']['unassigned']), 'labels' => $snapshot['status_age']['labels']];
 @endphp
 
@@ -67,8 +67,17 @@
                 </div>
             @endif
         </div>
+        <div class="ops-toolbar-row mt-3">
+            <span class="ops-toolbar-label">Filtros</span>
+            <x-ops.filters :payload="$this->listFilterPayload()" />
+        </div>
+        @if ($this->hasListFilters())
+            <div class="ops-toolbar-row">
+                <x-ops.chips :chips="$this->listFilterChips()" />
+            </div>
+        @endif
         <div class="mp-period-note" wire:loading.class="is-loading-soft">
-            A pilha mostra sempre a situação de agora: {{ $profile['pile'] }} ({{ $typeText }}{{ $f['tracking'] ? '' : ', sem a rubrica Acompanhamento' }}). A aderência usa as conclusões de <strong>{{ $period }}</strong>.
+            A pilha mostra sempre a situação de agora: {{ $profile['pile'] }} ({{ $typeText }}{{ $f['tracking'] ? '' : ', sem a rubrica Acompanhamento' }}). A aderência usa as conclusões de <strong>{{ $period }}</strong>.@if ($this->hasListFilters()) Grupos, rubrica e localização recortam a pilha e a aderência.@endif
         </div>
     </section>
 
@@ -82,7 +91,7 @@
         </section>
     @endif
 
-    <div wire:loading.class="is-loading-soft" wire:target="noteType,includeTrackingRubric,rangeFrom,rangeTo,adherenceDays,setPreset,clearFilters">
+    <div wire:loading.class="is-loading-soft" wire:target="noteType,includeTrackingRubric,rangeFrom,rangeTo,adherenceDays,setPreset,clearFilters,applyListFilters,removeListFilter,clearListFilters">
         <h2 class="mp-section-title">Painel executivo</h2>
         <div class="row g-3 mb-4">
             <div class="col-12 col-md-6 col-xl-3">

@@ -92,6 +92,8 @@ class ReportPileDashboardAnalytics extends ActivityDashboardAnalytics
             $query->whereRaw("LOWER(TRIM(COALESCE(notes.rubrica, ''))) <> ?", ['acompanhamento']);
         }
 
+        DashboardNoteScope::apply($query, $f['scope']);
+
         // A lista ordena por colunas calculadas que não existem fora dela: o dashboard só agrega.
         return $query->withoutEagerLoads()->reorder();
     }

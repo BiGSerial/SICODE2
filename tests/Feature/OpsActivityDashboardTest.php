@@ -103,6 +103,26 @@ it('a rubrica Acompanhamento só entra quando pedida', function () {
         ->and($a->snapshot($this->service, ['type' => '2', 'tracking' => true])['summary']['total'])->toBe(2);
 });
 
+it('o recorte por grupo e rubrica vale para a pilha e vem da tela, e limpa junto dos filtros', function () {
+    dashNote('4000070020', ['group1' => 'AAA']);
+    dashNote('4000070021', ['group1' => 'BBB']);
+    dashNote('4000070022', ['group1' => 'BBB', 'rubrica' => 'Outra']);
+
+    $a = app(ActivityDashboardAnalytics::class);
+
+    expect($a->snapshot($this->service, ['type' => '2'])['summary']['total'])->toBe(3)
+        ->and($a->snapshot($this->service, ['type' => '2', 'scope' => ['group1' => ['BBB']]])['summary']['total'])->toBe(2)
+        ->and($a->snapshot($this->service, ['type' => '2', 'scope' => ['group1' => ['BBB'], 'rubrica' => ['Mercado']]])['summary']['total'])->toBe(1)
+        ->and($a->snapshot($this->service, ['type' => '2', 'scope' => ['inexistente' => ['x']]])['summary']['total'])->toBe(3);
+
+    Livewire::test(Dashboard::class, ['service' => $this->service->uuid])
+        ->call('applyListFilters', ['group1' => ['BBB'], 'foo' => ['x']])
+        ->assertSet('filters', ['group1' => ['BBB']])
+        ->assertDispatchedBrowserEvent('my-panel:charts')
+        ->call('clearFilters')
+        ->assertSet('filters', []);
+});
+
 it('o relatório do Excel traz a pilha crítica completa, além das 15 da tela', function () {
     foreach (range(1, 20) as $i) {
         dashNote('40000800' . str_pad((string) $i, 2, '0', STR_PAD_LEFT), ['days_left' => 20 - $i]);

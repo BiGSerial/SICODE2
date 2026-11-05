@@ -19,7 +19,7 @@ use Throwable;
 
 /**
  * Excel do Dashboard de atividade (docs/dashboards/DASHBOARD_ATIVIDADE.md): os mesmos filtros e números da tela, mais a pilha crítica completa.
- * Filtros: os de `ActivityDashboardAnalytics::normalize()` (type, tracking, from, to, limit).
+ * Filtros: os de `ActivityDashboardAnalytics::normalize()` (type, tracking, from, to, limit, scope).
  */
 class ActivityDashboardExportJob implements ShouldQueue
 {
@@ -110,7 +110,16 @@ class ActivityDashboardExportJob implements ShouldQueue
             'Rubrica Acompanhamento' => $f['tracking'] ? 'Incluída' : 'Fora (padrão)',
             'Período da aderência'   => $f['from']->format('d/m/Y') . ' a ' . $f['to']->format('d/m/Y'),
             'Limite da 1ª faixa'     => $f['limit'] . ' dias',
+            'Recorte'                => $this->scopeText($f['scope']),
             'Pilha'                  => 'Situação de agora (as notas que a lista de despacho da atividade enxerga)',
         ];
+    }
+
+    /** @param array<string, array<int, string>> $scope */
+    private function scopeText(array $scope): string
+    {
+        $labels = ['group1' => 'Grupo1', 'group2' => 'Grupo2', 'group5' => 'Grupo5', 'rubrica' => 'Rubrica', 'region' => 'Região', 'regional' => 'Regional', 'city' => 'Município'];
+
+        return $scope ? collect($scope)->map(fn ($v, $k) => $labels[$k] . ': ' . implode(', ', $v))->implode(' · ') : 'Sem recorte';
     }
 }

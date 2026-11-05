@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\{Cache, DB};
  *  - Tempo no status: dias desde `notes.dt_status` (30+ agrupa o resto). Prazo real: `30 - notes.days_left` (dias consumidos).
  *  - Prazo vencido: `notes.days_left < 0`. Cor do prazo: vermelho com menos de 6 dias restantes, âmbar até 9, verde com 10 ou mais.
  *  - Por colaborador: Productions abertas com usuário, idade desde ATT (ou despacho/criação): até 4, 5 a 8, mais de 8 dias.
+ *  - Recorte (`DashboardNoteScope`): Grupo1/2/5, Rubrica, Região, Regional e Município, como na Lista para Desenho; vale para pilha e aderência.
  *  - Aderência: Productions concluídas no período (sem RI/D5), dias entre `dt_note` e a conclusão, por mês de conclusão e
  *    empresa (SATEL x própria/EDP), faixas 0–limite, limite+1–15, 16–30, 30+. Só OV.
  */
@@ -35,7 +36,7 @@ class ActivityDashboardAnalytics
 
     public const DEADLINE_SERIES = ['Na pilha', 'SATEL', 'Própria (EDP)', 'Outras empresas'];
 
-    /** Filtros com valor padrão e validação (tela, URL e Excel passam por aqui). @return array{type: string, tracking: bool, from: Carbon, to: Carbon, limit: int} */
+    /** Filtros com valor padrão e validação (tela, URL e Excel passam por aqui). @return array{type: string, tracking: bool, from: Carbon, to: Carbon, limit: int, scope: array<string, array<int, string>>} */
     public function normalize(array $filters): array
     {
         $type = (string) ($filters['type'] ?? '2');
@@ -58,6 +59,7 @@ class ActivityDashboardAnalytics
             'from'     => $from,
             'to'       => $to,
             'limit'    => (string) ($filters['limit'] ?? '8') === '6' ? 6 : 8,
+            'scope'    => DashboardNoteScope::clean((array) ($filters['scope'] ?? [])),
         ];
     }
 
@@ -83,7 +85,7 @@ class ActivityDashboardAnalytics
     public function snapshot(Service $service, array $filters): array
     {
         $f   = $this->normalize($filters);
-        $key = 'dispatch-dashboard:' . md5($service->uuid . '|' . $f['type'] . '|' . (int) $f['tracking'] . '|' . $f['from']->toDateString() . '|' . $f['to']->toDateString() . '|' . $f['limit']);
+        $key = 'dispatch-dashboard:' . md5($service->uuid . '|' . $f['type'] . '|' . (int) $f['tracking'] . '|' . $f['from']->toDateString() . '|' . $f['to']->toDateString() . '|' . $f['limit'] . '|' . json_encode($f['scope']));
 
         return Cache::remember($key, self::CACHE_TTL, fn () => $this->build($service, $f));
     }
@@ -102,7 +104,7 @@ class ActivityDashboardAnalytics
     protected function build(Service $service, array $f, ?int $criticalLimit = self::CRITICAL_LIMIT): array
     {
         // O teste de tamanho varre a pilha: guardado por mais tempo que o resto (o tamanho de uma pilha não muda em minutos).
-        $tooLarge = Cache::remember('dispatch-dashboard:large:' . md5($service->uuid . '|' . $f['type'] . '|' . (int) $f['tracking']), 600, fn () => $this->isTooLarge($service, $f));
+        $tooLarge = Cache::remember('dispatch-dashboard:large:' . md5($service->uuid . '|' . $f['type'] . '|' . (int) $f['tracking'] . '|' . json_encode($f['scope'])), 600, fn () => $this->isTooLarge($service, $f));
         $agg      = $tooLarge ? $this->emptyPile() : $this->aggregatePile($service, $f, $criticalLimit);
 
         return [
@@ -150,6 +152,8 @@ class ActivityDashboardAnalytics
         if (!$f['tracking']) {
             $query->whereRaw("LOWER(TRIM(COALESCE(notes.rubrica, ''))) <> ?", ['acompanhamento']);
         }
+
+        DashboardNoteScope::apply($query, $f['scope']);
 
         return $query;
     }
@@ -370,6 +374,7 @@ class ActivityDashboardAnalytics
             ->whereNotNull('p.dt_note')
             ->whereNotNull('p.completed_at')
             ->whereBetween('p.completed_at', [$f['from'], $to])
+            ->tap(fn ($q) => DashboardNoteScope::apply($q, $f['scope']))
             ->selectRaw(
                 "DATE_FORMAT(p.completed_at, '%Y-%m') as ym, LOWER(COALESCE(companies.name, '')) as company,
                 CASE WHEN GREATEST(DATEDIFF(p.completed_at, p.dt_note), 0) <= ? THEN 0

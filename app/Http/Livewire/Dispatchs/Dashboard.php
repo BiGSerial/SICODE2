@@ -2,8 +2,9 @@
 
 namespace App\Http\Livewire\Dispatchs;
 
+use App\Http\Livewire\Concerns\{WithListFilters, WithLocationFilterOptions};
 use App\Jobs\Dispatchs\ActivityDashboardExportJob;
-use App\Models\Service;
+use App\Models\{Note, Service};
 use App\Services\Dispatch\Dashboard\{ActivityDashboardAnalytics, ActivityDashboardCharts};
 use Illuminate\Support\Carbon;
 use Livewire\Component;
@@ -14,6 +15,9 @@ use Livewire\Component;
  */
 class Dashboard extends Component
 {
+    use WithListFilters;
+    use WithLocationFilterOptions;
+
     public const PRESETS = [
         'month' => 'Mês atual',
         'prev'  => 'Mês anterior',
@@ -39,6 +43,7 @@ class Dashboard extends Component
         'rangeFrom'             => ['except' => '', 'as' => 'de'],
         'rangeTo'               => ['except' => '', 'as' => 'ate'],
         'adherenceDays'         => ['except' => '8', 'as' => 'aderencia'],
+        'filters'               => ['except' => [], 'as' => 'f'],
     ];
 
     public function mount($service): void
@@ -72,12 +77,17 @@ class Dashboard extends Component
         $this->noteType              = '2';
         $this->includeTrackingRubric = false;
         $this->adherenceDays         = '8';
+        $this->filters               = [];
         $this->applyPreset('month');
         $this->refreshCharts();
     }
 
     public function updated($name): void
     {
+        if ($name === 'filters' || str_starts_with((string) $name, 'filters.')) {
+            $this->filters = $this->normalizeFilters($this->filters);
+        }
+
         $this->normalize();
         $this->refreshCharts();
     }
@@ -121,7 +131,50 @@ class Dashboard extends Component
     /** @return array{type: string, tracking: bool, from: string, to: string, limit: string} */
     private function filters(): array
     {
-        return ['type' => $this->noteType, 'tracking' => $this->includeTrackingRubric, 'from' => $this->rangeFrom, 'to' => $this->rangeTo, 'limit' => $this->adherenceDays];
+        return ['type' => $this->noteType, 'tracking' => $this->includeTrackingRubric, 'from' => $this->rangeFrom, 'to' => $this->rangeTo, 'limit' => $this->adherenceDays, 'scope' => $this->filters];
+    }
+
+    // ---------- Filtros de recorte (WithListFilters): os mesmos da Lista para Desenho ----------
+
+    protected function listFilterDefinitions(): array
+    {
+        return [
+            'group1'   => ['label' => 'Grupo1'],
+            'group2'   => ['label' => 'Grupo2'],
+            'group5'   => ['label' => 'Grupo5'],
+            'rubrica'  => ['label' => 'Rubrica'],
+            'region'   => ['label' => 'Região'],
+            'regional' => ['label' => 'Regional', 'depends' => ['region']],
+            'city'     => ['label' => 'Município', 'depends' => ['region', 'regional']],
+        ];
+    }
+
+    protected function listFilterOptions(): array
+    {
+        $distinct = fn (string $column) => $this->rememberFilterOptions($column, fn () => Note::query()
+            ->whereNotNull($column)->where($column, '!=', '')
+            ->distinct()->orderBy($column)->pluck($column)
+            ->map(fn ($value) => ['v' => (string) $value, 'l' => (string) $value])->all());
+
+        return [
+            'group1'  => $distinct('group1'),
+            'group2'  => $distinct('group2'),
+            'group5'  => $distinct('group5'),
+            'rubrica' => $distinct('rubrica'),
+        ] + $this->locationFilterOptions();
+    }
+
+    /** Mesmo cache das opções da Lista para Desenho (as listas são as mesmas). */
+    protected function listFilterCacheScope(): string
+    {
+        return \App\Http\Livewire\Dispatchs\Desenho\Main::class;
+    }
+
+    /** O dashboard não pagina nem seleciona linhas: só recalcula os gráficos (o trait avisa o painel de filtros). */
+    protected function afterListFiltersChanged(): void
+    {
+        $this->dispatchBrowserEvent('ops-filters', ['sel' => (object) $this->filters]);
+        $this->refreshCharts();
     }
 
     /** Valores inválidos da URL viram o padrão; datas trocadas são corrigidas. */
