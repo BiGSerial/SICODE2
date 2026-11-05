@@ -37,9 +37,10 @@ class PaymentListRowPresenter
         $workForms = $list->relationLoaded('WorkForms') ? $list->WorkForms : collect([$list->WorkForm])->filter();
         $wf        = $workForms->first() ?? $list->WorkForm;
 
-        $workReportId = (int) ($list->payment_work_report_id ?? ($profile === 'service' ? $wf?->id : 0) ?? 0);
-        $fiveNoteId   = (int) ($list->dispatch_five_note_id ?? 0);
-        $partialId    = (int) ($list->dispatch_partial_id ?? 0);
+        $workReportId    = (int) ($list->payment_work_report_id ?? ($profile === 'service' ? $wf?->id : 0) ?? 0);
+        $fiveNoteId      = (int) ($list->dispatch_five_note_id ?? 0);
+        $partialId       = (int) ($list->dispatch_partial_id ?? 0);
+        $explicitPartial = $partialId > 0 && !$partner;
 
         $partial = !$wf
             ? ($partialId > 0 ? ($list->Partials->firstWhere('id', $partialId) ?? $list->Partials->first()) : $list->Partials->first())
@@ -153,7 +154,7 @@ class PaymentListRowPresenter
             'assignee'     => $assignee,
             'payload'      => $workReportId
                 ? [['note_id' => (int) $list->id, 'work_report_id' => $workReportId] + ($partner ? [] : ['five_note_id' => $fiveNoteId ?: null])]
-                : [(int) $list->id],
+                : ($explicitPartial ? [['note_id' => (int) $list->id, 'partial_id' => $partialId]] : [(int) $list->id]),
         ];
     }
 

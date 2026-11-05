@@ -8,6 +8,7 @@ use Illuminate\Foundation\Console\Kernel as ConsoleKernel;
 class Kernel extends ConsoleKernel
 {
     private const SQLSERVER_SCHEDULE_LOGS = [
+        'confirm-prod',
         'wpas-log',
         'collect-sqlsrv1-health',
         'sync-log-protest-jobs',
@@ -58,6 +59,11 @@ class Kernel extends ConsoleKernel
 
         $this->scheduleCommand($schedule, 'sicode:chk_integridade', 'chk-integridade')
             ->cron('5 9-21 * * *');
+
+        // A confirmação das Productions concluídas (SAP ou 24 h) tem agenda própria: dentro do chk_integridade ela só rodava quando a
+        // integridade da Base OV estava sem erro, e com erro as concluídas ficavam "Finalizadas" no Controle por semanas.
+        $this->scheduleCommand($schedule, 'sicode:confirm_prod', 'confirm-prod')
+            ->cron('35 8-21 * * *');
 
         $this->scheduleCommand($schedule, 'sicode:wpas_log', 'wpas-log')
             ->cron('30 8-21 * * *');
@@ -362,6 +368,7 @@ class Kernel extends ConsoleKernel
         return [
             'exports-clear-old'                        => 'Limpar Exports',
             'chk-integridade'                          => 'Base OV',
+            'confirm-prod'                             => 'Confirmar Productions concluídas',
             'wpas-log'                                 => 'Log de WPAs',
             'collect-sqlsrv1-health'                   => 'Data Lake SQL Server',
             'sync-base-orders-operations'              => 'Base Ordens e Operações',

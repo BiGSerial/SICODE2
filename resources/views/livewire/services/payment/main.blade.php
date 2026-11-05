@@ -199,7 +199,7 @@
                                 <td>
                                     @if ($row['canDispatch'])
                                         <button type="button" class="btn btn-primary btn-sm ops-action"
-                                            wire:click.prevent="to_accompany({{ $row['noteId'] }}, {{ $row['workReportId'] ?: 'null' }})"
+                                            wire:click.prevent="to_accompany({{ $row['noteId'] }}, {{ $row['workReportId'] ?: 'null' }}, {{ $row['partialId'] ?: 'null' }})"
                                             title="Assumir esta Nota/OV para você">
                                             <i class="ri-hand-coin-line" aria-hidden="true"></i> Assumir
                                         </button>

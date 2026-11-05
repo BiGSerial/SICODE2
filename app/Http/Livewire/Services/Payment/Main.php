@@ -7,10 +7,10 @@ use App\Http\Livewire\Concerns\Services\BulkSelfAssignable;
 use App\Http\Livewire\Concerns\WithNoteListFilters;
 use App\Jobs\Dispatchs\ExportDispatchPaymentJob;
 use App\Models\{Bancoupdate, Company, Note, Production, Service, User, WorkReport};
-use App\Services\D5\D5WorkReportAssociationResolver;
 use App\Services\Dispatch\{DispatchException, DispatchWorkflowService};
 use App\Services\Payment\{BlockEvaluator, NoteFilter, PaymentListRowPresenter};
 use App\Services\WorkReports\{WorkReportFinalScopeOptions};
+use App\Support\SicodeRules;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\{Auth, Cache, DB};
@@ -24,6 +24,7 @@ class Main extends Component
     }
     use TextFormatter;
     use BulkSelfAssignable;
+    use \App\Http\Livewire\Concerns\BuildsPaymentRows;
     use \App\Http\Livewire\Services\Concerns\BuildsCanceledWorkReportTags;
 
     protected $paginationTheme = 'bootstrap';
@@ -45,6 +46,9 @@ class Main extends Component
     public $note;
 
     public ?int $paymentTargetWorkReportId = null;
+
+    /** Parcial da linha escolhida (a Nota pode ter mais de uma em medição). */
+    public ?int $paymentTargetPartialId = null;
 
     public $last_update;
 
@@ -127,35 +131,22 @@ class Main extends Component
         return $workReportId ? $note->id . ':' . $workReportId : (string) $note->id;
     }
 
+    /** Chave da linha: `nota`, `nota:informe` ou `nota:0:pParcial`. Devolve [nota, informe, parcial]. */
     private function parseSelectionKey($key): array
     {
-        if (is_string($key) && str_contains($key, ':')) {
-            [$noteId, $workReportId] = array_pad(explode(':', $key, 2), 2, null);
-
-            return [(int) $noteId, (int) $workReportId];
+        if (is_string($key) && preg_match('/^(\d+):(\d+)(?::p(\d+))?$/', $key, $m)) {
+            return [(int) $m[1], (int) $m[2], isset($m[3]) ? (int) $m[3] : null];
         }
 
-        return [(int) $key, null];
+        return [(int) $key, null, null];
     }
 
     private function currentFilterRows()
     {
         $page = $this->baseQuery()->get();
 
-        $page->load([
-            'WorkForm:id,note_id,company_id,informed_at,created_at,rejected,selected_final_scopes,equipment,changes,damage,connection',
-            'WorkForm.Note:id,type_note',
-            'WorkForm.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto', 'orders.statusSist']),
-            'WorkForm.Orders.Pep:objeto,disponivel',
-            'WorkForm.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'WorkForms'                  => fn ($q) => $q->select(['id', 'note_id', 'company_id', 'informed_at', 'created_at', 'rejected', 'selected_final_scopes', 'equipment', 'changes', 'damage', 'connection'])
-                ->where('canceled', false),
-            'WorkForms.Note:id,type_note',
-            'WorkForms.Orders' => fn ($q) => $q->select(['orders.id', 'orders.note_id', 'orders.ordem', 'orders.pep', 'orders.moaberto', 'orders.statusSist']),
-            'WorkForms.Orders.Pep:objeto,disponivel',
-            'WorkForms.Orders.Operations' => fn ($q) => $q->select(['id', 'order_id', 'operacao', 'status', 'cenTrab', 'fimReal']),
-            'FiveNotes:id,note_id,work_report_id,note_d5,is_supervisioned,is_completed,is_archived,is_payed,isPassive,returned,visible_partner,dispatch_at,completed_at,created_at',
-        ]);
+        // As mesmas relações da lista: sem as Parciais não nascem as linhas de Parcial e "selecionar todos" as perderia.
+        $page->load($this->listRelations());
 
         $rows = $this->expandPaymentRows($page);
 
@@ -330,9 +321,10 @@ class Main extends Component
         }
     }
 
-    public function to_accompany($noteId, ?int $workReportId = null)
+    public function to_accompany($noteId, ?int $workReportId = null, ?int $partialId = null)
     {
         $this->paymentTargetWorkReportId = $workReportId ?: null;
+        $this->paymentTargetPartialId    = $partialId ?: null;
         $note                            = Note::findOrFail($noteId);
         $this->note                      = $note->loadMissing([
             'WorkForm',
@@ -351,7 +343,10 @@ class Main extends Component
         $this->partial     = false;
         $this->partialDate = null;
 
-        if (!$this->note->WorkForm) {
+        if ($this->paymentTargetPartialId) {
+            $this->partial     = true;
+            $this->partialDate = $note->Partials->firstWhere('id', $this->paymentTargetPartialId)?->created_at;
+        } elseif (!$this->note->WorkForm) {
             if ($latestPartial
             && $latestPartial->allow
             && $latestPartial->supervision
@@ -392,7 +387,8 @@ class Main extends Component
         $result       = $this->assignNoteToSelf(
             $this->note,
             $this->finalScopesForWorkReportId($workReportId),
-            $workReportId ?: null
+            $workReportId ?: null,
+            $this->paymentTargetPartialId
         );
 
         if (!$result['ok']) {
@@ -454,9 +450,9 @@ class Main extends Component
     private function selectedDispatchContexts(): array
     {
         return collect($this->selected)->map(function ($key) {
-            [$noteId, $workReportId] = $this->parseSelectionKey($key);
+            [$noteId, $workReportId, $partialId] = $this->parseSelectionKey($key);
 
-            return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null];
+            return ['note_id' => $noteId, 'work_report_id' => $workReportId ?: null, 'partial_id' => $partialId ?: null];
         })->values()->all();
     }
 
@@ -465,7 +461,7 @@ class Main extends Component
      * Autocontido: recalcula parcial/dt a partir da própria Nota, sem depender de estado
      * de instância — assim serve tanto para o fluxo de 1 item quanto para o de N itens.
      */
-    public function assignNoteToSelf(Note $note, ?array $targetFinalScopes = null, ?int $targetWorkReportId = null): array
+    public function assignNoteToSelf(Note $note, ?array $targetFinalScopes = null, ?int $targetWorkReportId = null, ?int $explicitPartialId = null): array
     {
         $user = $this->assignmentUser();
 
@@ -506,11 +502,19 @@ class Main extends Component
             ->values();
         $targetPartialId = null;
 
-        if (!$targetWorkReportId && !$workFormForValidation && $partialCandidates->count() === 1) {
+        // Linha de Parcial (como no Despacho): a atribuição é daquela Parcial, nunca de outra da mesma Nota.
+        if ($explicitPartialId) {
+            if (!$partialCandidates->contains('id', $explicitPartialId)) {
+                return ['ok' => false, 'note' => $note->note, 'reason' => 'o Informe Parcial #' . $explicitPartialId . ' não está mais disponível para medição'];
+            }
+
+            $targetPartialId = $explicitPartialId;
+            $note->setAttribute('dispatch_partial_id', $targetPartialId);
+        } elseif (!$targetWorkReportId && !$workFormForValidation && $partialCandidates->count() === 1) {
             $targetPartialId = (int) $partialCandidates->first()->id;
         }
 
-        if (!$targetWorkReportId && !$workFormForValidation && $partialCandidates->count() > 1) {
+        if (!$explicitPartialId && !$targetWorkReportId && !$workFormForValidation && $partialCandidates->count() > 1) {
             return ['ok' => false, 'note' => $note->note, 'reason' => 'possui mais de um Informe Parcial elegível; selecione-o na fila de despacho'];
         }
 
@@ -602,30 +606,29 @@ class Main extends Component
         }
     }
 
+    /** Estado de bloqueio da linha, o mesmo do Despacho (`HasPaymentListFilters`): avaliador + pilha da empresa, uma vez por requisição. */
+    private array $dispatchStateMemo = [];
+
     public function needBlock(Note $note): array
     {
-        $workForms = $note->relationLoaded('WorkForms')
-            ? $note->WorkForms
-            : collect([$note->WorkForm])->filter();
-        $workForm = $workForms->first();
-        $fiveNote = $workForm?->FiveNote
-            ?: $this->legacyD5ForWorkReport($note, $workForm)
-            ?: $note->FiveNote;
+        return $this->rowDispatchState($note)['eval'];
+    }
 
-        if ($workForm && !$fiveNote?->isEligibleForPaymentReturn() && !$this->workReportEligibleForPayment($workForm)) {
+    /** @return array{eval: array, stack: ?\App\Models\Production, canDispatch: bool} */
+    public function rowDispatchState(Note $note): array
+    {
+        $key = $this->rowSelectionKey($note);
+
+        return $this->dispatchStateMemo[$key] ??= (function () use ($note) {
+            $eval  = app(BlockEvaluator::class)->evaluate($note, $this->service);
+            $stack = SicodeRules::openCompanyStackProductionFor($note, Auth()->User(), $this->service->uuid);
+
             return [
-                'block'      => BlockEvaluator::HOLD_RED,
-                'command'    => false,
-                'color'      => 'table-danger',
-                'reason'     => 'operations_not_ready_for_payment',
-                'production' => $note->Productions?->first(),
+                'eval'        => $eval,
+                'stack'       => $stack,
+                'canDispatch' => !$eval['block'] || (bool) ($eval['command'] ?? false) || (bool) $stack,
             ];
-        }
-
-        $eval = app(BlockEvaluator::class)->evaluate($note, $this->service);
-
-        // retorna estrutura pra view usar diretamente
-        return $eval;
+        })();
     }
 
     public function filterStatus()
@@ -954,9 +957,7 @@ class Main extends Component
 
     private function presentRow(Note $note): array
     {
-        $eval = $this->needBlock($note);
-
-        return app(PaymentListRowPresenter::class)->present($note, ['eval' => $eval, 'stack' => null, 'canDispatch' => !$eval['block']], 'service');
+        return app(PaymentListRowPresenter::class)->present($note, $this->rowDispatchState($note), 'service');
     }
 
     public function updatedPrazo(): void
@@ -974,141 +975,6 @@ class Main extends Component
     {
         $this->prazo = '';
         $this->clearNoteCriteria();
-    }
-
-    private function expandPaymentRows($notes)
-    {
-        return $notes->flatMap(function (Note $note) {
-            $workForms = $note->relationLoaded('WorkForms')
-                ? $note->WorkForms
-                : collect([$note->WorkForm])->filter();
-
-            $eligibleWorkForms = $workForms
-                ->filter(fn ($workForm) => $this->workReportEligibleForPayment($workForm))
-                ->values();
-
-            $d5WorkForms = $workForms
-                ->filter(function ($workForm) use ($note) {
-                    $five = $workForm->FiveNote ?: $this->legacyD5ForWorkReport($note, $workForm);
-
-                    return $five && (
-                        $five->isEligibleForPaymentReturn()
-                        || $this->workReportEligibleForPayment($workForm)
-                    );
-                })
-                ->values();
-
-            if ($d5WorkForms->isNotEmpty()) {
-                return $d5WorkForms->map(function ($workForm) use ($note) {
-                    $row  = clone $note;
-                    $five = $workForm->FiveNote ?: $this->legacyD5ForWorkReport($note, $workForm);
-                    $row->setRelation('FiveNote', $five);
-                    $row->setRelation('WorkForm', $workForm);
-                    $row->setRelation('WorkForms', collect([$workForm]));
-                    $row->setAttribute('payment_context_key', $note->id . ':' . $workForm->id);
-                    $row->setAttribute('payment_work_report_id', (int) $workForm->id);
-                    $row->setAttribute('dispatch_work_report_id', (int) $workForm->id);
-                    $row->setAttribute('dispatch_five_note_id', (int) $five->id);
-
-                    return $row;
-                });
-            }
-
-            if ($this->d5MustUsePrimaryNetworkReport($note)) {
-                $eligibleWorkForms = $eligibleWorkForms
-                    ->filter(fn ($workForm) => $this->isNetworkWorkReport($workForm))
-                    ->values();
-            }
-
-            if ($eligibleWorkForms->isEmpty()) {
-                if ($workForms->isNotEmpty() && !$this->isD5ReturnReadyForPayment($note)) {
-                    return [];
-                }
-
-                $note->setAttribute('payment_context_key', (string) $note->id);
-
-                return [$note];
-            }
-
-            return $eligibleWorkForms->map(function ($workForm) use ($note) {
-                $row = clone $note;
-                $row->setRelation('WorkForm', $workForm);
-                $row->setRelation('WorkForms', collect([$workForm]));
-                $row->setAttribute('payment_context_key', $note->id . ':' . $workForm->id);
-                $row->setAttribute('payment_work_report_id', (int) $workForm->id);
-                $row->setAttribute('dispatch_work_report_id', (int) $workForm->id);
-
-                return $row;
-            });
-        })->values();
-    }
-
-    private function workReportEligibleForPayment($workForm): bool
-    {
-        if (!$workForm) {
-            return false;
-        }
-
-        $orders = $workForm->relationLoaded('Orders')
-            ? $workForm->Orders
-            : $workForm->Orders()->with('Operations')->get();
-
-        // Deve ser a mesma regra da consulta-base da pilha. A validação legada daqui
-        // exigia a operação 0010, removendo na expansão uma linha já elegível para o
-        // segundo ciclo de Medição/Pagamento.
-        $candidates = app(\App\Services\Payment\WorkReportPaymentCandidateQuery::class);
-
-        return $orders->contains(fn ($order) => $candidates->orderIsEligible($order));
-    }
-
-    /** D5 legada não passiva só acompanha o Informe apontado pelo resolvedor temporal. */
-    private function legacyD5ForWorkReport(Note $note, $workForm): ?\App\Models\FiveNote
-    {
-        if (!$workForm || !$note->relationLoaded('FiveNotes')) {
-            return null;
-        }
-
-        $matches = $note->FiveNotes
-            ->filter(fn ($five) => !$five->work_report_id
-                && !$five->isPassive
-                && $five->needsPaymentAction()
-                && app(D5WorkReportAssociationResolver::class)->closestFor($five)?->is($workForm))
-            ->values();
-
-        return $matches->count() === 1 ? $matches->first() : null;
-    }
-
-    private function d5MustUsePrimaryNetworkReport(Note $note): bool
-    {
-        $five = $note->FiveNote;
-
-        if (!$five || (bool) $five->is_archived) {
-            return false;
-        }
-
-        return (!$five->is_completed && !$five->visible_partner && !$five->is_payed)
-            || ($five->is_completed && !$five->is_supervisioned);
-    }
-
-    private function isD5ReturnReadyForPayment(Note $note): bool
-    {
-        $five = $note->FiveNote;
-
-        return (bool) $five?->isEligibleForPaymentReturn();
-    }
-
-    private function isNetworkWorkReport($workForm): bool
-    {
-        $scopes = (array) ($workForm->selected_final_scopes ?? []);
-
-        if (!empty($scopes)) {
-            return in_array('network', $scopes, true);
-        }
-
-        return (bool) ($workForm->equipment ?? false)
-            || (bool) ($workForm->changes ?? false)
-            || (bool) ($workForm->damage ?? false)
-            || !(bool) ($workForm->connection ?? false);
     }
 
     private function finalScopesForWorkReportId(?int $workReportId): ?array

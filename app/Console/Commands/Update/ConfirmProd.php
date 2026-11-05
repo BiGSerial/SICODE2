@@ -34,15 +34,17 @@ class ConfirmProd extends Command
 
         try {
             $expirationDays = (int) $this->option('days');
-            $manualDays = 5;
-            $now = Carbon::now();
-            $nowFormatted = $now->toDateTimeString();
+            $manualDays     = 5;
+            $now            = Carbon::now();
+            $nowFormatted   = $now->toDateTimeString();
 
             $this->info('CHECKING PRODS COMPLETEDS FROM BASE ... ');
 
+            // A marca `noinconsistency` não pode segurar uma Production para sempre: passado o prazo (`--days`, 1 dia) ela é
+            // confirmada por expiração mesmo marcada, senão fica "Finalizada" no Controle indefinidamente.
             $productions = Production::query()
                 ->where('completed', true)
-                ->where('noinconsistency', false)
+                ->where(fn ($q) => $q->where('noinconsistency', false)->orWhere('completed_at', '<=', $now->copy()->subDays($expirationDays)))
                 ->where('confirmed', false)
                 ->with(['Note', 'Service', 'User'])
                 ->get();
@@ -59,28 +61,55 @@ class ConfirmProd extends Command
 
             $this->info('INITIALIZING UPDATE... ' . $productions->count());
 
-            $ovProductions = $productions->filter(fn ($p) => optional($p->Note)->type_note == 2)->values();
+            // 1) Expiração (24 h, `--days`): só depende do nosso banco. Vem antes de consultar o SQL Server para que uma queda do SAP
+            //    não impeça a confirmação (antes, qualquer erro ali derrubava o comando e nada era confirmado).
+            $expiredIds = $productions
+                ->filter(fn ($p) => $p->completed_at && Carbon::parse($p->completed_at)->diffInDays($now) >= $expirationDays)
+                ->pluck('id')
+                ->all();
+
+            if ($expiredIds) {
+                Production::whereIn('id', $expiredIds)->update(['confirmed' => true, 'confirmed_at' => $nowFormatted]);
+                $productions = $productions->reject(fn ($p) => in_array($p->id, $expiredIds, true))->values();
+            }
+
+            if ($productions->isEmpty()) {
+                $log->setUpdated(count($expiredIds));
+                $log->save();
+
+                return self::SUCCESS;
+            }
+
+            $ovProductions   = $productions->filter(fn ($p) => optional($p->Note)->type_note == 2)->values();
             $noteProductions = $productions->filter(fn ($p) => optional($p->Note)->type_note == 1)->values();
 
-            $ovNotes = $ovProductions->pluck('Note.note')->filter()->unique()->values();
+            $ovNotes     = $ovProductions->pluck('Note.note')->filter()->unique()->values();
             $noteNumbers = $noteProductions->pluck('Note.note')->filter()->unique()->values();
 
-            $baseOvByOv = BaseOV::query()
-                ->select(['OV', 'transicao', 'dhStat'])
-                ->whereIn('OV', $ovNotes)
-                ->orderBy('dhStat', 'DESC')
-                ->get()
-                ->groupBy('OV');
+            // 2) Confirmação pela mudança de status no SAP. Se o SQL Server estiver fora, segue sem ela (a expiração acima já rodou).
+            try {
+                $baseOvByOv = BaseOV::query()
+                    ->select(['OV', 'transicao', 'dhStat'])
+                    ->whereIn('OV', $ovNotes)
+                    ->orderBy('dhStat', 'DESC')
+                    ->get()
+                    ->groupBy('OV');
 
-            $baseEpByNote = BaseEP::query()
-                ->whereIn('nota', $noteNumbers)
-                ->get()
-                ->keyBy('nota');
+                $baseEpByNote = BaseEP::query()
+                    ->whereIn('nota', $noteNumbers)
+                    ->get()
+                    ->keyBy('nota');
+            } catch (Throwable $e) {
+                $this->warn('SAP INDISPONÍVEL, SEGUINDO SÓ COM A EXPIRAÇÃO: ' . $e->getMessage());
+                $log->setErrorMessage('SAP indisponível: ' . $e->getMessage());
+                $baseOvByOv   = collect();
+                $baseEpByNote = collect();
+            }
 
             $confirmByExpiration = [];
-            $manualConfirm = [];
-            $noInconsistency = [];
-            $confirmByMatch = [];
+            $manualConfirm       = [];
+            $noInconsistency     = [];
+            $confirmByMatch      = [];
 
             foreach ($productions as $production) {
                 $completedAt = $production->completed_at ? Carbon::parse($production->completed_at) : null;
@@ -99,7 +128,7 @@ class ConfirmProd extends Command
                     }
                 }
 
-                $note = optional($production->Note)->note;
+                $note     = optional($production->Note)->note;
                 $typeNote = optional($production->Note)->type_note;
 
                 if (!$note || !$typeNote) {
@@ -113,12 +142,12 @@ class ConfirmProd extends Command
                         continue;
                     }
 
-                    $transitionA = trim((string) $production->status_note);
-                    $transitionB = trim((string) optional($production->Service)->status);
+                    $transitionA       = trim((string) $production->status_note);
+                    $transitionB       = trim((string) optional($production->Service)->status);
                     $completedAtCarbon = Carbon::parse($production->completed_at);
 
                     $matchFound = $registers->contains(function ($row) use ($transitionA, $transitionB, $completedAtCarbon) {
-                        $transition = (string) $row->transicao;
+                        $transition      = (string) $row->transicao;
                         $validTransition = str_starts_with($transition, $transitionA . ' para')
                             || str_starts_with($transition, $transitionB . ' para');
 
@@ -127,12 +156,13 @@ class ConfirmProd extends Command
                         }
 
                         $dhStat = Carbon::parse($row->dhStat);
+
                         return $completedAtCarbon->diffInDays($dhStat) <= 2;
                     });
 
                     if ($matchFound) {
                         $noInconsistency[] = $production->id;
-                        $confirmByMatch[] = $production->id;
+                        $confirmByMatch[]  = $production->id;
                     }
                 }
 
@@ -144,15 +174,15 @@ class ConfirmProd extends Command
                         || (($verificar && $production->centroTrab) && ($production->centroTrab != $verificar->cenTrabResp))
                     ) {
                         $noInconsistency[] = $production->id;
-                        $confirmByMatch[] = $production->id;
+                        $confirmByMatch[]  = $production->id;
                     }
                 }
             }
 
-            $noInconsistency = array_values(array_unique($noInconsistency));
+            $noInconsistency     = array_values(array_unique($noInconsistency));
             $confirmByExpiration = array_values(array_unique($confirmByExpiration));
-            $confirmByMatch = array_values(array_unique($confirmByMatch));
-            $manualConfirm = array_values(array_unique($manualConfirm));
+            $confirmByMatch      = array_values(array_unique($confirmByMatch));
+            $manualConfirm       = array_values(array_unique($manualConfirm));
 
             if ($manualConfirm) {
                 Production::whereIn('id', $manualConfirm)->update(['conf_manual' => true]);
@@ -163,14 +193,15 @@ class ConfirmProd extends Command
             }
 
             $confirmIds = array_values(array_unique(array_merge($confirmByExpiration, $confirmByMatch)));
+
             if ($confirmIds) {
                 Production::whereIn('id', $confirmIds)->update([
-                    'confirmed' => true,
+                    'confirmed'    => true,
                     'confirmed_at' => $nowFormatted,
                 ]);
             }
 
-            $updatedCount = count($manualConfirm) + count($noInconsistency) + count($confirmIds);
+            $updatedCount = count($expiredIds) + count($manualConfirm) + count($noInconsistency) + count($confirmIds);
 
             $this->info('FINISHED CHECK... ' . Production::where('completed', true)->where('confirmed', false)->count());
 

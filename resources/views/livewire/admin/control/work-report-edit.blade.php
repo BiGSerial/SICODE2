@@ -382,6 +382,19 @@
                                                                 @endif
                                                             </td>
                                                             <td class="text-end text-nowrap">
+                                                                @if ($production['completed'] && !$production['confirmed'])
+                                                                    <button type="button" class="btn btn-success btn-sm fivefx-btn me-1"
+                                                                        wire:click="requestConfirmProduction({{ $production['id'] }})"
+                                                                        title="Confirmar manualmente: a Production já está concluída e o status no SAP não mudou">
+                                                                        <i class="ri-check-double-line me-1"></i>Confirmar
+                                                                    </button>
+                                                                @elseif ($production['confirmed'])
+                                                                    <button type="button" class="btn btn-outline-warning btn-sm fivefx-btn me-1"
+                                                                        wire:click="requestUndoProductionConfirmation({{ $production['id'] }})"
+                                                                        title="{{ $production['conf_manual'] ? 'Confirmada manualmente' : 'Confirmada pela rotina do SAP' }}: desfazer a confirmação">
+                                                                        <i class="ri-arrow-go-back-line me-1"></i>Desfazer
+                                                                    </button>
+                                                                @endif
                                                                 <button type="button" class="btn btn-outline-primary btn-sm fivefx-btn"
                                                                     wire:click="requestAssociateProduction({{ $production['id'] }})">
                                                                     <i class="ri-links-line me-1"></i>Associar
