@@ -2,20 +2,34 @@
 
 namespace App\Http\Livewire\Closure\Dispatch;
 
-use App\Enum\ClosureOperationalStatus as Status;
 use App\Http\Livewire\Closure\Dispatch\Concerns\ManagesPriorityAndTransfer;
 use App\Models\{Company, User};
-use App\Services\Closure\Analytics\ClosureDispatcherAnalytics;
+use App\Services\Closure\Analytics\{ClosureDispatcherAnalytics, ClosureManagementAnalytics, ClosureManagementCharts};
+use Illuminate\Support\Carbon;
 use Livewire\Component;
 
+/**
+ * Painel analítico do Encerramento (padrão docs/PADRAO_DASHBOARDS.md; regras em docs/encerramento/PAINEL_GERENCIAL.md).
+ * O componente só guarda filtros e orquestra: o gerencial (problemas, parceiras, atividades, comparador mensal) vem de
+ * `ClosureManagementAnalytics`, a operação (matriz, obras críticas) de `ClosureDispatcherAnalytics` e os gráficos de `ClosureManagementCharts`.
+ */
 class Dashboard extends Component
 {
     use ManagesPriorityAndTransfer;
 
-    public const TYPE_CHART_ID = 'closure_dash_users';
+    public const PRESETS = [
+        'month' => 'Mês atual',
+        'prev'  => 'Mês anterior',
+        '90d'   => 'Últimos 90 dias',
+        'year'  => 'Ano',
+    ];
 
-    public const STATUS_CHART_ID = 'closure_dash_status';
+    /** Período do bloco gerencial (problemas, parceiras, atividades); o comparador mensal termina no mês de `periodTo`. */
+    public string $periodFrom = '';
 
+    public string $periodTo = '';
+
+    /** Filtros da parte operacional (matriz e lista de Ordens). */
     public string $filterType = '';
 
     public ?string $filterCompany = null;
@@ -29,15 +43,51 @@ class Dashboard extends Component
     /** Célula clicada na matriz: user (id|'none'|null), type, status. */
     public array $cell = ['user' => null, 'type' => null, 'status' => null];
 
+    protected $queryString = [
+        'periodFrom'    => ['except' => '', 'as' => 'de'],
+        'periodTo'      => ['except' => '', 'as' => 'ate'],
+        'filterType'    => ['except' => '', 'as' => 'tipo'],
+        'filterCompany' => ['except' => null, 'as' => 'empresa'],
+        'dateFrom'      => ['except' => null, 'as' => 'status_desde'],
+        'dateTo'        => ['except' => null, 'as' => 'status_ate'],
+    ];
+
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('closure.dispatch'), 403);
+
+        Carbon::setLocale('pt_BR');
+
+        if (blank($this->periodFrom) || blank($this->periodTo)) {
+            $this->applyPreset('month');
+        }
+
+        $this->normalizePeriod();
+    }
+
+    public function hydrate(): void
+    {
+        Carbon::setLocale('pt_BR');
     }
 
     public function updated(string $property): void
     {
+        if (in_array($property, ['periodFrom', 'periodTo'], true)) {
+            $this->normalizePeriod();
+            $this->refreshCharts();
+        }
+
         if (in_array($property, ['filterType', 'filterCompany', 'dateFrom', 'dateTo'], true)) {
             $this->clearCell();
+            $this->refreshCharts();
+        }
+    }
+
+    public function setPreset(string $preset): void
+    {
+        if (array_key_exists($preset, self::PRESETS)) {
+            $this->applyPreset($preset);
+            $this->refreshCharts();
         }
     }
 
@@ -61,7 +111,9 @@ class Dashboard extends Component
         $this->filterCompany = null;
         $this->dateFrom      = null;
         $this->dateTo        = null;
+        $this->applyPreset('month');
         $this->clearCell();
+        $this->refreshCharts();
     }
 
     /** Exporta o painel em Excel (uma aba por bloco + atividades por status), com os filtros atuais; avisa quando estiver pronto. */
@@ -76,12 +128,10 @@ class Dashboard extends Component
 
     public function render()
     {
-        $analytics = $this->analytics();
-        $matrix    = $analytics->matrix($this->filters());
-        $summary   = $analytics->summary($this->filters(), $matrix);
-        $charts    = $this->charts($matrix);
-
-        $this->dispatchChartUpdates($charts, $matrix['totals']['total']);
+        $analytics  = $this->analytics();
+        $matrix     = $analytics->matrix($this->filters());
+        $summary    = $analytics->summary($this->filters(), $matrix);
+        $management = $this->management();
 
         return view('livewire.closure.dispatch.dashboard', [
             'matrix'        => $matrix,
@@ -91,7 +141,8 @@ class Dashboard extends Component
             'priorities'    => $analytics->pendingPriorityRequests(),
             'critical'      => $analytics->criticalWorks(max(1, $this->staleDays)),
             'orders'        => $analytics->orders($this->filters(), $this->cell),
-            'charts'        => $charts,
+            'management'    => $management,
+            'charts'        => ClosureManagementCharts::all($management, $matrix),
             'companies'     => Company::query()->orderBy('name')->get(['id', 'name']),
             'transferUsers' => $this->transferNoteId
                 ? User::query()->whereNotNull('company_id')
@@ -99,8 +150,6 @@ class Dashboard extends Component
                     ->orderBy('name')->get(['id', 'name'])
                 : collect(),
             'transferStates' => $this->transferNoteId ? $analytics->transferableStates($this->transferNoteId) : collect(),
-            'userChartId'    => self::TYPE_CHART_ID,
-            'statusChartId'  => self::STATUS_CHART_ID,
         ]);
     }
 
@@ -108,89 +157,49 @@ class Dashboard extends Component
     public function filters(): array
     {
         return [
-            'type'       => $this->filterType ?: null,
-            'company_id' => $this->filterCompany ?: null,
-            'from'       => $this->dateFrom ?: null,
-            'to'         => $this->dateTo ?: null,
+            'type'        => $this->filterType ?: null,
+            'company_id'  => $this->filterCompany ?: null,
+            'from'        => $this->dateFrom ?: null,
+            'to'          => $this->dateTo ?: null,
+            'period_from' => $this->periodFrom,
+            'period_to'   => $this->periodTo,
         ];
     }
 
-    /**
-     * Gráficos Chart.js. Quando não há dados o payload mantém datasets vazios na
-     * renderização inicial e a view mostra um overlay; as atualizações via evento só
-     * ocorrem quando há dados (o último estado do gráfico nunca é limpo).
-     *
-     * @param array{rows: array<int, array<string, mixed>>, totals: array<string, mixed>} $matrix
-     * @return array{users: array<string, mixed>, status: array<string, mixed>}
-     */
-    private function charts(array $matrix): array
+    /** @return array<string, mixed> */
+    private function management(): array
     {
-        $rows   = collect($matrix['rows']);
-        $colors = ['P' => '#E32C2C', 'M' => '#0F8A77', 'F' => '#263CC8', 'N' => '#94A3B8'];
-
-        $datasets = [];
-
-        foreach (['P' => 'Passivo', 'M' => 'Meta atual', 'F' => 'Meta futura', 'N' => 'Sem tipo'] as $type => $label) {
-            $datasets[] = [
-                'label'           => $label,
-                'data'            => $rows->map(fn ($r) => $r['types'][$type])->all(),
-                'backgroundColor' => $colors[$type],
-                'borderColor'     => $colors[$type],
-                'borderRadius'    => 4,
-                'stack'           => 'tipo',
-            ];
-        }
-
-        $users = [
-            'type'    => 'bar',
-            'data'    => ['labels' => $rows->pluck('name')->all(), 'datasets' => $datasets],
-            'options' => [
-                'indexAxis'           => 'y',
-                'responsive'          => true,
-                'maintainAspectRatio' => false,
-                'plugins'             => [
-                    'legend'     => ['display' => true, 'position' => 'top', 'labels' => ['usePointStyle' => true, 'boxWidth' => 8]],
-                    'datalabels' => ['display' => '__VALUE_LABEL_NONZERO__', 'color' => '#fff', 'font' => ['weight' => '700', 'size' => 10]],
-                ],
-                'scales' => [
-                    'x' => ['stacked' => true, 'beginAtZero' => true, 'ticks' => ['precision' => 0], 'grid' => ['color' => 'rgba(148, 163, 184, .18)']],
-                    'y' => ['stacked' => true, 'grid' => ['display' => false]],
-                ],
-            ],
-        ];
-
-        $statusValues = array_map(fn ($s) => $matrix['totals']['status'][$s], ClosureDispatcherAnalytics::MATRIX_STATUSES);
-        $palette      = ['#263CC8', '#A8B1E9', '#212E3E', '#F7D200', '#E32C2C', '#0F8A77', '#225E66', '#0CD3F8', '#91AFB3'];
-
-        $status = [
-            'type' => 'doughnut',
-            'data' => [
-                'labels'   => array_map(fn ($s) => Status::labelFor($s), ClosureDispatcherAnalytics::MATRIX_STATUSES),
-                'datasets' => [['label' => 'Ordens', 'data' => $statusValues, 'backgroundColor' => $palette, 'borderColor' => '#fff', 'borderWidth' => 2]],
-            ],
-            'options' => [
-                'responsive'          => true,
-                'maintainAspectRatio' => false,
-                'cutout'              => '58%',
-                'plugins'             => [
-                    'legend'     => ['display' => true, 'position' => 'right', 'labels' => ['usePointStyle' => true, 'boxWidth' => 8]],
-                    'datalabels' => ['display' => '__VALUE_LABEL_NONZERO__', 'color' => '#fff', 'font' => ['weight' => '700', 'size' => 10]],
-                ],
-            ],
-        ];
-
-        return ['users' => $users, 'status' => $status];
+        return app(ClosureManagementAnalytics::class)->snapshot(['from' => $this->periodFrom, 'to' => $this->periodTo]);
     }
 
-    /** @param array{users: array<string, mixed>, status: array<string, mixed>} $charts */
-    private function dispatchChartUpdates(array $charts, int $total): void
+    /** Valores inválidos da URL viram o padrão; datas trocadas são corrigidas. */
+    private function normalizePeriod(): void
     {
-        if ($total === 0) {
-            return; // estado vazio: overlay na view; mantém o último estado do gráfico.
-        }
+        $f = app(ClosureManagementAnalytics::class)->normalize(['from' => $this->periodFrom, 'to' => $this->periodTo]);
 
-        $this->dispatchBrowserEvent('grafico-atualizar-' . self::TYPE_CHART_ID, $charts['users']);
-        $this->dispatchBrowserEvent('grafico-atualizar-' . self::STATUS_CHART_ID, $charts['status']);
+        $this->periodFrom = $f['from']->toDateString();
+        $this->periodTo   = $f['to']->toDateString();
     }
 
+    private function applyPreset(string $preset): void
+    {
+        [$from, $to] = match ($preset) {
+            'prev'  => [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()],
+            '90d'   => [now()->subDays(89), now()],
+            'year'  => [now()->startOfYear(), now()->endOfYear()],
+            default => [now()->startOfMonth(), now()->endOfMonth()],
+        };
+
+        $this->periodFrom = $from->toDateString();
+        $this->periodTo   = $to->toDateString();
+    }
+
+    /** Envia os gráficos; o JS (`my-panel.js`) os aplica in-place, sem recriar nem limpar. */
+    private function refreshCharts(): void
+    {
+        $analytics = $this->analytics();
+        $matrix    = $analytics->matrix($this->filters());
+
+        $this->dispatchBrowserEvent('my-panel:charts', ['charts' => ClosureManagementCharts::all($this->management(), $matrix)]);
+    }
 }

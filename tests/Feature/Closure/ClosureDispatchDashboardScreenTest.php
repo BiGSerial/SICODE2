@@ -60,7 +60,7 @@ it('renders the analytical dashboard for the dispatcher with the matrix numbers'
     Livewire::test(Dashboard::class)
         ->assertSee('Painel analítico do Encerramento')
         ->assertSee('Ana Painel')
-        ->assertSeeHtml('id="dash-total">2<')
+        ->assertSee('Total ativo')
         ->assertViewHas('matrix', fn ($matrix) => $matrix['totals']['total'] === 2 && $matrix['totals']['types']['P'] === 1 && $matrix['totals']['types']['M'] === 1);
 });
 

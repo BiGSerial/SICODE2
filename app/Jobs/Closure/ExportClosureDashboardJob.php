@@ -57,7 +57,7 @@ class ExportClosureDashboardJob implements ShouldQueue
 
             $user->notify(new SystemNotification(new UserNotificationData(
                 title: 'Exportação - Painel analítico do Encerramento',
-                message: 'Seu Excel do painel está pronto (' . count($report['orders']) . ' Ordens ativas em ' . (count(array_filter($report['orders_by_status'])) + 9) . ' abas).',
+                message: 'Seu Excel do painel está pronto (' . count($report['orders']) . ' Ordens ativas em ' . (count(array_filter($report['orders_by_status'])) + 13) . ' abas).',
                 link: Storage::url($filePath),
                 status: 'download',
             )));
