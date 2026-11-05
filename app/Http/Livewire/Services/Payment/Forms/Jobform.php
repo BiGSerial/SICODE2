@@ -4,7 +4,7 @@ namespace App\Http\Livewire\Services\Payment\Forms;
 
 use App\Models\{Analise, Company, FiveNote, Notetimeline, Production};
 use App\Services\D5\D5WorkflowService;
-use App\Services\Payment\MeasurementProductionContextService;
+use App\Services\Payment\{MeasurementProductionContextService, PaymentD5CreationService};
 use App\Services\WorkReports\WorkReportScopedProductionSplitter;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +22,30 @@ class Jobform extends Component
 
     public array $closeFinalScopeSelections = [];
 
+    /** Origem das evidências anexadas à D5 criada por aqui. */
+    public string $origin = 'PAGAMENTO';
+
+    public bool $hasEvidence = false;
+
+    /** Criar D5 no encerramento: o processo é guiado (fiscal → dados e anexos) e nada é gravado antes de ENCERRAR. */
+    public bool $creatingD5 = false;
+
+    /** Etapa do assistente: fiscal (quem encerrou a atividade anterior) → form (dados da D5 e anexos). */
+    public string $d5Stage = 'fiscal';
+
+    /** '' = ainda não escolheu; 'none' = sem fiscal; senão o id da produção de Fiscalização escolhida. */
+    public string $d5Fiscal = '';
+
+    public array $newD5 = [];
+
     protected $listeners = [
         'refresh' => '$refresh',
         'showProduction',
         'confirmFinish'         => 'save',
         'confirmProductionIsD5' => 'markProductionAsD5',
+        'hasEvidence',
+        'evidenceSaved',
+        'evidenceSaveFailed',
     ];
 
     protected $rules = [
@@ -66,6 +85,105 @@ class Jobform extends Component
         $this->companies = Company::orderBy('name')->get();
     }
 
+    public function hasEvidence($value): void
+    {
+        $this->hasEvidence = (bool) $value;
+    }
+
+    public function getCanCreateD5Property(): bool
+    {
+        return $this->production && !$this->five && app(PaymentD5CreationService::class)->canCreate($this->production);
+    }
+
+    public function getD5FiscalOptionsProperty(): array
+    {
+        return $this->production ? app(PaymentD5CreationService::class)->fiscalOptions($this->production)->all() : [];
+    }
+
+    public function startCreateD5(): void
+    {
+        if (!$this->canCreateD5) {
+            return;
+        }
+
+        $this->creatingD5 = true;
+        $this->d5Stage    = 'fiscal';
+        $this->d5Fiscal   = '';
+        $this->newD5      = app(PaymentD5CreationService::class)->defaults($this->production);
+    }
+
+    public function confirmD5Fiscal(): void
+    {
+        if ($this->d5Fiscal === '') {
+            $this->addError('d5Fiscal', 'Selecione o fiscal que encerrou a atividade ou "Nenhum".');
+
+            return;
+        }
+
+        try {
+            app(PaymentD5CreationService::class)->resolveFiscal($this->production, $this->d5Fiscal);
+        } catch (\DomainException $e) {
+            $this->addError('d5Fiscal', $e->getMessage());
+
+            return;
+        }
+
+        $this->resetErrorBag('d5Fiscal');
+        $this->d5Stage = 'form';
+    }
+
+    public function backToD5Fiscal(): void
+    {
+        $this->d5Stage = 'fiscal';
+    }
+
+    public function cancelCreateD5(): void
+    {
+        $this->resetCreateD5();
+        $this->emitTo('files.evidence.upload-evidence', 'cancelEvidences');
+    }
+
+    private function resetCreateD5(): void
+    {
+        $this->creatingD5  = false;
+        $this->d5Stage     = 'fiscal';
+        $this->d5Fiscal    = '';
+        $this->newD5       = [];
+        $this->hasEvidence = false;
+        $this->resetErrorBag();
+    }
+
+    private function newD5Complete(): bool
+    {
+        return $this->creatingD5
+            && $this->d5Stage === 'form'
+            && collect(['note_d5', 'company_id', 'reason', 'codify', 'loc_install'])
+                ->every(fn (string $field) => $this->filledValue($this->newD5[$field] ?? null));
+    }
+
+    private function validateNewD5(): void
+    {
+        $this->validate([
+            'newD5.note_d5'     => 'required|numeric|unique:five_notes,note_d5',
+            'newD5.company_id'  => 'required|exists:companies,id',
+            'newD5.reason'      => 'required|string|max:255',
+            'newD5.codify'      => 'required|string|max:255',
+            'newD5.loc_install' => 'required|string|max:255',
+            'newD5.conjunto'    => 'nullable|string|max:255',
+            'newD5.pep'         => 'nullable|string|max:255',
+            'newD5.sintoms'     => 'nullable|string|max:255',
+            'newD5.description' => 'nullable|string',
+        ], [
+            'newD5.note_d5.required'     => 'O campo [Número da D5] é obrigatório.',
+            'newD5.note_d5.numeric'      => 'O campo [Número da D5] deve ser apenas números.',
+            'newD5.note_d5.unique'       => 'O D5 informado já está em uso.',
+            'newD5.company_id.required'  => 'O campo [Empresa] é obrigatório.',
+            'newD5.reason.required'      => 'O campo [Motivo] da D5 é obrigatório.',
+            'newD5.codify.required'      => 'O campo [Código] da D5 é obrigatório.',
+            'newD5.loc_install.required' => 'O campo [Local de Instalação] da D5 é obrigatório.',
+        ]);
+    }
+
     public function getCloseStepSummaryProperty(): array
     {
         $steps   = $this->closeSteps;
@@ -100,6 +218,11 @@ class Jobform extends Component
         $hasScopeSelection = $this->hasValidCloseFinalScopeSelection();
 
         $steps = [];
+
+        if ($this->creatingD5) {
+            $steps[] = $this->closeStep('Fiscal da D5', $this->d5Fiscal !== '' && $this->d5Stage === 'form', 'Informe quem encerrou a atividade anterior (ou "Nenhum") para criar a D5.', 'ri-user-search-line');
+            $steps[] = $this->closeStep('Dados da D5', $this->newD5Complete(), 'Preencha número, empresa, motivo, código e local de instalação da D5.', 'ri-file-text-line');
+        }
 
         if ($needsD5Data) {
             $steps[] = $this->closeStep('Número D5', $this->filledValue($this->five?->note_d5), 'Informe o número da D5.', 'ri-file-text-line');
@@ -168,6 +291,7 @@ class Jobform extends Component
     {
         $this->five       = null;
         $this->production = $production;
+        $this->resetCreateD5();
 
         if ($this->production) {
             $this->syncCloseFinalScopeSelections();
@@ -376,6 +500,10 @@ class Jobform extends Component
 
         try {
             if ($end) {
+                if ($this->creatingD5 && !$this->five) {
+                    $this->validateNewD5();
+                }
+
                 if ($this->five) {
                     $this->validate();
                 } else {
@@ -463,6 +591,10 @@ class Jobform extends Component
 
         $this->validate(['analise.conclusion' => 'required|min:1']);
 
+        if ($this->creatingD5 && !$this->five) {
+            $this->validateNewD5();
+        }
+
         if ($this->production->partial) {
             $this->dispatchBrowserEvent('alertar', [
                 'title' => 'ENCERRAMENTO DE SERVIÇO PARCIAL',
@@ -520,6 +652,20 @@ class Jobform extends Component
                 \App\Models\WorkReportFlowProduction::STAGE_PAYMENT,
                 $this->selectedCloseFinalScopes()
             );
+
+            // D5 criada aqui: só agora o processo é cadastrado. Depois segue o mesmo caminho do ciclo 1 com D5 (despacho à empreiteira).
+            $createdFive = null;
+
+            if ($this->creatingD5 && !$this->five) {
+                $d5Service = app(PaymentD5CreationService::class);
+                $fiscal    = $d5Service->resolveFiscal($this->production, $this->d5Fiscal);
+
+                $createdFive = $d5Service->create($this->production, $this->newD5, $fiscal, auth()->user());
+                $this->five  = $createdFive;
+
+                $this->analise->info = trim(($this->analise->info ? $this->analise->info . "\n\n" : '') . $d5Service->auditLine(auth()->user(), $fiscal, $createdFive));
+                $this->analise->save();
+            }
 
             $chk = $this->production->update([
                 'status'       => 5,
@@ -607,12 +753,22 @@ class Jobform extends Component
                     'title'    => 'Encerrado com Sucesso',
                 ]);
 
-                $this->closeAll();
+                if ($createdFive && $this->hasEvidence) {
+                    // Os anexos precisam da D5 já cadastrada; o modal fecha quando o upload avisar `evidenceSaved`.
+                    $this->emitTo('files.evidence.upload-evidence', 'saveEvidences', $createdFive->id);
+                } else {
+                    $this->closeAll();
+                }
             }
 
         } catch (\Throwable $th) {
 
             DB::rollback();
+
+            if ($this->creatingD5 && !empty($createdFive)) {
+                $this->five = null;
+                $this->analise->refresh();
+            }
 
             $this->addError('general', 'Não conseguimos encerrar a atividade. ' . $th->getMessage());
 
@@ -629,8 +785,26 @@ class Jobform extends Component
         }
     }
 
+    public function evidenceSaved(): void
+    {
+        $this->closeAll();
+    }
+
+    public function evidenceSaveFailed(): void
+    {
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'warning',
+            'title'    => 'D5 criada, anexos não salvos',
+            'html'     => 'A atividade foi encerrada e a D5 foi criada, mas os arquivos não puderam ser salvos. Anexe-os novamente pela D5.',
+        ]);
+
+        $this->closeAll();
+    }
+
     public function closeAll()
     {
+        $this->resetCreateD5();
         $this->production                = null;
         $this->analise                   = null;
         $this->five                      = null;

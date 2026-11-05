@@ -859,7 +859,158 @@
                                         white-space: pre-line;
                                     }
                                 </style>
+                            @elseif ($this->canCreateD5)
+                                <div class="close-form-card">
+                                    <div class="close-form-card__head">
+                                        <h5 class="close-form-card__title">
+                                            <i class="ri-file-text-line text-primary"></i>
+                                            Criar D5
+                                        </h5>
+                                        @if ($creatingD5)
+                                            <button type="button" class="btn btn-sm btn-outline-secondary" wire:click="cancelCreateD5">
+                                                <i class="ri-close-line me-1"></i> Cancelar criação
+                                            </button>
+                                        @endif
+                                    </div>
+                                    <div class="close-form-card__body">
+                                        @if (!$creatingD5)
+                                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                                                <div class="close-help m-0">
+                                                    O fiscal encerrou esta atividade sem solicitar a D5? Crie a D5 por aqui: ela só é cadastrada
+                                                    quando você <strong>encerrar</strong> e segue para a empreiteira como no 1º ciclo.
+                                                </div>
+                                                <button type="button" class="btn btn-primary" wire:click="startCreateD5">
+                                                    <i class="ri-add-circle-line me-1"></i> Criar D5
+                                                </button>
+                                            </div>
+                                        @else
+                                            {{-- ETAPA 1: quem encerrou a atividade anterior --}}
+                                            <div @class(['d-none' => $d5Stage !== 'fiscal'])>
+                                                <div class="row g-3">
+                                                    <div class="col-md-6 close-field">
+                                                        <label class="form-label">Fiscal que encerrou a atividade <span class="close-required">*</span></label>
+                                                        <select class="form-select border border-secondary @error('d5Fiscal') is-invalid @enderror"
+                                                            wire:model.defer="d5Fiscal">
+                                                            <option value="">Selecione...</option>
+                                                            <option value="{{ \App\Services\Payment\PaymentD5CreationService::NO_FISCAL }}">Nenhum (não houve fiscal na atividade anterior)</option>
+                                                            @foreach ($this->d5FiscalOptions as $fiscalOption)
+                                                                <option value="{{ $fiscalOption['id'] }}">
+                                                                    {{ $fiscalOption['user'] }}@if ($fiscalOption['completed_at']) — encerrou em {{ $fiscalOption['completed_at'] }}@endif
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                        @error('d5Fiscal')
+                                                            <small class="text-danger">{{ $message }}</small>
+                                                        @enderror
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex justify-content-end mt-3">
+                                                    <button type="button" class="btn btn-primary" wire:click="confirmD5Fiscal"
+                                                        wire:loading.attr="disabled" wire:target="confirmD5Fiscal">
+                                                        Próximo <i class="ri-arrow-right-line ms-1"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
 
+                                            {{-- ETAPA 2: dados da D5 (mantida montada, só oculta, para não perder os anexos já selecionados) --}}
+                                            <div @class(['d-none' => $d5Stage !== 'form'])>
+                                                <div class="close-alert-inline mb-3">
+                                                    <i class="ri-information-line fs-5"></i>
+                                                    <div>
+                                                        A D5 só será cadastrada ao <strong>ENCERRAR</strong>. Confira todos os dados: depois do encerramento
+                                                        não será possível alterá-los.
+                                                    </div>
+                                                </div>
+                                                <div class="row g-3">
+                                                    <div class="col-md-3 close-field">
+                                                        <label class="form-label">Número da D5 <span class="close-required">*</span></label>
+                                                        <input type="text" class="form-control border border-secondary"
+                                                            wire:model.defer="newD5.note_d5" placeholder="Insira o número da D5">
+                                                        @error('newD5.note_d5') <small class="text-danger">{{ $message }}</small> @enderror
+                                                    </div>
+                                                    <div class="col-md-3 close-field">
+                                                        <label class="form-label">Empresa <span class="close-required">*</span></label>
+                                                        <select class="form-select border border-secondary" wire:model.defer="newD5.company_id">
+                                                            <option value="">Selecione...</option>
+                                                            @foreach ($companies as $company)
+                                                                <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @error('newD5.company_id') <small class="text-danger">{{ $message }}</small> @enderror
+                                                    </div>
+                                                    <div class="col-md-3 close-field">
+                                                        <label class="form-label">Motivo <span class="close-required">*</span></label>
+                                                        <select class="form-select border border-secondary" wire:model.defer="newD5.reason">
+                                                            <option value="">Selecione...</option>
+                                                            @foreach (SelectOptions::getD5Reasons() as $reasonD5)
+                                                                <option value="{{ $reasonD5->value }}">{{ $reasonD5->reason }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @error('newD5.reason') <small class="text-danger">{{ $message }}</small> @enderror
+                                                    </div>
+                                                    <div class="col-md-3 close-field">
+                                                        <label class="form-label">Código <span class="close-required">*</span></label>
+                                                        <select class="form-select border border-secondary" wire:model.defer="newD5.codify">
+                                                            <option value="">Selecione...</option>
+                                                            @foreach (SelectOptions::getD5codify() as $codifyD5)
+                                                                <option value="{{ $codifyD5->value }}">{{ $codifyD5->reason }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        @error('newD5.codify') <small class="text-danger">{{ $message }}</small> @enderror
+                                                    </div>
+                                                    <div class="col-md-4 close-field">
+                                                        <label class="form-label">Local de Instalação <span class="close-required">*</span></label>
+                                                        <input type="text" class="form-control border border-secondary"
+                                                            wire:model.defer="newD5.loc_install" placeholder="Ex.: 708-EP-00459941">
+                                                        @error('newD5.loc_install') <small class="text-danger">{{ $message }}</small> @enderror
+                                                    </div>
+                                                    <div class="col-md-4 close-field">
+                                                        <label class="form-label">Conjunto</label>
+                                                        <input type="text" class="form-control border border-secondary"
+                                                            wire:model.defer="newD5.conjunto" placeholder="Ex.: 12">
+                                                    </div>
+                                                    <div class="col-md-4 close-field">
+                                                        <label class="form-label">PEP</label>
+                                                        <input type="text" class="form-control border border-secondary"
+                                                            wire:model.defer="newD5.pep" placeholder="Ex.: PEP-123">
+                                                    </div>
+                                                    <div class="col-md-12 close-field">
+                                                        <label class="form-label">Observações da D5</label>
+                                                        <textarea class="form-control border border-secondary" rows="4" wire:model.defer="newD5.description"
+                                                            placeholder="Descreva os apontamentos da D5"></textarea>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="close-form-card mb-0">
+                                                            <div class="close-form-card__head">
+                                                                <h5 class="close-form-card__title">
+                                                                    <i class="ri-upload-cloud-2-line text-primary"></i>
+                                                                    Anexar Arquivos na D5
+                                                                </h5>
+                                                            </div>
+                                                            <div class="card-body p-0">
+                                                                @livewire('files.evidence.upload-evidence', ['type' => 'PRE_OBRA', 'origin' => $origin])
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="close-alert-inline h-100">
+                                                            <i class="ri-information-line fs-5"></i>
+                                                            <div>
+                                                                <div class="fw-bold mb-1">Informação</div>
+                                                                <p class="m-0">Os arquivos anexados aqui ficam visíveis internamente, apenas na D5 em questão.</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex justify-content-start mt-3">
+                                                    <button type="button" class="btn btn-outline-secondary" wire:click="backToD5Fiscal">
+                                                        <i class="ri-arrow-left-line me-1"></i> Voltar
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
                             @endif
 
 
