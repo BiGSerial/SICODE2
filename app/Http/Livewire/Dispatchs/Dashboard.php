@@ -189,14 +189,34 @@ class Dashboard extends Component
         $this->adherenceDays = (string) $f['limit'];
     }
 
-    private function applyPreset(string $preset): void
+    /** Preset cujas datas são exatamente as do período atual (vazio se o período foi editado à mão). */
+    public function activePreset(): string
     {
-        [$from, $to] = match ($preset) {
+        foreach (array_keys(self::PRESETS) as $preset) {
+            [$from, $to] = $this->presetRange($preset);
+
+            if ($from->toDateString() === $this->rangeFrom && $to->toDateString() === $this->rangeTo) {
+                return $preset;
+            }
+        }
+
+        return '';
+    }
+
+    /** @return array{0: Carbon, 1: Carbon} */
+    private function presetRange(string $preset): array
+    {
+        return match ($preset) {
             'prev'  => [now()->subMonthNoOverflow()->startOfMonth(), now()->subMonthNoOverflow()->endOfMonth()],
             '90d'   => [now()->subDays(89), now()],
             'year'  => [now()->startOfYear(), now()->endOfYear()],
             default => [now()->startOfMonth(), now()->endOfMonth()],
         };
+    }
+
+    private function applyPreset(string $preset): void
+    {
+        [$from, $to] = $this->presetRange($preset);
 
         $this->rangeFrom = $from->toDateString();
         $this->rangeTo   = $to->toDateString();

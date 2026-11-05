@@ -198,6 +198,11 @@
 
                                         <td>
                                             <div class="d-inline-flex gap-1">
+                                                @if ($row['canFinish'] ?? false)
+                                                    <button type="button" class="btn btn-danger btn-sm ops-action" wire:click.prevent="askFinishCanceled({{ $row['id'] }})" title="O informe foi cancelado: finaliza a atividade por cancelamento e registra na análise quem cancelou e quando">
+                                                        <i class="ri-checkbox-circle-line" aria-hidden="true"></i> Finalizar
+                                                    </button>
+                                                @endif
                                                 @if ($row['canPlay'])
                                                     <button type="button" class="btn btn-primary btn-sm ops-action" title="Abrir a atividade"
                                                         wire:click="$emitTo('services.supervision.forms.jobform', 'showProduction', {{ $row['id'] }})">

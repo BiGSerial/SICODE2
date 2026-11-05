@@ -8,6 +8,7 @@ use App\Models\{Bancoupdate, Company, Note, Notetimeline, Production, Service, U
 use App\Models\City;
 use App\Services\D5\{D5WorkflowService};
 use App\Services\Payment\{BlockEvaluator, NoteFilter, PaymentListRowPresenter};
+use App\Services\Production\CanceledInformeService;
 use App\Services\WorkReports\{WorkReportFinalScopeOptions, WorkReportFlowProductionLinker};
 use App\Support\SicodeRules;
 use Carbon\Carbon;
@@ -17,8 +18,8 @@ use Livewire\{Component, WithPagination};
 
 class Main extends Component
 {
-    use Concerns\HasPaymentListFilters;
     use \App\Http\Livewire\Concerns\BuildsPaymentRows;
+    use Concerns\HasPaymentListFilters;
     use WithPagination;
     use TextFormatter;
 
@@ -1373,9 +1374,11 @@ class Main extends Component
         $rows      = $lists->getCollection()->map(fn (Note $note) => $presenter->present($note, $this->rowDispatchState($note)));
 
         return view('livewire.dispatchs.payment.main', [
-            'lists'  => $lists,
-            'rows'   => $rows,
-            'update' => Cache::remember('payment-dispatch:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
+            'lists' => $lists,
+            'rows'  => $rows,
+            // Nota com atividade aberta cujo informe foi cancelado: aparece sinalizada (sem atividade aberta nem entra na lista).
+            'canceledByProduction' => app(CanceledInformeService::class)->forProductions($rows->pluck('productionId')->all()),
+            'update'               => Cache::remember('payment-dispatch:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
         ]);
     }
 }

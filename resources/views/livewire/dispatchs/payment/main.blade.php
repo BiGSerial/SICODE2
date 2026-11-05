@@ -143,6 +143,7 @@
                                         @if ($row['partialId'])
                                             <span class="ops-sub">Parcial #{{ $row['partialId'] }}</span>
                                         @endif
+                                        <x-work-report.canceled-badge :report="$row['productionId'] ? ($canceledByProduction[$row['productionId']] ?? null) : null" />
                                         <x-legal.note-demand-tags :note-id="$row['noteId']" :row-key="'dispatchs-payment-main-' . $row['key']" />
                                     </div>
                                 </td>
@@ -262,5 +263,6 @@
     </div>
 
     @livewire('dispatchs.shared.dispatch-modal', ['serviceId' => $service->uuid], key('dispatch-modal-' . $service->uuid))
+    @livewire('components.workform.canceled-info', key('dispatch-payment-canceled-info'))
     @livewire('components.pep.financial-modal', key('dispatch-payment-pep-financial-modal'))
 </div>

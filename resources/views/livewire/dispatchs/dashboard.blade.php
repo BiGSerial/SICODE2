@@ -49,8 +49,9 @@
                 <span class="form-label small d-block mb-1">Período da aderência (conclusões)</span>
                 <div class="d-flex flex-wrap align-items-center gap-2">
                     <div class="mp-presets" role="group" aria-label="Períodos rápidos">
+                        @php $activePreset = $this->activePreset(); @endphp
                         @foreach (\App\Http\Livewire\Dispatchs\Dashboard::PRESETS as $key => $label)
-                            <button type="button" class="mp-preset" wire:click="setPreset('{{ $key }}')">{{ $label }}</button>
+                            <button type="button" class="mp-preset {{ $activePreset === $key ? 'is-active' : '' }}" wire:click="setPreset('{{ $key }}')" aria-pressed="{{ $activePreset === $key ? 'true' : 'false' }}">{{ $label }}</button>
                         @endforeach
                     </div>
                     <input type="date" class="form-control form-control-sm w-auto" wire:model.lazy="rangeFrom" aria-label="De">

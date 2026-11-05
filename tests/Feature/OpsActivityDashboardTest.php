@@ -124,6 +124,16 @@ it('o recorte por grupo e rubrica vale para a pilha e vem da tela, e limpa junto
         ->assertDispatchedBrowserEvent('ops-filters');
 });
 
+it('o período rápido ativo acende pelas datas e apaga ao editar à mão', function () {
+    Livewire::test(Dashboard::class, ['service' => $this->service->uuid])
+        ->assertSee('mp-preset is-active', false)
+        ->call('setPreset', 'prev')
+        ->assertSet('rangeFrom', now()->subMonthNoOverflow()->startOfMonth()->toDateString())
+        ->assertSeeInOrder(['mp-preset ', 'Mês atual', 'mp-preset is-active', 'Mês anterior'], false)
+        ->set('rangeFrom', now()->subMonthNoOverflow()->startOfMonth()->addDay()->toDateString())
+        ->assertDontSee('mp-preset is-active', false);
+});
+
 it('o relatório do Excel traz a pilha crítica completa, além das 15 da tela', function () {
     foreach (range(1, 20) as $i) {
         dashNote('40000800' . str_pad((string) $i, 2, '0', STR_PAD_LEFT), ['days_left' => 20 - $i]);

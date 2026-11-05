@@ -120,6 +120,17 @@ class NoteFilter
             });
         });
 
+        // ======== INFORME CANCELADO ========
+        // Nota cujo informe foi cancelado não pode ser despachada: o informe não existe. Ela só fica na lista enquanto alguém ainda
+        // tem a atividade aberta (aparece sinalizada, para ser finalizada por cancelamento). Informe ativo ou Parcial válida mantêm a Nota.
+        $query->where(function (Builder $q) {
+            $q->whereDoesntHave('WorkFormsAny', fn (Builder $wf) => $wf->where('canceled', true))
+                ->orWhereHas('WorkForms')
+                ->orWhereHas('Partials', fn (Builder $p) => $p->where('deny', false)->where('allow', true)->where('supervision', true)->where('payment', false))
+                ->orWhereHas('Productions', fn (Builder $production) => $production->where('completed', false)
+                    ->whereHas('Service', fn (Builder $service) => $service->where('service', 'Pagamento')));
+        });
+
         // ======== BUSCA SIMPLES ========
         $query->when($search, function (Builder $q) use ($search) {
             $like = "%{$search}%";

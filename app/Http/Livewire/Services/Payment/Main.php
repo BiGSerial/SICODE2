@@ -1050,7 +1050,7 @@ class Main extends Component
         return view('livewire.services.payment.main', [
             'lists'                => $lists,
             'rows'                 => $rows,
-            'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds($this->serviceProductionIds($lists instanceof \Illuminate\Contracts\Pagination\Paginator ? $lists->items() : $lists, $this->service->uuid)),
+            'canceledByProduction' => app(\App\Services\Production\CanceledInformeService::class)->forProductions($this->serviceProductionIds($lists instanceof \Illuminate\Contracts\Pagination\Paginator ? $lists->items() : $lists, $this->service->uuid)),
             'update'               => Cache::remember('payment-dispatch:bancoupdate', 60, fn () => Bancoupdate::orderByDesc('created_at')->first()),
         ]);
     }

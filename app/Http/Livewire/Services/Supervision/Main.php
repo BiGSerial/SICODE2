@@ -4,11 +4,12 @@ namespace App\Http\Livewire\Services\Supervision;
 
 use App\Custom\Notestatus;
 use App\Http\Livewire\Concerns\WithNoteListFilters;
-use App\Http\Livewire\Services\Concerns\{BuildsCanceledWorkReportTags, BuildsLegalNoteTags};
+use App\Http\Livewire\Services\Concerns\{BuildsCanceledWorkReportTags, BuildsLegalNoteTags, FinishesCanceledInforme};
 use App\Jobs\Services\ExportSupervisionProductionListJob;
 use App\Models\{City, File, Production, Service};
 use App\Models\WorkReportFlowProduction;
 use App\Services\Files\FileStorageService;
+use App\Services\Production\CanceledInformeService;
 use App\Support\Ops\{Deadline, Tone};
 use App\Support\SicodeRules;
 use Carbon\Carbon;
@@ -22,6 +23,7 @@ class Main extends Component
     use WithNoteListFilters;
     use BuildsLegalNoteTags;
     use BuildsCanceledWorkReportTags;
+    use FinishesCanceledInforme;
 
     protected $paginationTheme = 'bootstrap';
 
@@ -51,10 +53,11 @@ class Main extends Component
     ];
 
     protected $listeners = [
-        'refresh_accomany'   => '$refresh',
-        'refresh_list'       => '$refresh',
-        'getCopy'            => 'copy',
-        'confirm_getAnalise' => 'go_to_analise',
+        'refresh_accomany'        => '$refresh',
+        'refresh_list'            => '$refresh',
+        'getCopy'                 => 'copy',
+        'confirm_getAnalise'      => 'go_to_analise',
+        'confirm_finish_canceled' => 'finishCanceled',
         'checkOpen',
     ];
 
@@ -398,11 +401,11 @@ class Main extends Component
             ?->WorkReport;
         $workForm = $flowWorkForm ?? $note->WorkForm;
         $five     = app(\App\Services\D5\ProductionFiveNoteResolver::class)->resolve($list);
+        // D5 (2º ciclo do informe): informe e ADS não são cobrados; ficam em cinza (`secondary`) com "D5" no lugar dos dias.
+        $cycleTwo = (bool) ($five?->is_completed && !$five?->is_supervisioned);
         $adsForm  = $note->Adsform ?? $workForm?->Adsform;
         $adsDate  = $adsForm ? $adsForm->created_at : $note->OldAds?->sortByDesc('date')->first()?->date;
         $adsDate  = $adsDate ? Carbon::parse($adsDate) : null;
-        // D5 (2º ciclo do informe): informe e ADS não são cobrados; ficam em cinza (`secondary`) com "D5" no lugar dos dias.
-        $cycleTwo = (bool) ($five?->is_completed && !$five?->is_supervisioned);
         $adsDays  = $adsDate ? (int) $adsDate->copy()->startOfDay()->diffInDays(Carbon::now()->startOfDay()) : null;
         $tacit    = (bool) ($adsForm?->tacit ?? false);
         $rejected = (bool) $workForm?->rejected;
@@ -464,10 +467,22 @@ class Main extends Component
     {
         $lists = $this->lists->paginate($this->perPage);
 
+        // Informe cancelado: a atividade não tem o que executar. Só finalizar (por cancelamento).
+        $canceled = app(CanceledInformeService::class)->forProductions(collect($lists->items())->pluck('id')->all());
+
         return view('livewire.services.supervision.main', [
-            'lists'                => $lists,
-            'rows'                 => $lists->getCollection()->map(fn (Production $list) => $this->presentRow($list)),
-            'canceledByProduction' => $this->buildCanceledWorkReportByProductionIds(collect($lists->items())->pluck('id')->all()),
+            'lists' => $lists,
+            'rows'  => $lists->getCollection()->map(function (Production $list) use ($canceled) {
+                $row = $this->presentRow($list);
+
+                if (isset($canceled[$list->id]) && !$list->completed) {
+                    $row['canPlay']   = $row['canReturn'] = false;
+                    $row['canFinish'] = true;
+                }
+
+                return $row;
+            }),
+            'canceledByProduction' => $canceled,
             'legalTagsByNoteId'    => $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all()),
         ]);
     }

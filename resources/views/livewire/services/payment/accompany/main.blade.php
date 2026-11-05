@@ -164,6 +164,7 @@
                                             @else
                                                 <span class="ops-note copy-text" data-value="{{ $row['note'] }}">{{ $row['note'] }}</span>
                                             @endif
+                                            <x-work-report.canceled-badge :report="$row['canceled']" />
                                             @if ($row['priority'])
                                                 <x-ops.badge sm tone="red" icon="ri-alert-fill" label="Prioridade" class="ops-clickable" hint="Clique para ver a informação da prioridade desta Nota/OV" wire:click.prevent="$emit('infoPriority', '{{ $row['id'] }}')" />
                                             @endif
@@ -229,7 +230,11 @@
 
                                     <td>
                                         <div class="d-inline-flex gap-1">
-                                            @if ($row['canAct'])
+                                            @if ($row['canFinish'])
+                                                <button type="button" class="btn btn-danger btn-sm ops-action" wire:click.prevent="askFinishCanceled({{ $row['id'] }})" title="O informe foi cancelado: finaliza a atividade por cancelamento e registra na análise quem cancelou e quando">
+                                                    <i class="ri-checkbox-circle-line" aria-hidden="true"></i> Finalizar
+                                                </button>
+                                            @elseif ($row['canAct'])
                                                 <button type="button" class="btn btn-primary btn-sm ops-action" wire:click.prevent="$emitTo('services.payment.forms.jobform', 'showProduction', {{ $row['id'] }})" title="Abrir o formulário de pagamento desta Nota/OV">
                                                     <i class="ri-play-circle-line" aria-hidden="true"></i> Iniciar
                                                 </button>
@@ -305,6 +310,7 @@
     @livewire('partner.show.show-partial-info', key('show_partial_info'))
     @livewire('production.return.reject-inform-partial', key('reject_inform_partial'))
     @livewire('components.d5.d5details', key('d5_details'))
+    @livewire('components.workform.canceled-info', key('accompany-canceled-info'))
     @livewire('components.pep.financial-modal', key('payment-accompany-pep-financial-modal'))
 
     <div wire:init="checkOpen"></div>

@@ -6,11 +6,12 @@ use App\Exports\Dispatchs\DispatchPaymentStack;
 use App\Exports\Services\Payment\D5tolistExport;
 use App\Helpers\TextFormatter;
 use App\Http\Livewire\Concerns\WithNoteListFilters;
-use App\Http\Livewire\Services\Concerns\BuildsLegalNoteTags;
+use App\Http\Livewire\Services\Concerns\{BuildsLegalNoteTags, FinishesCanceledInforme};
 use App\Models\{City, File, Production, Service};
 use App\Models\WorkReportFlowProduction;
 use App\Services\Files\FileStorageService;
 use App\Services\Payment\PaymentAccompanyRowPresenter;
+use App\Services\Production\CanceledInformeService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,7 @@ class Main extends Component
 {
     use WithPagination;
     use BuildsLegalNoteTags;
+    use FinishesCanceledInforme;
     use TextFormatter;
     use WithNoteListFilters {
         clearAllCriteria as private clearListCriteria;
@@ -77,10 +79,11 @@ class Main extends Component
     protected function getListeners()
     {
         return array_merge(parent::getListeners(), [
-            'refresh_accomany' => '$refresh',
-            'refresh_list'     => '$refresh',
-            'refresh_service'  => '$refresh',
-            'getCopy'          => 'copy',
+            'refresh_accomany'        => '$refresh',
+            'refresh_list'            => '$refresh',
+            'refresh_service'         => '$refresh',
+            'getCopy'                 => 'copy',
+            'confirm_finish_canceled' => 'finishCanceled',
             'checkOpen',
         ]);
     }
@@ -346,10 +349,11 @@ class Main extends Component
             // O vencimento é calculado em PHP (dias úteis e feriados): filtra a fila do usuário e pagina depois.
             $all = $this->listQuery()->get();
             $this->loadPageRelations($all);
-            $legal = $this->buildLegalTagsByNoteIds($all->pluck('note_id')->all());
+            $legal    = $this->buildLegalTagsByNoteIds($all->pluck('note_id')->all());
+            $canceled = app(CanceledInformeService::class)->forProductions($all->pluck('id')->all());
 
             $rows = $all
-                ->map(fn (Production $p) => $presenter->present($p, $legal[$p->note_id] ?? [], $this->blockWaiting($p->status)))
+                ->map(fn (Production $p) => $presenter->present($p, $legal[$p->note_id] ?? [], $this->blockWaiting($p->status), $canceled[$p->id] ?? null))
                 ->filter(fn (array $row) => $row['dueTone'] === self::PRAZOS[$this->prazo])
                 ->values();
 
@@ -364,9 +368,10 @@ class Main extends Component
         } else {
             $lists = $this->listQuery()->paginate((int) $this->perPage);
             $this->loadPageRelations($lists->getCollection());
-            $legal = $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all());
-            $rows  = collect($lists->items())
-                ->map(fn (Production $p) => $presenter->present($p, $legal[$p->note_id] ?? [], $this->blockWaiting($p->status)))
+            $legal    = $this->buildLegalTagsByNoteIds(collect($lists->items())->pluck('note_id')->all());
+            $canceled = app(CanceledInformeService::class)->forProductions(collect($lists->items())->pluck('id')->all());
+            $rows     = collect($lists->items())
+                ->map(fn (Production $p) => $presenter->present($p, $legal[$p->note_id] ?? [], $this->blockWaiting($p->status), $canceled[$p->id] ?? null))
                 ->values();
         }
 

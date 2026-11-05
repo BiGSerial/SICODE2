@@ -30,7 +30,8 @@ class PaymentAccompanyRowPresenter
     ) {
     }
 
-    public function present(Production $list, array $legalTags = [], bool $blockedByWaiting = false): array
+    /** @param array{id: int, canceled_at: ?string, canceled_by: ?string}|null $canceled informe cancelado desta produção (só pode finalizar) */
+    public function present(Production $list, array $legalTags = [], bool $blockedByWaiting = false, ?array $canceled = null): array
     {
         $note    = $list->Note;
         $partial = $list->partial ? $note?->Partials?->last() : null;
@@ -95,8 +96,11 @@ class PaymentAccompanyRowPresenter
             'statusLabel' => Notestatus::status($list->status)->status,
             'statusTone'  => Tone::forProductionStatus((int) $list->status),
             'blocked'     => (bool) $list->block,
-            'canAct'      => !$list->block && !$blockedByWaiting && !$list->completed,
-            'canReturn'   => (bool) ($list->partial && !$workForm),
+            'canceled'    => $canceled,
+            // Informe cancelado: a atividade não tem o que executar. Só finalizar (por cancelamento).
+            'canFinish' => $canceled !== null && !$list->completed,
+            'canAct'    => $canceled === null && !$list->block && !$blockedByWaiting && !$list->completed,
+            'canReturn' => $canceled === null && (bool) ($list->partial && !$workForm),
         ];
     }
 
