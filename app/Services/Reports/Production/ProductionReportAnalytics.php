@@ -143,6 +143,28 @@ class ProductionReportAnalytics
             ->orderByDesc('productions.id');
     }
 
+    /** Lista no layout anterior (59 colunas): mesmo filtro, eager loads do mapeamento e ordem da conclusão mais antiga para a mais nova. */
+    public function legacyLayoutQuery(array $f): Builder
+    {
+        return $this->query($f)
+            ->select('productions.*')
+            ->with([
+                'Dispatcher:id,name,company_id',
+                'Dispatcher.Company:id,name',
+                'Att:id,name',
+                'Att.Company:id,name',
+                'User:id,name',
+                'Company:id,name',
+                'Service:uuid,service',
+                'Note:id,note,material,group2,group5,lexp,postes,nexp,doe,rubrica,type_note',
+                'Note.RamalForm:id,note_id,created_at',
+                'Note.WorkForm' => fn ($q) => $q->with(['Orders:id', 'Adsform:id,created_at']),
+                'Analise',
+                'Reclaim:id,category',
+            ])
+            ->orderBy('productions.completed_at');
+    }
+
     /** Os indicadores e gráficos cabem na tela só em períodos com início, fim e até SCREEN_MAX_DAYS dias. */
     public function screenAllowed(array $f): bool
     {

@@ -63,13 +63,14 @@ class ProductionReportExportJob implements ShouldQueue
         try {
             $report  = $analytics->report(array_merge($this->params, ['scope' => $analytics->scopeFor($user)]));
             $records = $analytics->listQuery($report['filters']);
+            $legacy  = $analytics->legacyLayoutQuery($report['filters']);
 
             $fileName = now()->format('YmdHis') . "_{$ownerId}_relatorio_producao.xlsx";
             $filePath = 'exports/' . $fileName;
             $disk     = $exports->disk();
             $exports->ensureDirectory();
 
-            if (!Excel::store(new ProductionReportExport($report, $records, (string) $user->name, self::controlRows($user, $report['filters'])), $filePath, $exports->diskName())) {
+            if (!Excel::store(new ProductionReportExport($report, $records, (string) $user->name, self::controlRows($user, $report['filters']), $legacy, (clone $legacy)->toBase()->count()), $filePath, $exports->diskName())) {
                 throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
 

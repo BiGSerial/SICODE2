@@ -4,15 +4,15 @@ namespace App\Exports\Reports\Production;
 
 use App\Exports\Closure\Dashboard\{DashboardTableSheet, DashboardTheme};
 use App\Exports\Home\MyPanel\MyPanelSummarySheet;
-use App\Exports\Reports\PostWorkProcessStrictSheet;
+use App\Exports\Reports\{PostWorkProcessStrictSheet, ProductionsExportList};
 use App\Services\Reports\Production\ProductionReportAnalytics as Data;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\{WithMultipleSheets, WithProperties};
 
 /**
- * Excel do "Relatório de Produção": as mesmas séries da tela (uma aba por bloco), a lista completa em "Registros" e a aba
+ * Excel do "Relatório de Produção": as mesmas séries da tela (uma aba por bloco), a lista completa em "Registros", a mesma lista no layout anterior em "LayoutAntigo" e a aba
  * "Controle Exportacao". Os dados vêm de ProductionReportAnalytics::report(); este arquivo só formata.
- * Abas: Resumo · Conclusões · Atividades · Pessoas · Empresas · Evolução · Registros · Regras · Controle Exportacao.
+ * Abas: Resumo · Conclusões · Atividades · Pessoas · Empresas · Evolução · Registros · LayoutAntigo · Regras · Controle Exportacao.
  */
 class ProductionReportExport implements WithMultipleSheets, WithProperties
 {
@@ -25,7 +25,7 @@ class ProductionReportExport implements WithMultipleSheets, WithProperties
      * @param array<string, mixed>  $report  ProductionReportAnalytics::report()
      * @param array<string, string> $control rótulo => valor da aba Controle Exportacao (usuário, e-mail, data/hora, tipo, filtros)
      */
-    public function __construct(private readonly array $report, private readonly Builder $records, private readonly string $requester, private readonly array $control)
+    public function __construct(private readonly array $report, private readonly Builder $records, private readonly string $requester, private readonly array $control, private readonly ?Builder $legacyRecords = null, private readonly int $legacyEstimate = 0)
     {
     }
 
@@ -134,6 +134,11 @@ class ProductionReportExport implements WithMultipleSheets, WithProperties
 
         $sheets[]                        = new ProductionRecordsSheet($this->records);
         $this->descriptions['Registros'] = 'Uma linha por produção, da mais recente para a mais antiga (a mesma lista da tela).';
+
+        if ($this->legacyRecords) {
+            $sheets[]                           = new ProductionsExportList($this->legacyRecords, $this->legacyEstimate, 'LayoutAntigo');
+            $this->descriptions['LayoutAntigo'] = 'Mesma lista no layout anterior (59 colunas, mesma ordem e nomes), da conclusão mais antiga para a mais nova, para as planilhas de controle.';
+        }
 
         $add(
             'Regras',

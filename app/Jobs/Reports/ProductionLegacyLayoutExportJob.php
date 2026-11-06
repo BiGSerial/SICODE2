@@ -61,23 +61,7 @@ class ProductionLegacyLayoutExportJob implements ShouldQueue
 
         try {
             $filters = $analytics->normalize(array_merge($this->params, ['scope' => $analytics->scopeFor($user)]));
-            $records = $analytics->query($filters)
-                ->select('productions.*')
-                ->with([
-                    'Dispatcher:id,name,company_id',
-                    'Dispatcher.Company:id,name',
-                    'Att:id,name',
-                    'Att.Company:id,name',
-                    'User:id,name',
-                    'Company:id,name',
-                    'Service:uuid,service',
-                    'Note:id,note,material,group2,group5,lexp,postes,nexp,doe,rubrica,type_note',
-                    'Note.RamalForm:id,note_id,created_at',
-                    'Note.WorkForm' => fn ($q) => $q->with(['Orders:id', 'Adsform:id,created_at']),
-                    'Analise',
-                    'Reclaim:id,category',
-                ])
-                ->orderBy('productions.completed_at');
+            $records = $analytics->legacyLayoutQuery($filters);
 
             $rowEstimate = (clone $records)->toBase()->count();
 

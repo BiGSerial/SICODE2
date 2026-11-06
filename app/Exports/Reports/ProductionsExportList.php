@@ -34,7 +34,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
     private int $padding = 2;    // “folga” para colunas longas (maxLen + padding)
 
-    public function __construct($data, ?int $rowEstimate = null)
+    public function __construct($data, ?int $rowEstimate = null, private readonly string $sheetTitle = 'Planilha1')
     {
         $this->data        = $data;
         $this->rowEstimate = $rowEstimate ?? 0;
@@ -52,7 +52,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
     /** Nome da aba do layout de sempre: as planilhas de controle dos usuários leem esta primeira aba. */
     public function title(): string
     {
-        return 'Planilha1';
+        return $this->sheetTitle;
     }
 
     public function chunkSize(): int

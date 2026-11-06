@@ -259,7 +259,13 @@ it('gera o Excel pelo job, com as abas do relatório e o controle da exportaçã
 
     $book = IOFactory::load(Storage::disk('local')->path($files[0]));
 
-    expect($book->getSheetNames())->toBe(['Resumo', 'Conclusões', 'Atividades', 'Pessoas', 'Empresas', 'Evolução', 'Registros', 'Regras', 'Controle Exportacao']);
+    expect($book->getSheetNames())->toBe(['Resumo', 'Conclusões', 'Atividades', 'Pessoas', 'Empresas', 'Evolução', 'Registros', 'LayoutAntigo', 'Regras', 'Controle Exportacao']);
+
+    $legacy = $book->getSheetByName('LayoutAntigo')->toArray(null, true, false, false);
+    expect($legacy[0])->toHaveCount(59)
+        ->and(array_slice($legacy[0], 0, 8))->toBe(['Despachante', 'Empresa', 'Usuario', 'Empresa', 'Serviço', 'Rubrica', 'TipoNota', 'Nota'])
+        ->and($legacy)->toHaveCount(3)
+        ->and($legacy[1][7])->toEqual('4001111111');     // conclusão mais antiga primeiro, como no layout de sempre
 
     $records = $book->getSheetByName('Registros')->toArray(null, true, false, false);
     expect(array_slice($records[0], 0, 6))->toBe(['Fim (data)', 'Fim (hora)', 'Início (data)', 'Início (hora)', 'Data do status', 'Hora do status'])

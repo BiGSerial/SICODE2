@@ -51,7 +51,7 @@ Medido na base de desenvolvimento (~390 mil produções, buffer pool de 128 MB):
 
 ## Excel (Controle Exportacao)
 
-Abas: Resumo · Conclusões · Atividades · Pessoas · Empresas · Evolução · Registros · Regras · **Controle Exportacao** (usuário, e-mail, data/hora, tipo e filtros). A aba **Registros** é a lista completa, lida em blocos, na mesma ordem da tela. Notificação por `UserNotificationData` com link assinado (7 dias).
+Abas: Resumo · Conclusões · Atividades · Pessoas · Empresas · Evolução · Registros · LayoutAntigo · Regras · **Controle Exportacao** (usuário, e-mail, data/hora, tipo e filtros). A aba **Registros** é a lista completa, lida em blocos, na mesma ordem da tela. A aba **LayoutAntigo** traz a mesma lista nas 59 colunas do layout anterior (mesma ordem e nomes, da conclusão mais antiga para a mais nova), a mesma de `ProductionLegacyLayoutExportJob`. Notificação por `UserNotificationData` com link assinado (7 dias).
 
 ## Decisões
 
