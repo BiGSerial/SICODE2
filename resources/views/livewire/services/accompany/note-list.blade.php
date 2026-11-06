@@ -83,17 +83,7 @@
     </div>
 
     @if ($tab === 'transferencias')
-        <section class="mp-panel" aria-label="Transferências de {{ $activity }}">
-            <div class="mp-panel-head">
-                <div>
-                    <h2 class="mp-panel-title">Transferências</h2>
-                    <div class="mp-panel-sub">Notas que você transferiu ou que foram transferidas para você.</div>
-                </div>
-            </div>
-            <div class="mp-panel-body">
-                @livewire('components.transprod.translist', ['service' => $service->id], key('acc-translist-' . $service->id))
-            </div>
-        </section>
+        @livewire('components.transprod.translist', ['service' => $service->id], key('acc-translist-' . $service->id))
     @else
         <section class="mp-panel" aria-label="Acompanhamento de {{ $activity }}">
             <div class="mp-panel-head">

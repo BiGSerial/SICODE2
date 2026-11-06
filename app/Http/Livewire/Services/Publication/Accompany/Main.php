@@ -53,9 +53,20 @@ class Main extends Component
         'checkOpen',
     ];
 
+    public const TABS = ['producao', 'espera', 'transferencias'];
+
+    /** Aba aberta (na URL como `aba`): estado do servidor, para sobreviver a qualquer re-render. */
+    public $tab = 'producao';
+
+    protected function queryString(): array
+    {
+        return ['tab' => ['except' => 'producao', 'as' => 'aba']];
+    }
+
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->first();
+        $this->tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'producao';
 
         if (!(session_status() == PHP_SESSION_ACTIVE)) {
             if (!session()->isStarted()) {
@@ -67,6 +78,11 @@ class Main extends Component
             $this->rubrica_s = $_SESSION['filtro']['analise']['rubrica'];
         }
 
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = in_array($tab, self::TABS, true) ? $tab : 'producao';
     }
 
     public function blockWaiting($status)

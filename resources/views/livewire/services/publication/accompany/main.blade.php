@@ -84,27 +84,271 @@
     </div>
 
 
-    <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist">
-            <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
-                type="button" role="tab" aria-controls="nav-home" aria-selected="true"
-                wire:click.prevent="$emit('refresh_accomany')">Produção</button>
-            <button class="nav-link" id="nav-waiting-tab" data-bs-toggle="tab" data-bs-target="#my_waiting"
-                type="button" role="tab" aria-controls="nav-waiting" aria-selected="false">Publicados Em Espera
-                @if ($waitings->count())
-                    <span class="badge text-bg-danger">{{ $waitings->count() }}</span>
+    <div class="mp-presets mb-3" role="tablist" aria-label="Acompanhamento">
+        <button type="button" role="tab" class="mp-preset {{ $tab === 'producao' ? 'is-active' : '' }}" wire:click="setTab('producao')" aria-selected="{{ $tab === 'producao' ? 'true' : 'false' }}">Produção</button>
+        <button type="button" role="tab" class="mp-preset {{ $tab === 'espera' ? 'is-active' : '' }}" wire:click="setTab('espera')" aria-selected="{{ $tab === 'espera' ? 'true' : 'false' }}">
+            Publicados Em Espera
+            @if ($waitings->count())
+                <span class="badge text-bg-danger">{{ $waitings->count() }}</span>
+            @endif
+        </button>
+        <button type="button" role="tab" class="mp-preset {{ $tab === 'transferencias' ? 'is-active' : '' }}" wire:click="setTab('transferencias')" aria-selected="{{ $tab === 'transferencias' ? 'true' : 'false' }}">
+            Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))
+        </button>
+    </div>
+
+    @if ($tab === 'transferencias')
+        @livewire('components.transprod.translist', ['service' => $service->id], key('acc-translist-' . $service->id))
+    @elseif ($tab === 'espera')
+            @if ($waitings->count())
+                <div class="row">
+                    <div class="col-6">
+                        {{ $waitings->links() }}
+                    </div>
+                    <div class="col-6 d-flex justify-content-end align-middle">
+                        <span class="align-middle"> Exibindo {{ $waitings->firstItem() }} até
+                            {{ $waitings->lastItem() }}
+                            de {{ $waitings->total() }}
+                            registros.</span>
+                    </div>
+                </div>
+            @endif
+            <div class="card">
+
+                @if (!$waitings->count())
+                    <div class="card-body">
+                        <h4 class="text-center">VOCÊ NAO PUBLICAÇÃO EM ESPERA
+                            <strong>{{ mb_strtoupper($service->service) }}</strong>
+                            @if ($service->Status->count())
+                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
+                                    ({{ $sts->value }})
+                                @endforeach
+                            @endif
+                        </h4>
+                    </div>
+                @else
+                    <h4 class="card-header fw-bold text-bg-primary">PUBLICADOS EM ESPERA -
+                        {{ mb_strtoupper($service->service) }}
+                    </h4>
+
+                    <div class="table-responsive">
+                        <table class="table table-sm table-striped table-condensed table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th scope="col" class="fw-bold text-center">Note</th>
+                                    <th scope="col" class="fw-bold text-center">Files</th>
+                                    <th scope="col" class="fw-bold text-center">Ordens</th>
+                                    <th scope="col" class="fw-bold text-center">Qtd Equipamentos</th>
+                                    <th scope="col" class="fw-bold text-center">Empreiteira</th>
+                                    <th scope="col" class="fw-bold text-center">Municipio</th>
+                                    <th scope="col" class="fw-bold text-center">Descrição</th>
+                                    <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
+                                    <th scope="col" class="fw-bold text-center">Na Pilha</th>
+                                    <th class="align-middle text-center">Dt Vencimento</th>
+                                    <th scope="col" class="fw-bold text-center">Status</th>
+                                    <th scope="col" class="fw-bold text-center"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($waitings as $list)
+                                    @php
+                                        $daysLeft = new DaysLeft($list->Note);
+                                        $formBlock =
+                                            $list->Note->WorkForm && $list->Note->WorkForm->rejected
+                                                ? $list->Note->WorkForm->rejected
+                                                : false;
+
+                                        if ($list->block) {
+                                            $class = 'table-primary';
+                                        } elseif ($list->priority) {
+                                            $class = 'table-danger fw-bold';
+                                        } elseif ($formBlock) {
+                                            $class = 'table-warning text-danger';
+                                        } elseif (!$list->Note->WorkForm && $list->Note->RamalForm) {
+                                            $class = 'table-warning';
+                                        } elseif ($list->Note->WorkForm && $list->Note->RamalForm) {
+                                            $class = 'table-success';
+                                        } else {
+                                            $class = '';
+                                        }
+
+                                    @endphp
+                                    <tr wire:key="work_waiting-{{ $list->id }}"
+                                        wire:dblclick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list->Note }})"
+                                        class="align-middle text-center align-middle ">
+                                        <td class="fw-bold {{ $class }}">
+                                            {{ $list->Note->note }}
+                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
+                                                style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
+                                                data-bs-trigger="hover focus" data-bs-placement="top"
+                                                data-bs-content="Copiar Número da Nota"> <i
+                                                    class="ri-file-copy-line"></i></span>
+                                            <div class="mt-1">
+                                                <x-legal.note-demand-tags
+                                                    :demands="$legalTagsByNoteId[$list->note_id] ?? []"
+                                                    :row-key="'services-publication-waiting-'.$list->id"
+                                                />
+                                            </div>
+
+                                            @if ($list->priority)
+                                                <i class="ri-alert-fill align-middle"
+                                                    wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
+                                                    style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
+                                                    data-bs-trigger="hover focus" data-bs-placement="top"
+                                                    data-bs-title="Exibir Prioridade"
+                                                    data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
+                                            @endif
+
+                                            @if (!$list->Note->WorkForm && $list->Note->RamalForm)
+                                                <i class="ri-alert-line text-danger align-middle fs-4"></i>
+                                            @endif
+                                        </td>
+                                        <td class="align-middle {{ $class }}">
+                                            {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
+                                            <x-files.select-download-list :files='$list->Note->Files' />
+
+                                        </td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
+                                                @foreach ($list->Note->WorkForm->Orders as $order)
+                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                @endforeach
+                                            @elseif (isset($list->Note->RamalForm) && $list->Note->RamalForm->Orders->count())
+                                                @foreach ($list->Note->RamalForm->Orders as $order)
+                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
+                                                @endforeach
+                                            @endif
+                                        </td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+
+                                            @if (isset($list->Note->WorkForm))
+                                                <span
+                                                    class="badge text-bg-dark">{{ $list->Note->WorkForm->Equipment->count() }}</span>
+                                            @elseif(isset($list->Note->RamalForm))
+                                                <span
+                                                    class="badge text-bg-dark">{{ $list->Note->RamalForm->BtzeroEquipment->isNotEmpty() ? $list->Note->RamalForm->BtzeroEquipment->count() : '' }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+
+                                            @if (isset($list->Note->WorkForm))
+                                                {{ isset($list->Note->WorkForm) && $list->Note->WorkForm->Company ? $list->Note->WorkForm->Company->name : '---' }}
+                                            @elseif(isset($list->Note->RamalForm))
+                                                {{ isset($list->Note->RamalForm) && $list->Note->RamalForm->Company ? $list->Note->RamalForm->Company->name : '---' }}
+                                            @endif
+                                        </td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+                                            {{ $list->Note->lexp }}</td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+                                            {{ $list->Note->material }}</td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+                                            <span class="badge text-bg-secondary">
+                                                {{ Carbon::parse($list->att_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                            </span>
+                                        </td>
+                                        <td class="fw-light text-center align-middle {{ $class }}">
+                                            @if (isset($list->Note->WorkForm))
+                                                <span class="badge text-bg-secondary">
+                                                    {{ Carbon::parse($list->Note->WorkForm->informed_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
+                                                </span>
+                                            @else
+                                                ---
+                                            @endif
+                                        </td>
+                                        @php
+                                            $daysLeft = new DaysLeft($list->Note);
+                                            $prazoClass = '';
+
+                                            if ($daysLeft->getDaysLeft() < 0) {
+                                                $prazoClass = 'text-bg-danger';
+                                            } elseif ($daysLeft->getDaysLeft() > 15) {
+                                                $prazoClass = 'text-bg-success';
+                                            } else {
+                                                $prazoClass = 'text-bg-warning';
+                                            }
+                                        @endphp
+
+                                        <!-- Prioridade de estilo da célula 'Prazo Restante' -->
+                                        <td scope="col" class="text-center {{ $prazoClass }}"
+                                            style="background-color: inherit;">
+                                            {{ $daysLeft->getLastDate() }}
+                                        </td>
+
+                                        <td class="fw-light text-center {{ $class }}">
+
+                                            @if ($formBlock)
+                                                <span class="badge text-bg-warning text-wrap p-1">INFORME EM
+                                                    REVISÃO</span>
+                                            @else
+                                                <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
+                                                    wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
+                                                    style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
+                                            @endif
+                                        </td>
+                                        <td class="fw-bold fs-5 {{ $class }}">
+
+                                            @if (
+                                                !$list->block &&
+                                                    !$this->blockWaiting($list->status) &&
+                                                    !$formBlock &&
+                                                    !($list->status == 28 && !$list->Note->WorkForm))
+                                                @if (!$list->completed)
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Iniciar.">
+                                                        {{-- <i class="ri-play-circle-line m-0 align-middle text-success"
+                                                            style="cursor: pointer;"
+                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i> --}}
+                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
+                                                            style="cursor: pointer;"
+                                                            wire:click.prevent="$emitTo('services.publication.forms.jobform', 'showProduction', {{ $list }})"></i>
+                                                    </span>
+                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                        data-bs-title="Transferir.">
+                                                        <i class="ri-exchange-fill m-0 align-middle text-primary"
+                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                            wire:click.prevent="goTransferProd({{ $list->id }})"></i>
+                                                    </span>
+                                                @endif
+                                            @endif
+
+                                            @if (!$formBlock && $list->Note->WorkForm)
+                                                <span class="d-inline-block" data-bs-toggle="tooltip"
+                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
+                                                    data-bs-title="Devolver Informe">
+                                                    <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
+                                                        style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
+                                                        wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
+                                                </span>
+                                            @endif
+                                        </td>
+
+
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+
                 @endif
-            </button>
-            <button class="nav-link" id="nav-transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer"
-                type="button" role="tab" aria-controls="nav-profile" aria-selected="false"
-                wire:click.prevent="$emit('refresh_translist')">Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))</button>
 
-        </div>
-    </nav>
 
-    <div class="tab-content" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
-            tabindex="0">
+            </div>
+            @if ($lists->count())
+                <div class="row">
+                    <div class="col-6">
+                        {{ $lists->links() }}
+                    </div>
+                    <div class="col-6 d-flex justify-content-end align-middle">
+                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
+                            {{ $lists->lastItem() }}
+                            de {{ $lists->total() }}
+                            registros.</span>
+                    </div>
+                </div>
+            @endif
+    @else
             @if ($lists->count())
                 <div class="row user-activity-summary my-3 align-items-center">
                     <div class="col-6">
@@ -395,268 +639,7 @@
                     </div>
                 </div>
             @endif
-        </div>
-
-
-        {{-- Painel 2 --}}
-
-        <div class="tab-pane fade" id="my_waiting" role="tabpanel" aria-labelledby="nav-waiting-tab"
-            tabindex="2">
-            @if ($waitings->count())
-                <div class="row">
-                    <div class="col-6">
-                        {{ $waitings->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $waitings->firstItem() }} até
-                            {{ $waitings->lastItem() }}
-                            de {{ $waitings->total() }}
-                            registros.</span>
-                    </div>
-                </div>
-            @endif
-            <div class="card">
-
-                @if (!$waitings->count())
-                    <div class="card-body">
-                        <h4 class="text-center">VOCÊ NAO PUBLICAÇÃO EM ESPERA
-                            <strong>{{ mb_strtoupper($service->service) }}</strong>
-                            @if ($service->Status->count())
-                                @foreach ($service->Status->where('exclusion', false)->unique('value') as $sts)
-                                    ({{ $sts->value }})
-                                @endforeach
-                            @endif
-                        </h4>
-                    </div>
-                @else
-                    <h4 class="card-header fw-bold text-bg-primary">PUBLICADOS EM ESPERA -
-                        {{ mb_strtoupper($service->service) }}
-                    </h4>
-
-                    <div class="table-responsive">
-                        <table class="table table-sm table-striped table-condensed table-hover">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th scope="col" class="fw-bold text-center">Note</th>
-                                    <th scope="col" class="fw-bold text-center">Files</th>
-                                    <th scope="col" class="fw-bold text-center">Ordens</th>
-                                    <th scope="col" class="fw-bold text-center">Qtd Equipamentos</th>
-                                    <th scope="col" class="fw-bold text-center">Empreiteira</th>
-                                    <th scope="col" class="fw-bold text-center">Municipio</th>
-                                    <th scope="col" class="fw-bold text-center">Descrição</th>
-                                    <th scope="col" class="fw-bold text-center">Dias Atribuido</th>
-                                    <th scope="col" class="fw-bold text-center">Na Pilha</th>
-                                    <th class="align-middle text-center">Dt Vencimento</th>
-                                    <th scope="col" class="fw-bold text-center">Status</th>
-                                    <th scope="col" class="fw-bold text-center"></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($waitings as $list)
-                                    @php
-                                        $daysLeft = new DaysLeft($list->Note);
-                                        $formBlock =
-                                            $list->Note->WorkForm && $list->Note->WorkForm->rejected
-                                                ? $list->Note->WorkForm->rejected
-                                                : false;
-
-                                        if ($list->block) {
-                                            $class = 'table-primary';
-                                        } elseif ($list->priority) {
-                                            $class = 'table-danger fw-bold';
-                                        } elseif ($formBlock) {
-                                            $class = 'table-warning text-danger';
-                                        } elseif (!$list->Note->WorkForm && $list->Note->RamalForm) {
-                                            $class = 'table-warning';
-                                        } elseif ($list->Note->WorkForm && $list->Note->RamalForm) {
-                                            $class = 'table-success';
-                                        } else {
-                                            $class = '';
-                                        }
-
-                                    @endphp
-                                    <tr wire:key="work_waiting-{{ $list->id }}"
-                                        wire:dblclick="$emitTo('btzero.view.compare-form', 'showCompareForm', {{ $list->Note }})"
-                                        class="align-middle text-center align-middle ">
-                                        <td class="fw-bold {{ $class }}">
-                                            {{ $list->Note->note }}
-                                            <span class="copy-text" data-value="{{ $list->Note->note }}"
-                                                style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                data-bs-trigger="hover focus" data-bs-placement="top"
-                                                data-bs-content="Copiar Número da Nota"> <i
-                                                    class="ri-file-copy-line"></i></span>
-                                            <div class="mt-1">
-                                                <x-legal.note-demand-tags
-                                                    :demands="$legalTagsByNoteId[$list->note_id] ?? []"
-                                                    :row-key="'services-publication-waiting-'.$list->id"
-                                                />
-                                            </div>
-
-                                            @if ($list->priority)
-                                                <i class="ri-alert-fill align-middle"
-                                                    wire:click.prevent="$emit('infoPriority', '{{ $list->id }}')"
-                                                    style="cursor: pointer;" tabindex="0" data-bs-toggle="popover"
-                                                    data-bs-trigger="hover focus" data-bs-placement="top"
-                                                    data-bs-title="Exibir Prioridade"
-                                                    data-bs-content="Clique para visualizar a informação da prioridade desta nota/ov."></i>
-                                            @endif
-
-                                            @if (!$list->Note->WorkForm && $list->Note->RamalForm)
-                                                <i class="ri-alert-line text-danger align-middle fs-4"></i>
-                                            @endif
-                                        </td>
-                                        <td class="align-middle {{ $class }}">
-                                            {{-- Componente para gerar a lista de arquivos, precisa do array de Arquivos --}}
-                                            <x-files.select-download-list :files='$list->Note->Files' />
-
-                                        </td>
-                                        <td class="fw-light text-center align-middle {{ $class }}">
-                                            @if (isset($list->Note->WorkForm) && $list->Note->WorkForm->Orders->count())
-                                                @foreach ($list->Note->WorkForm->Orders as $order)
-                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                                @endforeach
-                                            @elseif (isset($list->Note->RamalForm) && $list->Note->RamalForm->Orders->count())
-                                                @foreach ($list->Note->RamalForm->Orders as $order)
-                                                    <p class="my-0 py-0">{{ $order->ordem }}</p>
-                                                @endforeach
-                                            @endif
-                                        </td>
-                                        <td class="fw-light text-center align-middle {{ $class }}">
-
-                                            @if (isset($list->Note->WorkForm))
-                                                <span
-                                                    class="badge text-bg-dark">{{ $list->Note->WorkForm->Equipment->count() }}</span>
-                                            @elseif(isset($list->Note->RamalForm))
-                                                <span
-                                                    class="badge text-bg-dark">{{ $list->Note->RamalForm->BtzeroEquipment->isNotEmpty() ? $list->Note->RamalForm->BtzeroEquipment->count() : '' }}</span>
-                                            @endif
-                                        </td>
-                                        <td class="fw-light text-center align-middle {{ $class }}">
-
-                                            @if (isset($list->Note->WorkForm))
-                                                {{ isset($list->Note->WorkForm) && $list->Note->WorkForm->Company ? $list->Note->WorkForm->Company->name : '---' }}
-                                            @elseif(isset($list->Note->RamalForm))
-                                                {{ isset($list->Note->RamalForm) && $list->Note->RamalForm->Company ? $list->Note->RamalForm->Company->name : '---' }}
-                                            @endif
-                                        </td>
-                                        <td class="fw-light text-center align-middle {{ $class }}">
-                                            {{ $list->Note->lexp }}</td>
-                                        <td class="fw-light text-center align-middle {{ $class }}">
-                                            {{ $list->Note->material }}</td>
-                                        <td class="fw-light text-center align-middle {{ $class }}">
-                                            <span class="badge text-bg-secondary">
-                                                {{ Carbon::parse($list->att_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
-                                            </span>
-                                        </td>
-                                        <td class="fw-light text-center align-middle {{ $class }}">
-                                            @if (isset($list->Note->WorkForm))
-                                                <span class="badge text-bg-secondary">
-                                                    {{ Carbon::parse($list->Note->WorkForm->informed_at)->startOfDay()->diffInDays(Carbon::now()->startOfDay()) }}
-                                                </span>
-                                            @else
-                                                ---
-                                            @endif
-                                        </td>
-                                        @php
-                                            $daysLeft = new DaysLeft($list->Note);
-                                            $prazoClass = '';
-
-                                            if ($daysLeft->getDaysLeft() < 0) {
-                                                $prazoClass = 'text-bg-danger';
-                                            } elseif ($daysLeft->getDaysLeft() > 15) {
-                                                $prazoClass = 'text-bg-success';
-                                            } else {
-                                                $prazoClass = 'text-bg-warning';
-                                            }
-                                        @endphp
-
-                                        <!-- Prioridade de estilo da célula 'Prazo Restante' -->
-                                        <td scope="col" class="text-center {{ $prazoClass }}"
-                                            style="background-color: inherit;">
-                                            {{ $daysLeft->getLastDate() }}
-                                        </td>
-
-                                        <td class="fw-light text-center {{ $class }}">
-
-                                            @if ($formBlock)
-                                                <span class="badge text-bg-warning text-wrap p-1">INFORME EM
-                                                    REVISÃO</span>
-                                            @else
-                                                <span class="badge {{ Notestatus::status($list->status)->colorbg }}"
-                                                    wire:click="$emitTo('components.status.show-status', 'showStatus',  {{ $list }}, {{ $list->status }})"
-                                                    style="cursor: pointer;">{{ Notestatus::status($list->status)->status }}</span>
-                                            @endif
-                                        </td>
-                                        <td class="fw-bold fs-5 {{ $class }}">
-
-                                            @if (
-                                                !$list->block &&
-                                                    !$this->blockWaiting($list->status) &&
-                                                    !$formBlock &&
-                                                    !($list->status == 28 && !$list->Note->WorkForm))
-                                                @if (!$list->completed)
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Iniciar.">
-                                                        {{-- <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                            style="cursor: pointer;"
-                                                            wire:click.prevent="getAnalise({{ $list->id }}, {{ $list->Note->id }})"></i> --}}
-                                                        <i class="ri-play-circle-line m-0 align-middle text-success"
-                                                            style="cursor: pointer;"
-                                                            wire:click.prevent="$emitTo('services.publication.forms.jobform', 'showProduction', {{ $list }})"></i>
-                                                    </span>
-                                                    <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                        data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                        data-bs-title="Transferir.">
-                                                        <i class="ri-exchange-fill m-0 align-middle text-primary"
-                                                            style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                            wire:click.prevent="goTransferProd({{ $list->id }})"></i>
-                                                    </span>
-                                                @endif
-                                            @endif
-
-                                            @if (!$formBlock && $list->Note->WorkForm)
-                                                <span class="d-inline-block" data-bs-toggle="tooltip"
-                                                    data-bs-placement="top" data-bs-custom-class="custom-tooltip"
-                                                    data-bs-title="Devolver Informe">
-                                                    <i class="ri-delete-back-2-fill m-0 align-middle text-primary text-danger"
-                                                        style="cursor: pointer;" {{-- data-bs-toggle="modal" data-bs-target="#analise_form" --}}
-                                                        wire:click.prevent="$emitTo('production.return.return-work', 'toReturn', {{ $list }})"></i>
-                                                </span>
-                                            @endif
-                                        </td>
-
-
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-
-                @endif
-
-
-            </div>
-            @if ($lists->count())
-                <div class="row">
-                    <div class="col-6">
-                        {{ $lists->links() }}
-                    </div>
-                    <div class="col-6 d-flex justify-content-end align-middle">
-                        <span class="align-middle"> Exibindo {{ $lists->firstItem() }} até
-                            {{ $lists->lastItem() }}
-                            de {{ $lists->total() }}
-                            registros.</span>
-                    </div>
-                </div>
-            @endif
-        </div>
-
-
-        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="3">
-            @livewire('components.transprod.translist', ['service' => $service->id])
-        </div>
-    </div>
+    @endif
 
 
     <!-- Modal -->

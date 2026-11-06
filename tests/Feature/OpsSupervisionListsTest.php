@@ -45,6 +45,37 @@ class OpsSupervisionListsTest extends TestCase
             ->assertSee('Acompanhamento de fiscalizacao');
     }
 
+    public function test_service_accompany_tabs_are_server_driven_and_keep_the_transfers_tab_open(): void
+    {
+        $service = $this->service();
+
+        $producaoPanel = '<h2 class="mp-panel-title">Acompanhamento</h2>';
+
+        // A aba é estado do servidor: sobrevive a um novo render (o que o Bootstrap não garantia).
+        Livewire::test(ServiceMain::class, ['service' => $service->uuid])
+            ->assertSee($producaoPanel, false)
+            ->call('setTab', 'transferencias')
+            ->assertSet('tab', 'transferencias')
+            ->assertDontSee($producaoPanel, false)
+            ->assertSee('mp-preset is-active" wire:click="setTab(\'transferencias\')"', false)
+            ->call('$refresh')
+            ->assertSet('tab', 'transferencias')
+            ->assertDontSee($producaoPanel, false)
+            ->call('setTab', 'qualquer-coisa')
+            ->assertSet('tab', 'producao')
+            ->assertSee($producaoPanel, false);
+
+        Livewire::withQueryParams(['aba' => 'transferencias'])
+            ->test(ServiceMain::class, ['service' => $service->uuid])
+            ->assertSet('tab', 'transferencias');
+
+        // O próprio Translist renderiza no padrão (painel + estado vazio), sem <style> nem cores soltas.
+        Livewire::test(\App\Http\Livewire\Components\Transprod\Translist::class, ['service' => $service])
+            ->assertSee('mp-panel', false)
+            ->assertSee('Nenhuma transferência pendente')
+            ->assertDontSee('<style', false);
+    }
+
     public function test_dispatch_list_filters_apply_clear_and_become_the_query_filter(): void
     {
         $service = $this->service();

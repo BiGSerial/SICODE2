@@ -41,8 +41,10 @@ class Main extends Component
 
     public $analise;
 
-    /** A aba "Transferências" só é montada quando alguém a abre: a lista dela é pesada e quase ninguém precisa dela a cada carga. */
-    public bool $transfersLoaded = false;
+    public const TABS = ['producao', 'transferencias'];
+
+    /** Aba aberta (na URL como `aba`). A lista de Transferências só é montada quando a aba está aberta. */
+    public $tab = 'producao';
 
     protected $queryString = [
         'search'    => ['except' => '', 'as' => 'buscar'],
@@ -50,6 +52,7 @@ class Main extends Component
         'perPage'   => ['as' => 'pp'],
         'note_type' => ['except' => '', 'as' => 'tipo'],
         'filters'   => ['except' => [], 'as' => 'f'],
+        'tab'       => ['except' => 'producao', 'as' => 'aba'],
     ];
 
     protected $listeners = [
@@ -69,6 +72,8 @@ class Main extends Component
                 $q->where('exclusion', false)->select('service_id', 'value');
             }])
             ->firstOrFail();
+
+        $this->tab = in_array($this->tab, self::TABS, true) ? $this->tab : 'producao';
     }
 
     // ---------- Filtros (WithListFilters): Região → Regional → Município ----------
@@ -129,11 +134,9 @@ class Main extends Component
         $this->resetPage();
     }
 
-    /** Abre a aba "Transferências" (monta a lista na primeira vez). */
-    public function openTransfers(): void
+    public function setTab(string $tab): void
     {
-        $this->transfersLoaded = true;
-        $this->emit('refresh_translist');
+        $this->tab = in_array($tab, self::TABS, true) ? $tab : 'producao';
     }
 
     public function exportToExcel()

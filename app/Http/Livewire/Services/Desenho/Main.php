@@ -45,11 +45,17 @@ class Main extends Component
 
     public bool $showProjectReviewInProgress = false;
 
+    public const TABS = ['producao', 'transferencias'];
+
+    /** Aba aberta (na URL como `aba`): estado do servidor, para sobreviver a qualquer re-render. */
+    public $tab = 'producao';
+
     protected $queryString = [
         'search'       => ['except' => '', 'as' => 'buscar'],
         'note_type'    => ['except' => '', 'as' => 'tipo'],
         'statusFilter' => ['except' => '', 'as' => 'status'],
         'filters'      => ['except' => [], 'as' => 'f'],
+        'tab'          => ['except' => 'producao', 'as' => 'aba'],
     ];
 
     protected $listeners = [
@@ -64,6 +70,12 @@ class Main extends Component
     {
         $this->service                     = Service::where('uuid', $service)->first();
         $this->showProjectReviewInProgress = (bool) session('desenho.show_project_review_in_progress', false);
+        $this->tab                         = in_array($this->tab, self::TABS, true) ? $this->tab : 'producao';
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = in_array($tab, self::TABS, true) ? $tab : 'producao';
     }
 
     public function visualizar()

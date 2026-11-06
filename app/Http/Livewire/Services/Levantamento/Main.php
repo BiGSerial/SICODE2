@@ -46,15 +46,27 @@ class Main extends Component
         'confirm_getAnalise' => 'go_to_analise',
     ];
 
+    public const TABS = ['producao', 'transferencias'];
+
+    /** Aba aberta (na URL como `aba`): estado do servidor, para sobreviver a qualquer re-render. */
+    public $tab = 'producao';
+
     protected $queryString = [
         'search'  => ['except' => '', 'as' => 'buscar'],
         'page'    => ['except' => 1, 'as' => 'p'],
         'perPage' => ['as' => 'pp'],
+        'tab'     => ['except' => 'producao', 'as' => 'aba'],
     ];
 
     public function mount($service)
     {
         $this->service = Service::where('uuid', $service)->with('Status')->firstOrFail();
+        $this->tab     = in_array($this->tab, self::TABS, true) ? $this->tab : 'producao';
+    }
+
+    public function setTab(string $tab): void
+    {
+        $this->tab = in_array($tab, self::TABS, true) ? $tab : 'producao';
     }
 
     public function updatedSearch(): void

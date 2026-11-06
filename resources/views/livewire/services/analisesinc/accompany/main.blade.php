@@ -61,21 +61,16 @@
     </div>
 
 
-    <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist">
-            <button class="nav-link active" id="nav-production-tab" data-bs-toggle="tab" data-bs-target="#my_production"
-                type="button" role="tab" aria-controls="nav-home" aria-selected="true"
-                wire:click.prevent="$emit('refresh_accomany')">Produção</button>
-            <button class="nav-link" id="nav-transfer-tab" data-bs-toggle="tab" data-bs-target="#transfer"
-                type="button" role="tab" aria-controls="nav-profile" aria-selected="false"
-                wire:click.prevent="$emit('refresh_translist')">Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))</button>
+    <div class="mp-presets mb-3" role="tablist" aria-label="Acompanhamento">
+        <button type="button" role="tab" class="mp-preset {{ $tab === 'producao' ? 'is-active' : '' }}" wire:click="setTab('producao')" aria-selected="{{ $tab === 'producao' ? 'true' : 'false' }}">Produção</button>
+        <button type="button" role="tab" class="mp-preset {{ $tab === 'transferencias' ? 'is-active' : '' }}" wire:click="setTab('transferencias')" aria-selected="{{ $tab === 'transferencias' ? 'true' : 'false' }}">
+            Transferências @livewire('components.transprod.count', ['service_id' => $service->uuid], key('transfer_count'))
+        </button>
+    </div>
 
-        </div>
-    </nav>
-
-    <div class="tab-content" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="my_production" role="tabpanel" aria-labelledby="nav-home-tab"
-            tabindex="0">
+    @if ($tab === 'transferencias')
+        @livewire('components.transprod.translist', ['service' => $service->id], key('acc-translist-' . $service->id))
+    @else
             @if ($lists->count())
                 <div class="row user-activity-summary my-3 align-items-center">
                     <div class="col-6">
@@ -217,13 +212,7 @@
                     </div>
                 </div>
             @endif
-        </div>
-
-
-        <div class="tab-pane fade" id="transfer" role="tabpanel" aria-labelledby="nav-profile-tab" tabindex="0">
-            @livewire('components.transprod.translist', ['service' => $service->id])
-        </div>
-    </div>
+    @endif
 
 
     <!-- Modal -->

@@ -214,6 +214,11 @@ O **Acompanhamento** (`services.accompany`) é a fila de trabalho do próprio us
 - **Encerramento em massa** unificado em `ClosesAccompanyInBulk` (só encerra o que é do usuário da tela), com a barra de seleção `<x-ops.selection-bar>` e o modal no padrão `ops-modal`.
 - **Modais legados** (formulário da atividade, pausa, transferência, histórico de status) continuam sendo os componentes de sempre, apenas com o cabeçalho no padrão.
 
+### Abas do acompanhamento e Transferências
+
+- **Abas por servidor, nunca Bootstrap.** Produção/Transferências usam `<div class="mp-presets">` com `$tab` (`producao`|`transferencias`), `setTab()` e `?aba=` na URL, como em `IsActivityAccompanyList` e `Services\Supervision\Main`. Aba `nav-tabs` com `data-bs-toggle` + `wire:click` **volta sozinha para a primeira** quando o componente re-renderiza (o morph do Livewire restaura a classe `active`); por isso não se usa em tela nova.
+- **Transferências** é sempre `@livewire('components.transprod.translist', ['service' => $service->id], key(...))`, sem painel em volta: o `Translist` já traz o próprio `mp-panel` (cabeçalho, contagem, `ops-table` com `colgroup`, selos `x-ops.badge`, data `x-ops.date`, estado vazio e ações com verbo: Aceitar, Rejeitar, Cancelar, OK).
+
 ### Acompanhamento de Pagamento: prazo de medição
 
 `Services\Payment\Accompany\Main` segue o mesmo desenho do Acompanhamento por nota (hero → ferramentas → abas → painel), com filtros do `WithNoteListFilters` (Empreiteira, Rubrica, Região, Regional, Município) na URL e a linha pronta em `Services\Payment\PaymentAccompanyRowPresenter`. O prazo de medição é de **8 dias úteis** (sem sábado, domingo e feriado do estado, em ES e SP; `MeasurementDeadlinePolicy::businessDueAt`), contado:
@@ -239,8 +244,8 @@ Legenda: ✔ no padrão · — não existe · ✖ fora do padrão (a definir). D
 | Atividade | Despacho (Main / Parceira) | Controle (Stack / Parceira) | Serviços | Accompany |
 |---|---|---|---|---|
 | Pagamento | ✔ / ✔ | ✔ / ✔ | ✔ | ✔ (`Services\Payment\Accompany\Main`; prazo de medição abaixo) |
-| Publicação | ✔ / ✔ | ✔ / ✔ | ✔ (hoje sem uso na tela: o menu monta o accompany) | ✖ (3 abas, devoluções e BT Zero; ver pendências) |
-| Fiscalização | ✔ / ✔ | ✔ / ✔ | ✔ | a definir |
+| Publicação | ✔ / ✔ | ✔ / ✔ | ✔ (hoje sem uso na tela: o menu monta o accompany) | ✖ (abas já por `$tab`; filtros legados, CSS inline e regra no Blade; ver pendências) |
+| Fiscalização | ✔ / ✔ | ✔ / ✔ | ✔ | ✔ (`Services\Supervision\Main`; abas por `$tab`/`?aba=`, Transferências pelo `Translist` no padrão) |
 | Levantamento | ✔ / ✔ | ✔ / ✔ (`Stack2` ✖: tela legada à parte) | ✔ | a definir |
 | Desenho | ✔ / ✔ | ✔ / ✔ (menu "⋮" ainda monta `production.actions.*` uma vez por tela) | ✔ | ✔ (usa o de Análises) |
 | Análises | ✔ / ✔ | ✔ / ✔ | ✔ | ✔ |
@@ -260,7 +265,10 @@ Pendências conhecidas (dívida que as migrações revelaram):
 - `services/*/accompany` de Comissionamento, Levantamento e Fiscalização apontam para componentes que não existem (`services.comission.accompany.main`, `services.survey.accompany.main`) e o menu não os expõe: rota morta; `Services\Analisesinc\Accompany\Main` e o acompanhamento de Entidade Externa também não têm acesso pelo menu.
 - **Prazo "vencido":** a regra do padrão é vermelho (`Deadline::remaining`). Análises, Análises Pré, Comissionamento, Desenho, Fluxo Reverso e Default preservaram a regra antiga (vencido = cinza); Levantamento já usa vermelho. Decidir uma só.
 - **Consultas lentas sem índice** (limite do banco, não da tela): `notes(nstats)` e `notes(type_note, nstats)` (Main de Desenho, Default, Análises Pré, Levantamento) e `count(*)` das regras de status (`RuleBuilder`).
-- `Components\Transprod\Translist` faz um `UPDATE prodtransfers` por linha a cada render (Serviços de Comissionamento, Desenho e Levantamento).
+- `Components\Transprod\Translist` (já no padrão visual) ainda faz um `UPDATE prodtransfers` por linha a cada render (`fixTransfer()`).
+- **Abas por servidor:** Fiscalização, Desenho, Levantamento, Comissionamento, Análise (inc) e Publicação (3 abas: `producao`, `espera`, `transferencias`) já usam `$tab`/`setTab`/`?aba=` (teste `ServiceTabsAreServerDrivenTest`, que também barra `data-bs-toggle="tab"` e `tab-pane` nessas views). Falta Entidade Externa (`oexterno/protocols`, abas próprias).
+- **Filtro legado `components.filter.filter`** ainda em Publicação (accompany) e Entidade Externa (accompany, histórico, aguardando retorno); essas telas também estão sem o wrapper `ops-list`. Migrar junto com o resto da tela (Publicação: ver pendência acima).
+- `services/desenho/main` ainda carrega ~120 linhas de `<script>` (retomada e limpeza dos modais de análise) em `@push('script')`; mover para `resources/js/ops/`.
 - `ExportDispatchSupervisionJob` (Controle de Fiscalização) ignora status e localidade; `exportToExcel` do Controle de Comissionamento chama o job de Pagamento.
 - `x-user.status-name` ainda emite `text-bg-secondary` para usuário inativo.
 - `stack-mass-actions` de Pagamento tem o nome da lista fixo; cada atividade criou o seu parcial.
