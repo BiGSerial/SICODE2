@@ -82,15 +82,23 @@ class BaseOrder extends Command
                     &$globalErrors,
                     $canUseUpsert
                 ) {
-                    // lookup de notes para o lote
-                    $notesMap = Note::whereIn('note', $origins->pluck('ovNota')->filter(fn ($v) => NoteNumber::isValid($v))->map(fn ($v) => trim((string) $v))->unique())
-                        ->pluck('id', 'note');
+                    // lookup de notes para o lote, ignorando zeros à esquerda (ovNota "0003182898" == notes.note "3182898")
+                    $variants = $origins->pluck('ovNota')->flatMap(fn ($v) => NoteNumber::variants($v))->unique()->values();
+
+                    $notesMap = [];
+
+                    foreach (Note::whereIn('note', $variants)->orderBy('id')->get(['id', 'note']) as $n) {
+                        $key = NoteNumber::key($n->note);
+
+                        // se houver mais de uma grafia, fica a de menor id
+                        $notesMap[$key] ??= $n->id;
+                    }
 
                     // preparar pares do lote (note_id|ordem) para identificar created x updated
                     $pairs = [];
 
                     foreach ($origins as $o) {
-                        $noteStr  = NoteNumber::normalize($o->ovNota) ?? '';
+                        $noteStr  = NoteNumber::key($o->ovNota) ?? '';
                         $ordemStr = trim((string) ($o->ordem ?? ''));
 
                         if ($noteStr === '' || $ordemStr === '' || !isset($notesMap[$noteStr])) {
@@ -133,7 +141,7 @@ class BaseOrder extends Command
                     $now    = now();
 
                     foreach ($origins as $o) {
-                        $noteStr  = NoteNumber::normalize($o->ovNota) ?? '';
+                        $noteStr  = NoteNumber::key($o->ovNota) ?? '';
                         $ordemStr = trim((string) ($o->ordem ?? ''));
 
                         if ($noteStr === '' || $ordemStr === '' || !isset($notesMap[$noteStr])) {

@@ -27,4 +27,34 @@ class NoteNumber
     {
         return self::normalize($value) !== null;
     }
+
+    /**
+     * Chave de comparação sem zeros à esquerda ("0003182898" e "3182898" são a mesma nota).
+     * Só para casar origem x notes.note; o valor gravado continua o da ingestão.
+     */
+    public static function key(mixed $value): ?string
+    {
+        $value = self::normalize($value);
+
+        return $value === null ? null : ltrim($value, '0');
+    }
+
+    /**
+     * Grafias possíveis em notes.note para a mesma nota (como veio, sem zeros e com 10 dígitos),
+     * para consultar por índice sem aplicar função na coluna.
+     *
+     * @return array<int, string>
+     */
+    public static function variants(mixed $value): array
+    {
+        $normalized = self::normalize($value);
+
+        if ($normalized === null) {
+            return [];
+        }
+
+        $key = ltrim($normalized, '0');
+
+        return array_values(array_unique([$normalized, $key, str_pad($key, 10, '0', STR_PAD_LEFT)]));
+    }
 }
