@@ -94,6 +94,10 @@ class BaseOrder extends Command
                         $notesMap[$key] ??= $n->id;
                     }
 
+                    if ($this->option('ordem')) {
+                        $this->output->writeln("\n<fg=cyan>[diagnostico] lote=" . $origins->count() . ' consultadas=' . json_encode($variants->all()) . ' mapa=' . json_encode($notesMap) . '</>');
+                    }
+
                     // preparar pares do lote (note_id|ordem) para identificar created x updated
                     $pairs = [];
 
