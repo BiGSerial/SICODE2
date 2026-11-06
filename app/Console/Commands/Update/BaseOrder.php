@@ -21,7 +21,7 @@ class BaseOrder extends Command
      *
      * @var string
      */
-    protected $signature = 'sicode:upd_baseOrder';
+    protected $signature = 'sicode:upd_baseOrder {--ordem= : Processa só esta ordem e explica o que foi feito com ela}';
 
     /**
      * The console command description.
@@ -41,7 +41,7 @@ class BaseOrder extends Command
             $this->info('Starting Orders upsert {note_id, ordem}…');
 
             // 1) CONTAGEM TOTAL (para o início do log)
-            $total = Edp_depcBaseOrder::query()->count();
+            $total = $this->sourceQuery()->count();
 
             // 2) INÍCIO DO LOG (apenas uma vez, no começo)
             $log = new RegistroJson('upd_baseOrders_v5', $this->options(), $total);
@@ -71,7 +71,7 @@ class BaseOrder extends Command
             $globalErrors    = 0;
             $canUseUpsert    = $this->canUseSafeUpsert();
 
-            Edp_depcBaseOrder::query()
+            $this->sourceQuery()
                 ->orderBy('id')
                 ->chunkById($chunkSize, function ($origins) use (
                     $upsertBatchSize,
@@ -145,6 +145,7 @@ class BaseOrder extends Command
                         $ordemStr = trim((string) ($o->ordem ?? ''));
 
                         if ($noteStr === '' || $ordemStr === '' || !isset($notesMap[$noteStr])) {
+                            $this->debugOrder($ordemStr, "PULADA: nota '{$o->ovNota}' (chave '{$noteStr}') nao encontrada em notes; grafias testadas: " . implode(', ', NoteNumber::variants($o->ovNota)));
                             $globalErrors++;
                             $bar->advance();
 
@@ -194,6 +195,7 @@ class BaseOrder extends Command
 
                         // Ordem existente e sem alteração: não reescreve (evita upsert à toa)
                         if ($existing && !$this->orderChanged($existing, $row, $updateColumns)) {
+                            $this->debugOrder($ordemStr, "SEM ALTERACAO: orders.id={$existing->id} note_id={$noteId} ja igual a origem");
                             $bar->advance();
 
                             continue;
@@ -204,6 +206,8 @@ class BaseOrder extends Command
                         } else {
                             $globalCreated++;
                         }
+
+                        $this->debugOrder($ordemStr, ($existing ? "ATUALIZA orders.id={$existing->id}" : 'CRIA ordem nova') . " note_id={$noteId} statusSist='{$row['statusSist']}'");
 
                         $row['_existing_id'] = $existing?->id;
                         $bucket[$pairKey]    = $row;
@@ -247,6 +251,19 @@ class BaseOrder extends Command
             }
 
             return self::FAILURE;
+        }
+    }
+
+    private function sourceQuery()
+    {
+        return Edp_depcBaseOrder::query()
+            ->when($this->option('ordem'), fn ($q, $ordem) => $q->where('ordem', trim((string) $ordem)));
+    }
+
+    private function debugOrder(string $ordem, string $message): void
+    {
+        if ($this->option('ordem')) {
+            $this->output->writeln("\n<fg=cyan>[ordem {$ordem}] {$message}</>");
         }
     }
 
