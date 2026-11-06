@@ -7,6 +7,7 @@ use App\Custom\RegistroJson;
 use App\Helpers\DaysLeft;
 use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV;
+use App\Support\NoteNumber;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -109,6 +110,11 @@ class FixPrazos extends Command
             $updateRows = [];
 
             foreach ($origens as $origem) {
+                // OV vazia, nula ou "0" não é nota: nunca cria nem atualiza.
+                if (!NoteNumber::isValid($origem->OV)) {
+                    continue;
+                }
+
                 $existing = $existingNotes->get($origem->OV);
                 $data     = $this->baseOvToNoteData($origem, $existing?->lexp);
 

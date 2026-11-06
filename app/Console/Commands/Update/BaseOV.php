@@ -8,6 +8,7 @@ use App\Helpers\DaysLeft;
 use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV as Edp_depcBaseOV;
 use App\Services\Notes\OvStatusHistoryService;
+use App\Support\NoteNumber;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Throwable;
@@ -88,7 +89,7 @@ class BaseOV extends Command
 
             $ovQuery->chunk($chunkSize, function ($ovRows) use ($baseQuery, $bar, $history, $log, &$count) {
                 $historyOvs = [];
-                $ovList     = $ovRows->pluck('OV')->filter()->unique()->values();
+                $ovList     = $ovRows->pluck('OV')->filter(fn ($ov) => NoteNumber::isValid($ov))->unique()->values();
 
                 // Uma OV pode aparecer em mais de uma linha na origem. A consulta
                 // vem ordenada pela situação mais recente; se ela não trouxer

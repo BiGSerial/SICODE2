@@ -8,6 +8,7 @@ use App\Helpers\DaysLeft;
 use App\Models\{Bancoupdate, Note};
 use App\Models\Edp_depc\BaseOV;
 use App\Services\Notes\OvStatusHistoryService;
+use App\Support\NoteNumber;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Throwable;
@@ -64,6 +65,13 @@ class LoteBaseOV extends Command
                 $notes = Note::WhereIn('note', $records->pluck('OV'))->get();
 
                 foreach ($records as $record) {
+                    // OV vazia, nula ou "0" não é nota: nunca cria nem atualiza.
+                    if (!NoteNumber::isValid($record->OV)) {
+                        $progressBar->advance();
+
+                        continue;
+                    }
+
                     // $existingRecord = Note::where('note', $record->OV)->first();
                     $existingRecord = $notes->where('note', $record->OV)->first();
 

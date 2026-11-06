@@ -5,12 +5,25 @@ namespace App\Models;
 use App\Enum\{CancellationRequestScope, CancellationRequestStatus};
 use App\Models\Edp_cipqa\TempAdsInfo;
 use App\Models\Legal\LegalCase;
+use App\Support\NoteNumber;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 
 class Note extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        // Última barreira: nota vazia ou "0" nunca é gravada via Eloquent.
+        // Inserções em lote (upsert/insert) passam pelo NoteNumber nos comandos de carga.
+        static::saving(function (self $note) {
+            if (!NoteNumber::isValid($note->note)) {
+                throw new InvalidArgumentException('Número de nota inválido: vazio ou 0 não pode ser gravado em notes.');
+            }
+        });
+    }
 
     protected $fillable = [
         'note',

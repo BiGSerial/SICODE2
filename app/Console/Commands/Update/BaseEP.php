@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\Edp_depc\BaseEP as Edp_depcBaseEP;
 // use App\Models\Edp_depc\Gpm;
 use App\Models\Note;
+use App\Support\NoteNumber;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
@@ -247,9 +248,7 @@ class BaseEP extends Command
 
     private function normalizeNote(mixed $note): ?string
     {
-        $note = trim((string) $note);
-
-        return $note === '' ? null : $note;
+        return NoteNumber::normalize($note);
     }
 
     private function buildNoteRow(object $record, string $nota, ?City $city, ?Note $existing): array

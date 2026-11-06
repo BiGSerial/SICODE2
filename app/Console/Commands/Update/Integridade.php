@@ -102,20 +102,13 @@ class Integridade extends Command
             }
             }
 
-            if ($error && $tries <= 3) {
+            if ($error && $tries <= 2) {
 
-                $days = 0;
-
+                // Escada de reparo: janela padrão, 30 dias e, por último, carga completa.
                 if ($tries === 1) {
-                    $days = 30;
+                    $this->call('sicode:upd_baseov', ['--days' => 30]);
                 } elseif ($tries === 2) {
-                    $days = 180;
-                } elseif ($tries === 3) {
                     $this->call('sicode:upd_baseov', ['--full' => true]);
-                }
-
-                if ($days) {
-                    $this->call('sicode:upd_baseov', ['--days' => $days]);
                 } else {
                     $this->call('sicode:upd_baseov');
                 }
@@ -137,11 +130,10 @@ class Integridade extends Command
             } else {
                 $this->info('<bg=green;fg=white> DONE </> HASN´T INTEGRITY PROBLEMS WITH DATABASE INFORMATION.');
 
-                // Mesmo com as contagens por status íntegras, sincroniza sempre a
-                // janela mínima recente para corrigir nstats, days_left e demais
-                // campos alterados na origem sem divergência de quantidade.
-                $this->info('<bg=blue;fg=white> INFO </>  RUNNING THE BASE OV UPDATE (180-DAY WINDOW)...');
-                $this->call('sicode:upd_baseov', ['--days' => 180]);
+                // Mesmo com as contagens por status íntegras, sincroniza a janela
+                // padrão recente (7 dias) do upd_baseov. Sem varredura de 6 meses.
+                $this->info('<bg=blue;fg=white> INFO </>  RUNNING THE BASE OV UPDATE (DEFAULT WINDOW)...');
+                $this->call('sicode:upd_baseov');
                 $this->runPostIntegrityCommands();
             }
 

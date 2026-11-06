@@ -6,6 +6,7 @@ use App\Console\Commands\Concerns\ShowsProgress;
 use App\Custom\RegistroJson;
 use App\Models\Edp_depc\{BaseOrder as Edp_depcBaseOrder};
 use App\Models\{Note, Order};
+use App\Support\NoteNumber;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -82,14 +83,14 @@ class BaseOrder extends Command
                     $canUseUpsert
                 ) {
                     // lookup de notes para o lote
-                    $notesMap = Note::whereIn('note', $origins->pluck('ovNota')->filter()->unique())
+                    $notesMap = Note::whereIn('note', $origins->pluck('ovNota')->filter(fn ($v) => NoteNumber::isValid($v))->map(fn ($v) => trim((string) $v))->unique())
                         ->pluck('id', 'note');
 
                     // preparar pares do lote (note_id|ordem) para identificar created x updated
                     $pairs = [];
 
                     foreach ($origins as $o) {
-                        $noteStr  = (string) ($o->ovNota ?? '');
+                        $noteStr  = NoteNumber::normalize($o->ovNota) ?? '';
                         $ordemStr = trim((string) ($o->ordem ?? ''));
 
                         if ($noteStr === '' || $ordemStr === '' || !isset($notesMap[$noteStr])) {
@@ -132,7 +133,7 @@ class BaseOrder extends Command
                     $now    = now();
 
                     foreach ($origins as $o) {
-                        $noteStr  = (string) ($o->ovNota ?? '');
+                        $noteStr  = NoteNumber::normalize($o->ovNota) ?? '';
                         $ordemStr = trim((string) ($o->ordem ?? ''));
 
                         if ($noteStr === '' || $ordemStr === '' || !isset($notesMap[$noteStr])) {

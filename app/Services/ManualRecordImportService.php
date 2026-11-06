@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\{Note, Operation, Order};
+use App\Support\NoteNumber;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -117,9 +118,9 @@ class ManualRecordImportService
         $raw = $record['notaEP'] ?? $record['notaEp'] ?? $record['nota_ep'] ?? $record['ovNota'] ?? null;
         $payload = is_array($raw) ? $raw : [];
         $value = is_array($raw) ? ($raw['note'] ?? $raw['notaEP'] ?? $raw['ovNota'] ?? null) : $raw;
-        $value = $this->clean($value);
+        $value = NoteNumber::normalize($value);
         if ($value === null) {
-            throw new InvalidArgumentException("Registro {$index}: notaEP é obrigatório.");
+            throw new InvalidArgumentException("Registro {$index}: notaEP é obrigatório e não pode ser vazio ou 0.");
         }
 
         return [$value, $payload];
