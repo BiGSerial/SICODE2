@@ -64,7 +64,7 @@ class ProductionLegacyLayoutExportJob implements ShouldQueue
             $records = $analytics->query($filters)
                 ->select('productions.*')
                 ->with([
-                    'Dispatcher:id,name',
+                    'Dispatcher:id,name,company_id',
                     'Dispatcher.Company:id,name',
                     'Att:id,name',
                     'Att.Company:id,name',

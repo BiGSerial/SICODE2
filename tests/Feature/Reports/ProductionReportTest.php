@@ -297,7 +297,7 @@ it('o Excel usa a mesma consulta da lista', function () {
 
 it('exporta a lista no layout anterior (59 colunas) com o mesmo filtro da tela', function () {
     $f = prodFixture();
-    prodRow($f['alpha'], $f['ana'], $f['analysis'], ['completed_at' => '2026-10-02 10:00:00', 'confirmed' => true], ['note' => '4001111111'], 'ISR - LIBERADO');
+    prodRow($f['alpha'], $f['ana'], $f['analysis'], ['completed_at' => '2026-10-02 10:00:00', 'confirmed' => true, 'dispatch_by' => $f['viewer']->id], ['note' => '4001111111'], 'ISR - LIBERADO');
     prodRow($f['alpha'], $f['ana'], $f['analysis'], ['completed_at' => '2026-10-22 14:45:30', 'confirmed' => false], ['note' => '4002222222'], 'ISR - LIBERADO');
     prodRow($f['beta'], $f['bruno'], $f['analysis'], ['completed_at' => '2026-10-22 14:45:30'], ['note' => '4003333333']);
 
@@ -322,6 +322,8 @@ it('exporta a lista no layout anterior (59 colunas) com o mesmo filtro da tela',
         ->and($rows[0][33])->toBe('Situação')
         ->and($rows[0][58])->toBe('Status D5')
         ->and($rows)->toHaveCount(3)                       // só a empresa filtrada (2 produções) + cabeçalho
+        ->and($rows[1][0])->toBe('Gerente')
+        ->and($rows[1][1])->toBe($f['alpha']->name)        // empresa do despachante (exige company_id no eager load)
         ->and($rows[1][33])->toBe('CONFIRMADO')            // o mais antigo primeiro, como no layout de sempre
         ->and($rows[2][33])->toBe('NAO CONFIRMADO');
 
