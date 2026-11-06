@@ -4,31 +4,22 @@ namespace App\Exports\Reports;
 
 use App\Custom\Notestatus;
 use App\Helpers\DaysLeft;
-use App\Models\City;
-use App\Models\Operation;
-use App\Models\Production;
+use App\Models\{City, Operation};
 use Carbon\CarbonInterval;
-use Maatwebsite\Excel\Concerns\Exportable;
-use Maatwebsite\Excel\Concerns\FromQuery;
-use Maatwebsite\Excel\Concerns\RegistersEventListeners;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Maatwebsite\Excel\Concerns\WithEvents;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithMapping;
-use Maatwebsite\Excel\Concerns\WithProperties;
+use Maatwebsite\Excel\Concerns\{Exportable, FromQuery, RegistersEventListeners, WithChunkReading, WithEvents, WithHeadings, WithMapping, WithProperties, WithTitle};
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\{Alignment, Border, Fill};
 
-class ProductionsExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping
+class ProductionsExportList implements FromQuery, WithEvents, WithProperties, WithHeadings, WithChunkReading, WithMapping, WithTitle
 {
     use Exportable;
     use RegistersEventListeners;
 
     protected $data;
+
     private $cities;
+
     private $rowEstimate;
 
     /** Quantas linhas usar como amostra para estimar larguras (quanto maior, mais preciso / mais lento) */
@@ -36,15 +27,18 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
     /** Limiares/limites para heurística de largura */
     private int $shortColMaxLen = 18;   // até 18 chars = pode usar autosize
-    private int $minWidth       = 12;   // largura mínima para colunas longas
-    private int $maxWidth       = 60;   // largura máxima para colunas longas
-    private int $padding        = 2;    // “folga” para colunas longas (maxLen + padding)
+
+    private int $minWidth = 12;   // largura mínima para colunas longas
+
+    private int $maxWidth = 60;   // largura máxima para colunas longas
+
+    private int $padding = 2;    // “folga” para colunas longas (maxLen + padding)
 
     public function __construct($data, ?int $rowEstimate = null)
     {
-        $this->data   = $data;
+        $this->data        = $data;
         $this->rowEstimate = $rowEstimate ?? 0;
-        $this->cities = City::all(); // cache em memória p/ map()
+        $this->cities      = City::all(); // cache em memória p/ map()
     }
 
     public function query()
@@ -53,6 +47,12 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
         // (User, Company, Service, Note, Dispatcher, Analise, Reclaim, Note.RamalForm, Note.WorkForm etc.)
         // para evitar N+1 no map().
         return $this->data;
+    }
+
+    /** Nome da aba do layout de sempre: as planilhas de controle dos usuários leem esta primeira aba. */
+    public function title(): string
+    {
+        return 'Planilha1';
     }
 
     public function chunkSize(): int
@@ -66,8 +66,6 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
         // Evita Carbon::parse quando já são instâncias de Carbon (tipicamente são)
         // $city = $this->cities->firstWhere('rdMunicipio', $row->Note?->nexp);
 
-
-
         if ($row->partial == true) {
             $tipoProducao = 'PARCIAL';
         } elseif ($row->d5 == true) {
@@ -80,26 +78,25 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
         $dateFinal = (new DaysLeft($row->note))->getLastDate();
 
-
-
         $wf = $row->note->workForm ?: $row->note->workFormAny;
 
-        $supervisioned = '';
-        $ads = null;
+        $supervisioned  = '';
+        $ads            = null;
         $adsDeliveredAt = null;
-        $adsDueAt = null;
-        $adsType = null;
-        $orderWhere = '';
+        $adsDueAt       = null;
+        $adsType        = null;
+        $orderWhere     = '';
 
         if ($wf) {
             $ads = $wf->Adsform;
+
             if ($ads) {
                 if ($ads->tacit) {
-                    $adsType = 'TACITA';
-                    $adsDueAt = $ads->tacit_due_at;
+                    $adsType        = 'TACITA';
+                    $adsDueAt       = $ads->tacit_due_at;
                     $adsDeliveredAt = $ads->tacit_delivered_at;
                 } else {
-                    $adsType = 'NORMAL';
+                    $adsType        = 'NORMAL';
                     $adsDeliveredAt = $ads->created_at;
                 }
             }
@@ -119,11 +116,6 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
                     ->value('fimReal'); // retorna string|null
             }
         }
-
-
-
-
-
 
         $d5 = $row->Note->FiveNote;
 
@@ -169,7 +161,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $row->Note->RamalForm ? 'SIM' : 'NÃO',
             $row->Note->RamalForm?->created_at?->format('d/m/Y H:i:s'),
             $row->partial_at?->format('d/m/Y H:i:s'),
-            $wf ? 'SIM'.($wf->canceled ? ' (CANCELADO)' : '') : 'NÃO',
+            $wf ? 'SIM' . ($wf->canceled ? ' (CANCELADO)' : '') : 'NÃO',
             $wf?->informed_at?->format('d/m/Y H:i:s'),
             !$wf ? 'NORMAL' : ($wf->canceled ? 'CANCELADO' : ($wf->rejected ? 'REJEITADO' : 'NORMAL')),
             $ads ? 'SIM' : 'NÃO',
@@ -187,7 +179,6 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
             $d5?->supervisioned_at?->format('d/m/Y H:i:s'),
             $d5?->updated_at?->format('d/m/Y H:i:s'),
             $d5 ? ($d5->is_archived ? 'ENCERRADO' : 'ATIVO') : '',
-
 
         ];
     }
@@ -274,7 +265,6 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
     public function registerEvents(): array
     {
 
-
         return [
             AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
@@ -299,6 +289,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
                 $sheet->setAutoFilter($headerRange);
 
                 $highestRow = (int) $sheet->getHighestRow();
+
                 if ($highestRow >= 2) {
                     $bodyRange = "A2:{$highestColumn}{$highestRow}";
                     $sheet->getStyle($bodyRange)->applyFromArray([
@@ -308,15 +299,15 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
                         'borders' => [
                             'allBorders' => [
                                 'borderStyle' => Border::BORDER_THIN,
-                                'color' => ['rgb' => 'E5E7EB'],
+                                'color'       => ['rgb' => 'E5E7EB'],
                             ],
                         ],
                     ]);
                 }
 
                 // ===== Heurística de largura por coluna =====
-                $highestColumnIndex  = Coordinate::columnIndexFromString($highestColumn);
-                $sampleLastRow       = min($highestRow, 1 + $this->autosizeSampleRows); // inclui o header (linha 1)
+                $highestColumnIndex = Coordinate::columnIndexFromString($highestColumn);
+                $sampleLastRow      = min($highestRow, 1 + $this->autosizeSampleRows); // inclui o header (linha 1)
 
                 if ($this->rowEstimate <= 10000) {
                     for ($colIndex = 1; $colIndex <= $highestColumnIndex; $colIndex++) {
@@ -324,15 +315,17 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
 
                         // 1) Comece pelo tamanho do cabeçalho
                         $headerValue = (string) ($sheet->getCell($colLetter . '1')->getValue() ?? '');
-                        $maxLen = mb_strlen($headerValue);
+                        $maxLen      = mb_strlen($headerValue);
 
                         // 2) Amostra das primeiras N linhas
                         for ($row = 2; $row <= $sampleLastRow; $row++) {
                             $val = $sheet->getCell($colLetter . $row)->getValue();
+
                             if ($val instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
                                 $val = $val->getPlainText();
                             }
                             $len = mb_strlen((string) $val);
+
                             if ($len > $maxLen) {
                                 $maxLen = $len;
                             }
@@ -349,22 +342,23 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
                     }
                 }
 
-                $headings = $this->headings();
-                $riColIndex = array_search('Retorno Interno (RI)', $headings, true);
-                $doneColIndex = array_search('Concluída', $headings, true);
+                $headings       = $this->headings();
+                $riColIndex     = array_search('Retorno Interno (RI)', $headings, true);
+                $doneColIndex   = array_search('Concluída', $headings, true);
                 $statusColIndex = array_search('Situação', $headings, true);
-                $riCol = $riColIndex !== false ? Coordinate::stringFromColumnIndex($riColIndex + 1) : null;
-                $doneCol = $doneColIndex !== false ? Coordinate::stringFromColumnIndex($doneColIndex + 1) : null;
-                $statusCol = $statusColIndex !== false ? Coordinate::stringFromColumnIndex($statusColIndex + 1) : null;
+                $riCol          = $riColIndex !== false ? Coordinate::stringFromColumnIndex($riColIndex + 1) : null;
+                $doneCol        = $doneColIndex !== false ? Coordinate::stringFromColumnIndex($doneColIndex + 1) : null;
+                $statusCol      = $statusColIndex !== false ? Coordinate::stringFromColumnIndex($statusColIndex + 1) : null;
 
                 for ($row = 2; $row <= $highestRow; $row++) {
                     $rowRange = "A{$row}:{$highestColumn}{$row}";
+
                     if ($row % 2 === 0) {
                         $sheet->getStyle($rowRange)->getFill()->setFillType(Fill::FILL_SOLID)
                             ->getStartColor()->setRGB('F8FAFC');
                     }
 
-                    $isRi = $riCol ? mb_strtoupper((string) $sheet->getCell("{$riCol}{$row}")->getValue()) === 'SIM' : false;
+                    $isRi   = $riCol ? mb_strtoupper((string) $sheet->getCell("{$riCol}{$row}")->getValue()) === 'SIM' : false;
                     $isOpen = $doneCol ? mb_strtoupper((string) $sheet->getCell("{$doneCol}{$row}")->getValue()) === 'NÃO' : false;
 
                     if ($isOpen) {
@@ -378,6 +372,7 @@ class ProductionsExportList implements FromQuery, WithEvents, WithProperties, Wi
                     if ($statusCol) {
                         $statusCell = "{$statusCol}{$row}";
                         $statusText = mb_strtoupper(trim((string) $sheet->getCell($statusCell)->getValue()));
+
                         if (str_contains($statusText, 'CONFIRMADO')) {
                             $sheet->getStyle($statusCell)->getFont()
                                 ->setBold(true)

@@ -2,12 +2,12 @@
 
 use App\Exports\Reports\Production\ProductionReportExport;
 use App\Http\Livewire\Reports\Productions;
-use App\Jobs\Reports\ProductionReportExportJob;
+use App\Jobs\Reports\{ProductionLegacyLayoutExportJob, ProductionReportExportJob};
 use App\Models\{Analise, Company, Note, Production, Service, User};
 use App\Services\Reports\Production\{ProductionReportAnalytics, ProductionReportCharts};
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\{Cache, Notification, Storage};
+use Illuminate\Support\Facades\{Cache, Notification, Queue, Storage};
 use Livewire\Livewire;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -293,4 +293,50 @@ it('o Excel usa a mesma consulta da lista', function () {
     $book = IOFactory::load(Storage::disk('local')->path('prod.xlsx'));
 
     expect($book->getSheetByName('Registros')->getHighestRow())->toBe(1 + $a->query($report['filters'])->count());
+});
+
+it('exporta a lista no layout anterior (59 colunas) com o mesmo filtro da tela', function () {
+    $f = prodFixture();
+    prodRow($f['alpha'], $f['ana'], $f['analysis'], ['completed_at' => '2026-10-02 10:00:00', 'confirmed' => true], ['note' => '4001111111'], 'ISR - LIBERADO');
+    prodRow($f['alpha'], $f['ana'], $f['analysis'], ['completed_at' => '2026-10-22 14:45:30', 'confirmed' => false], ['note' => '4002222222'], 'ISR - LIBERADO');
+    prodRow($f['beta'], $f['bruno'], $f['analysis'], ['completed_at' => '2026-10-22 14:45:30'], ['note' => '4003333333']);
+
+    ProductionLegacyLayoutExportJob::dispatchSync(['from' => '2026-10-01', 'to' => '2026-10-25', 'company' => $f['alpha']->id], $f['viewer']->id);
+
+    $files = Storage::disk('local')->files('exports');
+    expect($files)->toHaveCount(1)->and($files[0])->toEndWith('_producao_layout_anterior.xlsx');
+
+    $book = IOFactory::load(Storage::disk('local')->path($files[0]));
+
+    // A lista é a primeira aba, como sempre foi; o controle vai por último.
+    expect($book->getSheetNames())->toBe(['Planilha1', 'Controle Exportacao']);
+
+    $rows = $book->getSheet(0)->toArray(null, true, false, false);
+
+    expect($rows[0])->toHaveCount(59)
+        ->and(array_slice($rows[0], 0, 8))->toBe(['Despachante', 'Empresa', 'Usuario', 'Empresa', 'Serviço', 'Rubrica', 'TipoNota', 'Nota'])
+        ->and($rows[0][12])->toBe('Municipio')
+        ->and($rows[0][13])->toBe('Centro')
+        ->and($rows[0][14])->toBe('Base')
+        ->and($rows[0][16])->toBe('Despachado em')
+        ->and($rows[0][33])->toBe('Situação')
+        ->and($rows[0][58])->toBe('Status D5')
+        ->and($rows)->toHaveCount(3)                       // só a empresa filtrada (2 produções) + cabeçalho
+        ->and($rows[1][33])->toBe('CONFIRMADO')            // o mais antigo primeiro, como no layout de sempre
+        ->and($rows[2][33])->toBe('NAO CONFIRMADO');
+
+    $control = $book->getSheetByName('Controle Exportacao')->toArray(null, true, false, false);
+    expect(collect($control)->pluck(1))->toContain('Relatório de Produção (layout anterior, 59 colunas)');
+});
+
+it('a tela oferece o layout anterior e dispara o job com o filtro atual', function () {
+    Queue::fake();
+    $f = prodFixture();
+    $this->actingAs($f['viewer']);
+
+    Livewire::test(Productions::class)
+        ->assertSee('Exportar layout anterior')
+        ->call('exportLegacyLayout');
+
+    Queue::assertPushed(ProductionLegacyLayoutExportJob::class, fn ($job) => (string) $job->userId === (string) $f['viewer']->id);
 });

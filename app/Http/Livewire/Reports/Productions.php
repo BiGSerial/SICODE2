@@ -3,7 +3,7 @@
 namespace App\Http\Livewire\Reports;
 
 use App\Helpers\TextFormatter;
-use App\Jobs\Reports\ProductionReportExportJob;
+use App\Jobs\Reports\{ProductionLegacyLayoutExportJob, ProductionReportExportJob};
 use App\Services\Reports\Production\{ProductionReportAnalytics, ProductionReportCharts};
 use Carbon\Carbon;
 use Livewire\{Component, WithPagination};
@@ -185,6 +185,20 @@ class Productions extends Component
             'icon'     => 'success',
             'title'    => 'EXPORTAÇÃO EM ANDAMENTO.',
             'html'     => "<div class='card'><div class='card-body'><p>O relatório está sendo gerado em Excel, com os filtros atuais. Você será notificado quando o arquivo estiver pronto para download.</p><p class='fw-bold'>Verifique sua Central de Notificação.</p></div></div>",
+            'timer'    => 5000,
+        ]);
+    }
+
+    /** Lista no layout anterior (59 colunas), para os controles que dependem dela; o mesmo filtro da tela. */
+    public function exportLegacyLayout(): void
+    {
+        ProductionLegacyLayoutExportJob::dispatch($this->exportParams(), (string) auth()->id());
+
+        $this->dispatchBrowserEvent('swal', [
+            'position' => 'center',
+            'icon'     => 'success',
+            'title'    => 'EXPORTAÇÃO EM ANDAMENTO.',
+            'html'     => "<div class='card'><div class='card-body'><p>A lista no layout anterior (59 colunas) está sendo gerada em Excel, com os filtros atuais. Você será notificado quando o arquivo estiver pronto para download.</p><p class='fw-bold'>Verifique sua Central de Notificação.</p></div></div>",
             'timer'    => 5000,
         ]);
     }

@@ -37,6 +37,9 @@
             <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="Export" wire:loading.attr="disabled" wire:target="Export" title="Excel completo (lista e indicadores) nos filtros atuais">
                 <i class="ri-file-excel-2-line"></i> Exportar Excel
             </button>
+            <button type="button" class="btn btn-light btn-sm btn-dash" wire:click="exportLegacyLayout" wire:loading.attr="disabled" wire:target="exportLegacyLayout" title="Só a lista, com as 59 colunas do layout anterior (município, centro, base, despacho, etapas técnicas e produção), nos filtros atuais">
+                <i class="ri-file-list-3-line"></i> Exportar layout anterior
+            </button>
         </div>
     </header>
 

@@ -69,7 +69,7 @@ class ProductionReportExportJob implements ShouldQueue
             $disk     = $exports->disk();
             $exports->ensureDirectory();
 
-            if (!Excel::store(new ProductionReportExport($report, $records, (string) $user->name, $this->controlRows($user, $report['filters'])), $filePath, $exports->diskName())) {
+            if (!Excel::store(new ProductionReportExport($report, $records, (string) $user->name, self::controlRows($user, $report['filters'])), $filePath, $exports->diskName())) {
                 throw new \RuntimeException('Arquivo não foi gerado no disco esperado.');
             }
 
@@ -108,7 +108,7 @@ class ProductionReportExportJob implements ShouldQueue
      *
      * @return array<string, string>
      */
-    private function controlRows(User $user, array $f): array
+    public static function controlRows(User $user, array $f, string $type = 'Relatório de Produção'): array
     {
         $tri   = fn (string $v, string $yes, string $no) => $v === 'sim' ? $yes : ($v === 'nao' ? $no : 'Todos');
         $names = fn (array $uuids) => $uuids ? Service::whereIn('uuid', $uuids)->pluck('service')->implode(', ') : 'Todas';
@@ -117,7 +117,7 @@ class ProductionReportExportJob implements ShouldQueue
             'Usuário'             => (string) $user->name,
             'E-mail'              => (string) $user->email,
             'Data/hora'           => now()->format('d/m/Y H:i:s'),
-            'Tipo'                => 'Relatório de Produção',
+            'Tipo'                => $type,
             'Período (conclusão)' => $f['from'] || $f['to'] ? ($f['from']?->format('d/m/Y') ?? 'início') . ' a ' . ($f['to']?->format('d/m/Y') ?? 'hoje') : 'Todo o período',
             'Atividades'          => $names($f['services']),
             'Empresa'             => $f['company'] ? (string) Company::withTrashed()->whereKey($f['company'])->value('name') : 'Todas',
