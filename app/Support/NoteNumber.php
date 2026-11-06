@@ -14,7 +14,9 @@ class NoteNumber
             return null;
         }
 
-        $value = trim((string) $value);
+        // Remove espaços (inclusive NBSP) e caracteres invisíveis/de controle que a origem às vezes traz
+        // (ex.: "0003182898\u{200B}"), que o trim() não tira e fazem a nota não casar com notes.note.
+        $value = preg_replace('/[\p{Z}\p{C}]+/u', '', (string) $value) ?? trim((string) $value);
 
         if ($value === '' || strtoupper($value) === 'NULL' || preg_match('/^0+$/', $value) === 1) {
             return null;
