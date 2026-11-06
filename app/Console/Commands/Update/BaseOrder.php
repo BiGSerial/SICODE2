@@ -83,7 +83,8 @@ class BaseOrder extends Command
                     $canUseUpsert
                 ) {
                     // lookup de notes para o lote, ignorando zeros à esquerda (ovNota "0003182898" == notes.note "3182898")
-                    $variants = $origins->pluck('ovNota')->flatMap(fn ($v) => NoteNumber::variants($v))->unique()->values();
+                    // SORT_STRING: Collection::unique() compara frouxo e trataria "0003182898" e "3182898" como iguais
+                    $variants = collect(array_unique($origins->pluck('ovNota')->flatMap(fn ($v) => NoteNumber::variants($v))->all(), SORT_STRING))->values();
 
                     $notesMap = [];
 

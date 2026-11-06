@@ -19,3 +19,9 @@ it('ignora espaço não separável e caracteres invisíveis na nota', function (
         ->and(NoteNumber::variants("0003182898\u{200B}"))->toBe(['0003182898', '3182898'])
         ->and(NoteNumber::normalize("\u{200B}"))->toBeNull();
 });
+
+it('mantém as grafias com e sem zeros ao juntar várias notas (unique frouxo as fundiria)', function () {
+    $variants = array_unique(collect(['0003182898', '73196741'])->flatMap(fn ($v) => NoteNumber::variants($v))->all(), SORT_STRING);
+
+    expect(array_values($variants))->toBe(['0003182898', '3182898', '73196741', '0073196741']);
+});
