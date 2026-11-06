@@ -479,7 +479,7 @@ class PostWorkProcessReportService
             $cells = [];
 
             foreach ($days as $d) {
-                $cells[$d] = ['count' => 0, 'by_type' => [], 'status' => $d > $limit ? 'late' : ($d === $limit ? 'limit' : 'ok')];
+                $cells[$d] = ['count' => 0, 'bound' => 0, 'by_type' => [], 'zone' => $d > $limit ? 'late' : ($d === $limit ? 'limit' : 'ok'), 'status' => 'ok'];
             }
             $out[$key] = ['label' => $label, 'limit' => $limit, 'cells' => $cells, 'total' => 0];
         }
@@ -488,6 +488,9 @@ class PostWorkProcessReportService
             $day  = min($row['age_days'], self::MATRIX_MAX_DAY);
             $cell = &$out[$row['current_stage']]['cells'][$day];
             $cell['count']++;
+            // Só informe sujeito a prazo (Final) acende a faixa de limite/atraso; D5 e Parcial ficam neutros.
+            $cell['bound'] += $row['deadline_applies'] ? 1 : 0;
+            $cell['status']                      = $cell['bound'] > 0 ? $cell['zone'] : 'ok';
             $cell['by_type'][$row['type_label']] = ($cell['by_type'][$row['type_label']] ?? 0) + 1;
             unset($cell);
             $out[$row['current_stage']]['total']++;
@@ -587,12 +590,12 @@ class PostWorkProcessReportService
             'payment'      => $payment,
             'stages'       => $stages,
             // Intervalo entre o fim da fiscalização e o despacho da medição: sem prazo próprio.
-            'dispatch_gap'  => $fiscalCompleted && (!$payment || $paymentDispatch) ? $this->stage($fiscalCompleted, $paymentDispatch, PHP_INT_MAX) : null,
-            'any_late'      => collect($stages)->contains(fn (array $s) => $s['late']),
-            'current_stage' => $currentStage,
-            'age_days'      => $stages['total']['days'] ?? 0,
-            'gantt'         => $start ? $this->gantt($start, $fiscal, $payment, $limits) : [],
-            'issues'        => array_merge($this->detectIssues($type, $start, $fiscal, $payment, $limits, $deadlineApplies), $extraIssues),
+            'dispatch_gap'     => $fiscalCompleted && (!$payment || $paymentDispatch) ? $this->stage($fiscalCompleted, $paymentDispatch, PHP_INT_MAX) : null,
+            'any_late'         => collect($stages)->contains(fn (array $s) => $s['late']),
+            'current_stage'    => $currentStage,
+            'age_days'         => $stages['total']['days'] ?? 0,
+            'gantt'            => $start ? $this->gantt($start, $fiscal, $payment, $limits, $deadlineApplies) : [],
+            'issues'           => array_merge($this->detectIssues($type, $start, $fiscal, $payment, $limits, $deadlineApplies), $extraIssues),
             'deadline_applies' => $deadlineApplies,
         ], $extra);
     }
@@ -661,7 +664,7 @@ class PostWorkProcessReportService
      * @param array<string, mixed>|null $payment
      * @return array<int, array{key: string, start: int, end: int, open: bool, limit_end: ?int}>
      */
-    private function gantt(Carbon $start, ?array $fiscal, ?array $payment, array $limits): array
+    private function gantt(Carbon $start, ?array $fiscal, ?array $payment, array $limits, bool $deadlineApplies = true): array
     {
         $at  = fn (?Carbon $d) => $d ? $this->businessDaysBetween($start, $d) : null;
         $now = $this->businessDaysBetween($start, now());
@@ -671,11 +674,14 @@ class PostWorkProcessReportService
         $tpd = $at($payment['dispatch_at'] ?? null);
         $tpc = $at($payment['completed_at'] ?? null);
 
+        // Sem prazo (Parcial e D5) o segmento não tem marca de estouro.
+        $limit = fn (?int $end) => $deadlineApplies ? $end : null;
+
         $segments   = [];
-        $segments[] = ['key' => 'fiscal_dispatch', 'start' => 0, 'end' => $tfd ?? $now, 'open' => $tfd === null, 'limit_end' => $limits['fiscal_dispatch']];
+        $segments[] = ['key' => 'fiscal_dispatch', 'start' => 0, 'end' => $tfd ?? $now, 'open' => $tfd === null, 'limit_end' => $limit($limits['fiscal_dispatch'])];
 
         if ($tfd !== null) {
-            $segments[] = ['key' => 'fiscalization', 'start' => $tfd, 'end' => max($tfd, $tfc ?? $now), 'open' => $tfc === null, 'limit_end' => $tfd + $limits['fiscalization']];
+            $segments[] = ['key' => 'fiscalization', 'start' => $tfd, 'end' => max($tfd, $tfc ?? $now), 'open' => $tfc === null, 'limit_end' => $limit($tfd + $limits['fiscalization'])];
         }
 
         if ($tfc !== null) {
@@ -683,7 +689,7 @@ class PostWorkProcessReportService
         }
 
         if ($tpd !== null) {
-            $segments[] = ['key' => 'measurement', 'start' => $tpd, 'end' => max($tpd, $tpc ?? $now), 'open' => $tpc === null, 'limit_end' => $tpd + $limits['measurement']];
+            $segments[] = ['key' => 'measurement', 'start' => $tpd, 'end' => max($tpd, $tpc ?? $now), 'open' => $tpc === null, 'limit_end' => $limit($tpd + $limits['measurement'])];
         }
 
         return $segments;

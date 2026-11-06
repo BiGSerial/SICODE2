@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Http\Livewire\Reports\PostWorkProcessReport;
 use App\Models\{Adsform, Company, FiveNote, Note, Partial, Production, Service, SystemSetting, User, WorkReport};
-use App\Support\SicodeRules;
 use App\Services\Reports\PostWorkProcessReportService;
+use App\Support\SicodeRules;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
@@ -224,6 +224,17 @@ class PostWorkProcessReportTest extends TestCase
         $this->assertFalse($d5->firstWhere('id', $withInform->id)['deadline_applies']);
         $this->assertFalse($d5->firstWhere('id', $withInform->id)['any_late']);
         $this->assertNull($d5->firstWhere('id', $withoutInform->id));
+
+        // Gantt e matriz também não marcam estouro para a D5 (célula só colore com informe sujeito a prazo).
+        $this->assertSame([null], collect($d5->firstWhere('id', $withInform->id)['gantt'])->pluck('limit_end')->unique()->values()->all());
+
+        $service = app(PostWorkProcessReportService::class);
+        $onlyD5  = $service->matrix($d5->where('id', $withInform->id));
+        $cells   = collect($onlyD5['rows'])->flatMap(fn ($r) => $r['cells'])->where('count', '>', 0);
+        $this->assertSame(['ok'], $cells->pluck('status')->unique()->values()->all());
+
+        $withFinal = $service->matrix($this->rows('final')->where('id', $report->id));
+        $this->assertContains('late', collect($withFinal['rows'])->flatMap(fn ($r) => $r['cells'])->where('count', '>', 0)->pluck('status')->all());
     }
 
     public function test_start_can_be_the_ads_delivery_date_and_limits_are_user_parameterizable(): void
