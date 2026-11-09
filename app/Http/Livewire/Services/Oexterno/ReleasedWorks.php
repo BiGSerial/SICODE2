@@ -248,7 +248,7 @@ class ReleasedWorks extends Component
     {
         $release = $this->baseQuery()
             ->whereKey($releaseId)
-            ->with('note:id,nstats,dt_status,type_note')
+            ->with('note:id,note,nstats,dt_status,type_note')
             ->first();
 
         if (!$release || $release->released_at) {
@@ -321,7 +321,7 @@ class ReleasedWorks extends Component
         $releases = $this->baseQuery()
             ->whereIn('external_organ_releases.id', $ids->all())
             ->whereNull('released_at')
-            ->with('note:id,nstats,dt_status,type_note')
+            ->with('note:id,note,nstats,dt_status,type_note')
             ->get();
 
         foreach ($releases as $release) {
